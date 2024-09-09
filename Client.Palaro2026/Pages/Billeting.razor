@@ -1,0 +1,147 @@
+﻿@page "/billeting"
+@inject IJSRuntime JSRuntime
+
+<MudGrid Spacing="0">
+    <MudItem xs="12" md="4" Style="z-index: 1; position: absolute">
+        <MudStack Class="pa-3" AlignItems="AlignItems.Start">
+            <MudStack Style="height: 100%">
+                <MudExpansionPanels Elevation="0">
+                    <MudExpansionPanel Expanded="@(expandPanelRegion ? true : false)" ExpandedChanged="RetractPanel">
+                        <TitleContent>
+                            <MudStack Row Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Map"></MudIcon>
+                                <MudText>Region</MudText>
+                            </MudStack>
+                        </TitleContent>
+                        <ChildContent>
+                            <MudStack>
+                                <MudStack Row Spacing="3" Class="flex-wrap">
+                                    <MudVirtualize Items="regions" Context="region">
+                                        @if (region.Name == "Caraga (Region XIII)")
+                                        {
+                                            <MudButton Class="rounded-pill"
+                                                       Style="text-transform:none"
+                                                       DropShadow=false
+                                                       Size="Size.Small"
+                                                       OnClick="() => GetDirectionsToVenue(region.Longitude, region.Latitude)"
+                                                       Variant="Variant.Filled">@region.Name</MudButton>
+                                        }
+                                        else
+                                        {
+                                            <MudButton Class="rounded-pill"
+                                                       Style="text-transform:none"
+                                                       Disabled="true"
+                                                       DropShadow=false
+                                                       Size="Size.Small"
+                                                       Variant="Variant.Filled">@region.Name</MudButton>
+                                        }
+                                    </MudVirtualize>
+                                </MudStack>
+                            </MudStack>
+                        </ChildContent>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+                <MudPaper Elevation="0" Class="@(toggleDetails ? "d-none" : null)">
+                    <MudStack Class="pa-3">
+                        <MudStack Row Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.LocationOn" />
+                            <MudText>School</MudText>
+                        </MudStack>
+                        <MudText>Agusan del Sur National Highschool</MudText>
+                        <MudImage></MudImage>
+                    </MudStack>
+                </MudPaper>
+                <MudPaper Elevation="0" Class="@(toggleDetails ? "d-none" : null)">
+                    <MudStack Class="pa-3">
+                        <MudStack Row Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Call" />
+                            <MudText>Contact Person</MudText>
+                        </MudStack>
+                        <MudText>Joniselury O. Rasco</MudText>
+                        <MudText>09055033785</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudStack>
+        </MudStack>
+    </MudItem>
+    <MudItem xs="12">
+        <MudStack id="map"
+                  Style="width: 100%;
+                 height: calc(100vh - 64px);
+                 overflow: hidden ">
+        </MudStack>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string mapboxToken = MapBoxService.mapboxToken;
+    private double zoomLevel = MapBoxService.zoomLevel;
+    public bool expandPanelRegion = true;
+    public bool toggleDetails = true;
+
+    private List<Region> regions = new List<Region>
+    {
+        new Region { Name = "Caraga (Region XIII)", Latitude = 8.504487460001194, Longitude = 125.982138223011 },
+        new Region { Name = "National Capital Region (NCR)", Latitude = 14.599512, Longitude = 120.984222 },
+        new Region { Name = "Cordillera (CAR)", Latitude = 16.418908, Longitude = 120.597235 },
+        new Region { Name = "Ilocos (Region I)", Latitude = 16.640247, Longitude = 120.489005 },
+        new Region { Name = "Cagayan Valley (Region II)", Latitude = 17.575134, Longitude = 121.702004 },
+        new Region { Name = "Central Luzon (Region III)", Latitude = 15.287208, Longitude = 120.589570 },
+        new Region { Name = "CALABARZON (Region IV-A)", Latitude = 14.251352, Longitude = 121.042312 },
+        new Region { Name = "MIMAROPA (Region IV-B)", Latitude = 13.559868, Longitude = 121.018567 },
+        new Region { Name = "Bicol (Region V)", Latitude = 13.736013, Longitude = 123.095373 },
+        new Region { Name = "Western Visayas (Region VI)", Latitude = 10.696407, Longitude = 122.559487 },
+        new Region { Name = "Central Visayas (Region VII)", Latitude = 9.928951, Longitude = 123.395608 },
+        new Region { Name = "Eastern Visayas (Region VIII)", Latitude = 11.218571, Longitude = 124.675210 },
+        new Region { Name = "Zamboanga (Region IX)", Latitude = 8.006165, Longitude = 122.085390 },
+        new Region { Name = "Northern Mindanao (Region X)", Latitude = 8.482831, Longitude = 124.646281 },
+        new Region { Name = "Davao (Region XI)", Latitude = 7.190712, Longitude = 125.455337 },
+        new Region { Name = "Cotabato (Region XII)", Latitude = 7.214238, Longitude = 124.711128 },
+        new Region { Name = "Bangsamoro (BARMM)", Latitude = 7.716539, Longitude = 124.256348 }
+    };
+
+    public class Region
+    {
+        public string? Name { get; set; }
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+    }
+
+    // Define classes directly in the component for simplicity
+    public class GeolocationPosition
+    {
+        public GeolocationCoordinates? Coords { get; set; }
+    }
+
+    public class GeolocationCoordinates
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+    }
+
+    private async Task GetDirectionsToVenue(double venueLng, double venueLat)
+    {
+        // Assuming you have the center coordinates and mapboxToken defined
+        await JSRuntime.InvokeVoidAsync("getDirections", mapboxToken, venueLng, venueLat);
+
+        // Call the JavaScript function to fly to the location after directions are fetched
+        await JSRuntime.InvokeVoidAsync("flyToLocation", venueLng, venueLat, 18); // Set zoom level to 18 (or any desired level)
+
+        expandPanelRegion = false;
+        toggleDetails = false; // Show the details panel
+    }
+
+    private void RetractPanel()
+    {
+        expandPanelRegion = true;
+        toggleDetails = true; // Hide the details panel
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken, zoomLevel);
+        }
+    }
+}

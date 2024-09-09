@@ -1,0 +1,140 @@
+﻿@page "/venues"
+@inject IJSRuntime JSRuntime
+
+<MudGrid Spacing="0">
+    <MudItem xs="12" md="4" Style="z-index: 1; position: absolute">
+        <MudStack Class="pa-3">
+            <MudExpansionPanels Elevation="0">
+                <MudExpansionPanel Expanded="@(expandPanelRegion ? true : false)" ExpandedChanged="RetractPanel">
+                    <TitleContent>
+                        <MudStack Row Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.LocationOn"></MudIcon>
+                            <MudText>Venues</MudText>
+                        </MudStack>
+                    </TitleContent>
+                    <ChildContent>
+                        <MudStack>
+                            <MudStack Row Spacing="3" Class="flex-wrap">
+                                <MudVirtualize Items="sportLocations" Context="location">
+                                    <MudButton Class="rounded-pill"
+                                               Style="text-transform:none"
+                                               DropShadow=false
+                                               Size="Size.Small" OnClick="() => GetDirectionsToVenue(location.Longitude, location.Latitude)"
+                                               Variant="Variant.Filled">@location.Location</MudButton>
+                                </MudVirtualize>
+                            </MudStack>
+                        </MudStack>
+                    </ChildContent>
+                </MudExpansionPanel>
+                <MudExpansionPanel>
+                    <TitleContent>
+                        <MudStack Row Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Sports"></MudIcon>
+                            <MudText>Sport Events</MudText>
+                        </MudStack>
+                    </TitleContent>
+                    <ChildContent>
+                        <MudStack>
+                            <MudText Style="color: red">Doesn't work yet</MudText>
+                            <MudStack Row Spacing="1" Class="flex-wrap">
+                                <MudChip T="string">Basketball</MudChip>
+                                <MudChip T="string">Baseball</MudChip>
+                                <MudChip T="string">Taekwondo</MudChip>
+                                <MudChip T="string">Badminton</MudChip>
+                                <MudChip T="string">Volleyball</MudChip>
+                                <MudChip T="string">Gymnastics</MudChip>
+                                <MudChip T="string">Arnis</MudChip>
+                                <MudChip T="string">Atheletics</MudChip>
+                                <MudChip T="string">Football</MudChip>
+                                <MudChip T="string">Takraw</MudChip>
+                                <MudChip T="string">Swimming</MudChip>
+                                <MudChip T="string">Wrestling</MudChip>
+                                <MudChip T="string">Throwing</MudChip>
+                            </MudStack>
+                        </MudStack>
+                    </ChildContent>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+            <MudPaper Class="@(toggleDetails ? "d-none" : null)" Width="40%" Style="opacity: .75" Elevation="0">
+                <MudStack Class="pl-10 py-5 pr-5" id="instructions"></MudStack>
+            </MudPaper>
+        </MudStack>
+    </MudItem>
+    <MudItem xs="12">
+        <MudStack id="map"
+                  Style="width: 100%;
+                 height: calc(100vh - 64px);
+                 overflow: hidden">
+        </MudStack>
+    </MudItem>
+</MudGrid>
+
+@code {
+    public bool expandPanelRegion = true;
+    public bool toggleDetails = true;
+    private string mapboxToken = MapBoxService.mapboxToken;
+    private double zoomLevel = MapBoxService.zoomLevel;
+
+    public class SportLocation
+    {
+        public string? Location { get; set; }
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+    }
+    private List<SportLocation> sportLocations = new List<SportLocation>
+    {
+        new SportLocation { Location = "Bayugan City Gymnasium", Latitude = 8.71452050565433, Longitude = 125.750656378966 },
+        new SportLocation { Location = "Bunawan Gymnasium", Latitude = 8.17656182287317, Longitude = 125.995653313941 },
+        new SportLocation { Location = "Esperanza Gymnasium", Latitude = 8.67809352693250, Longitude = 125.646046370288 },
+        new SportLocation { Location = "La Paz Gymnasium", Latitude = 8.28269362286713, Longitude = 125.817149346033 },
+        new SportLocation { Location = "Loreto Gymnasium", Latitude = 8.18814208649706, Longitude = 125.850513692369 },
+        new SportLocation { Location = "Prosperidad Gymnasium", Latitude = 8.60596264765325, Longitude = 125.914099118622 },
+        new SportLocation { Location = "Rosario Gymnasium", Latitude = 8.38690983322510, Longitude = 126.006337020178 },
+        new SportLocation { Location = "San Francisco Gymnasium", Latitude = 8.50767503475801, Longitude = 125.975971405237 },
+        new SportLocation { Location = "San Luis Gymnasium", Latitude = 8.49884681305877, Longitude = 125.736585063229 },
+        new SportLocation { Location = "Santa Josefa Gymnasium", Latitude = 7.98454967444629, Longitude = 126.027369326229 },
+        new SportLocation { Location = "Sibagat Gymnasium", Latitude = 8.82625963830997, Longitude = 125.694964043315 },
+        new SportLocation { Location = "Talacogon Gymnasium", Latitude = 8.45118396993931, Longitude = 125.785300175426 },
+        new SportLocation { Location = "Trento Gymnasium", Latitude = 8.04297763433873, Longitude = 126.064460231847 },
+        new SportLocation { Location = "Veruela Gymnasium", Latitude = 8.07110051097496, Longitude = 125.955269342075 },
+    new SportLocation { Location = "Agusan de Sur Sports Complex", Latitude = 8.550991922751852, Longitude = 125.94138286387499 }
+    };
+
+    // Define classes directly in the component for simplicity
+    public class GeolocationPosition
+    {
+        public GeolocationCoordinates? Coords { get; set; }
+    }
+
+    public class GeolocationCoordinates
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+    }
+
+    private async Task GetDirectionsToVenue(double venueLng, double venueLat)
+    {
+        // Assuming you have the center coordinates and mapboxToken defined
+        await JSRuntime.InvokeVoidAsync("getDirections", mapboxToken, venueLng, venueLat);
+
+        // Call the JavaScript function to fly to the location after directions are fetched
+        await JSRuntime.InvokeVoidAsync("flyToLocation", venueLng, venueLat, 18); // Set zoom level to 18 (or any desired level)
+
+        expandPanelRegion = false;
+        toggleDetails = false; // Show the details panel
+    }
+
+    private void RetractPanel()
+    {
+        expandPanelRegion = true;
+        toggleDetails = true; // Hide the details panel
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken, zoomLevel);
+        }
+    }
+}
