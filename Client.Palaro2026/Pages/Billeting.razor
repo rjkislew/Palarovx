@@ -3,66 +3,17 @@
 
 <MudGrid Spacing="0">
     <MudItem xs="12" md="4" Style="z-index: 1; position: absolute">
-        <MudStack Class="pa-3" AlignItems="AlignItems.Start">
-            <MudStack Style="height: 100%">
-                <MudExpansionPanels Elevation="0">
-                    <MudExpansionPanel Expanded="@(expandPanelRegion ? true : false)" ExpandedChanged="RetractPanel">
-                        <TitleContent>
-                            <MudStack Row Spacing="1">
-                                <MudIcon Icon="@Icons.Material.Filled.Map"></MudIcon>
-                                <MudText>Region</MudText>
-                            </MudStack>
-                        </TitleContent>
-                        <ChildContent>
-                            <MudStack>
-                                <MudStack Row Spacing="3" Class="flex-wrap">
-                                    <MudVirtualize Items="regions" Context="region">
-                                        @if (region.Name == "Caraga (Region XIII)")
-                                        {
-                                            <MudButton Class="rounded-pill"
-                                                       Style="text-transform:none"
-                                                       DropShadow=false
-                                                       Size="Size.Small"
-                                                       OnClick="() => GetDirectionsToVenue(region.Longitude, region.Latitude)"
-                                                       Variant="Variant.Filled">@region.Name</MudButton>
-                                        }
-                                        else
-                                        {
-                                            <MudButton Class="rounded-pill"
-                                                       Style="text-transform:none"
-                                                       Disabled="true"
-                                                       DropShadow=false
-                                                       Size="Size.Small"
-                                                       Variant="Variant.Filled">@region.Name</MudButton>
-                                        }
-                                    </MudVirtualize>
-                                </MudStack>
-                            </MudStack>
-                        </ChildContent>
-                    </MudExpansionPanel>
-                </MudExpansionPanels>
-                <MudPaper Elevation="0" Class="@(toggleDetails ? "d-none" : null)">
-                    <MudStack Class="pa-3">
-                        <MudStack Row Spacing="1">
-                            <MudIcon Icon="@Icons.Material.Filled.LocationOn" />
-                            <MudText>School</MudText>
-                        </MudStack>
-                        <MudText>Agusan del Sur National Highschool</MudText>
-                        <MudImage></MudImage>
-                    </MudStack>
-                </MudPaper>
-                <MudPaper Elevation="0" Class="@(toggleDetails ? "d-none" : null)">
-                    <MudStack Class="pa-3">
-                        <MudStack Row Spacing="1">
-                            <MudIcon Icon="@Icons.Material.Filled.Call" />
-                            <MudText>Contact Person</MudText>
-                        </MudStack>
-                        <MudText>Joniselury O. Rasco</MudText>
-                        <MudText>09055033785</MudText>
-                    </MudStack>
-                </MudPaper>
-            </MudStack>
-        </MudStack>
+        <MudPaper Class="ma-3" Elevation="0">
+            <MudTabs Elevation="0" MinimumTabWidth="340px" Rounded>
+                <MudTabPanel Style="text-transform:none" Icon="@Icons.Material.Filled.LocationOn" Text="Billeting Quarters">
+                    <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined" AdornmentIcon="@Icons.Material.Filled.LocationOn" AdornmentColor="Color.Primary" FullWidth Label="Region" AnchorOrigin="Origin.BottomCenter">
+                        <MudVirtualize Items="regions" Context="region">
+                            <MudSelectItem T="string" Value="@region.Name">@region.Name</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudTabPanel>
+            </MudTabs>
+        </MudPaper>
     </MudItem>
     <MudItem xs="12">
         <MudStack id="map"
@@ -75,9 +26,6 @@
 
 @code {
     private string mapboxToken = MapBoxService.mapboxToken;
-    private double zoomLevel = MapBoxService.zoomLevel;
-    public bool expandPanelRegion = true;
-    public bool toggleDetails = true;
 
     private List<Region> regions = new List<Region>
     {
@@ -107,41 +55,11 @@
         public double Longitude { get; set; }
     }
 
-    // Define classes directly in the component for simplicity
-    public class GeolocationPosition
-    {
-        public GeolocationCoordinates? Coords { get; set; }
-    }
-
-    public class GeolocationCoordinates
-    {
-        public double Latitude { get; set; }
-        public double Longitude { get; set; }
-    }
-
-    private async Task GetDirectionsToVenue(double venueLng, double venueLat)
-    {
-        // Assuming you have the center coordinates and mapboxToken defined
-        await JSRuntime.InvokeVoidAsync("getDirections", mapboxToken, venueLng, venueLat);
-
-        // Call the JavaScript function to fly to the location after directions are fetched
-        await JSRuntime.InvokeVoidAsync("flyToLocation", venueLng, venueLat, 18); // Set zoom level to 18 (or any desired level)
-
-        expandPanelRegion = false;
-        toggleDetails = false; // Show the details panel
-    }
-
-    private void RetractPanel()
-    {
-        expandPanelRegion = true;
-        toggleDetails = true; // Hide the details panel
-    }
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken, zoomLevel);
+            await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken);
         }
     }
 }
