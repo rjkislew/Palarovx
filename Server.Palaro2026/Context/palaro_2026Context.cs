@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Server.Palaro2026.Entites.Table;
 using Server.Palaro2026.Entites.View;
+using Server.Palaro2026.Entities.View;
 
 namespace Server.Palaro2026.Context;
 
@@ -16,38 +17,23 @@ public partial class palaro_2026Context : DbContext
     }
 
     public virtual DbSet<billeting_quarters> billeting_quarters { get; set; }
-
     public virtual DbSet<divisions> divisions { get; set; }
-
     public virtual DbSet<events> events { get; set; }
-
     public virtual DbSet<gender_categories> gender_categories { get; set; }
-
     public virtual DbSet<levels> levels { get; set; }
-
     public virtual DbSet<news> news { get; set; }
-
     public virtual DbSet<player_profiles> player_profiles { get; set; }
-
     public virtual DbSet<regional_teams> regional_teams { get; set; }
-
     public virtual DbSet<schools> schools { get; set; }
-
     public virtual DbSet<sport_sub_categories> sport_sub_categories { get; set; }
-
     public virtual DbSet<sports> sports { get; set; }
-
     public virtual DbSet<sports_categories> sports_categories { get; set; }
-
     public virtual DbSet<team_coach> team_coach { get; set; }
-
     public virtual DbSet<venues> venues { get; set; }
-
     public virtual DbSet<vw_player_profile> vw_player_profile { get; set; }
-
     public virtual DbSet<vw_regional_teams> vw_regional_teams { get; set; }
-
     public virtual DbSet<vw_sports> vw_sports { get; set; }
+    public virtual DbSet<vw_venues> vw_venues { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -230,6 +216,8 @@ public partial class palaro_2026Context : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false);
 
+            entity.Property(e => e.description).IsUnicode(false);
+
             entity.HasOne(d => d.sports_category).WithMany(p => p.sports)
                 .HasForeignKey(d => d.sports_category_id)
                 .HasConstraintName("FK__sports__sports_c__5070F446");
@@ -358,6 +346,37 @@ public partial class palaro_2026Context : DbContext
                 .HasMaxLength(100)
                 .IsUnicode(false);
         });
+
+        modelBuilder.Entity<vw_sports_with_sub_categories>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToView("vw_sports_with_sub_categories");
+
+            entity.Property(e => e.category)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.sport)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.sub_category)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<vw_venues>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToView("vw_venues");
+
+            entity.Property(e => e.latitude).HasColumnType("decimal(8, 6)");
+            entity.Property(e => e.location)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.longitude).HasColumnType("decimal(9, 6)");
+        });
+
 
         OnModelCreatingPartial(modelBuilder);
     }

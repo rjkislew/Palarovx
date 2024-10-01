@@ -11,6 +11,8 @@ public partial class sports
 
     public string sport { get; set; }
 
+    public string description { get; set; }
+
     public int? sports_category_id { get; set; }
 
     public virtual ICollection<sport_sub_categories> sport_sub_categories { get; set; } = new List<sport_sub_categories>();

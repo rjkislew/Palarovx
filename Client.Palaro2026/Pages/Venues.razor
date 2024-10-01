@@ -1,27 +1,26 @@
 ﻿@page "/venues"
+@using System.Text.Json
 @inject IJSRuntime JSRuntime
 
 <MudGrid Spacing="0">
     <MudItem xs="12" md="4" Style="z-index: 1; position: absolute">
         <MudPaper Class="ma-3" Elevation="0">
-            <MudTabs Elevation="0" MinimumTabWidth="170px" Rounded>
-                <MudTabPanel Style="text-transform:none" Icon="@Icons.Material.Filled.LocationOn" Text="Venues">
-                    <MudSelect Margin="Margin.Dense"  Clearable T="string" Variant="Variant.Outlined" AdornmentIcon="@Icons.Material.Filled.LocationOn" AdornmentColor="Color.Primary" FullWidth Label="Venue" AnchorOrigin="Origin.BottomCenter">
-                        <MudVirtualize Items="sportLocations" Context="locations">
-                            <MudSelectItem T="string" Value="@locations.Location">@locations.Location</MudSelectItem>
-                        </MudVirtualize>
-                    </MudSelect>
-                </MudTabPanel>
-                <MudTabPanel Style="text-transform:none" Icon="@Icons.Material.Filled.Sports" Text="Sport Events">
-                    <MudSelect Margin="Margin.Dense"  Clearable T="string" Variant="Variant.Outlined" AdornmentIcon="@Icons.Material.Filled.LocationOn" AdornmentColor="Color.Primary" FullWidth Label="Sport Events" AnchorOrigin="Origin.BottomCenter">
-                        <MudVirtualize Items="sports" Context="sport">
-                            <MudSelectItem T="string" Value="@sport.Sport">@sport.Sport</MudSelectItem>
+            <MudTabs Elevation="0" PanelClass="pa-3" Rounded>
+                <MudTabPanel Style="text-transform:none" Icon="@Icons.Material.Filled.LocationOn" Text="Venues" >
+                    <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined"
+                               Value="newLocation" AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                               ValueChanged="HandleLocationChange"
+                               AdornmentColor="Color.Secondary" FullWidth Label="Venue"
+                               AnchorOrigin="Origin.BottomCenter"
+                               OnClearButtonClick="ClearSelection">
+                        <MudVirtualize Items="venues" Context="venue">
+                            <MudSelectItem T="string" Value="@venue.location">
+                                <MudText Typo="Typo.body2">@venue.location</MudText>
+                            </MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudTabPanel>
             </MudTabs>
-            <MudStack Style="width: 340px" Spacing="1">
-            </MudStack>
         </MudPaper>
     </MudItem>
     <MudItem xs="12">
@@ -32,71 +31,92 @@
 </MudGrid>
 
 @code {
+    private readonly string API_URL = APIService.palaro_2026_API;
     private string mapboxToken = MapBoxService.mapboxToken;
+    private string? newLocation;
+    private string? selectedLocation;
+    private vw_venuesDTO? selectedVenue; // Changed to store the selected venue
+    private List<vw_venuesDTO>? venues;
 
-    public class SportLocation
+    // Ensure the vw_venuesDTO class matches your data structure
+    public class vw_venuesDTO
     {
-        public string? Location { get; set; }
-        public double Latitude { get; set; }
-        public double Longitude { get; set; }
+        public string? location { get; set; }
+        public decimal? latitude { get; set; }
+        public decimal? longitude { get; set; }
     }
-    private List<SportLocation> sportLocations = new List<SportLocation>
+
+    private async Task GetVenuesList()
     {
-        new SportLocation { Location = "Bayugan City Gymnasium", Latitude = 8.71452050565433, Longitude = 125.750656378966 },
-        new SportLocation { Location = "Bunawan Gymnasium", Latitude = 8.17656182287317, Longitude = 125.995653313941 },
-        new SportLocation { Location = "Esperanza Gymnasium", Latitude = 8.67809352693250, Longitude = 125.646046370288 },
-        new SportLocation { Location = "La Paz Gymnasium", Latitude = 8.28269362286713, Longitude = 125.817149346033 },
-        new SportLocation { Location = "Loreto Gymnasium", Latitude = 8.18814208649706, Longitude = 125.850513692369 },
-        new SportLocation { Location = "Prosperidad Gymnasium", Latitude = 8.60596264765325, Longitude = 125.914099118622 },
-        new SportLocation { Location = "Rosario Gymnasium", Latitude = 8.38690983322510, Longitude = 126.006337020178 },
-        new SportLocation { Location = "San Francisco Gymnasium", Latitude = 8.50767503475801, Longitude = 125.975971405237 },
-        new SportLocation { Location = "San Luis Gymnasium", Latitude = 8.49884681305877, Longitude = 125.736585063229 },
-        new SportLocation { Location = "Santa Josefa Gymnasium", Latitude = 7.98454967444629, Longitude = 126.027369326229 },
-        new SportLocation { Location = "Sibagat Gymnasium", Latitude = 8.82625963830997, Longitude = 125.694964043315 },
-        new SportLocation { Location = "Talacogon Gymnasium", Latitude = 8.45118396993931, Longitude = 125.785300175426 },
-        new SportLocation { Location = "Trento Gymnasium", Latitude = 8.04297763433873, Longitude = 126.064460231847 },
-        new SportLocation { Location = "Veruela Gymnasium", Latitude = 8.07110051097496, Longitude = 125.955269342075 },
-    new SportLocation { Location = "Agusan de Sur Sports Complex", Latitude = 8.550991922751852, Longitude = 125.94138286387499 }
-    };
-
-
-
-    private List<SportData> sports = new()
-    {
-        new SportData("Basketball", "Region XIII vs NCR", "BARMM vs Region 1"),
-        new SportData("Baseball", "Region XIII vs NCR", "BARMM vs Region 2"),
-        new SportData("Taekwondo", "Region XIII vs NCR", "BARMM vs Region 3"),
-        new SportData("Badminton", "Region XIII vs NCR", "BARMM vs Region 4"),
-        new SportData("Volleyball", "Region XIII vs NCR", "BARMM vs Region 5"),
-        new SportData("Gymnastics", "Region XIII vs NCR", "BARMM vs Region 6"),
-        new SportData("Arnis", "Region XIII vs NCR", "BARMM vs Region 7"),
-        new SportData("Athletics", "Region XIII vs NCR", "BARMM vs Region 8"),
-        new SportData("Football", "Region XIII vs NCR", "BARMM vs Region 9"),
-        new SportData("Takraw", "Region XIII vs NCR", "BARMM vs Region 10"),
-        new SportData("Swimming", "Region XIII vs NCR", "BARMM vs Region 11"),
-        new SportData("Wrestling", "Region XIII vs NCR", "BARMM vs Region 12"),
-        new SportData("Throwing", "Region XIII vs NCR", "BARMM vs Region 13"),
-    };
-
-    private class SportData
-    {
-        public string Sport { get; set; }
-        public string LiveNow { get; set; }
-        public string Upcoming { get; set; }
-
-        public SportData(string sport, string liveNow, string upcoming)
+        try
         {
-            Sport = sport;
-            LiveNow = liveNow;
-            Upcoming = upcoming;
+            using HttpClient httpClient = new HttpClient();
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(API_URL + "/api/vw_venues/getVenueLocation")!;
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            venues = await JsonSerializer.DeserializeAsync<List<vw_venuesDTO>>(responseStream, options);
+
+            StateHasChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
 
+    // Method to clear the selection
+    private async void ClearSelection()
+    {
+        newLocation = null; // Clear the newLocation
+        selectedLocation = null; // Clear selectedLocation as well
+
+        // Clear the route from the map via JS interop
+        await JSRuntime.InvokeVoidAsync("clearRoute");
+
+        // Center the map back to user location or default location
+        await JSRuntime.InvokeVoidAsync("centerMap", null); // Pass null to center on the default location
+    }
+
+    // Method to handle location change
+    private async Task HandleLocationChange(string? selectedValue)
+    {
+        // Ensure newLocation is not null or empty
+        if (string.IsNullOrEmpty(selectedValue))
+        {
+            return;
+        }
+
+        newLocation = selectedValue;  // Update newLocation to the selected value
+        selectedLocation = newLocation; // Optional: keep this if needed for other purposes
+
+        // Find the selected venue from the venues list
+        selectedVenue = venues?.FirstOrDefault(venue => venue.location == newLocation);
+
+        if (selectedVenue != null && selectedVenue.latitude.HasValue && selectedVenue.longitude.HasValue)
+        {
+            // Call JavaScript to provide directions with coordinates
+            await JSRuntime.InvokeVoidAsync("showDirections", new object[] {
+                new double[] { (double)selectedVenue.longitude.Value, (double)selectedVenue.latitude.Value } // Destination coordinates
+    });
+        }
+        else
+        {
+            Console.WriteLine("No matching venue found or invalid coordinates.");
+        }
+    }
+
+    // Method to initialize the map on the first render
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        await GetVenuesList();
         if (firstRender)
         {
-            await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken);
+            // Initialize the map with venue data
+            await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken, venues);
         }
     }
 }
+

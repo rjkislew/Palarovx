@@ -37,10 +37,11 @@ namespace Server.Palaro2026.Controller.View
                         {
                             gender_category = gender.Key.gender_category,
                             sport = gender
-                            .GroupBy(s => new { s.sport })
+                            .GroupBy(s => new { s.sport, s.description })
                             .Select(sport => new sportDTO
                             {
                                 sport = sport.Key.sport,
+                                description = sport.Key.description,
                                 sub_category = sport
                                 .Select(sub_sport => new sub_categoryDTO
                                 {
@@ -54,21 +55,28 @@ namespace Server.Palaro2026.Controller.View
             return groupedCategory;
         }
 
-        [HttpGet("categoryAndSportsList")]
-        public async Task<ActionResult<IEnumerable<vw_category_sub_categoryDTO>>> GetSubSportsList()
+        [HttpGet("sportsListwithCategory")]
+        public async Task<ActionResult<IEnumerable<vw_sports_with_sub_categoriesDTO>>> GetSubSportsList()
         {
             var categories = await _context.vw_sports.ToListAsync();
 
             var groupedCategory = categories
                 .GroupBy(c => new { c.category })
-                .Select(main => new vw_category_sub_categoryDTO
+                .Select(main => new vw_sports_with_sub_categoriesDTO
                 {
                     category = main.Key.category,
                     sports = main
-                    .GroupBy(s => new { s.sport })
-                    .Select(sub => new sportDTO_listDTO
+                    .GroupBy(s => new { s.sport, s.description })
+                    .Select(sub => new sport_list_with_sub_categoriesDTO
                     {
-                        sport = sub.Key.sport
+                        sport = sub.Key.sport,
+                        description = sub.Key.description,
+                        sub_categories = sub
+                        .GroupBy(ss => new { ss.sub_category })
+                        .Select(sub_sport => new sub_category_with_sub_categoriesDTO
+                        {
+                            sub_category = sub_sport.Key.sub_category,
+                        }).ToList()
                     }).ToList()
                 }).ToList();
 

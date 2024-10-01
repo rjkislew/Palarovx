@@ -21,23 +21,12 @@
     public class sportDTO
     {
         public string? sport { get; set; }
+        public string? description { get; set; }
         public List<sub_categoryDTO>? sub_category { get; set; }
     }
 
     public class sub_categoryDTO
     {
         public string? sub_category { get; set; }
-    }
-
-
-    //sub categories
-    public class vw_category_sub_categoryDTO
-    {
-        public string? category { get; set; }
-        public List<sportDTO_listDTO>? sports { get; set; }
-    }
-    public class sportDTO_listDTO
-    {
-        public string? sport { get; set; }
     }
 }
