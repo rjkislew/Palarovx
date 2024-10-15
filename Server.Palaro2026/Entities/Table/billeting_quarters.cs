@@ -3,27 +3,19 @@
 using System;
 using System.Collections.Generic;
 
-namespace Server.Palaro2026.Entites.Table;
-
-public partial class billeting_quarters
+namespace Server.Palaro2026.Entites.Table
 {
-    public int id { get; set; }
-
-    public int? regional_team_id { get; set; }
-
-    public string school_name { get; set; }
-
-    public byte[] school_images { get; set; }
-
-    public string school_address { get; set; }
-
-    public decimal? lat { get; set; }
-
-    public decimal? _long { get; set; }
-
-    public string contact_person { get; set; }
-
-    public string contact_person_number { get; set; }
-
-    public virtual regional_teams regional_team { get; set; }
+    public partial class billeting_quarters
+    {
+        public int id { get; set; }
+        public int? regional_team_id { get; set; }
+        public string school_name { get; set; }
+        public byte[] school_images { get; set; }
+        public string school_address { get; set; }
+        public decimal? lat { get; set; }
+        public decimal? _long { get; set; }
+        public string contact_person { get; set; }
+        public string contact_person_number { get; set; }
+        public virtual regional_teams regional_team { get; set; }
+    }
 }

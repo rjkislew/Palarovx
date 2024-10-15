@@ -3,23 +3,17 @@
 using System;
 using System.Collections.Generic;
 
-namespace Server.Palaro2026.Entites.Table;
-
-public partial class regional_teams
+namespace Server.Palaro2026.Entites.Table
 {
-    public int id { get; set; }
-
-    public string regional_team_name { get; set; }
-
-    public string regional_team_name_abbreviation { get; set; }
-
-    public virtual ICollection<billeting_quarters> billeting_quarters { get; set; } = new List<billeting_quarters>();
-
-    public virtual ICollection<divisions> divisions { get; set; } = new List<divisions>();
-
-    public virtual ICollection<events> eventsregional_team_a { get; set; } = new List<events>();
-
-    public virtual ICollection<events> eventsregional_team_b { get; set; } = new List<events>();
-
-    public virtual ICollection<team_coach> team_coach { get; set; } = new List<team_coach>();
+    public partial class regional_teams
+    {
+        public int id { get; set; }
+        public string regional_team_name { get; set; }
+        public string regional_team_name_abbreviation { get; set; }
+        public virtual ICollection<billeting_quarters> billeting_quarters { get; set; } = new List<billeting_quarters>();
+        public virtual ICollection<divisions> divisions { get; set; } = new List<divisions>();
+        public virtual ICollection<events> eventsregional_team_a { get; set; } = new List<events>();
+        public virtual ICollection<events> eventsregional_team_b { get; set; } = new List<events>();
+        public virtual ICollection<team_coach> team_coach { get; set; } = new List<team_coach>();
+    }
 }

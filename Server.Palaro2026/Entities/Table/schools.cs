@@ -3,17 +3,14 @@
 using System;
 using System.Collections.Generic;
 
-namespace Server.Palaro2026.Entites.Table;
-
-public partial class schools
+namespace Server.Palaro2026.Entites.Table
 {
-    public int id { get; set; }
-
-    public string school_name { get; set; }
-
-    public int? division_id { get; set; }
-
-    public virtual divisions division { get; set; }
-
-    public virtual ICollection<player_profiles> player_profiles { get; set; } = new List<player_profiles>();
+    public partial class schools
+    {
+        public int id { get; set; }
+        public string school_name { get; set; }
+        public int? division_id { get; set; }
+        public virtual divisions division { get; set; }
+        public virtual ICollection<player_profiles> player_profiles { get; set; } = new List<player_profiles>();
+    }
 }

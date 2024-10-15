@@ -5,35 +5,85 @@
 @using System.Threading.Tasks
 
 <MudGrid Spacing="10" Justify="Justify.Center">
-    <MudVirtualize Items="sports" Context="categoryData">
+    @if (sports == null || sports.Count == 0)
+    {
         <MudItem xs="12">
-            <MudStack Spacing="2">
-                <MudText Color="Color.Secondary" Typo="Typo.h2">
-                    @categoryData.category
-                </MudText>
-                <MudDivider Class="mud-border-tertiary" />
-                <MudGrid>
-                    <MudVirtualize Items="categoryData.sports" Context="sportData">
-                        <MudItem xs="12">
-                            <MudPaper Outlined Class="pa-3 mud-border-tertiary">
-                                <MudText Typo="Typo.h3" Color="Color.Primary">@sportData.sport</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Tertiary">@sportData.description</MudText>
-                                <MudStack Class="mt-5" Spacing="2">
-                                    <MudText Typo="Typo.body2">Categories:</MudText>
-                                    <MudDivider Class="mud-border-tertiary" />
-                                    <MudStack Row Wrap="Wrap.Wrap" Spacing="1">
-                                        <MudVirtualize Items="sportData.sub_categories" Context="subCategoryData">
-                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary"><MudText Color="Color.Tertiary" Typo="Typo.caption">@subCategoryData.sub_category</MudText></MudChip>
-                                        </MudVirtualize>
-                                    </MudStack>
-                                </MudStack>
-                            </MudPaper>
-                        </MudItem>
-                    </MudVirtualize>
-                </MudGrid>
-            </MudStack>
+            <MudProgressLinear Color="Color.Secondary" Indeterminate="true" Class="my-7" />
         </MudItem>
-    </MudVirtualize>
+    }
+    else
+    {
+        <MudVirtualize Items="sports" Context="categoryData">
+            <MudItem xs="12">
+                <MudStack Spacing="2">
+                    <MudText Color="Color.Secondary" Typo="Typo.h2">
+                        @categoryData.category
+                    </MudText>
+                    <MudDivider Class="mud-border-tertiary" />
+                    <MudGrid>
+                        <MudVirtualize Items="categoryData.sports" Context="sportData">
+                            <MudItem xs="12" md="6">
+                                <MudPaper Outlined Class="pa-3 mud-border-tertiary" id="@sportData.sport">
+                                    <MudStack Row AlignItems="AlignItems.Center">
+                                        <MudImage Width="50" Height=50 Src="@($"Media/Sports/Icons/{sportData.sport}.png")"></MudImage>
+                                        <MudStack Spacing="1">
+                                            <MudText Typo="Typo.h3" Color="Color.Primary">@sportData.sport</MudText>
+                                            <MudText Typo="Typo.body2" Color="Color.Tertiary">@sportData.description</MudText>
+                                        </MudStack>
+                                    </MudStack>
+                                    <MudGrid>
+                                        <MudItem xs="12" md="6">
+                                            <!-- Schedules-->
+                                            <MudStack Class="mt-5" Spacing="2">
+                                                <MudText Typo="Typo.body2">Live Now</MudText>
+                                                <MudDivider Class="mud-border-tertiary" />
+                                                <MudPaper Outlined Class="mud-border-primary pa-3">
+                                                    <MudStack Row Wrap="Wrap.Wrap" Spacing="1">
+                                                        <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Warning"></MudIcon>
+                                                        <MudText Typo="Typo.caption">No Live Feed</MudText>
+                                                    </MudStack>
+                                                </MudPaper>
+                                            </MudStack>
+                                        </MudItem>
+                                        <MudItem xs="12" md="6">
+                                            <!-- Live Now -->
+                                            <MudStack Class="mt-5" Spacing="2">
+                                                <MudText Typo="Typo.body2">Upcoming Schedules</MudText>
+                                                <MudDivider Class="mud-border-tertiary" />
+                                                <MudPaper Outlined Class="mud-border-primary pa-3">
+                                                    <MudStack Row Wrap="Wrap.Wrap" Spacing="1">
+                                                        <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Warning"></MudIcon>
+                                                        <MudText Typo="Typo.caption">No Upcoming Schedules</MudText>
+                                                    </MudStack>
+                                                </MudPaper>
+                                            </MudStack>
+                                        </MudItem>
+                                    </MudGrid>
+                                    <MudStack AlignItems="AlignItems.End" Class="mt-5">
+                                        <!-- Categories -->
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(e => OnExpandCollapseClick(sportData))">
+                                            <MudText Typo="Typo.body2" Color="Color.Tertiary">@(sportData.IsExpanded ? "Close" : "Sub Categories")</MudText>
+                                        </MudButton>
+                                    </MudStack>
+                                    <MudCollapse Expanded="sportData.IsExpanded">
+                                        <MudStack Spacing="1">
+                                            <MudText Typo="Typo.body2">Categories</MudText>
+                                            <MudDivider Class="mud-border-tertiary" />
+                                            <MudStack Row Wrap="Wrap.Wrap" Spacing="1">
+                                                <MudVirtualize Items="sportData.sub_categories" Context="subCategoryData">
+                                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary"><MudText Color="Color.Tertiary" Typo="Typo.caption">@subCategoryData.sub_category</MudText></MudChip>
+                                                </MudVirtualize>
+                                            </MudStack>
+                                        </MudStack>
+                                    </MudCollapse>
+                                </MudPaper>
+                            </MudItem>
+                        </MudVirtualize>
+                    </MudGrid>
+                </MudStack>
+            </MudItem>
+        </MudVirtualize>
+    }
 </MudGrid>
 
 @code {
@@ -41,6 +91,12 @@
     private readonly string API_URL = APIService.palaro_2026_API;
     private List<vw_sports_with_sub_categoriesDTO>? sports;
 
+    bool _expanded = false;
+
+    private void OnExpandCollapseClick(sport_list_with_sub_categoriesDTO sportData)
+    {
+        sportData.IsExpanded = !sportData.IsExpanded;
+    }
 
     public class vw_sports_with_sub_categoriesDTO
     {
@@ -53,6 +109,7 @@
         public string? sport { get; set; }
         public string? description { get; set; }
         public List<sub_category_with_sub_categoriesDTO>? sub_categories { get; set; }
+        public bool IsExpanded { get; set; } // Use a different property name to avoid conflicts
     }
 
     public class sub_category_with_sub_categoriesDTO
@@ -78,6 +135,14 @@
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             sports = await JsonSerializer.DeserializeAsync<List<vw_sports_with_sub_categoriesDTO>>(responseStream, options);
 
+            // Initialize the IsExpanded property to false
+            foreach (var category in sports)
+            {
+                foreach (var sport in category.sports)
+                {
+                    sport.IsExpanded = false;
+                }
+            }
             StateHasChanged();
         }
         catch (HttpRequestException ex)

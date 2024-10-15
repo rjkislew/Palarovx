@@ -3,29 +3,20 @@
 using System;
 using System.Collections.Generic;
 
-namespace Server.Palaro2026.Entites.Table;
-
-public partial class sport_sub_categories
+namespace Server.Palaro2026.Entites.Table
 {
-    public int id { get; set; }
-
-    public string sub_category { get; set; }
-
-    public int? sport_id { get; set; }
-
-    public int? gender_category_id { get; set; }
-
-    public int? level_id { get; set; }
-
-    public virtual ICollection<events> events { get; set; } = new List<events>();
-
-    public virtual gender_categories gender_category { get; set; }
-
-    public virtual levels level { get; set; }
-
-    public virtual ICollection<player_profiles> player_profiles { get; set; } = new List<player_profiles>();
-
-    public virtual sports sport { get; set; }
-
-    public virtual ICollection<team_coach> team_coach { get; set; } = new List<team_coach>();
+    public partial class sport_sub_categories
+    {
+        public int id { get; set; }
+        public string sub_category { get; set; }
+        public int? sport_id { get; set; }
+        public int? gender_category_id { get; set; }
+        public int? level_id { get; set; }
+        public virtual ICollection<events> events { get; set; } = new List<events>();
+        public virtual gender_categories gender_category { get; set; }
+        public virtual levels level { get; set; }
+        public virtual ICollection<player_profiles> player_profiles { get; set; } = new List<player_profiles>();
+        public virtual sports sport { get; set; }
+        public virtual ICollection<team_coach> team_coach { get; set; } = new List<team_coach>();
+    }
 }

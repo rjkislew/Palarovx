@@ -19,9 +19,10 @@ namespace Server.Palaro2026.Controller.View
         [HttpGet("sportsSubCategoryTree")]
         public async Task<ActionResult<IEnumerable<vw_categoryDTO>>> GetSportsListTree()
         {
-            var categories = await _context.vw_sports.ToListAsync();
+            var categories = await _context.vw_sports.AsNoTracking().ToListAsync();
 
             var groupedCategory = categories
+                .OrderByDescending(c => c.category)
                 .GroupBy(c => new { c.category })
                 .Select(category => new vw_categoryDTO
                 {
@@ -58,9 +59,10 @@ namespace Server.Palaro2026.Controller.View
         [HttpGet("sportsListwithCategory")]
         public async Task<ActionResult<IEnumerable<vw_sports_with_sub_categoriesDTO>>> GetSubSportsList()
         {
-            var categories = await _context.vw_sports.ToListAsync();
+            var categories = await _context.vw_sports.AsNoTracking().ToListAsync();
 
             var groupedCategory = categories
+                .OrderByDescending(c => c.category)
                 .GroupBy(c => new { c.category })
                 .Select(main => new vw_sports_with_sub_categoriesDTO
                 {

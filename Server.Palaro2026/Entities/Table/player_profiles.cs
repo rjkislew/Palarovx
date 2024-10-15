@@ -3,21 +3,16 @@
 using System;
 using System.Collections.Generic;
 
-namespace Server.Palaro2026.Entites.Table;
-
-public partial class player_profiles
+namespace Server.Palaro2026.Entites.Table
 {
-    public int id { get; set; }
-
-    public string first_name { get; set; }
-
-    public string last_name { get; set; }
-
-    public int? school_id { get; set; }
-
-    public int? sport_sub_category_id { get; set; }
-
-    public virtual schools school { get; set; }
-
-    public virtual sport_sub_categories sport_sub_category { get; set; }
+    public partial class player_profiles
+    {
+        public int id { get; set; }
+        public string first_name { get; set; }
+        public string last_name { get; set; }
+        public int? school_id { get; set; }
+        public int? sport_sub_category_id { get; set; }
+        public virtual schools school { get; set; }
+        public virtual sport_sub_categories sport_sub_category { get; set; }
+    }
 }

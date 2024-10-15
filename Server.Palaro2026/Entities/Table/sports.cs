@@ -3,19 +3,15 @@
 using System;
 using System.Collections.Generic;
 
-namespace Server.Palaro2026.Entites.Table;
-
-public partial class sports
+namespace Server.Palaro2026.Entites.Table
 {
-    public int id { get; set; }
-
-    public string sport { get; set; }
-
-    public string description { get; set; }
-
-    public int? sports_category_id { get; set; }
-
-    public virtual ICollection<sport_sub_categories> sport_sub_categories { get; set; } = new List<sport_sub_categories>();
-
-    public virtual sports_categories sports_category { get; set; }
+    public partial class sports
+    {
+        public int id { get; set; }
+        public string sport { get; set; }
+        public string description { get; set; }
+        public int? sports_category_id { get; set; }
+        public virtual ICollection<sport_sub_categories> sport_sub_categories { get; set; } = new List<sport_sub_categories>();
+        public virtual sports_categories sports_category { get; set; }
+    }
 }

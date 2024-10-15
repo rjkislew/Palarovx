@@ -3,13 +3,12 @@
 using System;
 using System.Collections.Generic;
 
-namespace Server.Palaro2026.Entites.Table;
-
-public partial class sports_categories
+namespace Server.Palaro2026.Entites.Table
 {
-    public int id { get; set; }
-
-    public string category { get; set; }
-
-    public virtual ICollection<sports> sports { get; set; } = new List<sports>();
+    public partial class sports_categories
+    {
+        public int id { get; set; }
+        public string category { get; set; }
+        public virtual ICollection<sports> sports { get; set; } = new List<sports>();
+    }
 }

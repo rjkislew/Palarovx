@@ -1,24 +1,55 @@
 ﻿@page "/"
 @inject IJSRuntime JSRuntime
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
 
 <MudGrid Spacing="20">
     <MudItem xs="12">
         <MudGrid Spacing="20">
             <MudItem xs="12">
-                <MudStack Spacing="0">
+                <MudStack Spacing="2">
                     <MudText Typo="Typo.h1" Class="mb-n5" Color="Color.Primary">Palarong Pambansa</MudText>
-                    <MudStack Row AlignItems="AlignItems.End" Spacing="0">
+                    <MudStack Row AlignItems="AlignItems.End" Spacing="2">
                         <MudStack Row Spacing="1" AlignItems="AlignItems.End">
                             <MudText Typo="Typo.h3" HtmlTag="h2" Class="mb-n1" Color="Color.Tertiary">Agusan del Sur</MudText>
                             <MudText Typo="Typo.h3" HtmlTag="h2" Class="mb-n1" Color="Color.Secondary">2026</MudText>
-                            <MudText Typo="Typo.h3" HtmlTag="h2" Color="Color.Tertiary"> | </MudText>
+                            <MudDivider Vertical="true" FlexItem="true" Class="border-2 mud-border-tertiary" />
                         </MudStack>
                         <MudText Typo="Typo.body2">@days d : @hours h : @min m : @sec s</MudText>
                     </MudStack>
                 </MudStack>
             </MudItem>
             <MudItem xs="12">
-                <SportsCardComponent />
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudGrid Spacing="10" Justify="Justify.Center">
+                            <MudVirtualize Items="sports" Context="categoryData">
+                                <MudItem xs="12">
+                                    <MudStack Spacing="2">
+                                        <MudText Color="Color.Secondary" Typo="Typo.h2">
+                                            @categoryData.category
+                                        </MudText>
+                                        <MudDivider Class="mud-border-tertiary" />
+                                        <MudGrid>
+                                            <MudVirtualize Items="categoryData.sports" Context="sportData">
+                                                <MudItem xs="6" sm="4" md="3" lg="2">
+                                                    <MudPaper Height="200px" Outlined Class="pa-3 mud-border-tertiary">
+                                                        <MudStack Spacing="3">
+                                                            <MudImage Width="50" Src="@($"Media/Sports/Icons/{sportData.sport}.png")"></MudImage>
+                                                            <MudText Typo="Typo.h3" Color="Color.Primary">@sportData.sport</MudText>
+                                                            <MudText Typo="Typo.caption" Color="Color.Tertiary">@sportData.description</MudText>
+                                                        </MudStack>
+                                                    </MudPaper>
+                                                </MudItem>
+                                            </MudVirtualize>
+                                        </MudGrid>
+                                    </MudStack>
+                                </MudItem>
+                            </MudVirtualize>
+                        </MudGrid>
+                    </MudItem>
+                </MudGrid>
             </MudItem>
             <MudItem xs="12">
                 <MudGrid>
@@ -57,11 +88,10 @@
         <FooterComponent />
     </MudItem>
 </MudGrid>
-
-<MudScrollToTop TopOffset="100" Selector="#another_unique_identifier" Style="z-index:2001;">
-    <div class="mud-theme-secondary px-3 py-6 mud-elevation-16 rounded-xl fixed" style="bottom:20px;left:20px;">Scroll to top custom button</div>
-</MudScrollToTop>
 @code {
+    // Get API URL
+    private readonly string API_URL = APIService.palaro_2026_API;
+
     private string eventStarted = string.Empty;
     private string days = string.Empty;
     private string hours = string.Empty;
@@ -69,6 +99,21 @@
     private string sec = string.Empty;
     private DateTime targetDate = new DateTime(2026, 7, 10, 0, 0, 0);
     private Timer? timer;
+    private List<vw_sports_with_sub_categoriesDTO>? sports;
+
+    //Data Entities
+
+    public class vw_sports_with_sub_categoriesDTO
+    {
+        public string? category { get; set; }
+        public List<sport_list_with_sub_categoriesDTO>? sports { get; set; }
+    }
+
+    public class sport_list_with_sub_categoriesDTO
+    {
+        public string? sport { get; set; }
+        public string? description { get; set; }
+    }
 
 
     protected override void OnInitialized()
@@ -106,6 +151,33 @@
     public void Dispose()
     {
         timer?.Dispose(); // Clean up the timer when the component is disposed
+    }
+
+    // Initialization method to fetch data and update UI elements
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSportsList();
+    }
+
+    private async Task GetSportsList()
+    {
+        try
+        {
+            using HttpClient httpClient = new HttpClient();
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(API_URL + "/api/vw_sports/sportsListwithCategory")!;
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            sports = await JsonSerializer.DeserializeAsync<List<vw_sports_with_sub_categoriesDTO>>(responseStream, options);
+
+            StateHasChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
     }
 }
 

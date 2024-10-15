@@ -3,27 +3,19 @@
 using System;
 using System.Collections.Generic;
 
-namespace Server.Palaro2026.Entites.View;
-
-public partial class vw_player_profile
+namespace Server.Palaro2026.Entites.View
 {
-    public string first_name { get; set; }
-
-    public string last_name { get; set; }
-
-    public string regional_team_name { get; set; }
-
-    public string division_name { get; set; }
-
-    public string school_name { get; set; }
-
-    public string category { get; set; }
-
-    public string sport { get; set; }
-
-    public string level { get; set; }
-
-    public string gender_category { get; set; }
-
-    public string sub_category { get; set; }
+    public partial class vw_player_profile
+    {
+        public string first_name { get; set; }
+        public string last_name { get; set; }
+        public string regional_team_name { get; set; }
+        public string division_name { get; set; }
+        public string school_name { get; set; }
+        public string category { get; set; }
+        public string sport { get; set; }
+        public string level { get; set; }
+        public string gender_category { get; set; }
+        public string sub_category { get; set; }
+    }
 }

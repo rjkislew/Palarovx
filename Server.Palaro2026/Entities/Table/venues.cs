@@ -3,17 +3,14 @@
 using System;
 using System.Collections.Generic;
 
-namespace Server.Palaro2026.Entites.Table;
-
-public partial class venues
+namespace Server.Palaro2026.Entites.Table
 {
-    public int id { get; set; }
-
-    public string location { get; set; }
-
-    public decimal? latitude { get; set; }
-
-    public decimal? longitude { get; set; }
-
-    public virtual ICollection<events> events { get; set; } = new List<events>();
+    public partial class venues
+    {
+        public int id { get; set; }
+        public string location { get; set; }
+        public decimal? latitude { get; set; }
+        public decimal? longitude { get; set; }
+        public virtual ICollection<events> events { get; set; } = new List<events>();
+    }
 }

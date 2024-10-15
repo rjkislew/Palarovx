@@ -1,8 +1,9 @@
 ﻿@inherits LayoutComponentBase
 @inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
 
 @* Required *@
-<MudThemeProvider Theme="PGASTheme" DefaultScrollbar="true" />
+<MudThemeProvider Theme="PGASTheme" @bind-IsDarkMode="@isDarkMode" DefaultScrollbar="true" />
 <MudPopoverProvider />
 
 @* Needed for dialogs *@
@@ -15,7 +16,13 @@
     <MudAppBar Elevation="0" Dense Class="px-3" Gutters="false">
         <MudIconButton Class="pa-1" Icon="@Icons.Material.Filled.Menu" Color="Color.Tertiary" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
         <MudSpacer />
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary"><MudText Typo="Typo.body2" Color="Color.Tertiary">Sign-in</MudText></MudButton>
+        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+            <MudToggleIconButton Class="pa-1" @bind-Checked="@isDarkMode" Color="Color.Primary" ToggledColor="Color.Primary" ToggledChanged="ToggleDarkMode"
+                                 Icon="@Icons.Material.Filled.LightMode" ToggledIcon="@Icons.Material.Filled.DarkMode" />
+            <MudButton OnClick="OpenDialogAsync" Variant="Variant.Outlined" Color="Color.Primary">
+                <MudText Typo="Typo.body2" Color="Color.Tertiary">Sign-in</MudText>
+                </MudButton>
+        </MudStack>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" Elevation="0">
         <NavigationMenu />
@@ -28,7 +35,19 @@
 
 @code {
     bool _drawerOpen = true;
+    private bool isDarkMode = false;
+    
+    private Task OpenDialogAsync()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, NoHeader = true };
 
+        return DialogService.ShowAsync<Dialogs.UserLogin>("Simple Dialog", options);
+    }
+
+    private async Task ToggleDarkMode()
+    {
+        isDarkMode = !isDarkMode;
+    }
     void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
@@ -71,9 +90,19 @@
                 AppbarBackground = Colors.Shades.White,
                 DrawerBackground = Colors.Shades.White,
             },
+            PaletteDark = new PaletteDark()
+            {
+                Primary = Colors.Blue.Accent3,
+                Secondary = Colors.Orange.Accent4,
+                Tertiary = Colors.Shades.White,
+                AppbarBackground = Colors.Gray.Darken4,
+                DrawerBackground = Colors.Gray.Darken4,
+                Background = Colors.Gray.Darken4,
+                Surface = Colors.Gray.Darken4,
+            },
             LayoutProperties = new LayoutProperties()
             {
-                DrawerWidthLeft = "350px",
+                DrawerWidthLeft = "300px",
             }
         };
 }
