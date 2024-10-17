@@ -18,12 +18,11 @@ window.initializeMap = (containerId, token, markers) => {
         antialias: true
     });
 
-    // Add markers based on sportLocations array
     markers.forEach(location => {
         new mapboxgl.Marker()
             .setLngLat([location.longitude, location.latitude])
-            .setPopup(new mapboxgl.Popup({ offset: 25 }) // Add popups
-                .setHTML(`<h3>${location.location}</h3>`)) // Display the location name
+            .setPopup(new mapboxgl.Popup({ offset: 25 })
+                .setHTML(`<h3>${location.location || location.school_name}</h3>`))
             .addTo(window.map);
     });
 

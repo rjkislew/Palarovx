@@ -4,23 +4,20 @@
 
 <MudGrid Spacing="0">
     <MudItem xs="12" md="4" Style="z-index: 1; position: absolute">
-        <MudPaper Class="ma-3" Elevation="0">
-            <MudTabs Elevation="0" PanelClass="pa-3" Rounded>
-                <MudTabPanel Style="text-transform:none" Icon="@Icons.Material.Filled.LocationOn" Text="Venues" >
-                    <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined"
-                               Value="newLocation" AdornmentIcon="@Icons.Material.Filled.LocationOn"
-                               ValueChanged="HandleLocationChange"
-                               AdornmentColor="Color.Secondary" FullWidth Label="Venue"
-                               AnchorOrigin="Origin.BottomCenter"
-                               OnClearButtonClick="ClearSelection">
-                        <MudVirtualize Items="venues" Context="venue">
-                            <MudSelectItem T="string" Value="@venue.location">
-                                <MudText Typo="Typo.body2">@venue.location</MudText>
-                            </MudSelectItem>
-                        </MudVirtualize>
-                    </MudSelect>
-                </MudTabPanel>
-            </MudTabs>
+        <MudPaper Class="ma-3 pa-3" Elevation="0">
+            <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined"
+                       Value="newLocation" AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                       ValueChanged="HandleLocationChange"
+                       AdornmentColor="Color.Secondary" FullWidth Label="Venue"
+                       AnchorOrigin="Origin.BottomCenter"
+                       OnClearButtonClick="ClearSelection"
+                       Adornment="Adornment.Start">
+                <MudVirtualize Items="venues" Context="venue">
+                    <MudSelectItem T="string" Value="@venue.location">
+                        <MudText Typo="Typo.body2">@venue.location</MudText>
+                    </MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
         </MudPaper>
     </MudItem>
     <MudItem xs="12">
@@ -35,28 +32,29 @@
     private string mapboxToken = MapBoxService.mapboxToken;
     private string? newLocation;
     private string? selectedLocation;
-    private vw_venuesDTO? selectedVenue; // Changed to store the selected venue
-    private List<vw_venuesDTO>? venues;
+    private v_VenusDTO? selectedVenue; // Changed to store the selected venue
+    private List<v_VenusDTO>? venues;
 
     // Ensure the vw_venuesDTO class matches your data structure
-    public class vw_venuesDTO
+
+    public class v_VenusDTO
     {
         public string? location { get; set; }
         public decimal? latitude { get; set; }
         public decimal? longitude { get; set; }
     }
 
-    private async Task GetVenuesList()
+    private async Task GetVenues()
     {
         try
         {
             using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(API_URL + "/api/vw_venues/getVenueLocation")!;
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Venues/Venues")!;
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            venues = await JsonSerializer.DeserializeAsync<List<vw_venuesDTO>>(responseStream, options);
+            venues = await JsonSerializer.DeserializeAsync<List<v_VenusDTO>>(responseStream, options);
 
             StateHasChanged();
         }
@@ -111,7 +109,7 @@
     // Method to initialize the map on the first render
     protected override async Task OnInitializedAsync()
     {
-        await GetVenuesList();
+        await GetVenues();
         await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken, venues);
     }
 }

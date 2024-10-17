@@ -1,6 +1,8 @@
-﻿namespace Server.Palaro2026.DTO.View
+﻿namespace Server.Palaro2026.DTO;
+
+public class VenuesDTO
 {
-    public class vw_venuesDTO
+    public class v_VenusDTO
     {
         public string? location { get; set; }
 

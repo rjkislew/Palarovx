@@ -1,0 +1,155 @@
+﻿@page "/billeting-quarters"
+@using System.Text.Json
+@inject IJSRuntime JSRuntime
+
+<MudGrid Spacing="0">
+    <MudItem xs="12" md="4" Style="z-index: 1; position: absolute">
+        <MudPaper Class="ma-3 pa-3" Elevation="0" Style="width: 100%">
+            <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined"
+                       Value="@newLocation" AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                       ValueChanged="HandleLocationChange"
+                       AdornmentColor="Color.Secondary" FullWidth Label="Regional Teams"
+                       AnchorOrigin="Origin.BottomCenter"
+                       OnClearButtonClick="ClearSelection"
+                       Adornment="Adornment.Start">
+                <MudVirtualize Items="billetingQuarter" Context="quarter">
+                    <MudSelectItem T="string" Value="@quarter.regional_team_name">
+                        <MudText Typo="Typo.body2">@quarter.regional_team_name</MudText>
+                    </MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+            @if (selectedBilletingQuarter != null)
+            {
+                <MudPaper Elevation="0" Style="margin-top: 15px;">
+                    <MudStack Spacing="5">
+                        <MudStack Spacing="2">
+                            <MudStack Spacing="0">
+                                <MudText><b>Quarter</b></MudText>
+                                <MudDivider />
+                            </MudStack>
+                            <MudStack Row AlignItems="AlignItems.Center">
+                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.School"></MudIcon>
+                                <MudText Typo="Typo.body2">@selectedBilletingQuarter.school_name</MudText>
+                            </MudStack>
+                            <MudStack Row AlignItems="AlignItems.Center">
+                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.LocationOn"></MudIcon>
+                                <MudText Typo="Typo.body2">@selectedBilletingQuarter.school_address</MudText>
+                            </MudStack>
+                        </MudStack>
+                        <MudStack Spacing="2">
+                            <MudStack Spacing="0">
+                                <MudText><b>Contact Person</b></MudText>
+                                <MudDivider />
+                            </MudStack>
+                            <MudStack Row AlignItems="AlignItems.Center">
+                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person"></MudIcon>
+                                <MudText Typo="Typo.body2">@selectedBilletingQuarter.contact_person</MudText>
+                            </MudStack>
+                            <MudStack Row AlignItems="AlignItems.Center">
+                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Phone"></MudIcon>
+                                <MudText Typo="Typo.body2">@selectedBilletingQuarter.contact_person_number</MudText>
+                            </MudStack>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12">
+        <MudStack id="map"
+                  Style="width: 100%; height: calc(100vh - 64px); overflow: hidden">
+        </MudStack>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private readonly string API_URL = APIService.palaro_2026_API;
+    private string mapboxToken = MapBoxService.mapboxToken;
+    private string? newLocation;
+    private string? selectedLocation;
+    private bq_BilletingQuartersDTO? selectedBilletingQuarter; // Changed to store the selected venue
+    private List<bq_BilletingQuartersDTO>? billetingQuarter;
+
+    // Ensure the bq_BilletingQuartersDTO class matches your data structure
+    public class bq_BilletingQuartersDTO
+    {
+        public string? regional_team_name { get; set; }
+        public string? regional_team_name_abbreviation { get; set; }
+        public string? school_name { get; set; }
+        public string? school_address { get; set; }
+        public decimal? latitude { get; set; }
+        public decimal? longitude { get; set; }
+        public string? contact_person { get; set; }
+        public string? contact_person_number { get; set; }
+    }
+
+    private async Task GetBilletingQuarters()
+    {
+        try
+        {
+            using HttpClient httpClient = new HttpClient();
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/BilletingQuarters/BilletingQuartersPerRegion");
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            billetingQuarter = await JsonSerializer.DeserializeAsync<List<bq_BilletingQuartersDTO>>(responseStream, options);
+
+            StateHasChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Method to clear the selection
+    private async Task ClearSelection()
+    {
+        newLocation = null; // Clear the newLocation
+        selectedLocation = null; // Clear selectedLocation as well
+        selectedBilletingQuarter = null; // Clear selectedBilletingQuarter
+
+        // Clear the route from the map via JS interop
+        await JSRuntime.InvokeVoidAsync("clearRoute");
+
+        // Center the map back to user location or default location
+        await JSRuntime.InvokeVoidAsync("centerMap", null); // Pass null to center on the default location
+    }
+
+    // Method to handle location change
+    private async Task HandleLocationChange(string? selectedValue)
+    {
+        // Ensure newLocation is not null or empty
+        if (string.IsNullOrEmpty(selectedValue))
+        {
+            return;
+        }
+
+        newLocation = selectedValue;  // Update newLocation to the selected value
+        selectedLocation = newLocation; // Optional: keep this if needed for other purposes
+
+        // Find the selected venue from the venues list
+        selectedBilletingQuarter = billetingQuarter?.FirstOrDefault(venue => venue.regional_team_name == newLocation);
+
+        if (selectedBilletingQuarter != null && selectedBilletingQuarter.latitude.HasValue && selectedBilletingQuarter.longitude.HasValue)
+        {
+            // Call JavaScript to provide directions with coordinates
+            await JSRuntime.InvokeVoidAsync("showDirections", new object[] {
+                new double[] { (double)selectedBilletingQuarter.longitude.Value, (double)selectedBilletingQuarter.latitude.Value } // Destination coordinates
+    });
+        }
+        else
+        {
+            Console.WriteLine("No matching venue found or invalid coordinates.");
+        }
+    }
+
+    // Method to initialize the map on the first render
+    protected override async Task OnInitializedAsync()
+    {
+        await GetBilletingQuarters();
+        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken, billetingQuarter);
+    }
+}
