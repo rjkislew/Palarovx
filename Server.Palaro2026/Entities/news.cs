@@ -5,9 +5,9 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class news
+public partial class News
 {
-    public int id { get; set; }
+    public int ID { get; set; }
 
-    public string? facebook_link { get; set; }
+    public string? FacebookLink { get; set; }
 }

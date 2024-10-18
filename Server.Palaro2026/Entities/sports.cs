@@ -5,17 +5,17 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class sports
+public partial class Sports
 {
-    public int id { get; set; }
+    public int ID { get; set; }
 
-    public string? sport { get; set; }
+    public string? Sport { get; set; }
 
-    public string? description { get; set; }
+    public string? Description { get; set; }
 
-    public int? sports_category_id { get; set; }
+    public int? SportsCategoryID { get; set; }
 
-    public virtual ICollection<sport_sub_categories> sport_sub_categories { get; set; } = new List<sport_sub_categories>();
+    public virtual ICollection<SportSubCategories> SportSubCategories { get; set; } = new List<SportSubCategories>();
 
-    public virtual sport_categories? sports_category { get; set; }
+    public virtual SportCategories? SportsCategory { get; set; }
 }

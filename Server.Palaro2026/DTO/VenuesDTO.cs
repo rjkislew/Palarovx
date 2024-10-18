@@ -4,10 +4,10 @@ public class VenuesDTO
 {
     public class v_VenusDTO
     {
-        public string? location { get; set; }
+        public string? Location { get; set; }
 
-        public decimal? latitude { get; set; }
+        public decimal? Latitude { get; set; }
 
-        public decimal? longitude { get; set; }
+        public decimal? Longitude { get; set; }
     }
 }

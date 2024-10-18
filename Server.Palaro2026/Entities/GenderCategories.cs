@@ -5,15 +5,11 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class Venues
+public partial class GenderCategories
 {
     public int ID { get; set; }
 
-    public string? Location { get; set; }
+    public string? GenderCategory { get; set; }
 
-    public decimal? Latitude { get; set; }
-
-    public decimal? Longitude { get; set; }
-
-    public virtual ICollection<Events> Events { get; set; } = new List<Events>();
+    public virtual ICollection<SportSubCategories> SportSubCategories { get; set; } = new List<SportSubCategories>();
 }

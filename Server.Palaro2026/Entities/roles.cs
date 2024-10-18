@@ -5,13 +5,13 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class roles
+public partial class Roles
 {
-    public int id { get; set; }
+    public int ID { get; set; }
 
-    public string? role { get; set; }
+    public string? Role { get; set; }
 
-    public string? role_description { get; set; }
+    public string? RoleDescription { get; set; }
 
-    public virtual ICollection<users> users { get; set; } = new List<users>();
+    public virtual ICollection<Users> Users { get; set; } = new List<Users>();
 }

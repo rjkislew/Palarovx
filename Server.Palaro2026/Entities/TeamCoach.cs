@@ -5,15 +5,19 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class Divisions
+public partial class TeamCoach
 {
     public int ID { get; set; }
 
-    public string? DivisionName { get; set; }
-
     public int? RegionID { get; set; }
+
+    public int? SportSubCategoryID { get; set; }
+
+    public string? FirstName { get; set; }
+
+    public string? LastName { get; set; }
 
     public virtual RegionalTeams? Region { get; set; }
 
-    public virtual ICollection<Schools> Schools { get; set; } = new List<Schools>();
+    public virtual SportSubCategories? SportSubCategory { get; set; }
 }

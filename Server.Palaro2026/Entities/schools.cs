@@ -5,15 +5,15 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class schools
+public partial class Schools
 {
-    public int id { get; set; }
+    public int ID { get; set; }
 
-    public string? school_name { get; set; }
+    public string? SchoolName { get; set; }
 
-    public int? division_id { get; set; }
+    public int? DivisionID { get; set; }
 
-    public virtual divisions? division { get; set; }
+    public virtual Divisions? Division { get; set; }
 
-    public virtual ICollection<player_profiles> player_profiles { get; set; } = new List<player_profiles>();
+    public virtual ICollection<PlayerProfiles> PlayerProfiles { get; set; } = new List<PlayerProfiles>();
 }

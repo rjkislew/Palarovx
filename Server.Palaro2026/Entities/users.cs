@@ -5,25 +5,25 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class users
+public partial class Users
 {
     public int ID { get; set; }
 
-    public string? user_name { get; set; }
+    public string? Username { get; set; }
 
-    public string? email { get; set; }
+    public string? Email { get; set; }
 
-    public string? password_hash { get; set; }
+    public string? PasswordHash { get; set; }
 
-    public DateTime? created_at { get; set; }
+    public DateTime? CreatedAt { get; set; }
 
-    public DateTime? updated_at { get; set; }
+    public DateTime? UpdateAt { get; set; }
 
-    public DateTime? last_login { get; set; }
+    public DateTime? LastLogin { get; set; }
 
-    public bool? active { get; set; }
+    public bool? Active { get; set; }
 
-    public int? role_id { get; set; }
+    public int? RoleID { get; set; }
 
-    public virtual roles? role { get; set; }
+    public virtual Roles? Role { get; set; }
 }

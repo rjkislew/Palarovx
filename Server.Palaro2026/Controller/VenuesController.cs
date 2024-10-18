@@ -19,28 +19,28 @@ namespace Server.Palaro2026.Controller
         [HttpGet("Venues")]
         public async Task<ActionResult<IEnumerable<VenuesDTO>>> GetVenuesView()
         {
-            var venuesData = await _context.venues
+            var venuesData = await _context.Venues
                 .Select(v => new VenuesDTO.v_VenusDTO
                 {
-                    location = v.location,
-                    latitude = v.latitude,
-                    longitude = v.longitude
+                    Location = v.Location,
+                    Latitude = v.Latitude,
+                    Longitude = v.Longitude
                 }).ToListAsync();
 
             return Ok(venuesData);
         }
 
         [HttpGet("GetVenues")]
-        public async Task<ActionResult<IEnumerable<venues>>> GetVenues()
+        public async Task<ActionResult<IEnumerable<Venues>>> GetVenues()
         {
-            var venuesList = await _context.venues.AsNoTracking().ToListAsync();
+            var venuesList = await _context.Venues.AsNoTracking().ToListAsync();
             return Ok(venuesList);
         }
 
-        [HttpGet("GetVenue/{id}")]
-        public async Task<ActionResult<venues>> GetVenue(int id)
+        [HttpGet("GetVenue/{ID}")]
+        public async Task<ActionResult<Venues>> GetVenue(int ID)
         {
-            var venue = await _context.venues.FindAsync(id);
+            var venue = await _context.Venues.FindAsync(ID);
 
             if (venue == null)
             {
@@ -51,18 +51,18 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPost("CreateVenue")]
-        public async Task<ActionResult<venues>> CreateVenue(venues venue)
+        public async Task<ActionResult<Venues>> CreateVenue(Venues venue)
         {
-            _context.venues.Add(venue);
+            _context.Venues.Add(venue);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetVenue), new { id = venue.id }, venue);
+            return CreatedAtAction(nameof(GetVenue), new { ID = venue.ID }, venue);
         }
 
-        [HttpPut("UpdateVenue/{id}")]
-        public async Task<IActionResult> UpdateVenue(int id, venues venue)
+        [HttpPut("UpdateVenue/{ID}")]
+        public async Task<IActionResult> UpdateVenue(int ID, Venues venue)
         {
-            if (id != venue.id)
+            if (ID != venue.ID)
             {
                 return BadRequest();
             }
@@ -75,7 +75,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!_context.venues.Any(v => v.id == id))
+                if (!_context.Venues.Any(v => v.ID == ID))
                 {
                     return NotFound();
                 }
@@ -88,17 +88,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpDelete("DeleteVenue/{id}")]
-        public async Task<IActionResult> DeleteVenue(int id)
+        [HttpDelete("DeleteVenue/{ID}")]
+        public async Task<IActionResult> DeleteVenue(int ID)
         {
-            var venue = await _context.venues.FindAsync(id);
+            var venue = await _context.Venues.FindAsync(ID);
 
             if (venue == null)
             {
                 return NotFound();
             }
 
-            _context.venues.Remove(venue);
+            _context.Venues.Remove(venue);
             await _context.SaveChangesAsync();
 
             return NoContent();

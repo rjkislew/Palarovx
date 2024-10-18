@@ -5,45 +5,47 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class events
+public partial class Events
 {
-    public string id { get; set; } = null!;
+    public string ID { get; set; } = null!;
 
-    public int? regional_team_a_id { get; set; }
+    public int? RegionalTeamAID { get; set; }
 
-    public int? team_a_final_score { get; set; }
+    public int? TeamAFinalScore { get; set; }
 
-    public int? regional_team_b_id { get; set; }
+    public int? RegionalTeamBID { get; set; }
 
-    public int? team_b_final_score { get; set; }
+    public int? TeamBFinalScore { get; set; }
 
-    public int? sport_sub_category_id { get; set; }
+    public int? SportSubCategoryID { get; set; }
 
-    public int? venue_id { get; set; }
+    public int? venueID { get; set; }
 
-    public string? event_title { get; set; }
+    public string? EventTitle { get; set; }
 
-    public DateTime? schedule { get; set; }
+    public DateTime? Schedule { get; set; }
 
-    public bool? on_stream { get; set; }
+    public bool? OnStream { get; set; }
 
-    public string? stream_url { get; set; }
+    public string? StreamURL { get; set; }
 
-    public bool? is_finished { get; set; }
+    public bool? IsFinished { get; set; }
 
-    public int? loser_id { get; set; }
+    public int? LoserID { get; set; }
 
-    public int? winner_id { get; set; }
+    public int? WinnerID { get; set; }
 
-    public byte[]? attachment { get; set; }
+    public byte[]? Attachement { get; set; }
 
-    public string? deletedma { get; set; }
+    public string? Archived { get; set; }
 
-    public virtual regional_teams? regional_team_a { get; set; }
+    public string? Deleted { get; set; }
 
-    public virtual regional_teams? regional_team_b { get; set; }
+    public virtual RegionalTeams? RegionalTeamA { get; set; }
 
-    public virtual sport_sub_categories? sport_sub_category { get; set; }
+    public virtual RegionalTeams? RegionalTeamB { get; set; }
 
-    public virtual venues? venue { get; set; }
+    public virtual SportSubCategories? SportSubCategory { get; set; }
+
+    public virtual Venues? venue { get; set; }
 }

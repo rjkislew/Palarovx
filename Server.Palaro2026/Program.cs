@@ -3,34 +3,55 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 builder.Services.AddControllers();
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Configure the database context based on the environment
+var environment = builder.Environment.EnvironmentName;
+string connectionString;
+
+if (environment == "Development")
+{
+    connectionString = builder.Configuration.GetConnectionString("palaro_2026DevelopmentConnection");
+}
+else
+{
+    connectionString = builder.Configuration.GetConnectionString("palaro_2026ProductionConnection");
+}
 
 builder.Services.AddDbContext<Server.Palaro2026.Context.palaro_2026Context>(
     options =>
     {
-        options.UseSqlServer(builder.Configuration.GetConnectionString("palaro_2026"));
+        options.UseSqlServer(connectionString);
     }
-    );
+);
+
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder.AllowAnyMethod()
+               .AllowAnyHeader()
+               .SetIsOriginAllowed(origin => true) // allow any origin
+               .AllowCredentials();
+    });
+});
 
 var app = builder.Build();
 
-app.UseCors(x => x
-    .AllowAnyMethod()
-    .AllowAnyHeader()
-    .SetIsOriginAllowed(origin => true) // allow any origin  
-    .AllowCredentials());
+// Use CORS policy
+app.UseCors("AllowAll");
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Enable Swagger for all environments
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("v1/swagger.json", "Palaro 2026 API v1");
+});
 
 app.UseHttpsRedirection();
 

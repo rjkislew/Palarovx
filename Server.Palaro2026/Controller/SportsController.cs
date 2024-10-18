@@ -19,75 +19,75 @@ namespace Server.Palaro2026.Controllers
 
         // Get all categories
         [HttpGet("Categories")]
-        public async Task<ActionResult<IEnumerable<Sports.s_CategoriesDTO>>> GetCategories()
+        public async Task<ActionResult<IEnumerable<SportsDTO.s_CategoriesDTO>>> GetCategories()
         {
-            var categories = await _context.sport_categories
-                .Select(c => new Sports.s_CategoriesDTO { category = c.category })
+            var categories = await _context.SportCategories
+                .Select(c => new SportsDTO.s_CategoriesDTO { Category = c.Category })
                 .ToListAsync();
 
             return Ok(categories);
         }
 
-        // Get levels for a specific category using POST
+        // Get Levels for a specific Category using POST
         [HttpGet("Levels")]
-        public async Task<ActionResult<IEnumerable<Sports.s_LevelsDTO>>> GetLevels([FromQuery] string category)
+        public async Task<ActionResult<IEnumerable<SportsDTO.s_LevelsDTO>>> GetLevels([FromQuery] string Category)
         {
-            var levels = await (from sc in _context.sport_categories
-                                join s in _context.sports on sc.id equals s.sports_category_id
-                                join sub in _context.sport_sub_categories on s.id equals sub.sport_id
-                                join l in _context.levels on sub.level_id equals l.id
-                                where sc.category == category
-                                select new Sports.s_LevelsDTO { level = l.level })
+            var Levels = await (from sc in _context.SportCategories
+                                join s in _context.Sports on sc.ID equals s.SportsCategoryID
+                                join sub in _context.SportSubCategories on s.ID equals sub.SportID
+                                join l in _context.Levels on sub.LevelID equals l.ID
+                                where sc.Category == Category
+                                select new SportsDTO.s_LevelsDTO { Level = l.Level })
                                 .Distinct().ToListAsync();
 
-            return Ok(levels);
+            return Ok(Levels);
         }
 
-        // Get sports for a specific category and level using POST
-        [HttpGet("Sports")]
-        public async Task<ActionResult<IEnumerable<Sports.s_SportsDTO>>> GetSports([FromQuery] string category, [FromQuery] string level)
+        // Get Sports for a specific Category and Level using POST
+        [HttpGet("SportsDTO")]
+        public async Task<ActionResult<IEnumerable<SportsDTO.s_SportsDTO>>> GetSports([FromQuery] string Category, [FromQuery] string Level)
         {
-            var sports = await (from sc in _context.sport_categories
-                                join s in _context.sports on sc.id equals s.sports_category_id
-                                join sub in _context.sport_sub_categories on s.id equals sub.sport_id
-                                join l in _context.levels on sub.level_id equals l.id
-                                where sc.category == category && l.level == level
-                                select new Sports.s_SportsDTO
+            var Sports = await (from sc in _context.SportCategories
+                                join s in _context.Sports on sc.ID equals s.SportsCategoryID
+                                join sub in _context.SportSubCategories on s.ID equals sub.SportID
+                                join l in _context.Levels on sub.LevelID equals l.ID
+                                where sc.Category == Category && l.Level == Level
+                                select new SportsDTO.s_SportsDTO
                                 {
-                                    sport = s.sport,
-                                    description = s.description
+                                    Sport = s.Sport,
+                                    Description = s.Description
                                 }).Distinct().ToListAsync();
 
-            return Ok(sports);
+            return Ok(Sports);
         }
 
-        // Get genders for a specific category, level, and sport using POST
+        // Get genders for a specific Category, Level, and Sport using POST
         [HttpGet("Genders")]
-        public async Task<ActionResult<IEnumerable<Sports.s_GendersDTO>>> GetGenders([FromQuery] string category, [FromQuery] string level, [FromQuery] string sport)
+        public async Task<ActionResult<IEnumerable<SportsDTO.s_GendersDTO>>> GetGenders([FromQuery] string Category, [FromQuery] string Level, [FromQuery] string Sport)
         {
-            var genders = await (from sc in _context.sport_categories
-                                 join s in _context.sports on sc.id equals s.sports_category_id
-                                 join sub in _context.sport_sub_categories on s.id equals sub.sport_id
-                                 join gc in _context.gender_categories on sub.gender_category_id equals gc.id
-                                 join l in _context.levels on sub.level_id equals l.id
-                                 where sc.category == category && l.level == level && s.sport == sport
-                                 select new Sports.s_GendersDTO { gender_category = gc.gender_category })
+            var genders = await (from sc in _context.SportCategories
+                                 join s in _context.Sports on sc.ID equals s.SportsCategoryID
+                                 join sub in _context.SportSubCategories on s.ID equals sub.SportID
+                                 join gc in _context.GenderCategories on sub.GenderCategoryID equals gc.ID
+                                 join l in _context.Levels on sub.LevelID equals l.ID
+                                 where sc.Category == Category && l.Level == Level && s.Sport == Sport
+                                 select new SportsDTO.s_GendersDTO { GenderCategory = gc.GenderCategory })
                                  .Distinct().ToListAsync();
 
             return Ok(genders);
         }
 
-        // Get sub-categories for a specific category, level, sport, and gender using POST
+        // Get sub-categories for a specific Category, Level, Sport, and gender using POST
         [HttpGet("SubCategories")]
-        public async Task<ActionResult<IEnumerable<Sports.s_SubCategoriesDTO>>> GetSubCategories([FromQuery] string category, [FromQuery] string level, [FromQuery] string sport, [FromQuery] string gender)
+        public async Task<ActionResult<IEnumerable<SportsDTO.s_SubCategoriesDTO>>> GetSubCategories([FromQuery] string Category, [FromQuery] string Level, [FromQuery] string Sport, [FromQuery] string gender)
         {
-            var subCategories = await (from sc in _context.sport_categories
-                                       join s in _context.sports on sc.id equals s.sports_category_id
-                                       join sub in _context.sport_sub_categories on s.id equals sub.sport_id
-                                       join gc in _context.gender_categories on sub.gender_category_id equals gc.id
-                                       join l in _context.levels on sub.level_id equals l.id
-                                       where sc.category == category && l.level == level && s.sport == sport && gc.gender_category == gender
-                                       select new Sports.s_SubCategoriesDTO { sub_category = sub.sub_category })
+            var subCategories = await (from sc in _context.SportCategories
+                                       join s in _context.Sports on sc.ID equals s.SportsCategoryID
+                                       join sub in _context.SportSubCategories on s.ID equals sub.SportID
+                                       join gc in _context.GenderCategories on sub.GenderCategoryID equals gc.ID
+                                       join l in _context.Levels on sub.LevelID equals l.ID
+                                       where sc.Category == Category && l.Level == Level && s.Sport == Sport && gc.GenderCategory == gender
+                                       select new SportsDTO.s_SubCategoriesDTO { SubCategory = sub.SubCategory })
                                        .Distinct().ToListAsync();
 
             return Ok(subCategories);
@@ -96,47 +96,47 @@ namespace Server.Palaro2026.Controllers
         [HttpGet("SportLevelsGendersSubCategories")]
         public async Task<ActionResult<IEnumerable<SportCategoriesLevelsGendersSubCategoriesDTO.sclgsc_CategoriesDTO>>> GetSportsDTO()
         {
-            var sportsData = await (from sports_categories in _context.sport_categories
-                                    join sports in _context.sports on sports_categories.id equals sports.sports_category_id into sportGroup
-                                    from sport in sportGroup.DefaultIfEmpty()
-                                    join sport_sub_categories in _context.sport_sub_categories on sport.id equals sport_sub_categories.sport_id into subGroup
+            var sportsData = await (from sports_categories in _context.SportCategories
+                                    join Sports in _context.Sports on sports_categories.ID equals Sports.SportsCategoryID into sportGroup
+                                    from Sport in sportGroup.DefaultIfEmpty()
+                                    join SportSubCategories in _context.SportSubCategories on Sport.ID equals SportSubCategories.SportID into subGroup
                                     from sub in subGroup.DefaultIfEmpty()
-                                    join levels in _context.levels on sub.level_id equals levels.id into levelGroup
-                                    from level in levelGroup.DefaultIfEmpty()
-                                    join gender_categories in _context.gender_categories on sub.gender_category_id equals gender_categories.id into genderGroup
+                                    join Levels in _context.Levels on sub.LevelID equals Levels.ID into levelGroup
+                                    from Level in levelGroup.DefaultIfEmpty()
+                                    join GenderCategories in _context.GenderCategories on sub.GenderCategoryID equals GenderCategories.ID into genderGroup
                                     from gender in genderGroup.DefaultIfEmpty()
                                     select new
                                     {
-                                        category = sports_categories != null ? sports_categories.category : null,
-                                        level = level != null ? level.level : null,
-                                        gender_category = gender != null ? gender.gender_category : null,
-                                        sport = sport != null ? sport.sport : null,
-                                        description = sport != null ? sport.description : null,
-                                        sub_category = sub != null ? sub.sub_category : null
+                                        Category = sports_categories != null ? sports_categories.Category : null,
+                                        Level = Level != null ? Level.Level : null,
+                                        GenderCategory = gender != null ? gender.GenderCategory : null,
+                                        Sport = Sport != null ? Sport.Sport : null,
+                                        Description = Sport != null ? Sport.Description : null,
+                                        SubCategory = sub != null ? sub.SubCategory : null
                                     }).ToListAsync();
 
             // Grouping logic to structure the data
             var groupedData = sportsData
-                .GroupBy(x => x.category)
+                .GroupBy(x => x.Category)
                 .Select(g => new SportCategoriesLevelsGendersSubCategoriesDTO.sclgsc_CategoriesDTO
                 {
-                    category = g.Key,
-                    levels = g.GroupBy(x => x.level)
+                    Category = g.Key,
+                    Levels = g.GroupBy(x => x.Level)
                               .Select(l => new SportCategoriesLevelsGendersSubCategoriesDTO.sclgsc_LevelsDTO
                               {
-                                  level = l.Key,
-                                  sports = l.GroupBy(x => x.sport)
+                                  Level = l.Key,
+                                  Sports = l.GroupBy(x => x.Sport)
                                            .Select(sg => new SportCategoriesLevelsGendersSubCategoriesDTO.sclgsc_SportsDTO
                                            {
-                                               sport = sg.Key,
-                                               description = sg.First().description, // Use First() to get the description from grouped data
-                                               gender_categories = sg.GroupBy(x => x.gender_category)
+                                               Sport = sg.Key,
+                                               Description = sg.First().Description, // Use First() to get the Description from grouped data
+                                               GenderCategories = sg.GroupBy(x => x.GenderCategory)
                                                                      .Select(gc => new SportCategoriesLevelsGendersSubCategoriesDTO.sclgsc_GendersDTO
                                                                      {
-                                                                         gender_category = gc.Key,
+                                                                         GenderCategory = gc.Key,
                                                                          sub_categories = gc.Select(s => new SportCategoriesLevelsGendersSubCategoriesDTO.sclgsc_SubCategoriesDTO
                                                                          {
-                                                                             sub_category = s.sub_category
+                                                                             SubCategory = s.SubCategory
                                                                          }).Distinct().ToList()
                                                                      }).ToList()
                                            }).ToList()
@@ -150,27 +150,27 @@ namespace Server.Palaro2026.Controllers
         [HttpGet("SportCategories")]
         public async Task<ActionResult<IEnumerable<SportCategoriesDTO.sc_CategoriesDTO>>> GetSportCategories()
         {
-            var categoriesData = await (from sports_categories in _context.sport_categories
-                                        join sports in _context.sports on sports_categories.id equals sports.sports_category_id into sportGroup
-                                        from sport in sportGroup.DefaultIfEmpty()
+            var categoriesData = await (from sports_categories in _context.SportCategories
+                                        join Sports in _context.Sports on sports_categories.ID equals Sports.SportsCategoryID into sportGroup
+                                        from Sport in sportGroup.DefaultIfEmpty()
                                         select new
                                         {
-                                            category = sports_categories.category,
-                                            sport = sport != null ? sport.sport : null,
-                                            description = sport != null ? sport.description : null
+                                            Category = sports_categories.Category,
+                                            Sport = Sport != null ? Sport.Sport : null,
+                                            Description = Sport != null ? Sport.Description : null
                                         }).ToListAsync();
 
             // Grouping logic to structure the data
             var groupedData = categoriesData
-                .GroupBy(x => x.category)
+                .GroupBy(x => x.Category)
                 .Select(g => new SportCategoriesDTO.sc_CategoriesDTO
                 {
-                    category = g.Key,
-                    sports = g.Where(x => x.sport != null)
+                    Category = g.Key,
+                    Sports = g.Where(x => x.Sport != null)
                               .Select(s => new SportCategoriesDTO.sc_SportsDTO
                               {
-                                  sport = s.sport,
-                                  description = s.description
+                                  Sport = s.Sport,
+                                  Description = s.Description
                               }).ToList()
                 }).ToList();
 
@@ -180,36 +180,36 @@ namespace Server.Palaro2026.Controllers
         [HttpGet("SportSubCategories")]
         public async Task<ActionResult<IEnumerable<SportCategoriesSubCategoriesDTO.scsc_CategoriesDTO>>> GetSportSubCategories()
         {
-            var sportsData = await (from sports_categories in _context.sport_categories
-                                    join sports in _context.sports on sports_categories.id equals sports.sports_category_id into sportGroup
-                                    from sport in sportGroup.DefaultIfEmpty()
-                                    join sport_sub_categories in _context.sport_sub_categories on sport.id equals sport_sub_categories.sport_id into subGroup
+            var sportsData = await (from sports_categories in _context.SportCategories
+                                    join Sports in _context.Sports on sports_categories.ID equals Sports.SportsCategoryID into sportGroup
+                                    from Sport in sportGroup.DefaultIfEmpty()
+                                    join SportSubCategories in _context.SportSubCategories on Sport.ID equals SportSubCategories.SportID into subGroup
                                     from sub in subGroup.DefaultIfEmpty()
                                     select new
                                     {
-                                        category = sports_categories.category,
-                                        sport = sport != null ? sport.sport : null,
-                                        description = sport != null ? sport.description : null,
-                                        sub_category = sub != null ? sub.sub_category : null
+                                        Category = sports_categories.Category,
+                                        Sport = Sport != null ? Sport.Sport : null,
+                                        Description = Sport != null ? Sport.Description : null,
+                                        SubCategory = sub != null ? sub.SubCategory : null
                                     }).ToListAsync();
 
             // Grouping logic to structure the data
             var groupedData = sportsData
-                .OrderByDescending(c => c.category)
-                .GroupBy(c => c.category)
+                .OrderByDescending(c => c.Category)
+                .GroupBy(c => c.Category)
                 .Select(s => new SportCategoriesSubCategoriesDTO.scsc_CategoriesDTO
                 {
-                    category = s.Key,
-                    sports = s.Where(s => s.sport != null)
-                              .GroupBy(s => s.sport)
+                    Category = s.Key,
+                    Sports = s.Where(s => s.Sport != null)
+                              .GroupBy(s => s.Sport)
                               .Select(scsc => new SportCategoriesSubCategoriesDTO.scsc_SportsDTO
                               {
-                                  sport = scsc.Key,
-                                  description = scsc.First().description, // Assuming description is the same for grouped sports
-                                  sub_categories = scsc.Where(sc => sc.sub_category != null)
+                                  Sport = scsc.Key,
+                                  Description = scsc.First().Description, // Assuming Description is the same for grouped Sports
+                                  sub_categories = scsc.Where(sc => sc.SubCategory != null)
                                                      .Select(scsc => new SportCategoriesSubCategoriesDTO.scsc_SubCategoriesDTO
                                                      {
-                                                         sub_category = scsc.sub_category
+                                                         SubCategory = scsc.SubCategory
                                                      }).ToList()
                               }).ToList()
                 }).ToList();
@@ -219,29 +219,29 @@ namespace Server.Palaro2026.Controllers
 
 
         // GET: api/Categories/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<sports>> GetSport(int id)
+        [HttpGet("{ID}")]
+        public async Task<ActionResult<Sports>> GetSport(int ID)
         {
-            var sport = await _context.sports.FindAsync(id);
+            var Sports = await _context.Sports.FindAsync(ID);
 
-            if (sport == null)
+            if (Sports == null)
             {
                 return NotFound();
             }
 
-            return sport;
+            return Sports;
         }
 
         // PUT: api/Categories/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateSport(int id, sports sport)
+        [HttpPut("{ID}")]
+        public async Task<IActionResult> UpdateSport(int ID, Sports Sport)
         {
-            if (id != sport.id)
+            if (ID != Sport.ID)
             {
                 return BadRequest();
             }
 
-            _context.Entry(sport).State = EntityState.Modified;
+            _context.Entry(Sport).State = EntityState.Modified;
 
             try
             {
@@ -249,7 +249,7 @@ namespace Server.Palaro2026.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!SportExists(id))
+                if (!SportExists(ID))
                 {
                     return NotFound();
                 }
@@ -264,33 +264,33 @@ namespace Server.Palaro2026.Controllers
 
         // POST: api/Categories
         [HttpPost]
-        public async Task<ActionResult<sports>> CreateSport(sports sport)
+        public async Task<ActionResult<Sports>> CreateSport(Sports Sport)
         {
-            _context.sports.Add(sport);
+            _context.Sports.Add(Sport);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetSport), new { id = sport.id }, sport);
+            return CreatedAtAction(nameof(GetSport), new { ID = Sport.ID }, Sport);
         }
 
         // DELETE: api/Categories/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteSport(int id)
+        [HttpDelete("{ID}")]
+        public async Task<IActionResult> DeleteSport(int ID)
         {
-            var sport = await _context.sports.FindAsync(id);
-            if (sport == null)
+            var Sport = await _context.Sports.FindAsync(ID);
+            if (Sport == null)
             {
                 return NotFound();
             }
 
-            _context.sports.Remove(sport);
+            _context.Sports.Remove(Sport);
             await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        private bool SportExists(int id)
+        private bool SportExists(int ID)
         {
-            return _context.sports.Any(e => e.id == id);
+            return _context.Sports.Any(e => e.ID == ID);
         }
     }
 }
