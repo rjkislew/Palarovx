@@ -13,22 +13,22 @@
     }
     else
     {
-        <MudVirtualize Items="sports" Context="categoryData">
+        <Virtualize Items="sports" Context="categoryData" OverscanCount="5">
             <MudItem xs="12">
                 <MudStack Spacing="2">
                     <MudText Color="Color.Secondary" Typo="Typo.h2">
-                        @categoryData.category
+                        @categoryData.Category
                     </MudText>
                     <MudDivider Class="mud-border-tertiary" />
                     <MudGrid>
-                        <MudVirtualize Items="categoryData.sports" Context="sportData">
+                        <Virtualize Items="categoryData.Sports" Context="sportData">
                             <MudItem xs="12" md="6">
-                                <MudPaper Outlined Class="pa-3 mud-border-tertiary" id="@sportData.sport">
+                                <MudPaper Outlined Class="pa-3 mud-border-tertiary" id="@sportData.Sport">
                                     <MudStack Row AlignItems="AlignItems.Center">
-                                        <MudImage Width="50" Height=50 Src="@($"Media/Sports/Icons/{sportData.sport}.png")"></MudImage>
+                                        <MudImage Width="50" Height="50" Src="@($"Media/Sports/Icons/{sportData.Sport}.png")"></MudImage>
                                         <MudStack Spacing="1">
-                                            <MudText Typo="Typo.h3" Color="Color.Primary">@sportData.sport</MudText>
-                                            <MudText Typo="Typo.body2" Color="Color.Tertiary">@sportData.description</MudText>
+                                            <MudText Typo="Typo.h3" Color="Color.Primary">@sportData.Sport</MudText>
+                                            <MudText Typo="Typo.body2" Color="Color.Tertiary">@sportData.Description</MudText>
                                         </MudStack>
                                     </MudStack>
                                     <MudGrid>
@@ -70,48 +70,47 @@
                                             <MudText Typo="Typo.body2">Categories</MudText>
                                             <MudDivider Class="mud-border-tertiary" />
                                             <MudStack Row Wrap="Wrap.Wrap" Spacing="1">
-                                                <MudVirtualize Items="sportData.sub_categories" Context="subCategoryData">
-                                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary"><MudText Color="Color.Tertiary" Typo="Typo.caption">@subCategoryData.sub_category</MudText></MudChip>
-                                                </MudVirtualize>
+                                                <Virtualize Items="sportData.SubCategories" Context="subCategoryData" ItemSize="5">
+                                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary">
+                                                        <MudText Color="Color.Tertiary" Typo="Typo.caption">@subCategoryData.SubCategory</MudText>
+                                                    </MudChip>
+                                                </Virtualize>
                                             </MudStack>
                                         </MudStack>
                                     </MudCollapse>
                                 </MudPaper>
                             </MudItem>
-                        </MudVirtualize>
+                        </Virtualize>
                     </MudGrid>
                 </MudStack>
             </MudItem>
-        </MudVirtualize>
+        </Virtualize>
     }
 </MudGrid>
 
 @code {
     // Get API URL
-    private readonly string API_URL = APIService.palaro_2026_API;
+    private readonly string API_URL = APIService.Palaro2026API;
     private List<scsc_CategoriesDTO>? sports;
-
-    bool _expanded = false;
 
     public class scsc_CategoriesDTO
     {
-        public string? category { get; set; }
-        public List<scsc_SportsDTO>? sports { get; set; }
+        public string? Category { get; set; }
+        public List<scsc_SportsDTO>? Sports { get; set; }
     }
 
     public class scsc_SportsDTO
     {
-        public string? sport { get; set; }
-        public string? description { get; set; }
-        public List<scsc_SubCategoriesDTO>? sub_categories { get; set; }
+        public string? Sport { get; set; }
+        public string? Description { get; set; }
+        public List<scsc_SubCategoriesDTO>? SubCategories { get; set; }
         public bool IsExpanded { get; set; } // Use a different property name to avoid conflicts
     }
 
     public class scsc_SubCategoriesDTO
     {
-        public string? sub_category { get; set; }
+        public string? SubCategory { get; set; }
     }
-
 
     private void OnExpandCollapseClick(scsc_SportsDTO sportData)
     {
@@ -122,6 +121,7 @@
     protected override async Task OnInitializedAsync()
     {
         await GetSportsList();
+        StateHasChanged();
     }
 
     private async Task GetSportsList()
@@ -129,28 +129,38 @@
         try
         {
             using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportSubCategories")!;
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportSubCategories");
+            httpResponse.EnsureSuccessStatusCode();
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            sports = await JsonSerializer.DeserializeAsync<List<scsc_CategoriesDTO>>(responseStream, options);
+            var fetchedSports = await JsonSerializer.DeserializeAsync<List<scsc_CategoriesDTO>>(responseStream, options);
 
-            // Initialize the IsExpanded property to false
+            // Check if fetchedSports is null or empty
+            if (fetchedSports == null || !fetchedSports.Any())
+            {
+                Console.WriteLine("No sports data received.");
+                sports = new List<scsc_CategoriesDTO>(); // Initialize to an empty list
+                return; // Exit early if no data is fetched
+            }
+
+            // Assign the fetched data to the sports variable
+            sports = fetchedSports;
+
+            // Set IsExpanded to false for each sport
             foreach (var category in sports)
             {
-                foreach (var sport in category.sports)
-                {
-                    sport.IsExpanded = false;
-                }
+                category.Sports?.ForEach(sport => sport.IsExpanded = false);
             }
-            StateHasChanged();
         }
         catch (HttpRequestException ex)
         {
-            // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
+        finally
+        {
+            StateHasChanged();
+        }
     }
-}
 
+}

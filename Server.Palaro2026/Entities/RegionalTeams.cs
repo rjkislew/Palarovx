@@ -17,9 +17,13 @@ public partial class RegionalTeams
 
     public virtual ICollection<Divisions> Divisions { get; set; } = new List<Divisions>();
 
+    public virtual ICollection<Events> EventsLoser { get; set; } = new List<Events>();
+
     public virtual ICollection<Events> EventsRegionalTeamA { get; set; } = new List<Events>();
 
     public virtual ICollection<Events> EventsRegionalTeamB { get; set; } = new List<Events>();
+
+    public virtual ICollection<Events> EventsWinner { get; set; } = new List<Events>();
 
     public virtual ICollection<TeamCoach> TeamCoach { get; set; } = new List<TeamCoach>();
 }

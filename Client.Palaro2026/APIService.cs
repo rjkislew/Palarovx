@@ -2,7 +2,6 @@
 {
     public class APIService
     {
-        public static string? API_URL = "https://localhost:7063";
-        public static string palaro_2026_API { get; set; } = $"{API_URL}/api";
+        public static readonly string Palaro2026API = $"https://localhost:7063/api";
     }
 }

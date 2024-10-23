@@ -12,7 +12,7 @@ public class SportCategoriesSubCategoriesDTO
     {
         public string? Sport { get; set; }
         public string? Description { get; set; }
-        public List<scsc_SubCategoriesDTO>? sub_categories { get; set; }
+        public List<scsc_SubCategoriesDTO>? SubCategories { get; set; }
     }
 
     public class scsc_SubCategoriesDTO

@@ -19,12 +19,20 @@ window.initializeMap = (containerId, token, markers) => {
     });
 
     markers.forEach(location => {
+        // Create a popup with a button for getting directions
+        const popupContent = `
+        <div class="popup-content">
+            <h3>${location.venue || location.schoolName}</h3>
+            <button class="get-directions-button" onclick="getLocation(${location.latitude}, ${location.longitude})">Get Directions</button>
+        </div>
+    `;
+
         new mapboxgl.Marker()
             .setLngLat([location.longitude, location.latitude])
-            .setPopup(new mapboxgl.Popup({ offset: 25 })
-                .setHTML(`<h3>${location.location || location.school_name}</h3>`))
+            .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent))
             .addTo(window.map);
     });
+
 
     // Handle user geolocation
     const geolocateControl = new mapboxgl.GeolocateControl({
@@ -42,6 +50,8 @@ window.initializeMap = (containerId, token, markers) => {
         userLat = event.coords.latitude;
         userLong = event.coords.longitude;
         userLocation = [userLong, userLat];
+
+        console.log("User location updated:", userLocation);
 
         // If a destination is selected, update the route
         if (window.selectedDestination) {
@@ -102,9 +112,9 @@ window.showDirections = (destination) => {
     }
 
     // Assuming userLocation is already set from geolocation
-    const origin = userLocation;  // You can use your user location or a fixed origin if needed
+    const origin = userLocation;
 
-    // Create the Directions API URL using the correct format
+    // Create the Directions API URL
     const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?alternatives=true&geometries=geojson&language=en&overview=full&steps=true&access_token=${mapboxgl.accessToken}`;
 
     // Clear previous route if it exists
@@ -159,12 +169,12 @@ window.showDirections = (destination) => {
             window.map.flyTo({
                 center: destination,
                 essential: true, // This animation is considered essential with respect to prefers-reduced-motion
-                zoom: 20, // Adjust the zoom level as needed
-                pitch: 60, // pitch in degrees
-                bearing: -60, // bearing in degrees
-                speed: 1.2, // The speed of the animation
-                curve: 1.2, // The easing of the animation
-                duration: 5000 // Duration of the animation in milliseconds
+                zoom: 20,
+                pitch: 60,
+                bearing: -60,
+                speed: 1.2,
+                curve: 1.2,
+                duration: 5000
             });
         })
         .catch(error => console.error('Error fetching directions:', error));
@@ -192,3 +202,9 @@ window.clearRoute = () => {
     }
 };
 
+// Function triggered when the "Get Directions" button is clicked
+window.getLocation = (latitude, longitude) => {
+    const destination = [longitude, latitude];
+    window.selectedDestination = destination; // Store the selected destination
+    window.showDirections(destination); // Call the showDirections function
+};

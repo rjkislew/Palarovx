@@ -5,53 +5,60 @@
 <MudGrid Spacing="0">
     <MudItem xs="12" md="4" Style="z-index: 1; position: absolute">
         <MudPaper Class="ma-3 pa-3" Elevation="0" Style="width: 100%">
-            <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined"
-                       Value="@newLocation" AdornmentIcon="@Icons.Material.Filled.LocationOn"
-                       ValueChanged="HandleLocationChange"
-                       AdornmentColor="Color.Secondary" FullWidth Label="Regional Teams"
-                       AnchorOrigin="Origin.BottomCenter"
-                       OnClearButtonClick="ClearSelection"
-                       Adornment="Adornment.Start">
-                <MudVirtualize Items="billetingQuarter" Context="quarter">
-                    <MudSelectItem T="string" Value="@quarter.regional_team_name">
-                        <MudText Typo="Typo.body2">@quarter.regional_team_name</MudText>
-                    </MudSelectItem>
-                </MudVirtualize>
-            </MudSelect>
-            @if (selectedBilletingQuarter != null)
+            @if (billetingQuarters == null || billetingQuarters.Count == 0)
             {
-                <MudPaper Elevation="0" Style="margin-top: 15px;">
-                    <MudStack Spacing="5">
-                        <MudStack Spacing="2">
-                            <MudStack Spacing="0">
-                                <MudText><b>Quarter</b></MudText>
-                                <MudDivider />
+                <MudProgressLinear Color="Color.Secondary" Indeterminate="true" Class="my-7" />
+            }
+            else
+            {
+                <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined"
+                           Value="@newLocation" AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                           ValueChanged="HandleLocationChange"
+                           AdornmentColor="Color.Secondary" FullWidth Label="Regional Teams"
+                           AnchorOrigin="Origin.BottomCenter"
+                           OnClearButtonClick="ClearSelection"
+                           Adornment="Adornment.Start">
+                    <Virtualize Items="billetingQuarters" Context="quarter">
+                        <MudSelectItem T="string" Value="@quarter.RegionalTeamName">
+                            <MudText Typo="Typo.body2">@quarter.RegionalTeamName (@quarter.RegionalTeamNameAbbreviation)</MudText>
+                        </MudSelectItem>
+                    </Virtualize>
+                </MudSelect>
+                @if (selectedBilletingQuarter != null)
+                {
+                    <MudPaper Elevation="0" Style="margin-top: 15px;">
+                        <MudStack Spacing="5">
+                            <MudStack Spacing="2">
+                                <MudStack Spacing="0">
+                                    <MudText><b>Quarter</b></MudText>
+                                    <MudDivider />
+                                </MudStack>
+                                <MudStack Row AlignItems="AlignItems.Center">
+                                    <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.School"></MudIcon>
+                                    <MudText Typo="Typo.body2">@selectedBilletingQuarter.SchoolName</MudText>
+                                </MudStack>
+                                <MudStack Row AlignItems="AlignItems.Center">
+                                    <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.LocationOn"></MudIcon>
+                                    <MudText Typo="Typo.body2">@selectedBilletingQuarter.SchoolAddress</MudText>
+                                </MudStack>
                             </MudStack>
-                            <MudStack Row AlignItems="AlignItems.Center">
-                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.School"></MudIcon>
-                                <MudText Typo="Typo.body2">@selectedBilletingQuarter.school_name</MudText>
-                            </MudStack>
-                            <MudStack Row AlignItems="AlignItems.Center">
-                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.LocationOn"></MudIcon>
-                                <MudText Typo="Typo.body2">@selectedBilletingQuarter.school_address</MudText>
+                            <MudStack Spacing="2">
+                                <MudStack Spacing="0">
+                                    <MudText><b>Contact Person</b></MudText>
+                                    <MudDivider />
+                                </MudStack>
+                                <MudStack Row AlignItems="AlignItems.Center">
+                                    <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person"></MudIcon>
+                                    <MudText Typo="Typo.body2">@selectedBilletingQuarter.ContactPerson</MudText>
+                                </MudStack>
+                                <MudStack Row AlignItems="AlignItems.Center">
+                                    <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Phone"></MudIcon>
+                                    <MudText Typo="Typo.body2">@selectedBilletingQuarter.ContactPersonNumber</MudText>
+                                </MudStack>
                             </MudStack>
                         </MudStack>
-                        <MudStack Spacing="2">
-                            <MudStack Spacing="0">
-                                <MudText><b>Contact Person</b></MudText>
-                                <MudDivider />
-                            </MudStack>
-                            <MudStack Row AlignItems="AlignItems.Center">
-                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person"></MudIcon>
-                                <MudText Typo="Typo.body2">@selectedBilletingQuarter.contact_person</MudText>
-                            </MudStack>
-                            <MudStack Row AlignItems="AlignItems.Center">
-                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Phone"></MudIcon>
-                                <MudText Typo="Typo.body2">@selectedBilletingQuarter.contact_person_number</MudText>
-                            </MudStack>
-                        </MudStack>
-                    </MudStack>
-                </MudPaper>
+                    </MudPaper>
+                }
             }
         </MudPaper>
     </MudItem>
@@ -63,24 +70,25 @@
 </MudGrid>
 
 @code {
-    private readonly string API_URL = APIService.palaro_2026_API;
+    private readonly string API_URL = APIService.Palaro2026API;
     private string mapboxToken = MapBoxService.mapboxToken;
     private string? newLocation;
     private string? selectedLocation;
-    private bq_BilletingQuartersDTO? selectedBilletingQuarter; // Changed to store the selected venue
-    private List<bq_BilletingQuartersDTO>? billetingQuarter;
+    private bq_RegionBilletingQuartersDTO? selectedBilletingQuarter; // Changed to store the selected venue
+    private List<bq_RegionBilletingQuartersDTO>? billetingQuarters;
 
     // Ensure the bq_BilletingQuartersDTO class matches your data structure
-    public class bq_BilletingQuartersDTO
+
+    public class bq_RegionBilletingQuartersDTO
     {
-        public string? regional_team_name { get; set; }
-        public string? regional_team_name_abbreviation { get; set; }
-        public string? school_name { get; set; }
-        public string? school_address { get; set; }
-        public decimal? latitude { get; set; }
-        public decimal? longitude { get; set; }
-        public string? contact_person { get; set; }
-        public string? contact_person_number { get; set; }
+        public string? RegionalTeamName { get; set; }
+        public string? RegionalTeamNameAbbreviation { get; set; }
+        public string? SchoolName { get; set; }
+        public string? SchoolAddress { get; set; }
+        public decimal? Latitude { get; set; }
+        public decimal? Longitude { get; set; }
+        public string? ContactPerson { get; set; }
+        public string? ContactPersonNumber { get; set; }
     }
 
     private async Task GetBilletingQuarters()
@@ -93,7 +101,7 @@
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            billetingQuarter = await JsonSerializer.DeserializeAsync<List<bq_BilletingQuartersDTO>>(responseStream, options);
+            billetingQuarters = await JsonSerializer.DeserializeAsync<List<bq_RegionBilletingQuartersDTO>>(responseStream, options);
 
             StateHasChanged();
         }
@@ -131,13 +139,13 @@
         selectedLocation = newLocation; // Optional: keep this if needed for other purposes
 
         // Find the selected venue from the Venues list
-        selectedBilletingQuarter = billetingQuarter?.FirstOrDefault(venue => venue.regional_team_name == newLocation);
+        selectedBilletingQuarter = billetingQuarters?.FirstOrDefault(venue => venue.RegionalTeamName == newLocation);
 
-        if (selectedBilletingQuarter != null && selectedBilletingQuarter.latitude.HasValue && selectedBilletingQuarter.longitude.HasValue)
+        if (selectedBilletingQuarter != null && selectedBilletingQuarter.Latitude.HasValue && selectedBilletingQuarter.Longitude.HasValue)
         {
             // Call JavaScript to provide directions with coordinates
             await JSRuntime.InvokeVoidAsync("showDirections", new object[] {
-                new double[] { (double)selectedBilletingQuarter.longitude.Value, (double)selectedBilletingQuarter.latitude.Value } // Destination coordinates
+                new double[] { (double)selectedBilletingQuarter.Longitude.Value, (double)selectedBilletingQuarter.Latitude.Value } // Destination coordinates
     });
         }
         else
@@ -150,6 +158,6 @@
     protected override async Task OnInitializedAsync()
     {
         await GetBilletingQuarters();
-        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken, billetingQuarter);
+        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken, billetingQuarters);
     }
 }

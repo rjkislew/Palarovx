@@ -4,14 +4,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
-
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Configure the database context based on the environment
 var environment = builder.Environment.EnvironmentName;
-string connectionString;
+string? connectionString; // Change to nullable type
 
 if (environment == "Development")
 {
@@ -22,7 +20,13 @@ else
     connectionString = builder.Configuration.GetConnectionString("palaro_2026ProductionConnection");
 }
 
-builder.Services.AddDbContext<Server.Palaro2026.Context.palaro_2026Context>(
+// Check for null and handle it appropriately
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("Connection string is not configured properly.");
+}
+
+builder.Services.AddDbContext<Server.Palaro2026.Context.Palaro2026Context>(
     options =>
     {
         options.UseSqlServer(connectionString);
@@ -54,9 +58,6 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();

@@ -4,18 +4,13 @@ using Server.Palaro2026.Context;
 using Server.Palaro2026.DTO;
 using Server.Palaro2026.Entities;
 
-namespace Server.Palaro2026.Controllers
+namespace Server.Palaro2026.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class SportsController : ControllerBase
+    public class SportsController(Palaro2026Context context) : ControllerBase
     {
-        private readonly palaro_2026Context _context;
-
-        public SportsController(palaro_2026Context context)
-        {
-            _context = context;
-        }
+        private readonly Palaro2026Context _context = context;
 
         // Get all categories
         [HttpGet("Categories")]
@@ -37,14 +32,18 @@ namespace Server.Palaro2026.Controllers
                                 join sub in _context.SportSubCategories on s.ID equals sub.SportID
                                 join l in _context.Levels on sub.LevelID equals l.ID
                                 where sc.Category == Category
-                                select new SportsDTO.s_LevelsDTO { Level = l.Level })
+                                select new SportsDTO.s_LevelsDTO
+                                {
+                                    ID = l.ID,
+                                    Level = l.Level
+                                })
                                 .Distinct().ToListAsync();
 
             return Ok(Levels);
         }
 
         // Get Sports for a specific Category and Level using POST
-        [HttpGet("SportsDTO")]
+        [HttpGet("Sports")]
         public async Task<ActionResult<IEnumerable<SportsDTO.s_SportsDTO>>> GetSports([FromQuery] string Category, [FromQuery] string Level)
         {
             var Sports = await (from sc in _context.SportCategories
@@ -54,6 +53,7 @@ namespace Server.Palaro2026.Controllers
                                 where sc.Category == Category && l.Level == Level
                                 select new SportsDTO.s_SportsDTO
                                 {
+                                    ID = s.ID,
                                     Sport = s.Sport,
                                     Description = s.Description
                                 }).Distinct().ToListAsync();
@@ -71,7 +71,11 @@ namespace Server.Palaro2026.Controllers
                                  join gc in _context.GenderCategories on sub.GenderCategoryID equals gc.ID
                                  join l in _context.Levels on sub.LevelID equals l.ID
                                  where sc.Category == Category && l.Level == Level && s.Sport == Sport
-                                 select new SportsDTO.s_GendersDTO { GenderCategory = gc.GenderCategory })
+                                 select new SportsDTO.s_GendersDTO
+                                 {
+                                     ID = gc.ID,
+                                     GenderCategory = gc.GenderCategory
+                                 })
                                  .Distinct().ToListAsync();
 
             return Ok(genders);
@@ -87,7 +91,11 @@ namespace Server.Palaro2026.Controllers
                                        join gc in _context.GenderCategories on sub.GenderCategoryID equals gc.ID
                                        join l in _context.Levels on sub.LevelID equals l.ID
                                        where sc.Category == Category && l.Level == Level && s.Sport == Sport && gc.GenderCategory == gender
-                                       select new SportsDTO.s_SubCategoriesDTO { SubCategory = sub.SubCategory })
+                                       select new SportsDTO.s_SubCategoriesDTO
+                                       {
+                                           ID = sub.ID,
+                                           SubCategory = sub.SubCategory
+                                       })
                                        .Distinct().ToListAsync();
 
             return Ok(subCategories);
@@ -155,7 +163,7 @@ namespace Server.Palaro2026.Controllers
                                         from Sport in sportGroup.DefaultIfEmpty()
                                         select new
                                         {
-                                            Category = sports_categories.Category,
+                                            sports_categories.Category,
                                             Sport = Sport != null ? Sport.Sport : null,
                                             Description = Sport != null ? Sport.Description : null
                                         }).ToListAsync();
@@ -187,7 +195,7 @@ namespace Server.Palaro2026.Controllers
                                     from sub in subGroup.DefaultIfEmpty()
                                     select new
                                     {
-                                        Category = sports_categories.Category,
+                                        sports_categories.Category,
                                         Sport = Sport != null ? Sport.Sport : null,
                                         Description = Sport != null ? Sport.Description : null,
                                         SubCategory = sub != null ? sub.SubCategory : null
@@ -206,11 +214,11 @@ namespace Server.Palaro2026.Controllers
                               {
                                   Sport = scsc.Key,
                                   Description = scsc.First().Description, // Assuming Description is the same for grouped Sports
-                                  sub_categories = scsc.Where(sc => sc.SubCategory != null)
+                                  SubCategories = scsc.Where(sc => sc.SubCategory != null)
                                                      .Select(scsc => new SportCategoriesSubCategoriesDTO.scsc_SubCategoriesDTO
                                                      {
                                                          SubCategory = scsc.SubCategory
-                                                     }).ToList()
+                                                     }).Distinct().ToList()
                               }).ToList()
                 }).ToList();
 
@@ -269,7 +277,7 @@ namespace Server.Palaro2026.Controllers
             _context.Sports.Add(Sport);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetSport), new { ID = Sport.ID }, Sport);
+            return CreatedAtAction(nameof(GetSport), new { Sport.ID }, Sport);
         }
 
         // DELETE: api/Categories/5

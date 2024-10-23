@@ -8,14 +8,9 @@ namespace Server.Palaro2026.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class BilletingQuartersController : ControllerBase
+    public class BilletingQuartersController(Palaro2026Context context) : ControllerBase
     {
-        private readonly palaro_2026Context _context; // Replace with your actual DbContext class
-
-        public BilletingQuartersController(palaro_2026Context context)
-        {
-            _context = context;
-        }
+        private readonly Palaro2026Context _context = context;
 
         [HttpGet("BilletingQuartersPerRegion")]
         public async Task<ActionResult<IEnumerable<BilletingQuartersDTO.bq_RegionBilletingQuartersDTO>>> GetBilletingQuartersPerRegion()
@@ -89,7 +84,7 @@ namespace Server.Palaro2026.Controller
             _context.BilletingQuarters.Add(billetingQuarter);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetBilletingQuarters), new { ID = billetingQuarter.ID }, billetingQuarter); // Corrected variable name here
+            return CreatedAtAction(nameof(GetBilletingQuarters), new { billetingQuarter.ID }, billetingQuarter); // Corrected variable name here
         }
 
         // PUT: api/BilletingQuarters/5

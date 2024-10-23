@@ -3,6 +3,8 @@
 @using System.Net.Http
 @using System.Text.Json
 @using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
 
 <MudGrid>
     <MudItem xs="12">
@@ -11,13 +13,43 @@
             <MudText Typo="Typo.h3" Color="Color.Tertiary">Events Management</MudText>
         </MudStack>
     </MudItem>
-    <MudItem xs="5">
+    <MudItem xs="12" md=5>
         <MudPaper Class="pa-3 mud-border-tertiary" Outlined>
             <MudStack Spacing="3">
-                <MudField Adornment="Adornment.Start" AdornmentColor="Color.Primary" AdornmentIcon="@Icons.Material.Filled.Clear" Label="Match ID" Margin="Margin.Dense" Variant="Variant.Outlined"></MudField>
-                <MudField Adornment="Adornment.Start" AdornmentColor="Color.Primary" AdornmentIcon="@Icons.Material.Filled.Title" Margin="Margin.Dense" Label="Event Title" Variant="Variant.Outlined"></MudField>
+                <MudStack Spacing="0">
+                    <MudField Adornment="Adornment.Start" HelperText="This is an auto generated field" AdornmentColor="Color.Primary" AdornmentIcon="@Icons.Material.Filled.Title" Margin="Margin.Dense" Label="Event Title" Variant="Variant.Outlined">@eventTitle</MudField>
+                </MudStack>
+
                 <MudDivider />
-                <MudPaper Outlined Class="pa-3">
+
+                <MudStack Row AlignItems="AlignItems.Center" Style="width: 100%">
+                    <MudIcon Icon="@Icons.Material.Filled.Clear" Color="Color.Primary"></MudIcon>
+                    <MudStack Style="width: 100%" Spacing="0">
+                        <!-- Team A Selection -->
+                        <MudSelect T="rt_RegionalTeamsDTO" Style="width: 100%" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   Label="Team A" @bind-Value="selectedTeamA" SelectedValuesChanged="OnTeamChanged">
+                            <MudVirtualize Items="availableTeamsA" Context="regionalTeam">
+                                <MudSelectItem T="rt_RegionalTeamsDTO" Value="@regionalTeam">
+                                    @regionalTeam.RegionalTeamName (@regionalTeam.RegionalTeamNameAbbreviation)
+                                </MudSelectItem>
+                            </MudVirtualize>
+                        </MudSelect>
+
+                        <!-- Team B Selection -->
+                        <MudSelect T="rt_RegionalTeamsDTO" FullWidth="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   Label="Team B" @bind-Value="selectedTeamB" SelectedValuesChanged="OnTeamChanged">
+                            <MudVirtualize Items="availableTeamsB" Context="regionalTeam">
+                                <MudSelectItem T="rt_RegionalTeamsDTO" Value="@regionalTeam">
+                                    @regionalTeam.RegionalTeamName (@regionalTeam.RegionalTeamNameAbbreviation)
+                                </MudSelectItem>
+                            </MudVirtualize>
+                        </MudSelect>
+                    </MudStack>
+                </MudStack>
+
+                <MudDivider />
+
+                <MudStack Spacing="0">
                     <!-- Category Select -->
                     <MudStack Row AlignItems="AlignItems.Center">
                         <MudIcon Icon="@Icons.Material.Filled.Category" Color="Color.Primary"></MudIcon>
@@ -25,7 +57,7 @@
                             @if (categories != null)
                             {
                                 <MudVirtualize Items="categories" Context="category">
-                                    <MudSelectItem T="string" Value="@category.category">@category.category</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@category.Category">@category.Category</MudSelectItem>
                                 </MudVirtualize>
                             }
                         </MudSelect>
@@ -38,7 +70,7 @@
                             @if (levels != null)
                             {
                                 <MudVirtualize Items="levels" Context="level">
-                                    <MudSelectItem T="string" Value="@level.level">@level.level</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@level.Level">@level.Level</MudSelectItem>
                                 </MudVirtualize>
                             }
                         </MudSelect>
@@ -51,7 +83,7 @@
                             @if (sports != null)
                             {
                                 <MudVirtualize Items="sports" Context="sport">
-                                    <MudSelectItem T="string" Value="@sport.sport">@sport.sport</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@sport.Sport">@sport.Sport</MudSelectItem>
                                 </MudVirtualize>
                             }
                         </MudSelect>
@@ -64,7 +96,7 @@
                             @if (genders != null)
                             {
                                 <MudVirtualize Items="genders" Context="gender">
-                                    <MudSelectItem T="string" Value="@gender.gender_category">@gender.gender_category</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@gender.GenderCategory">@gender.GenderCategory</MudSelectItem>
                                 </MudVirtualize>
                             }
                         </MudSelect>
@@ -73,36 +105,11 @@
                     <!-- SubCategory Select -->
                     <MudStack Row AlignItems="AlignItems.Center">
                         <MudIcon Icon="@Icons.Material.Filled.Sports" Color="Color.Primary"></MudIcon>
-                        <MudSelect Disabled="enableSubCategory" T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Sport SubCategory" @bind-Value="selectedSubCategory" SelectedValuesChanged="GetVenues">
+                        <MudSelect Disabled="enableSubCategory" T="s_SubCategoriesDTO" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Sub Category" @bind-Value="selectedSubCategory" SelectedValuesChanged="GetVenues">
                             @if (subCategories != null)
                             {
                                 <MudVirtualize Items="subCategories" Context="subCategory">
-                                    <MudSelectItem T="string" Value="@subCategory.sub_category">@subCategory.sub_category</MudSelectItem>
-                                </MudVirtualize>
-                            }
-                        </MudSelect>
-                    </MudStack>
-
-                    <!-- Teams -->
-                    <MudStack Row AlignItems="AlignItems.Center">
-                        <MudIcon Icon="@Icons.Material.Filled.PeopleAlt" Color="Color.Primary"></MudIcon>
-                        <MudSelect Disabled="enableSubCategory" T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Team A" @bind-Value="selectedSubCategory" SelectedValuesChanged="GetVenues">
-                            @if (subCategories != null)
-                            {
-                                <MudVirtualize Items="subCategories" Context="subCategory">
-                                    <MudSelectItem T="string" Value="@subCategory.sub_category">@subCategory.sub_category</MudSelectItem>
-                                </MudVirtualize>
-                            }
-                        </MudSelect>
-                        <MudStack AlignItems="AlignItems.Center" Spacing="0">
-                            <MudIcon Icon="@Icons.Material.Filled.Clear" Color="Color.Primary"></MudIcon>
-                            <MudText Typo="Typo.caption">Versus</MudText>
-                        </MudStack>
-                        <MudSelect Disabled="enableSubCategory" T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Team B" @bind-Value="selectedSubCategory" SelectedValuesChanged="GetVenues">
-                            @if (subCategories != null)
-                            {
-                                <MudVirtualize Items="subCategories" Context="subCategory">
-                                    <MudSelectItem T="string" Value="@subCategory.sub_category">@subCategory.sub_category</MudSelectItem>
+                                    <MudSelectItem T="s_SubCategoriesDTO" Value="@subCategory">@subCategory.SubCategory</MudSelectItem>
                                 </MudVirtualize>
                             }
                         </MudSelect>
@@ -111,34 +118,53 @@
                     <!-- Venue Select -->
                     <MudStack Row AlignItems="AlignItems.Center">
                         <MudIcon Icon="@Icons.Material.Filled.HomeWork" Color="Color.Primary"></MudIcon>
-                        <MudSelect Disabled="enableVenue" T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Venue" SelectedValuesChanged="EnableDate">
-                            @if (Venues != null)
+                        <MudSelect Disabled="enableVenue" T="v_VenuesDTO" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Venue" @bind-Value="selectedVenue" SelectedValuesChanged="EnableDate">
+                            @if (venues != null)
                             {
-                                <MudVirtualize Items="Venues" Context="venue">
-                                    <MudSelectItem T="string" Value="@venue.location">@venue.location</MudSelectItem>
+                                <MudVirtualize Items="venues" Context="venue">
+                                    <MudSelectItem T="v_VenuesDTO" Value="@venue">@venue.Venue</MudSelectItem>
                                 </MudVirtualize>
                             }
                         </MudSelect>
                     </MudStack>
 
+                    <!-- Date Time -->
                     <MudStack Row>
-                        <MudDatePicker Disabled="enableDate" Adornment="Adornment.Start" AdornmentColor="Color.Primary" Margin="Margin.Dense" Label="Date" DateChanged="EnableTime" Variant="Variant.Outlined"></MudDatePicker>
-                        <MudTimePicker Disabled="enableTime" Adornment="Adornment.Start" AdornmentColor="Color.Primary" Margin="Margin.Dense" Label="Time" TimeChanged="EnableStreamCheck" Variant="Variant.Outlined" AmPm></MudTimePicker>
+                        <MudDatePicker @bind-Date="selectedDate"
+                                       Disabled="@enableDate"
+                                       Adornment="Adornment.Start"
+                                       AdornmentColor="Color.Primary"
+                                       Margin="Margin.Dense"
+                                       Label="Date"
+                                       PickerClosed="EnableTime"
+                                       Variant="Variant.Outlined"
+                                       DateFormat="yyyy-MM-dd" />
+
+                        <MudTimePicker @bind-Time="selectedTime" 
+                                       Disabled="enableTime"
+                                       Adornment="Adornment.Start"
+                                       AdornmentColor="Color.Primary"
+                                       Margin="Margin.Dense"
+                                       Label="Time"
+                                       PickerClosed="EnableStreamCheck"
+                                       Variant="Variant.Outlined"
+                                       AmPm />
                     </MudStack>
 
                     <!-- Stream Checkbox and URL Field -->
                     <MudStack Row AlignItems="AlignItems.Center">
-                        <MudCheckBox Value="checkChange" Disabled="enableStreamCheck" T="bool" Label="On Stream" @bind-Checked="enableOnStream" ValueChanged="ToggleStream" Size="Size.Small"></MudCheckBox>
-                        <MudTextField Disabled="enableOnStream" Adornment="Adornment.Start" AdornmentColor="Color.Primary" Margin="Margin.Dense" AdornmentIcon="@Icons.Material.Filled.Link" T="string" Label="Stream URL" Variant="Variant.Outlined"></MudTextField>
+                        <MudCheckBox Value="hasStreamURL" Disabled="enableStreamCheck" T="bool" Label="On Stream" @bind-Checked="enableOnStream" ValueChanged="ToggleStream" Size="Size.Small"></MudCheckBox>
+                        <MudTextField Disabled="enableOnStream" Adornment="Adornment.Start" AdornmentColor="Color.Primary" Margin="Margin.Dense" AdornmentIcon="@Icons.Material.Filled.Link" T="string" @bind-Value="streamURL" Label="Stream URL" Variant="Variant.Outlined"></MudTextField>
                     </MudStack>
-                </MudPaper>
+                </MudStack>
 
                 <MudDivider />
+
                 <MudStack Row Justify="Justify.FlexEnd">
                     <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Clear" Variant="Variant.Outlined" Color="Color.Error" @onclick="ClearFields">
                         <MudText Typo="Typo.body2" Color="Color.Tertiary">Clear Fields</MudText>
                     </MudButton>
-                    <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.AddBox" Variant="Variant.Outlined" Color="Color.Primary" @onclick="AddEvent">
+                    <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.AddBox" Variant="Variant.Outlined" Color="Color.Primary" OnClick="AddEvent">
                         <MudText Typo="Typo.body2" Color="Color.Tertiary">Add Event</MudText>
                     </MudButton>
                 </MudStack>
@@ -148,20 +174,32 @@
 </MudGrid>
 
 @code {
-    private readonly string API_URL = APIService.palaro_2026_API;
+    private readonly string API_URL = APIService.Palaro2026API;
     private List<s_CategoriesDTO>? categories;
     private List<s_LevelsDTO>? levels;
     private List<s_SportsDTO>? sports;
     private List<s_GendersDTO>? genders;
     private List<s_SubCategoriesDTO>? subCategories;
-    private List<v_VenusDTO>? Venues;
+    private List<v_VenuesDTO>? venues;
+    private List<rt_RegionalTeamsDTO>? regionalTeams;
+
+    private rt_RegionalTeamsDTO? selectedTeamA;
+    private rt_RegionalTeamsDTO? selectedTeamB;
+    // Filtered lists for available teams
+    private List<rt_RegionalTeamsDTO> availableTeamsA;
+    private List<rt_RegionalTeamsDTO> availableTeamsB;
 
     private string? selectedCategory;
     private string? selectedLevel;
     private string? selectedSport;
     private string? selectedGender;
-    private string? selectedSubCategory;
-    private string? selectedVenue;
+    private s_SubCategoriesDTO? selectedSubCategory;
+    private v_VenuesDTO? selectedVenue;
+    private string? eventTitle;
+    private DateTime? selectedDate;
+    private TimeSpan? selectedTime;
+    private bool hasStreamURL = false;
+    private string? streamURL;
 
     private bool enableLevel = true;
     private bool enableSport = true;
@@ -173,49 +211,167 @@
     private bool enableStreamCheck = true;
     private bool enableOnStream = true;
 
-    private bool checkChange = false;
-
     private void ToggleCheck()
     {
-        checkChange = !checkChange;
+        hasStreamURL = !hasStreamURL;
     }
 
-    public class v_VenusDTO
+    // Handle team selection change
+    private void OnTeamChanged()
     {
-        public string? location { get; set; }
-        public decimal? latitude { get; set; }
-        public decimal? longitude { get; set; }
+        UpdateTeamA();
+        UpdateTeamB();
+        eventTitleUpdate();
+        StateHasChanged(); // Refresh the UI
+    }
+
+    // Logic to update available teams for Team A based on Team B's selection
+    private void UpdateTeamA()
+    {
+        if (selectedTeamB != null)
+        {
+            // Remove selectedTeamB from the list of available teams for Team A
+            availableTeamsA = regionalTeams.Where(team => team.ID != selectedTeamB.ID).ToList();
+        }
+        else
+        {
+            // Reset the available teams for Team A if Team B is deselected
+            availableTeamsA = new List<rt_RegionalTeamsDTO>(regionalTeams);
+        }
+    }
+
+    // Logic to update available teams for Team B based on Team A's selection
+    private void UpdateTeamB()
+    {
+        if (selectedTeamA != null)
+        {
+            // Remove selectedTeamA from the list of available teams for Team B
+            availableTeamsB = regionalTeams.Where(team => team.ID != selectedTeamA.ID).ToList();
+        }
+        else
+        {
+            // Reset the available teams for Team B if Team A is deselected
+            availableTeamsB = new List<rt_RegionalTeamsDTO>(regionalTeams);
+        }
+    }
+
+    private void eventTitleUpdate()
+    {
+        // Generate eventTitle, handling potential nulls and empty strings
+        var titleParts = new List<string>();
+
+        if (!string.IsNullOrEmpty(selectedCategory))
+            titleParts.Add(selectedCategory);
+
+        if (!string.IsNullOrEmpty(selectedLevel))
+            titleParts.Add(selectedLevel);
+
+        if (!string.IsNullOrEmpty(selectedSport))
+            titleParts.Add(selectedSport);
+
+        if (!string.IsNullOrEmpty(selectedGender))
+            titleParts.Add(selectedGender);
+
+        if (selectedSubCategory != null)
+            titleParts.Add(selectedSubCategory.SubCategory);
+
+        if (selectedVenue != null)
+            titleParts.Add(selectedVenue.Venue);
+
+        // Add team info only if both teams have valid names
+        if (selectedTeamA != null && selectedTeamB != null)
+            titleParts.Add($"[{selectedTeamA.RegionalTeamNameAbbreviation} vs {selectedTeamB.RegionalTeamNameAbbreviation}]");
+
+        // Join the non-empty parts with " | " separator
+        eventTitle = string.Join(" | ", titleParts);
+    }
+
+    public class VenuesDTO
+    {
+        public int ID { get; set; }
+        public string? Venue { get; set; }
+        public decimal? Latitude { get; set; }
+        public decimal? Longitude { get; set; }
+    }
+
+    public class rt_RegionalTeamsDTO
+    {
+        public int? ID { get; set; }
+        public string? RegionalTeamName { get; set; }
+        public string? RegionalTeamNameAbbreviation { get; set; }
     }
 
     public class s_CategoriesDTO
     {
-        public string? category { get; set; }
+        public int? ID { get; set; }
+        public string? Category { get; set; }
     }
 
     public class s_LevelsDTO
     {
-        public string? level { get; set; }
+        public int? ID { get; set; }
+        public string? Level { get; set; }
     }
 
     public class s_SportsDTO
     {
-        public string? sport { get; set; }
-        public string? description { get; set; }
+        public int? ID { get; set; }
+        public string? Sport { get; set; }
+        public string? Description { get; set; }
     }
 
     public class s_GendersDTO
     {
-        public string? gender_category { get; set; }
+        public int? ID { get; set; }
+        public string? GenderCategory { get; set; }
     }
 
     public class s_SubCategoriesDTO
     {
-        public string? sub_category { get; set; }
+        public int ID { get; set; }
+        public string? SubCategory { get; set; }
+    }
+
+    public partial class v_VenuesDTO
+    {
+        public int ID { get; set; }
+        public string? Venue { get; set; }
+        public decimal? Latitude { get; set; }
+        public decimal? Longitude { get; set; }
+    }
+
+    public class EventDTO
+    {
+        public int? RegionalTeamAID { get; set; }
+        public int? TeamAFinalScore { get; set; }
+        public int? RegionalTeamBID { get; set; }
+        public int? TeamBFinalScore { get; set; }
+        public int? SportSubCategoryID { get; set; }
+        public int? VenueID { get; set; }
+        public string? EventTitle { get; set; }
+        public DateTime? Date { get; set; }
+        public TimeSpan? Time { get; set; }
+        public bool? OnStream { get; set; }
+        public string? StreamURL { get; set; }
+        public bool IsFinished { get; set; }
+        public int? LoserID { get; set; }
+        public int? WinnerID { get; set; }
+        public string? Attachment { get; set; }
+        public bool? Archived { get; set; }
+        public bool? Deleted { get; set; }
     }
 
     protected override async Task OnInitializedAsync()
     {
+        await GetRegionalTeams();
         await GetCategories();
+        EnableElementFlag();
+        availableTeamsA = new List<rt_RegionalTeamsDTO>(regionalTeams);
+        availableTeamsB = new List<rt_RegionalTeamsDTO>(regionalTeams);
+    }
+
+    private void EnableElementFlag()
+    {
         enableLevel = true;
         enableSport = true;
         enableGender = true;
@@ -235,12 +391,19 @@
 
     private void ClearFields()
     {
+        selectedTeamA = null;
+        selectedTeamB = null;
+        eventTitle = null;
         selectedCategory = null;
         selectedLevel = null;
         selectedSport = null;
         selectedGender = null;
         selectedSubCategory = null;
+        selectedVenue = null;
+        selectedDate = null;
+        selectedTime = null;
         enableOnStream = true;
+        streamURL = null;
 
         enableLevel = true;
         enableSport = true;
@@ -251,7 +414,7 @@
         enableTime = true;
         enableStreamCheck = true;
 
-        checkChange = false;
+        hasStreamURL = false;
 
         StateHasChanged();
     }
@@ -268,6 +431,28 @@
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             categories = await JsonSerializer.DeserializeAsync<List<s_CategoriesDTO>>(responseStream, options);
 
+            eventTitleUpdate();
+            StateHasChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.Write($"Error fetching categories: {ex.Message}");
+        }
+    }
+
+    private async Task GetRegionalTeams()
+    {
+        try
+        {
+            using HttpClient httpClient = new HttpClient();
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/RegionalTeams/Teams");
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            regionalTeams = await JsonSerializer.DeserializeAsync<List<rt_RegionalTeamsDTO>>(responseStream, options);
+
+            eventTitleUpdate();
             StateHasChanged();
         }
         catch (HttpRequestException ex)
@@ -289,6 +474,7 @@
             levels = await JsonSerializer.DeserializeAsync<List<s_LevelsDTO>>(responseStream, options);
 
             enableLevel = false;
+            eventTitleUpdate();
             StateHasChanged();
         }
         catch (HttpRequestException ex)
@@ -310,6 +496,7 @@
             sports = await JsonSerializer.DeserializeAsync<List<s_SportsDTO>>(responseStream, options);
 
             enableSport = false;
+            eventTitleUpdate();
             StateHasChanged();
         }
         catch (HttpRequestException ex)
@@ -331,6 +518,7 @@
             genders = await JsonSerializer.DeserializeAsync<List<s_GendersDTO>>(responseStream, options);
 
             enableGender = false;
+            eventTitleUpdate();
             StateHasChanged();
         }
         catch (HttpRequestException ex)
@@ -352,6 +540,7 @@
             subCategories = await JsonSerializer.DeserializeAsync<List<s_SubCategoriesDTO>>(responseStream, options);
 
             enableSubCategory = false;
+            eventTitleUpdate();
             StateHasChanged();
         }
         catch (HttpRequestException ex)
@@ -370,9 +559,10 @@
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            Venues = await JsonSerializer.DeserializeAsync<List<v_VenusDTO>>(responseStream, options);
+            venues = await JsonSerializer.DeserializeAsync<List<v_VenuesDTO>>(responseStream, options);
 
             enableVenue = false;
+            eventTitleUpdate();
             StateHasChanged();
         }
         catch (HttpRequestException ex)
@@ -385,6 +575,9 @@
     private void EnableDate()
     {
         enableDate = false;
+        eventTitleUpdate();
+
+        StateHasChanged();
     }
 
     private void EnableTime()
@@ -397,8 +590,72 @@
         enableStreamCheck = false;
     }
 
-    private void AddEvent()
+    private static readonly HttpClient httpClient = new HttpClient();
+
+    private async Task AddEvent()
     {
-        // Implement event addition logic here
+        // Check for null or empty fields
+        if (selectedTeamA == null || selectedTeamB == null || selectedVenue == null || selectedSubCategory == null ||
+            string.IsNullOrEmpty(eventTitle) || selectedDate == null || selectedTime == null)
+        {
+            Console.WriteLine("Please fill in all required fields.");
+            return;
+        }
+
+        // Create a new event object
+        EventDTO newEvent = new EventDTO
+            {
+                RegionalTeamAID = selectedTeamA.ID,
+                RegionalTeamBID = selectedTeamB.ID,
+                SportSubCategoryID = selectedSubCategory.ID,
+                VenueID = selectedVenue.ID,
+                EventTitle = eventTitle,
+                Date = selectedDate,
+                Time = selectedTime,
+                OnStream = enableOnStream,
+                StreamURL = enableOnStream ? streamURL : null,
+                IsFinished = false,
+                LoserID = null,
+                WinnerID = null,
+                Archived = false,
+                Deleted = false,
+                Attachment = null,
+            };
+
+        try
+        {
+            // Serialize the newEvent object to JSON
+            string jsonContent = JsonSerializer.Serialize(newEvent);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            // Send the POST request
+            HttpResponseMessage response = await httpClient.PostAsync($"{API_URL}/Events/AddEvent", content);
+            response.EnsureSuccessStatusCode();
+
+            /*
+            // Optionally read the response content
+            var responseBody = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Response from server: {responseBody}");
+            */
+
+            await GetCategories();
+
+            Console.WriteLine("Event added successfully.");
+            // Clear fields and reset state
+            ClearFields();
+            Snackbar.Add($"Successfully Added Event", Severity.Success);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error adding event: {ex.Message}");
+        }
+        catch (JsonException jsonEx)
+        {
+            Console.WriteLine($"Error serializing or deserializing event data: {jsonEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Unexpected error: {ex.Message}");
+        }
     }
 }

@@ -7,7 +7,7 @@ namespace Server.Palaro2026.Entities;
 
 public partial class Events
 {
-    public string ID { get; set; } = null!;
+    public int ID { get; set; }
 
     public int? RegionalTeamAID { get; set; }
 
@@ -23,7 +23,9 @@ public partial class Events
 
     public string? EventTitle { get; set; }
 
-    public DateTime? Schedule { get; set; }
+    public DateTime? Date { get; set; }
+
+    public TimeSpan? Time { get; set; }
 
     public bool? OnStream { get; set; }
 
@@ -37,15 +39,19 @@ public partial class Events
 
     public byte[]? Attachement { get; set; }
 
-    public string? Archived { get; set; }
+    public bool? Archived { get; set; }
 
-    public string? Deleted { get; set; }
+    public bool? Deleted { get; set; }
+
+    public virtual RegionalTeams? Loser { get; set; }
 
     public virtual RegionalTeams? RegionalTeamA { get; set; }
 
     public virtual RegionalTeams? RegionalTeamB { get; set; }
 
     public virtual SportSubCategories? SportSubCategory { get; set; }
+
+    public virtual RegionalTeams? Winner { get; set; }
 
     public virtual Venues? venue { get; set; }
 }

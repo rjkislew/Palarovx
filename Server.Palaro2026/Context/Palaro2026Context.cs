@@ -7,9 +7,9 @@ using Server.Palaro2026.Entities;
 
 namespace Server.Palaro2026.Context;
 
-public partial class palaro_2026Context : DbContext
+public partial class Palaro2026Context : DbContext
 {
-    public palaro_2026Context(DbContextOptions<palaro_2026Context> options)
+    public Palaro2026Context(DbContextOptions<Palaro2026Context> options)
         : base(options)
     {
     }
@@ -74,7 +74,7 @@ public partial class palaro_2026Context : DbContext
 
         modelBuilder.Entity<Divisions>(entity =>
         {
-            entity.HasKey(e => e.ID).HasName("PK__division__3213E83F3FCEF1AC");
+            entity.HasKey(e => e.ID).HasName("PK__Division__3214EC27AA22701B");
 
             entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.DivisionName)
@@ -83,27 +83,20 @@ public partial class palaro_2026Context : DbContext
 
             entity.HasOne(d => d.Region).WithMany(p => p.Divisions)
                 .HasForeignKey(d => d.RegionID)
-                .HasConstraintName("FK__divisions__regio__59FA5E80");
+                .HasConstraintName("FK__Divisions__Regio__5535A963");
         });
 
         modelBuilder.Entity<Events>(entity =>
         {
             entity.HasKey(e => e.ID).HasName("PK__events__3213E83F7F467A0E");
 
-            entity.Property(e => e.ID)
-                .HasMaxLength(50)
-                .IsUnicode(false);
-            entity.Property(e => e.Archived)
-                .HasMaxLength(10)
-                .IsFixedLength();
-            entity.Property(e => e.Deleted)
-                .HasMaxLength(10)
-                .IsFixedLength();
-            entity.Property(e => e.EventTitle)
-                .HasMaxLength(100)
-                .IsUnicode(false);
-            entity.Property(e => e.Schedule).HasColumnType("datetime");
+            entity.Property(e => e.Date).HasColumnType("datetime");
+            entity.Property(e => e.EventTitle).IsUnicode(false);
             entity.Property(e => e.StreamURL).IsUnicode(false);
+
+            entity.HasOne(d => d.Loser).WithMany(p => p.EventsLoser)
+                .HasForeignKey(d => d.LoserID)
+                .HasConstraintName("FK_Events_RegionalTeams");
 
             entity.HasOne(d => d.RegionalTeamA).WithMany(p => p.EventsRegionalTeamA)
                 .HasForeignKey(d => d.RegionalTeamAID)
@@ -117,6 +110,10 @@ public partial class palaro_2026Context : DbContext
                 .HasForeignKey(d => d.SportSubCategoryID)
                 .HasConstraintName("FK_events_sport_sub_categories");
 
+            entity.HasOne(d => d.Winner).WithMany(p => p.EventsWinner)
+                .HasForeignKey(d => d.WinnerID)
+                .HasConstraintName("FK_Events_RegionalTeams1");
+
             entity.HasOne(d => d.venue).WithMany(p => p.Events)
                 .HasForeignKey(d => d.venueID)
                 .HasConstraintName("FK__events__venue_id__571DF1D5");
@@ -124,7 +121,7 @@ public partial class palaro_2026Context : DbContext
 
         modelBuilder.Entity<GenderCategories>(entity =>
         {
-            entity.HasKey(e => e.ID).HasName("PK__gender_c__3213E83F044E3BF6");
+            entity.HasKey(e => e.ID).HasName("PK__GenderCa__3214EC273BE4306C");
 
             entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.GenderCategory)
@@ -134,7 +131,7 @@ public partial class palaro_2026Context : DbContext
 
         modelBuilder.Entity<Levels>(entity =>
         {
-            entity.HasKey(e => e.ID).HasName("PK__levels__3213E83FCB3B3A16");
+            entity.HasKey(e => e.ID).HasName("PK__Levels__3214EC27EAD37397");
 
             entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.Level)
@@ -144,7 +141,7 @@ public partial class palaro_2026Context : DbContext
 
         modelBuilder.Entity<News>(entity =>
         {
-            entity.HasKey(e => e.ID).HasName("PK__news__3213E83FEF2B1E99");
+            entity.HasKey(e => e.ID).HasName("PK__News__3214EC27B5C04219");
 
             entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.FacebookLink).IsUnicode(false);
@@ -152,7 +149,7 @@ public partial class palaro_2026Context : DbContext
 
         modelBuilder.Entity<PlayerProfiles>(entity =>
         {
-            entity.HasKey(e => e.ID).HasName("PK__player_p__3213E83FFF10F18F");
+            entity.HasKey(e => e.ID).HasName("PK__PlayerPr__3214EC2796F36333");
 
             entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.FirstName)
@@ -164,7 +161,7 @@ public partial class palaro_2026Context : DbContext
 
             entity.HasOne(d => d.School).WithMany(p => p.PlayerProfiles)
                 .HasForeignKey(d => d.SchoolID)
-                .HasConstraintName("FK__player_pr__schoo__5BE2A6F2");
+                .HasConstraintName("FK__PlayerPro__Schoo__59FA5E80");
 
             entity.HasOne(d => d.SportSubCategory).WithMany(p => p.PlayerProfiles)
                 .HasForeignKey(d => d.SportSubCategoryID)
@@ -173,7 +170,7 @@ public partial class palaro_2026Context : DbContext
 
         modelBuilder.Entity<RegionalTeams>(entity =>
         {
-            entity.HasKey(e => e.ID).HasName("PK__regional__3213E83F4A476762");
+            entity.HasKey(e => e.ID).HasName("PK__Regional__3214EC27FFF642E1");
 
             entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.RegionalTeamName)
@@ -197,7 +194,7 @@ public partial class palaro_2026Context : DbContext
 
         modelBuilder.Entity<Schools>(entity =>
         {
-            entity.HasKey(e => e.ID).HasName("PK__schools__3213E83F5F3D2A93");
+            entity.HasKey(e => e.ID).HasName("PK__Schools__3214EC27215C1750");
 
             entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.SchoolName)
@@ -206,14 +203,12 @@ public partial class palaro_2026Context : DbContext
 
             entity.HasOne(d => d.Division).WithMany(p => p.Schools)
                 .HasForeignKey(d => d.DivisionID)
-                .HasConstraintName("FK__schools__divisio__5AEE82B9");
+                .HasConstraintName("FK__Schools__Divisio__5BE2A6F2");
         });
 
         modelBuilder.Entity<SportCategories>(entity =>
         {
-            entity.HasKey(e => e.ID).HasName("PK__sports_c__3213E83FDDC09313");
-
-            entity.HasIndex(e => e.Category, "sports_categories_index");
+            entity.HasKey(e => e.ID).HasName("PK__SportCat__3214EC274517CC87");
 
             entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.Category)
@@ -224,8 +219,6 @@ public partial class palaro_2026Context : DbContext
         modelBuilder.Entity<SportSubCategories>(entity =>
         {
             entity.HasKey(e => e.ID).HasName("PK__sport_su__3213E83F92479A7A");
-
-            entity.HasIndex(e => e.SubCategory, "sport_sub_categories_index");
 
             entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.SubCategory)
@@ -262,7 +255,7 @@ public partial class palaro_2026Context : DbContext
 
         modelBuilder.Entity<TeamCoach>(entity =>
         {
-            entity.HasKey(e => e.ID).HasName("PK__team_coa__3213E83F00EBED6A");
+            entity.HasKey(e => e.ID).HasName("PK__TeamCoac__3214EC27C880573E");
 
             entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.FirstName)
@@ -274,7 +267,7 @@ public partial class palaro_2026Context : DbContext
 
             entity.HasOne(d => d.Region).WithMany(p => p.TeamCoach)
                 .HasForeignKey(d => d.RegionID)
-                .HasConstraintName("FK__team_coac__regio__5812160E");
+                .HasConstraintName("FK__TeamCoach__Regio__60A75C0F");
 
             entity.HasOne(d => d.SportSubCategory).WithMany(p => p.TeamCoach)
                 .HasForeignKey(d => d.SportSubCategoryID)
@@ -304,14 +297,14 @@ public partial class palaro_2026Context : DbContext
 
         modelBuilder.Entity<Venues>(entity =>
         {
-            entity.HasKey(e => e.ID).HasName("PK__venues__3213E83FBE8947FD");
+            entity.HasKey(e => e.ID).HasName("PK__Venues__3214EC2738289954");
 
             entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.Latitude).HasColumnType("decimal(8, 6)");
-            entity.Property(e => e.Location)
+            entity.Property(e => e.Longitude).HasColumnType("decimal(9, 6)");
+            entity.Property(e => e.Venue)
                 .HasMaxLength(100)
                 .IsUnicode(false);
-            entity.Property(e => e.Longitude).HasColumnType("decimal(9, 6)");
         });
 
         OnModelCreatingPartial(modelBuilder);

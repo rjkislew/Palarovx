@@ -9,7 +9,7 @@ public partial class Venues
 {
     public int ID { get; set; }
 
-    public string? Location { get; set; }
+    public string? Venue { get; set; }
 
     public decimal? Latitude { get; set; }
 

@@ -8,21 +8,18 @@ namespace Server.Palaro2026.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class VenuesController : ControllerBase
+    public class VenuesController(Palaro2026Context context) : ControllerBase
     {
-        private readonly palaro_2026Context _context;
+        private readonly Palaro2026Context _context = context;
 
-        public VenuesController(palaro_2026Context context)
-        {
-            _context = context;
-        }
         [HttpGet("Venues")]
-        public async Task<ActionResult<IEnumerable<VenuesDTO>>> GetVenuesView()
+        public async Task<ActionResult<IEnumerable<VenuesDTO.v_VenuesDTO>>> GetVenuesView()
         {
             var venuesData = await _context.Venues
-                .Select(v => new VenuesDTO.v_VenusDTO
+                .Select(v => new VenuesDTO.v_VenuesDTO
                 {
-                    Location = v.Location,
+                    ID = v.ID,
+                    Venue = v.Venue,
                     Latitude = v.Latitude,
                     Longitude = v.Longitude
                 }).ToListAsync();
@@ -56,7 +53,7 @@ namespace Server.Palaro2026.Controller
             _context.Venues.Add(venue);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetVenue), new { ID = venue.ID }, venue);
+            return CreatedAtAction(nameof(GetVenue), new { venue.ID }, venue);
         }
 
         [HttpPut("UpdateVenue/{ID}")]
