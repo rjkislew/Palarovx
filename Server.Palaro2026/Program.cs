@@ -52,9 +52,10 @@ app.UseCors("AllowAll");
 
 // Enable Swagger for all environments
 app.UseSwagger();
-app.UseSwaggerUI(c =>
+app.UseSwaggerUI(options =>
 {
-    c.SwaggerEndpoint("v1/swagger.json", "Palaro 2026 API v1");
+    options.SwaggerEndpoint("v1/swagger.json", "Palaro 2026 API v1");
+    options.DefaultModelsExpandDepth(-1);
 });
 
 app.UseHttpsRedirection();

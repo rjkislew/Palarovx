@@ -12,87 +12,97 @@ namespace Server.Palaro2026.Controller
     {
         private readonly Palaro2026Context _context = context;
 
-        [HttpGet("Venues")]
-        public async Task<ActionResult<IEnumerable<VenuesDTO.v_VenuesDTO>>> GetVenuesView()
+
+        /// 
+        /// 
+        /// VENUES
+        /// 
+        /// 
+
+        // Create
+        [HttpPost("Venue")]
+        public async Task<ActionResult<VenuesDTO.Venues.VenuesContents>> CreateSport([FromBody] VenuesDTO.Venues.VenuesContents venuesContent)
         {
-            var venuesData = await _context.Venues
-                .Select(v => new VenuesDTO.v_VenuesDTO
+            try
+            {
+                var venues = new Venues
                 {
-                    ID = v.ID,
-                    Venue = v.Venue,
-                    Latitude = v.Latitude,
-                    Longitude = v.Longitude
-                }).ToListAsync();
+                    ID = venuesContent.ID,
+                    Venue = venuesContent.Venue,
+                    Latitude = venuesContent.Latitude,
+                    Longitude = venuesContent.Longitude,
+                };
 
-            return Ok(venuesData);
-        }
+                _context.Venues.Add(venues);
+                await _context.SaveChangesAsync();
 
-        [HttpGet("GetVenues")]
-        public async Task<ActionResult<IEnumerable<Venues>>> GetVenues()
-        {
-            var venuesList = await _context.Venues.AsNoTracking().ToListAsync();
-            return Ok(venuesList);
-        }
-
-        [HttpGet("GetVenue/{ID}")]
-        public async Task<ActionResult<Venues>> GetVenue(int ID)
-        {
-            var venue = await _context.Venues.FindAsync(ID);
-
-            if (venue == null)
-            {
-                return NotFound();
+                return CreatedAtAction(nameof(GetVenues), new { id = venues.ID }, venuesContent);
             }
-
-            return Ok(venue);
-        }
-
-        [HttpPost("CreateVenue")]
-        public async Task<ActionResult<Venues>> CreateVenue(Venues venue)
-        {
-            _context.Venues.Add(venue);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetVenue), new { venue.ID }, venue);
-        }
-
-        [HttpPut("UpdateVenue/{ID}")]
-        public async Task<IActionResult> UpdateVenue(int ID, Venues venue)
-        {
-            if (ID != venue.ID)
+            catch (Exception ex)
             {
-                return BadRequest();
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
             }
+        }
 
-            _context.Entry(venue).State = EntityState.Modified;
+        // Read
+        [HttpGet("Venue")]
+        public async Task<ActionResult<IEnumerable<VenuesDTO.Venues.VenuesContents>>> GetVenues()
+        {
+            try
+            {
+                var venues = await _context.Venues.AsNoTracking().ToListAsync();
+                return Ok(venues);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // Update
+        [HttpPut("Venue/{id}")]
+        public async Task<IActionResult> UpdateVenue(int id, VenuesDTO.Venues.VenuesContents venuesContent)
+        {
+            if (id != venuesContent.ID)
+            {
+                return BadRequest("Event Versus ID mismatch");
+            }
 
             try
             {
+                var venues = new Venues
+                {
+                    ID = venuesContent.ID,
+                    Venue = venuesContent.Venue,
+                    Latitude = venuesContent.Latitude,
+                    Longitude = venuesContent.Longitude,
+                };
+
+                _context.Venues.Attach(venues);
+                _context.Entry(venues).State = EntityState.Modified;
+
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!_context.Venues.Any(v => v.ID == ID))
+                if (!_context.Venues.Any(e => e.ID == id))
                 {
-                    return NotFound();
+                    return NotFound($"Venue with ID {id} not found");
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
         }
 
-        [HttpDelete("DeleteVenue/{ID}")]
-        public async Task<IActionResult> DeleteVenue(int ID)
+        // Delete
+        [HttpDelete("Venue/{id}")]
+        public async Task<IActionResult> DeleteVenue(int id)
         {
-            var venue = await _context.Venues.FindAsync(ID);
-
+            var venue = await _context.Venues.FindAsync(id);
             if (venue == null)
             {
-                return NotFound();
+                return NotFound($"Venue with ID {id} not found");
             }
 
             _context.Venues.Remove(venue);
@@ -100,6 +110,5 @@ namespace Server.Palaro2026.Controller
 
             return NoContent();
         }
-
     }
 }

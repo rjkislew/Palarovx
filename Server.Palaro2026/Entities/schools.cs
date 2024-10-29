@@ -9,7 +9,7 @@ public partial class Schools
 {
     public int ID { get; set; }
 
-    public string? SchoolName { get; set; }
+    public string? School { get; set; }
 
     public int? DivisionID { get; set; }
 

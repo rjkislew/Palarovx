@@ -2,47 +2,36 @@
 @using System.Text.Json
 @inject IJSRuntime JSRuntime
 
-<MudGrid Spacing="0">
-    <MudItem xs="12" md="4" Style="z-index: 1; position: absolute">
-        <MudPaper Class="ma-3 pa-3" Elevation="0">
-            @if (venues == null || venues.Count == 0)
-            {
-                <MudProgressLinear Color="Color.Secondary" Indeterminate="true" Class="my-7" />
-            }
-            else
-            {
-                <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined"
-                           Value="newLocation" AdornmentIcon="@Icons.Material.Filled.LocationOn"
-                           ValueChanged="HandleLocationChange"
-                           AdornmentColor="Color.Secondary" FullWidth Label="Venue"
-                           AnchorOrigin="Origin.BottomCenter"
-                           OnClearButtonClick="ClearSelection"
-                           Adornment="Adornment.Start">
-                    <Virtualize Items="venues" Context="venue">
-                        <MudSelectItem T="string" Value="@venue.Venue">
-                            <MudText Typo="Typo.body2">@venue.Venue</MudText>
-                        </MudSelectItem>
-                    </Virtualize>
-                </MudSelect>
-            }
-        </MudPaper>
-    </MudItem>
-    <MudItem xs="12">
-        <MudStack id="map"
-                  Style="width: 100%; height: calc(100vh - 64px); overflow: hidden">
-        </MudStack>
-    </MudItem>
-</MudGrid>
-
+<MudContainer Gutters="false" MaxWidth="MaxWidth.False">
+    <MudPaper Class="ma-3 pa-2" Style="z-index: 1; position: absolute">
+        <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined"
+                   Value="newLocation" AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                   ValueChanged="HandleLocationChange"
+                   AdornmentColor="Color.Secondary" FullWidth Label="Venue"
+                   AnchorOrigin="Origin.BottomCenter"
+                   OnClearButtonClick="ClearSelection"
+                   Adornment="Adornment.Start">
+            <MudVirtualize Items="venueContents" Context="venue">
+                <MudSelectItem T="string" Value="@venue.Venue">
+                    <MudText Typo="Typo.body2">@venue.Venue</MudText>
+                </MudSelectItem>
+            </MudVirtualize>
+        </MudSelect>
+    </MudPaper>
+    <MudStack id="map"
+              Style="width: 100%; height: calc(100vh - 64px); overflow: hidden">
+    </MudStack>
+</MudContainer>
 @code {
     private readonly string API_URL = APIService.Palaro2026API;
     private string mapboxToken = MapBoxService.mapboxToken;
     private string? newLocation;
     private string? selectedLocation;
-    private v_VenusDTO? selectedVenue; // Changed to store the selected venue
-    private List<v_VenusDTO>? venues;
+    private VenuesContents? selectedVenue; // Changed to store the selected venue
+    private List<VenuesContents>? venueContents;
 
-    public class v_VenusDTO
+    //API/Venues/Venue
+    public class VenuesContents
     {
         public string? Venue { get; set; }
         public decimal? Latitude { get; set; }
@@ -54,12 +43,12 @@
         try
         {
             using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Venues/Venues")!;
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Venues/Venue")!;
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            venues = await JsonSerializer.DeserializeAsync<List<v_VenusDTO>>(responseStream, options);
+            venueContents = await JsonSerializer.DeserializeAsync<List<VenuesContents>>(responseStream, options);
 
             StateHasChanged();
         }
@@ -96,7 +85,7 @@
         selectedLocation = newLocation; // Optional: keep this if needed for other purposes
 
         // Find the selected venue from the Venues list
-        this.selectedVenue = venues?.FirstOrDefault(venue => venue.Venue == newLocation);
+        this.selectedVenue = venueContents?.FirstOrDefault(venue => venue.Venue == newLocation);
 
         if (this.selectedVenue != null && this.selectedVenue.Latitude.HasValue && this.selectedVenue.Longitude.HasValue)
         {
@@ -107,7 +96,7 @@
         }
         else
         {
-                Console.WriteLine("No matching venue found or invalid coordinates.");
+            Console.WriteLine("No matching venue found or invalid coordinates.");
         }
     }
 
@@ -115,7 +104,7 @@
     protected override async Task OnInitializedAsync()
     {
         await GetVenues();
-        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken, venues);
+        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken, venueContents);
     }
 }
 

@@ -9,7 +9,7 @@ public partial class GenderCategories
 {
     public int ID { get; set; }
 
-    public string? GenderCategory { get; set; }
+    public string? Gender { get; set; }
 
     public virtual ICollection<SportSubCategories> SportSubCategories { get; set; } = new List<SportSubCategories>();
 }

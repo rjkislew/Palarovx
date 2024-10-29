@@ -1,12 +1,18 @@
-﻿namespace Server.Palaro2026.DTO;
-
-public class VenuesDTO
+﻿namespace Server.Palaro2026.DTO
 {
-    public class v_VenuesDTO
+    public class VenuesDTO
     {
-        public int? ID { get; set; }
-        public string? Venue { get; set; }
-        public decimal? Latitude { get; set; }
-        public decimal? Longitude { get; set; }
+        public partial class Venues
+        {
+            public partial class VenuesContents
+            {
+                public int ID { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+
+            }
+
+        }
     }
 }

@@ -9,11 +9,11 @@ public partial class Divisions
 {
     public int ID { get; set; }
 
-    public string? DivisionName { get; set; }
+    public string? Division { get; set; }
 
     public int? RegionID { get; set; }
 
-    public virtual RegionalTeams? Region { get; set; }
+    public virtual Regions? Region { get; set; }
 
     public virtual ICollection<Schools> Schools { get; set; } = new List<Schools>();
 }

@@ -12,146 +12,157 @@ namespace Server.Palaro2026.Controller
     {
         private readonly Palaro2026Context _context = context;
 
-        [HttpGet("BilletingQuartersPerRegion")]
-        public async Task<ActionResult<IEnumerable<BilletingQuartersDTO.bq_RegionBilletingQuartersDTO>>> GetBilletingQuartersPerRegion()
+        /// 
+        /// 
+        /// VIEWS
+        /// 
+        /// 
+
+        [HttpGet("BilletingQuartersDetails")]
+        public async Task<ActionResult<IEnumerable<BilletingQuartersDTO.BilletingQuartersDetails.BQD_RegionContent>>> GetBilletingQuartersDetails()
         {
-            // Fetching data from BilletingQuarters and joining with RegionalTeams
-            var billetingQuartersData = await (from b in _context.BilletingQuarters
-                                               join r in _context.RegionalTeams on b.RegionalTeamID equals r.ID into regionalGroup
-                                               from regional in regionalGroup.DefaultIfEmpty()
-                                               select new BilletingQuartersDTO.bq_RegionBilletingQuartersDTO
-                                               {
-                                                   RegionalTeamName = regional != null ? regional.RegionalTeamName : null,
-                                                   RegionalTeamNameAbbreviation = regional != null ? regional.RegionalTeamNameAbbreviation : null,
-                                                   SchoolName = b.SchoolName,
-                                                   SchoolAddress = b.SchoolAddress,
-                                                   Latitude = b.Latitude,
-                                                   Longitude = b.Longitude,
-                                                   ContactPerson = b.ContactPerson,
-                                                   ContactPersonNumber = b.ContactPersonNumber
-                                               }).ToListAsync();
-
-            return Ok(billetingQuartersData); // Returning the data as a response
-        }
-
-
-        // GET: api/BilletingQuarters
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<BilletingQuartersDTO.bq_BilletingQuartersDTO>>> GetBilletingQuarters()
-        {
-            var billetingQuarters = await _context.BilletingQuarters.AsNoTracking().ToListAsync();
-
-            return Ok(billetingQuarters);
-        }
-
-
-        // GET: api/BilletingQuarters/5
-        [HttpGet("{ID}")]
-        public async Task<ActionResult<BilletingQuartersDTO.bq_BilletingQuartersDTO>> GetBilletingQuarters(int ID)
-        {
-            var billetingQuarter = await _context.BilletingQuarters.FindAsync(ID);
-
-            if (billetingQuarter == null)
+            try
             {
-                return NotFound();
+                // Fetch the data from the database
+                var billetingQuarters = await _context.BilletingQuartersDetails
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                // Group the sports by category
+                var groupedBilletingQuarters = billetingQuarters
+                    .GroupBy(r => new { r.Region, r.Abbreviation })
+                    .Select(region => new BilletingQuartersDTO.BilletingQuartersDetails.BQD_RegionContent
+                    {
+                        Region = region.Key.Region,
+                        Abbreviation = region.Key.Abbreviation,
+                        BilletingQuarterList = region
+                        .Select(billetingQuarters => new BilletingQuartersDTO.BilletingQuartersDetails.BQD_BilletingQuartersContent
+                        {
+                            BilletingQuarter = billetingQuarters.BilletingQuarter,
+                            Address = billetingQuarters.Address,
+                            Latitude = billetingQuarters.Latitude,
+                            Longitude = billetingQuarters.Longitude,
+                            ContactPerson = billetingQuarters.ContactPerson,
+                            ContactPersonNumber = billetingQuarters.ContactPersonNumber
+                        }).ToList()
+                    }).ToList();
+
+                return Ok(groupedBilletingQuarters);
             }
-
-            return Ok(billetingQuarter);
-        }
-
-        // POST: api/BilletingQuarters
-        [HttpPost]
-        public async Task<ActionResult<BilletingQuartersDTO.bq_BilletingQuartersDTO>> CreateBilletingQuarter(
-            [FromForm] int? RegionalTeamID,
-            [FromForm] string? SchoolName,
-            [FromForm] string? SchoolAddress,
-            [FromForm] decimal? Latitude,
-            [FromForm] decimal? Longitude,
-            [FromForm] string? ContactPerson,
-            [FromForm] string? ContactPersonNumber)
-        {
-            var billetingQuarter = new BilletingQuarters // Correctly referenced variable name
+            catch (DbUpdateException dbEx)
             {
-                RegionalTeamID = RegionalTeamID,
-                SchoolName = SchoolName,
-                SchoolAddress = SchoolAddress,
-                Latitude = Latitude,
-                Longitude = Longitude,
-                ContactPerson = ContactPerson,
-                ContactPersonNumber = ContactPersonNumber
-            };
-
-            _context.BilletingQuarters.Add(billetingQuarter);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetBilletingQuarters), new { billetingQuarter.ID }, billetingQuarter); // Corrected variable name here
-        }
-
-        // PUT: api/BilletingQuarters/5
-        [HttpPut("{ID}")]
-        public async Task<IActionResult> UpdateBilletingQuarter(int ID,
-        [FromForm] int? RegionalTeamID,
-        [FromForm] string? SchoolName,
-        [FromForm] string? SchoolAddress,
-        [FromForm] decimal? lat,
-        [FromForm] decimal? _long,
-        [FromForm] string? ContactPerson,
-        [FromForm] string? ContactPersonNumber)
-        {
-            // Retrieve the existing billeting quarter by ID
-            var billetingQuarter = await _context.BilletingQuarters.FindAsync(ID);
-
-            if (billetingQuarter == null)
-            {
-                return NotFound(); // Return 404 if the billeting quarter is not found
+                // Handle database update exceptions
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    $"Database update error: {dbEx.Message}");
             }
+            catch (Exception ex)
+            {
+                // Handle other exceptions
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    $"Internal server error: {ex.Message}");
+            }
+        }
 
-            // Update the properties of the existing entity
-            billetingQuarter.RegionalTeamID = RegionalTeamID;
-            billetingQuarter.SchoolName = SchoolName;
-            billetingQuarter.SchoolAddress = SchoolAddress;
-            billetingQuarter.Latitude = lat;
-            billetingQuarter.Longitude = _long;
-            billetingQuarter.ContactPerson = ContactPerson;
-            billetingQuarter.ContactPersonNumber = ContactPersonNumber;
 
-            // No need to set the ID since it is already the same as the existing entity
+        /// 
+        /// 
+        /// BILLETING QUARTERS
+        /// 
+        /// 
+
+        // Create
+        [HttpPost("BilletingQuarter")]
+        public async Task<ActionResult<BilletingQuartersDTO.BilletingQuarters.BilletingQuartersContent>> CreateBilletingQuartert([FromBody] BilletingQuartersDTO.BilletingQuarters.BilletingQuartersContent billetingQuartersContent)
+        {
+            try
+            {
+                var billetingQuarters = new BilletingQuarters
+                {
+                    ID = billetingQuartersContent.ID,
+                    RegionID = billetingQuartersContent.RegionID,
+                    Address = billetingQuartersContent.Address,
+                    Latitude = billetingQuartersContent.Latitude,
+                    Longitude = billetingQuartersContent.Longitude,
+                    ContactPerson = billetingQuartersContent.ContactPerson,
+                    ContactPersonNumber = billetingQuartersContent.ContactPersonNumber
+                };
+
+                _context.BilletingQuarters.Add(billetingQuarters);
+                await _context.SaveChangesAsync();
+
+                return CreatedAtAction(nameof(GetBilletingQuarters), new { id = billetingQuarters.ID }, billetingQuartersContent);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // Read
+        [HttpGet("BilletingQuarter")]
+        public async Task<ActionResult<IEnumerable<BilletingQuartersDTO.BilletingQuarters.BilletingQuartersContent>>> GetBilletingQuarters()
+        {
+            try
+            {
+                var sports = await _context.BilletingQuarters.AsNoTracking().ToListAsync();
+                return Ok(sports);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // Update
+        [HttpPut("BilletingQuarter/{id}")]
+        public async Task<IActionResult> UpdateBilletingQuarter(int id, BilletingQuartersDTO.BilletingQuarters.BilletingQuartersContent billetingQuartersContent)
+        {
+            if (id != billetingQuartersContent.ID)
+            {
+                return BadRequest("Event Versus ID mismatch");
+            }
 
             try
             {
-                // Save the changes to the database
+                var billetingQuarters = new BilletingQuarters
+                {
+                    ID = billetingQuartersContent.ID,
+                    RegionID = billetingQuartersContent.RegionID,
+                    Address = billetingQuartersContent.Address,
+                    Latitude = billetingQuartersContent.Latitude,
+                    Longitude = billetingQuartersContent.Longitude,
+                    ContactPerson = billetingQuartersContent.ContactPerson,
+                    ContactPersonNumber = billetingQuartersContent.ContactPersonNumber
+                };
+
+                _context.BilletingQuarters.Attach(billetingQuarters);
+                _context.Entry(billetingQuarters).State = EntityState.Modified;
+
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
-                // Handle concurrency exceptions
-                if (!_context.BilletingQuarters.Any(b => b.ID == ID))
+                if (!_context.BilletingQuarters.Any(e => e.ID == id))
                 {
-                    return NotFound(); // If the entity was deleted by another process
+                    return NotFound($"Event Versus with ID {id} not found");
                 }
-                else
-                {
-                    throw; // Rethrow if another error occurred
-                }
+                throw;
             }
 
-            return NoContent(); // Return 204 No Content for a successful update
+            return NoContent();
         }
 
-
-
-        // DELETE: api/BilletingQuarters/5
-        [HttpDelete("{ID}")]
-        public async Task<IActionResult> DeleteBilletingQuarter(int ID)
+        // Delete
+        [HttpDelete("BilletingQuarter/{id}")]
+        public async Task<IActionResult> DeleteBilletingQuarter(int id)
         {
-            var billetingQuarter = await _context.BilletingQuarters.FindAsync(ID);
-
-            if (billetingQuarter == null)
+            var billetingQuarters = await _context.BilletingQuarters.FindAsync(id);
+            if (billetingQuarters == null)
             {
-                return NotFound();
+                return NotFound($"Sport with ID {id} not found");
             }
 
-            _context.BilletingQuarters.Remove(billetingQuarter);
+            _context.BilletingQuarters.Remove(billetingQuarters);
             await _context.SaveChangesAsync();
 
             return NoContent();

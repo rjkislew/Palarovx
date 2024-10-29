@@ -9,11 +9,11 @@ public partial class BilletingQuarters
 {
     public int ID { get; set; }
 
-    public int? RegionalTeamID { get; set; }
+    public int? RegionID { get; set; }
 
-    public string? SchoolName { get; set; }
+    public string? BilletingQuarter { get; set; }
 
-    public string? SchoolAddress { get; set; }
+    public string? Address { get; set; }
 
     public decimal? Latitude { get; set; }
 
@@ -23,5 +23,5 @@ public partial class BilletingQuarters
 
     public string? ContactPersonNumber { get; set; }
 
-    public virtual RegionalTeams? RegionalTeam { get; set; }
+    public virtual Regions? Region { get; set; }
 }

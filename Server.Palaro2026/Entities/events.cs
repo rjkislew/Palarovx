@@ -9,17 +9,9 @@ public partial class Events
 {
     public int ID { get; set; }
 
-    public int? RegionalTeamAID { get; set; }
-
-    public int? TeamAFinalScore { get; set; }
-
-    public int? RegionalTeamBID { get; set; }
-
-    public int? TeamBFinalScore { get; set; }
-
     public int? SportSubCategoryID { get; set; }
 
-    public int? venueID { get; set; }
+    public int? VenueID { get; set; }
 
     public string? EventTitle { get; set; }
 
@@ -33,25 +25,15 @@ public partial class Events
 
     public bool? IsFinished { get; set; }
 
-    public int? LoserID { get; set; }
-
-    public int? WinnerID { get; set; }
-
     public byte[]? Attachement { get; set; }
 
     public bool? Archived { get; set; }
 
     public bool? Deleted { get; set; }
 
-    public virtual RegionalTeams? Loser { get; set; }
-
-    public virtual RegionalTeams? RegionalTeamA { get; set; }
-
-    public virtual RegionalTeams? RegionalTeamB { get; set; }
+    public virtual ICollection<EventVersus> EventVersus { get; set; } = new List<EventVersus>();
 
     public virtual SportSubCategories? SportSubCategory { get; set; }
 
-    public virtual RegionalTeams? Winner { get; set; }
-
-    public virtual Venues? venue { get; set; }
+    public virtual Venues? Venue { get; set; }
 }

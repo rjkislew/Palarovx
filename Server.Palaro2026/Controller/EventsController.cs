@@ -2,9 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using Server.Palaro2026.Context;
 using Server.Palaro2026.DTO;
-using Server.Palaro2026.Entities;
 
-namespace Server.Palaro2026.Controllers
+namespace Server.Palaro2026.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -12,252 +11,308 @@ namespace Server.Palaro2026.Controllers
     {
         private readonly Palaro2026Context _context = context;
 
+
+        /// 
+        /// 
+        /// VIEWS
+        /// 
+        /// 
+
+        // Read
         [HttpGet("EventDetails")]
-        public async Task<ActionResult<IEnumerable<EventsDTO.e_EventsDTO>>> GetEventsWithTeams()
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventDetail.ED_SportCategoriesContent>>> GetEventDetails()
         {
-            var eventsData = await (from e in _context.Events
-                                    join rtA in _context.RegionalTeams on e.RegionalTeamAID equals rtA.ID into teamAGroup
-                                    from teamA in teamAGroup.DefaultIfEmpty()
-                                    join rtB in _context.RegionalTeams on e.RegionalTeamBID equals rtB.ID into teamBGroup
-                                    from teamB in teamBGroup.DefaultIfEmpty()
-                                    join winner in _context.RegionalTeams on e.WinnerID equals winner.ID into winnerGroup
-                                    from w in winnerGroup.DefaultIfEmpty()
-                                    join loser in _context.RegionalTeams on e.LoserID equals loser.ID into loserGroup
-                                    from l in loserGroup.DefaultIfEmpty()
-                                    join v in _context.Venues on e.venueID equals v.ID into venueGroup
-                                    from venue in venueGroup.DefaultIfEmpty()
-                                    join subCat in _context.SportSubCategories on e.SportSubCategoryID equals subCat.ID into subCategoryGroup
-                                    from subCategory in subCategoryGroup.DefaultIfEmpty() // Join to get the subcategory
-                                    select new EventsDTO.e_EventsDTO
+            try
+            {
+                // Fetch the data from the database
+                var sports = await _context.EventDetails
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                // Group the sports by category
+                var groupedSports = sports
+                    .GroupBy(c => c.Category)
+                    .Select(category => new EventsDTO.EventDetail.ED_SportCategoriesContent
+                    {
+                        Category = category.Key,
+                        SportList = category
+                        .GroupBy(s => new { s.Sport })
+                        .Select(sport => new EventsDTO.EventDetail.ED_SportsContent
+                        {
+                            Sport = sport.Key.Sport,
+                            LevelList = sport
+                            .GroupBy(l => l.Level)
+                            .Select(level => new EventsDTO.EventDetail.ED_SchoolLevelsContent
+                            {
+                                Level = level.Key,
+                                GenderList = level
+                                .GroupBy(gc => gc.Gender)
+                                .Select(gender => new EventsDTO.EventDetail.ED_GenderCategoriesContent
+                                {
+                                    Gender = gender.Key,
+                                    SportSubCategoryList = gender
+                                    .GroupBy(sc => sc.SubCategory)
+                                    .Select(subCategory => new EventsDTO.EventDetail.ED_SubCategoriesContent
                                     {
-                                        ID = e.ID,
-                                        TeamA = teamA != null ? teamA.RegionalTeamName : null,
-                                        TeamAAbbreviation = teamA != null ? teamA.RegionalTeamNameAbbreviation : null,
-                                        TeamAFinalScore = e.TeamAFinalScore,
-                                        TeamB = teamB != null ? teamB.RegionalTeamName : null,
-                                        TeamBAbbreviation = teamB != null ? teamB.RegionalTeamNameAbbreviation : null,
-                                        TeamBFinalScore = e.TeamBFinalScore,
-                                        SportSubCategory = subCategory != null ? subCategory.SubCategory : null, // Assuming SubCategoryName is the property
-                                        Venue = venue != null ? venue.Venue : null,
-                                        EventTitle = e.EventTitle,
-                                        Date = e.Date,
-                                        Time = e.Time,
-                                        OnStream = e.OnStream,
-                                        StreamURL = e.StreamURL,
-                                        IsFinished = e.IsFinished,
-                                        Archived = e.Archived,
-                                        Deleted = e.Deleted,
-                                        Attachement = e.Attachement,
-                                        LoserTeam = l != null ? l.RegionalTeamName : null,
-                                        LoserTeamAbbreviation = l != null ? l.RegionalTeamNameAbbreviation : null,
-                                        WinnerTeam = w != null ? w.RegionalTeamName : null,
-                                        WinnerTeamAbbreviation = w != null ? w.RegionalTeamNameAbbreviation : null,
-                                    }).ToListAsync();
+                                        SubCategory = subCategory.Key,
+                                        VenueList = subCategory
+                                        .GroupBy(v => v.Venue)
+                                        .Select(venue => new EventsDTO.EventDetail.ED_VenuesContent
+                                        {
+                                            Venue = venue.Key,
+                                            EventList = venue
+                                            .GroupBy(e => new { e.EventTitle, e.Date, e.Time, e.OnStream, e.StreamURL, e.IsFinished, e.Attachement, e.Archived, e.Deleted })
+                                            .Select(events => new EventsDTO.EventDetail.ED_EventsContent
+                                            {
+                                                EventTitle = events.Key.EventTitle,
+                                                Date = events.Key.Date,
+                                                Time = events.Key.Time,
+                                                OnStream = events.Key.OnStream,
+                                                StreamURL = events.Key.StreamURL,
+                                                IsFinished = events.Key.IsFinished,
+                                                Attachement = events.Key.Attachement,
+                                                Archived = events.Key.Archived,
+                                                Deleted = events.Key.Deleted,
+                                                TeamList = events
+                                                .Select(teams => new EventsDTO.EventDetail.ED_RegionsContent
+                                                {
+                                                    Region = teams.Region,
+                                                    Abbreviation = teams.Abbreviation,
+                                                    Score = teams.Score
+                                                }).ToList()
+                                            }).ToList()
+                                        }).ToList()
+                                    }).ToList()
+                                }).ToList()
+                            }).ToList()
+                        }).ToList()
+                    }).ToList();
 
-            return Ok(eventsData); // Returning the data as a response
-        }
-
-
-
-        // GET: api/events
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Events>>> GetEvents()
-        {
-            var eventsData = await (from e in _context.Events
-                                        // Include any necessary joins here
-                                    select new Events
-                                    {
-                                        ID = e.ID,
-                                        RegionalTeamAID = e.RegionalTeamAID,
-                                        TeamAFinalScore = e.TeamAFinalScore,
-                                        RegionalTeamBID = e.RegionalTeamBID,
-                                        TeamBFinalScore = e.TeamBFinalScore,
-                                        SportSubCategoryID = e.SportSubCategoryID,
-                                        venueID = e.venueID,
-                                        EventTitle = e.EventTitle,
-                                        Date = e.Date,
-                                        Time = e.Time,
-                                        OnStream = e.OnStream,
-                                        StreamURL = e.StreamURL,
-                                        IsFinished = e.IsFinished,
-                                        Archived = e.Archived,
-                                        Deleted = e.Deleted,
-                                        Attachement = e.Attachement,
-                                        LoserID = e.LoserID,
-                                        WinnerID = e.WinnerID
-                                    }).ToListAsync();
-
-            return Ok(eventsData);
-        }
-
-        // GET: api/events/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Events>> GetEvent(int id)
-        {
-            var eventEntity = await _context.Events.FindAsync(id);
-
-            if (eventEntity == null)
-            {
-                return NotFound();
+                return Ok(groupedSports);
             }
-
-            var eventData = new Events
+            catch (DbUpdateException dbEx)
             {
-                ID = eventEntity.ID,
-                RegionalTeamAID = eventEntity.RegionalTeamAID,
-                TeamAFinalScore = eventEntity.TeamAFinalScore,
-                RegionalTeamBID = eventEntity.RegionalTeamBID,
-                TeamBFinalScore = eventEntity.TeamBFinalScore,
-                SportSubCategoryID = eventEntity.SportSubCategoryID,
-                venueID = eventEntity.venueID,
-                EventTitle = eventEntity.EventTitle,
-                Date = eventEntity.Date,
-                Time = eventEntity.Time,
-                OnStream = eventEntity.OnStream,
-                StreamURL = eventEntity.StreamURL,
-                IsFinished = eventEntity.IsFinished,
-                Archived = eventEntity.Archived,
-                Deleted = eventEntity.Deleted,
-                Attachement = eventEntity.Attachement,
-                LoserID = eventEntity.LoserID,
-                WinnerID = eventEntity.WinnerID
-            };
-
-            return Ok(eventData);
-        }
-
-        // POST: api/events
-        [HttpPost("AddEvent")]
-        public async Task<ActionResult<EventsDTO.e_EventsDTO>> CreateEvent([FromBody] EventsDTO.e_CreateEventDTO createEventDto)
-        {
-            var newEvent = new Events
-            {
-                RegionalTeamAID = createEventDto.RegionalTeamAID,
-                TeamAFinalScore = createEventDto.TeamAFinalScore,
-                RegionalTeamBID = createEventDto.RegionalTeamBID,
-                TeamBFinalScore = createEventDto.TeamBFinalScore,
-                SportSubCategoryID = createEventDto.SportSubCategoryID,
-                venueID = createEventDto.venueID,
-                EventTitle = createEventDto.EventTitle,
-                Date = createEventDto.Date,
-                Time = createEventDto.Time,
-                OnStream = createEventDto.OnStream,
-                StreamURL = createEventDto.StreamURL,
-
-                // Auto-increment ID will be handled by the database
-                Archived = false,  // Set Archived to false
-                Deleted = false,   // Set Deleted to false
-                IsFinished = false,  // Set IsFinished to false (0)
-                Attachement = null,
-            };
-
-            // Add the new event to the context
-            _context.Events.Add(newEvent);
-            await _context.SaveChangesAsync();
-
-            // Retrieve the newly created event with related data
-            var createdEvent = await (from e in _context.Events
-                                      where e.ID == newEvent.ID
-                                      join teamA in _context.RegionalTeams on e.RegionalTeamAID equals teamA.ID into teamAGroup
-                                      from teamA in teamAGroup.DefaultIfEmpty()
-                                      join teamB in _context.RegionalTeams on e.RegionalTeamBID equals teamB.ID into teamBGroup
-                                      from teamB in teamBGroup.DefaultIfEmpty()
-                                      join winner in _context.RegionalTeams on e.WinnerID equals winner.ID into winnerGroup
-                                      from winner in winnerGroup.DefaultIfEmpty()
-                                      join loser in _context.RegionalTeams on e.LoserID equals loser.ID into loserGroup
-                                      from loser in loserGroup.DefaultIfEmpty()
-                                      join venue in _context.Venues on e.venueID equals venue.ID into venueGroup
-                                      from venue in venueGroup.DefaultIfEmpty()
-                                      join subCat in _context.SportSubCategories on e.SportSubCategoryID equals subCat.ID into subCategoryGroup
-                                      from subCategory in subCategoryGroup.DefaultIfEmpty() // Join to get the subcategory
-                                      select new EventsDTO.e_EventsDTO
-                                      {
-                                          ID = e.ID,
-                                          TeamA = teamA.RegionalTeamName,
-                                          TeamAAbbreviation = teamA.RegionalTeamNameAbbreviation,
-                                          TeamAFinalScore = e.TeamAFinalScore,
-                                          TeamB = teamB.RegionalTeamName,
-                                          TeamBAbbreviation = teamB.RegionalTeamNameAbbreviation,
-                                          TeamBFinalScore = e.TeamBFinalScore,
-                                          SportSubCategory = subCategory.SubCategory,
-                                          Venue = venue.Venue,
-                                          EventTitle = e.EventTitle,
-                                          Date = e.Date,
-                                          Time = e.Time,
-                                          OnStream = e.OnStream,
-                                          StreamURL = e.StreamURL,
-                                          IsFinished = e.IsFinished,
-                                          Archived = e.Archived,
-                                          Deleted = e.Deleted,
-                                          Attachement = e.Attachement,
-                                          LoserTeam = loser.RegionalTeamName,
-                                          LoserTeamAbbreviation = loser.RegionalTeamNameAbbreviation,
-                                          WinnerTeam = winner.RegionalTeamName,
-                                          WinnerTeamAbbreviation = winner.RegionalTeamNameAbbreviation
-                                      }).FirstOrDefaultAsync();
-
-            if (createdEvent == null)
-            {
-                return NotFound();
+                // Handle database update exceptions
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    $"Database update error: {dbEx.Message}");
             }
-
-            // Return the created event with all related data
-            return CreatedAtAction(nameof(GetEvent), new { id = newEvent.ID }, createdEvent);
+            catch (Exception ex)
+            {
+                // Handle other exceptions
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    $"Internal server error: {ex.Message}");
+            }
         }
 
 
+        /// 
+        /// 
+        /// EVENT
+        /// 
+        /// 
 
-        // PUT: api/events/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateEvent(int id, [FromForm] Events updatedEvent)
+        // Create
+        [HttpPost("Event")]
+        public async Task<ActionResult<EventsDTO.Events.EventsContent>> CreateEvent([FromBody] EventsDTO.Events.EventsContent eventContent)
         {
-            if (id != updatedEvent.ID)
+            try
             {
-                return BadRequest();
-            }
+                var events = new Entities.Events
+                {
+                    ID = eventContent.ID,
+                    SportSubCategoryID = eventContent.SportSubCategoryID,
+                    VenueID = eventContent.VenueID,
+                    EventTitle = eventContent.EventTitle,
+                    Date = eventContent.Date,
+                    Time = eventContent.Time,
+                    OnStream = eventContent.OnStream,
+                    StreamURL = eventContent.StreamURL,
+                    IsFinished = eventContent.IsFinished,
+                    Archived = eventContent.Archived,
+                    Deleted = eventContent.Deleted
+                };
 
-            _context.Entry(updatedEvent).State = EntityState.Modified;
+                _context.Events.Add(events);
+                await _context.SaveChangesAsync();
+
+                return CreatedAtAction(nameof(GetEvents), new { id = events.ID }, eventContent);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // Read
+        [HttpGet("Event")]
+        public async Task<ActionResult<IEnumerable<EventsDTO.Events.EventsContent>>> GetEvents()
+        {
+            try
+            {
+                var events = await _context.Events.AsNoTracking().ToListAsync();
+                return Ok(events);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // Update
+        [HttpPut("Event/{id}")]
+        public async Task<IActionResult> UpdateEvent(int id, EventsDTO.Events.EventsContent eventContent)
+        {
+            if (id != eventContent.ID)
+            {
+                return BadRequest("Event ID mismatch");
+            }
 
             try
             {
+                var events = new Entities.Events
+                {
+                    ID = eventContent.ID,
+                    SportSubCategoryID = eventContent.SportSubCategoryID,
+                    VenueID = eventContent.VenueID,
+                    EventTitle = eventContent.EventTitle,
+                    Date = eventContent.Date,
+                    Time = eventContent.Time,
+                    OnStream = eventContent.OnStream,
+                    StreamURL = eventContent.StreamURL,
+                    IsFinished = eventContent.IsFinished,
+                    Archived = eventContent.Archived,
+                    Deleted = eventContent.Deleted
+                };
+
+                _context.Events.Attach(events);
+                _context.Entry(events).State = EntityState.Modified;
+
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EventExists(id))
+                if (!_context.Events.Any(e => e.ID == id))
                 {
-                    return NotFound();
+                    return NotFound($"Event with ID {id} not found");
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
         }
 
-        // DELETE: api/events/5
-        [HttpDelete("{id}")]
+        // Delete
+        [HttpDelete("Event/{id}")]
         public async Task<IActionResult> DeleteEvent(int id)
         {
-            var eventEntity = await _context.Events.FindAsync(id);
-            if (eventEntity == null)
+            var events = await _context.Events.FindAsync(id);
+            if (events == null)
             {
-                return NotFound();
+                return NotFound($"Event with ID {id} not found");
             }
 
-            _context.Events.Remove(eventEntity);
+            _context.Events.Remove(events);
             await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        private bool EventExists(int id)
+        /// 
+        /// 
+        /// EVENT VERSUS
+        /// 
+        /// 
+
+        // Create
+        [HttpPost("EventVersus")]
+        public async Task<ActionResult<EventsDTO.EventVersus.EventVersusContent>> CreateEventVersus([FromBody] EventsDTO.EventVersus.EventVersusContent eventVersusContent)
         {
-            return _context.Events.Any(e => e.ID == id);
+            try
+            {
+                var eventsVersus = new Entities.EventVersus
+                {
+                    ID = eventVersusContent.ID,
+                    Score = eventVersusContent.Score,
+                    RegionID = eventVersusContent.RegionID,
+                    EventID = eventVersusContent.EventID,
+                };
+
+                _context.EventVersus.Add(eventsVersus);
+                await _context.SaveChangesAsync();
+
+                return CreatedAtAction(nameof(GetEventVersus), new { id = eventsVersus.ID }, eventVersusContent);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
         }
 
+        // Read
+        [HttpGet("EventVersus")]
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventVersus.EventVersusContent>>> GetEventVersus()
+        {
+            try
+            {
+                var eventVersus = await _context.EventVersus.AsNoTracking().ToListAsync();
+                return Ok(eventVersus);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
 
+        // Update
+        [HttpPut("EventVersus/{id}")]
+        public async Task<IActionResult> UpdateEventVersus(int id, EventsDTO.EventVersus.EventVersusContent eventVersusContent)
+        {
+            if (id != eventVersusContent.ID)
+            {
+                return BadRequest("Event Versus ID mismatch");
+            }
+
+            try
+            {
+                var eventVersus = new Entities.EventVersus
+                {
+                    ID = eventVersusContent.ID,
+                    Score = eventVersusContent.Score,
+                    RegionID = eventVersusContent.RegionID,
+                    EventID = eventVersusContent.EventID
+                };
+
+                _context.EventVersus.Attach(eventVersus);
+                _context.Entry(eventVersus).State = EntityState.Modified;
+
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.EventVersus.Any(e => e.ID == id))
+                {
+                    return NotFound($"Event Versus with ID {id} not found");
+                }
+                throw;
+            }
+
+            return NoContent();
+        }
+
+        // Delete
+        [HttpDelete("EventVersus/{id}")]
+        public async Task<IActionResult> DeleteEventVersus(int id)
+        {
+            var eventVersus = await _context.EventVersus.FindAsync(id);
+            if (eventVersus == null)
+            {
+                return NotFound($"Event Versus with ID {id} not found");
+            }
+
+            _context.EventVersus.Remove(eventVersus);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
     }
 }

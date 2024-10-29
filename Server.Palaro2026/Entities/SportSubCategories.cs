@@ -15,17 +15,17 @@ public partial class SportSubCategories
 
     public int? GenderCategoryID { get; set; }
 
-    public int? LevelID { get; set; }
+    public int? SchoolLevelID { get; set; }
 
     public virtual ICollection<Events> Events { get; set; } = new List<Events>();
 
     public virtual GenderCategories? GenderCategory { get; set; }
 
-    public virtual Levels? Level { get; set; }
-
     public virtual ICollection<PlayerProfiles> PlayerProfiles { get; set; } = new List<PlayerProfiles>();
+
+    public virtual SchoolLevels? SchoolLevel { get; set; }
 
     public virtual Sports? Sport { get; set; }
 
-    public virtual ICollection<TeamCoach> TeamCoach { get; set; } = new List<TeamCoach>();
+    public virtual ICollection<TeamCoaches> TeamCoaches { get; set; } = new List<TeamCoaches>();
 }

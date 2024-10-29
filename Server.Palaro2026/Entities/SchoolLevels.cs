@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class Levels
+public partial class SchoolLevels
 {
     public int ID { get; set; }
 

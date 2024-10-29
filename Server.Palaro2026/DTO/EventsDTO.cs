@@ -2,44 +2,101 @@
 
 public class EventsDTO
 {
-    public class e_EventsDTO
+    public class EventDetail
     {
-        public int ID { get; set; }
-        public string? TeamA { get; set; }
-        public string? TeamAAbbreviation { get; set; }
-        public int? TeamAFinalScore { get; set; }
-        public string? TeamB { get; set; }
-        public string? TeamBAbbreviation { get; set; }
-        public int? TeamBFinalScore { get; set; }
-        public string? SportSubCategory { get; set; }
-        public string? Venue { get; set; }
-        public string? EventTitle { get; set; }
-        public DateTime? Date { get; set; }
-        public TimeSpan? Time { get; set; }
-        public bool? OnStream { get; set; }
-        public string? StreamURL { get; set; }
-        public bool? IsFinished { get; set; }
-        public bool? Archived { get; set; }
-        public bool? Deleted { get; set; }
-        public byte[]? Attachement { get; set; }
-        public string? LoserTeam { get; set; }
-        public string? LoserTeamAbbreviation { get; set; }
-        public string? WinnerTeam { get; set; }
-        public string? WinnerTeamAbbreviation { get; set; }
-    }
-    public class e_CreateEventDTO
-    {
-        public int? RegionalTeamAID { get; set; }
-        public int? TeamAFinalScore { get; set; }
-        public int? RegionalTeamBID { get; set; }
-        public int? TeamBFinalScore { get; set; }
-        public int? SportSubCategoryID { get; set; }
-        public int? venueID { get; set; }
-        public string? EventTitle { get; set; }
-        public DateTime? Date { get; set; }
-        public TimeSpan? Time { get; set; }
-        public bool? OnStream { get; set; }
-        public string? StreamURL { get; set; }
+        public class ED_SportCategoriesContent
+        {
+            public string? Category { get; set; }
+            public List<ED_SportsContent>? SportList { get; set; }
+        }
+
+        public class ED_SportsContent
+        {
+            public string? Sport { get; set; }
+            public List<ED_SchoolLevelsContent>? LevelList { get; set; }
+        }
+
+        public class ED_SchoolLevelsContent
+        {
+            public string? Level { get; set; }
+            public List<ED_GenderCategoriesContent>? GenderList { get; set; }
+        }
+
+        public class ED_GenderCategoriesContent
+        {
+            public string? Gender { get; set; }
+            public List<ED_SubCategoriesContent>? SportSubCategoryList { get; set; }
+        }
+
+        public class ED_SubCategoriesContent
+        {
+            public string? SubCategory { get; set; }
+            public List<ED_VenuesContent>? VenueList { get; set; }
+        }
+
+        public class ED_VenuesContent
+        {
+            public string? Venue { get; set; }
+            public List<ED_EventsContent>? EventList { get; set; }
+        }
+
+        public class ED_EventsContent
+        {
+            public string? EventTitle { get; set; }
+
+            public DateTime? Date { get; set; }
+
+            public TimeSpan? Time { get; set; }
+
+            public bool? OnStream { get; set; }
+
+            public string? StreamURL { get; set; }
+
+            public bool? IsFinished { get; set; }
+
+            public byte[]? Attachement { get; set; }
+
+            public bool? Archived { get; set; }
+
+            public bool? Deleted { get; set; }
+            public List<ED_RegionsContent>? TeamList { get; set; }
+        }
+
+        public class ED_RegionsContent
+        {
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public int? Score { get; set; }
+        }
     }
 
+    public class Events
+    {
+        public class EventsContent
+        {
+            public int ID { get; set; }
+            public int? SportSubCategoryID { get; set; }
+            public int? VenueID { get; set; }
+            public string? EventTitle { get; set; }
+            public DateTime? Date { get; set; }
+            public TimeSpan? Time { get; set; }
+            public bool? OnStream { get; set; }
+            public string? StreamURL { get; set; }
+            public bool? IsFinished { get; set; }
+            public byte[]? Attachement { get; set; }
+            public bool? Archived { get; set; }
+            public bool? Deleted { get; set; }
+        }
+    }
+
+    public class EventVersus
+    {
+        public class EventVersusContent
+        {
+            public int ID { get; set; }
+            public int? Score { get; set; }
+            public int? RegionID { get; set; }
+            public int? EventID { get; set; }
+        }
+    }
 }
