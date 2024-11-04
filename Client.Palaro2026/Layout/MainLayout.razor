@@ -1,6 +1,8 @@
 ﻿@inherits LayoutComponentBase
 @inject IJSRuntime JSRuntime
 @inject IDialogService DialogService
+@inject ColorService ColorService
+@inject NavigationManager Navigation
 
 @* Required *@
 <MudThemeProvider Theme="PGASTheme" DefaultScrollbar="true" />
@@ -13,55 +15,208 @@
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="0" Fixed Gutters="false" Class="px-3">
-        <MudStack Row AlignItems="AlignItems.Center">
-            <MudStack Row Spacing="2">
-                <MudText Style="font-family: 'Bebas'; font-size: 30px; margin-bottom: -10px; margin-top: -8px;" Color="Color.Primary">PALARONG PAMBANSA</MudText>
-                <MudDivider Vertical FlexItem Class="border-2 mud-border-tertiary" />
-                <MudText Style="font-family: 'Bebas'; font-size: 30px; margin-bottom: -10px; margin-top: -8px;" Color="Color.Secondary">2024</MudText>
+    <MudAppBar Elevation="0" Fixed Gutters>
+        <!-- Menu Navigation on Mobile  -->
+        <MudHidden Breakpoint="Breakpoint.Xs" Invert>
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Style="@($"color: {ColorService.BackgroundColor}")" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+            <MudStack Row Spacing="0" AlignItems="AlignItems.Center" Justify="Justify.Center" Style="width: calc(100% - 48px)">
+                <MudImage Src="Media/Logo/Flat-Logo-with-2026.png" Height="50" />
+                <MudText Typo="Typo.h3" Style="@($"color: {ColorService.BackgroundColor}")">Palaro 2026</MudText>
             </MudStack>
-            <MudNavMenu Color="Color.Tertiary">
-                <MudStack Row Spacing="1">
-                    <MudButton Style="text-transform:none" Href="./">Home</MudButton>
-                    <MudButton Style="text-transform:none" Href="./sports">Sports</MudButton>
-                    <MudButton Style="text-transform:none" Href="./Venues">Venues</MudButton>
-                    <MudButton Style="text-transform:none" Href="./schedules">Schedules</MudButton>
-                    <MudButton Style="text-transform:none" Href="./medal-tally">Tally</MudButton>
-                    <MudButton Style="text-transform:none" Href="./news-and-highlights">News</MudButton>
+        </MudHidden>
+
+        <!-- Navigation on Desktop -->
+        <MudHidden Breakpoint="Breakpoint.Xs">
+            <!-- Navigation Left -->
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <!-- Home -->
+                <MudLink Href="./" Underline="Underline.None"
+                         Class="@(currentActiveButton == "Home" ? "" : "")"
+                         OnClick="@(() => SetActiveButton("Home"))">
+                    <MudStack Row AlignItems="AlignItems.Center">
+                        <MudImage Src="Media/Logo/Flat-Logo-with-2026.png" Height="50" />
+                        <MudText Typo="Typo.h3" Style="@($"color: {ColorService.BackgroundColor}")">Palaro 2026</MudText>
+                    </MudStack>
+                </MudLink>
+
+                <!-- Navigation Links -->
+                <MudButton Href="./"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "Home" ? ColorService.BackgroundColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "Home" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("Home"))">
+                    Home
+                </MudButton>
+                <MudButton Href="./sports"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "Sports" ? ColorService.BackgroundColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "Sports" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("Sports"))">
+                    Sports
+                </MudButton>
+                <MudButton Href="./venues"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "Venues" ? ColorService.BackgroundColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "Venues" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("Venues"))">
+                    Venues
+                </MudButton>
+                <MudButton Href="./schedules"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "Schedules" ? ColorService.BackgroundColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "Schedules" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("Schedules"))">
+                    Schedules
+                </MudButton>
+                <MudButton Href="./tally"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "Tally" ? ColorService.BackgroundColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "Tally" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("Tally"))">
+                    Tally
+                </MudButton>
+                <MudButton Href="./news"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "News" ? ColorService.BackgroundColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "News" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("News"))">
+                    News
+                </MudButton>
+            </MudStack>
+
+            <MudSpacer />
+
+            <!-- Navigation Right -->
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudStack Row>
+                    <!-- Color Theme Toggle -->
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="0">
+                        <MudToggleIconButton Disabled="ColorService.DisableBlue"
+                                             Toggled="ColorService.ToggledBlue"
+                                             ToggledChanged="@((bool _) => ColorService.ToggleColor("Blue"))"
+                                             Icon="@Icons.Material.Filled.Circle"
+                                             ToggledIcon="@Icons.Material.Filled.CheckCircle"
+                                             Size="Size.Small"
+                                             DropShadow="false"
+                                             Style="@($"color: {ColorService.BlueColor}")" />
+
+                        <MudToggleIconButton Disabled="ColorService.DisableYellow"
+                                             Toggled="ColorService.ToggledYellow"
+                                             ToggledChanged="@((bool _) => ColorService.ToggleColor("Yellow"))"
+                                             Icon="@Icons.Material.Filled.Circle"
+                                             ToggledIcon="@Icons.Material.Filled.CheckCircle"
+                                             Size="Size.Small"
+                                             DropShadow="false"
+                                             Style="@($"color: {ColorService.YellowColor}")" />
+
+                        <MudToggleIconButton Disabled="ColorService.DisableRed"
+                                             Toggled="ColorService.ToggledRed"
+                                             ToggledChanged="@((bool _) => ColorService.ToggleColor("Red"))"
+                                             Icon="@Icons.Material.Filled.Circle"
+                                             ToggledIcon="@Icons.Material.Filled.CheckCircle"
+                                             Size="Size.Small"
+                                             DropShadow="false"
+                                             Style="@($"color: {ColorService.RedColor}")" />
+                    </MudStack>
+
+                    <!-- Navigations -->
+                    <MudButton Href="./billeting-quarters"
+                               Ripple="false"
+                               Style="@($"text-transform:none; color: {(currentActiveButton == "Quarters" ? ColorService.BackgroundColor : Color.Default)}")"
+                               Class="@(currentActiveButton == "Quarters" ? "active-button" : "")"
+                               @onclick="@(() => SetActiveButton("Quarters"))">
+                        Billeting Quarters
+                    </MudButton>
+
+                    <!-- External Links -->
+                    <MudButton Style="text-transform:none" Href="#">Tourism</MudButton>
+                    <MudButton Style="text-transform:none" Href="#">Accommodations</MudButton>
                 </MudStack>
-            </MudNavMenu>
-        </MudStack>
-        <MudSpacer />
-        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-            <MudStack Row>
-                <MudButton Style="text-transform:none" Href="./billeting-quarters">Billeting</MudButton>
-                <MudButton Style="text-transform:none" Href="#">Tourism</MudButton>
-                <MudButton Style="text-transform:none" Href="#">Accommodations</MudButton>
+                <MudIconButton Class="pa-1" OnClick="OpenDialogAsync" Style="@($"color: {ColorService.BackgroundColor}")" Icon="@Icons.Material.Filled.Login">
+                </MudIconButton>
             </MudStack>
-            <MudIconButton Class="pa-1" OnClick="OpenDialogAsync" Color="Color.Primary" Icon="@Icons.Material.Filled.Login">
-            </MudIconButton>
-        </MudStack>
+        </MudHidden>
     </MudAppBar>
+    <!-- Navigation on Mobile  -->
+    <MudHidden Breakpoint="Breakpoint.Xs" Invert>
+        <MudDrawerContainer>
+            <MudDrawer @bind-Open="@_open" Elevation="0">
+                <MudDrawerHeader>
+                    <MudLink Href="./" Underline="Underline.None"
+                             Class="@(currentActiveButton == "Home" ? "" : "")"
+                             OnClick="@(() => SetActiveButton("Home"))">
+                        <MudStack Row AlignItems="AlignItems.Center">
+                            <MudImage Src="Media/Logo/Logo-with-2026.png" Style="width: 100%" />
+                        </MudStack>
+                    </MudLink>
+                </MudDrawerHeader>
+                <NavigationMenu />
+                <AdminNavigationMenu />
+            </MudDrawer>
+        </MudDrawerContainer>
+    </MudHidden>
     <MudMainContent>
         @Body
     </MudMainContent>
 </MudLayout>
 
 @code {
-    bool _drawerOpen = true;
+    private bool _open = false;
+
+    private void ToggleDrawer()
+    {
+        _open = !_open;
+    }
+    private string currentActiveButton = "Home"; // Default active button
+
+    private void SetActiveButtonBasedOnUrl()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath;
+
+        if (uri.EndsWith("/"))
+            currentActiveButton = "Home";
+        else if (uri.EndsWith("/sports"))
+            currentActiveButton = "Sports";
+        else if (uri.EndsWith("/venues"))
+            currentActiveButton = "Venues";
+        else if (uri.EndsWith("/schedules"))
+            currentActiveButton = "Schedules";
+        else if (uri.EndsWith("/tally"))
+            currentActiveButton = "Tally";
+        else if (uri.EndsWith("/news"))
+            currentActiveButton = "News";
+        else if (uri.EndsWith("/billeting-quarters"))
+            currentActiveButton = "Quarters";
+        else
+            currentActiveButton = ""; // Default case if no match
+    }
+
+    public void SetActiveButton(string buttonName)
+    {
+        currentActiveButton = buttonName;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        SetActiveButtonBasedOnUrl();
+        await ColorService.InitializeAsync();
+    }
+
+    protected override void OnInitialized()
+    {
+        ColorService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        ColorService.OnChange -= StateHasChanged;
+    }
 
     private Task OpenDialogAsync()
     {
         var options = new DialogOptions { CloseOnEscapeKey = true, NoHeader = true };
 
         return DialogService.ShowAsync<Dialogs.UserLogin>("Simple Dialog", options);
-    }
-
-    void DrawerToggle()
-    {
-        _drawerOpen = !_drawerOpen;
-        // Trigger the resize of the map whenever the drawer is toggled
-        _ = JSRuntime.InvokeVoidAsync("resizeMap");
     }
 
     private MudTheme PGASTheme = new MudTheme()
@@ -93,22 +248,13 @@
             },
             PaletteLight = new PaletteLight()
             {
-                Primary = Colors.Blue.Accent3,
-                Secondary = Colors.Orange.Accent4,
-                Tertiary = Colors.Gray.Darken4,
+                Primary = "#0038a8",
+                Secondary = "#fcd115",
+                Tertiary = "#ce1126",
                 Background = Colors.Gray.Lighten4,
                 AppbarBackground = Colors.Shades.White,
                 DrawerBackground = Colors.Shades.White,
-            },
-            PaletteDark = new PaletteDark()
-            {
-                Primary = Colors.Blue.Accent3,
-                Secondary = Colors.Orange.Accent4,
-                Tertiary = Colors.Shades.White,
-                AppbarBackground = Colors.Gray.Darken4,
-                DrawerBackground = Colors.Gray.Darken4,
-                Background = Colors.Gray.Darken4,
-                Surface = Colors.Gray.Darken4,
+
             },
             LayoutProperties = new LayoutProperties()
             {

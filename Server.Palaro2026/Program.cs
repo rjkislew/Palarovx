@@ -11,14 +11,7 @@ builder.Services.AddSwaggerGen();
 var environment = builder.Environment.EnvironmentName;
 string? connectionString; // Change to nullable type
 
-if (environment == "Development")
-{
-    connectionString = builder.Configuration.GetConnectionString("palaro_2026DevelopmentConnection");
-}
-else
-{
-    connectionString = builder.Configuration.GetConnectionString("palaro_2026ProductionConnection");
-}
+connectionString = builder.Configuration.GetConnectionString("palaro_2026");
 
 // Check for null and handle it appropriately
 if (string.IsNullOrEmpty(connectionString))

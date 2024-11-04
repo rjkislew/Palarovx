@@ -8,66 +8,50 @@ let userLocation = sportsComplex;  // Default to sportsComplex initially
 window.initializeMap = (containerId, token, markers) => {
     mapboxgl.accessToken = token;
 
+    // Get CSS variable values
+    const color = getComputedStyle(document.documentElement)
+        .getPropertyValue('color')
+        .trim();
+
     // Initialize the map
     window.map = new mapboxgl.Map({
         container: containerId,
         style: 'mapbox://styles/mapbox/outdoors-v12',
-        center: sportsComplex, // Keep center as the sportsComplex
+        center: sportsComplex,
         zoom: 9,
         textColor: "#ffffff",
         antialias: true
     });
 
-    markers.forEach(location => {
-        // Create a popup with a button for getting directions
-        const popupContent = `
-        <div class="popup-content">
-            <h3>${location.venue || location.schoolName}</h3>
-            <button class="get-directions-button" onclick="getLocation(${location.latitude}, ${location.longitude})">Get Directions</button>
-        </div>
-    `;
+    // Convert markers to GeoJSON format
+    const geojson = {
+        type: 'FeatureCollection',
+        features: markers.map(location => ({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [location.longitude, location.latitude]
+            },
+            properties: {
+                venue: location.venue || location.billetingQuarter,
+                latitude: location.latitude,
+                longitude: location.longitude
+            }
+        }))
+    };
 
-        new mapboxgl.Marker()
-            .setLngLat([location.longitude, location.latitude])
-            .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent))
-            .addTo(window.map);
-    });
+    window.map.on('load', () => {
 
-
-    // Handle user geolocation
-    const geolocateControl = new mapboxgl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-        showUserHeading: true,
-        showAccuracyCircle: true,
-        showUserLocation: true
-    });
-
-    window.map.addControl(geolocateControl).addControl(new mapboxgl.NavigationControl());
-
-    // Update user location on geolocate event
-    geolocateControl.on('geolocate', (event) => {
-        userLat = event.coords.latitude;
-        userLong = event.coords.longitude;
-        userLocation = [userLong, userLat];
-
-        console.log("User location updated:", userLocation);
-
-        // If a destination is selected, update the route
-        if (window.selectedDestination) {
-            showDirections(userLocation, window.selectedDestination);
-        }
-    });
-
-    window.map.on('style.load', () => {
         // Insert the layer beneath any symbol layer.
-        const layers = window.map.getStyle().layers;
-        const labelLayer = layers.find(
+        const layers = map.getStyle().layers;
+        const labelLayerId = layers.find(
             (layer) => layer.type === 'symbol' && layer.layout['text-field']
         ).id;
 
-        // Add 3D buildings layer
-        window.map.addLayer(
+        // The 'building' layer in the Mapbox Streets
+        // vector tileset contains building height data
+        // from OpenStreetMap.
+        map.addLayer(
             {
                 'id': 'add-3d-buildings',
                 'source': 'composite',
@@ -77,6 +61,10 @@ window.initializeMap = (containerId, token, markers) => {
                 'minzoom': 15,
                 'paint': {
                     'fill-extrusion-color': '#aaa',
+
+                    // Use an 'interpolate' expression to
+                    // add a smooth transition effect to
+                    // the buildings as the user zooms in.
                     'fill-extrusion-height': [
                         'interpolate',
                         ['linear'],
@@ -95,11 +83,128 @@ window.initializeMap = (containerId, token, markers) => {
                         15.05,
                         ['get', 'min_height']
                     ],
-                    'fill-extrusion-opacity': 0.6
+                    'fill-extrusion-opacity': 1
                 }
             },
-            labelLayer
+            labelLayerId
         );
+
+        // Add source with clustering enabled
+        window.map.addSource('markers', {
+            type: 'geojson',
+            data: geojson,
+            cluster: true,
+            clusterMaxZoom: 14, // Max zoom level to cluster points
+            clusterRadius: 50    // Radius of each cluster when clustering points
+        });
+
+        // Add clustered layer
+        window.map.addLayer({
+            id: 'clusters',
+            type: 'circle',
+            source: 'markers',
+            filter: ['has', 'point_count'],
+            paint: {
+                'circle-color': [
+                    'step',
+                    ['get', 'point_count'],
+                    color, // color for small clusters
+                    10, color, // color for medium clusters
+                    30, color  // color for large clusters
+                ],
+                'circle-radius': [
+                    'step',
+                    ['get', 'point_count'],
+                    15,
+                    10, 20,
+                    30, 25
+                ]
+            }
+        });
+
+        // Add a layer for cluster labels
+        window.map.addLayer({
+            id: 'cluster-count',
+            type: 'symbol',
+            source: 'markers',
+            filter: ['has', 'point_count'],
+            layout: {
+                'text-field': '{point_count_abbreviated}',
+                'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+                'text-size': 12,
+                'color': '#fff'
+            }
+        });
+
+        // Add layer for individual markers outside clusters
+        window.map.addLayer({
+            id: 'unclustered-point',
+            type: 'circle',
+            source: 'markers',
+            filter: ['!', ['has', 'point_count']],
+            paint: {
+                'circle-color': color,
+                'circle-radius': 8,
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#fff'
+            }
+        });
+
+        // Popup for individual markers
+        window.map.on('click', 'unclustered-point', (e) => {
+            const coordinates = e.features[0].geometry.coordinates.slice();
+            const { venue, latitude, longitude } = e.features[0].properties;
+
+            const popupContent = `
+                <div class="popup-content">
+                    <h3>${venue}</h3>
+                    <button class="get-directions-button" onclick="getLocation(${latitude}, ${longitude})">Get Directions</button>
+                </div>
+            `;
+
+            new mapboxgl.Popup()
+                .setLngLat(coordinates)
+                .setHTML(popupContent)
+                .addTo(window.map);
+        });
+
+        // Handle cluster clicks to zoom in
+        window.map.on('click', 'clusters', (e) => {
+            const features = window.map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+            const clusterId = features[0].properties.cluster_id;
+
+            window.map.getSource('markers').getClusterExpansionZoom(clusterId, (err, zoom) => {
+                if (err) return;
+
+                window.map.easeTo({
+                    center: features[0].geometry.coordinates,
+                    zoom: zoom
+                });
+            });
+        });
+    });
+
+    // Handle user geolocation
+    const geolocateControl = new mapboxgl.GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: true,
+        showUserHeading: true,
+        showAccuracyCircle: true,
+        showUserLocation: true
+    });
+
+    window.map.addControl(geolocateControl).addControl(new mapboxgl.NavigationControl());
+
+    geolocateControl.on('geolocate', (event) => {
+        userLat = event.coords.latitude;
+        userLong = event.coords.longitude;
+        userLocation = [userLong, userLat];
+
+        console.log("User location updated:", userLocation);
+
+        if (window.selectedDestination) {
+            showDirections(userLocation, window.selectedDestination);
+        }
     });
 };
 

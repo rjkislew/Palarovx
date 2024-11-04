@@ -3,11 +3,12 @@
 @using System.Net.Http
 @using System.Text.Json
 @using System.Threading.Tasks
+@inject ColorService ColorSettings
 
 <MudGrid>
     <MudItem xs="12">
         <MudContainer Gutters="false" MaxWidth="MaxWidth.False">
-            <MudPaper Height="300px" Square Elevation="0" Class="gradient-blue-bottom">
+            <MudPaper Height="300px" Square Elevation="0" Style="@($"background-color: {ColorSettings.BackgroundColor}")">
                 <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 100%">
                     <MudText Typo="Typo.h1" Style="color: white">Sports</MudText>
                 </MudStack>
@@ -20,20 +21,26 @@
                 @if (sportCategoryContents == null || sportCategoryContents.Count == 0)
                 {
                     <MudItem xs="12">
+                        <MudSkeleton Width="20%" Height="75px" />
+                    </MudItem>
+                    <MudItem xs="12">
                         <MudGrid>
-                            <MudItem xs="12" md="6">
-                                <MudPaper Outlined Class="pa-3 mud-border-tertiary">
-                                    <MudStack Row Spacing="1">
-                                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="50px" Width="50px"></MudSkeleton>
-                                        <MudStack Spacing="0">
-                                            <MudSkeleton SkeletonType="SkeletonType.Text" Width="20%" Height="40px"></MudSkeleton>
-                                            <MudStack Row>
-                                                <MudSkeleton SkeletonType="SkeletonType.Text" Width="100"></MudSkeleton>
-                                            </MudStack>
-                                        </MudStack>
-                                    </MudStack>
-                                </MudPaper>
-                            </MudItem>
+                            @for (int i = 0; i < 6; i++)
+                            {
+                                <MudItem xs="12" md="6" lg="4">
+                                    <MudCard Square Elevation="0">
+                                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" />
+                                        <MudCardContent>
+                                            <MudSkeleton Width="30%" Height="42px;" />
+                                            <MudSkeleton Width="80%" />
+                                            <MudSkeleton Width="100%" />
+                                        </MudCardContent>
+                                        <MudCardActions>
+                                            <MudSkeleton Width="100%" Height="40px"/>
+                                        </MudCardActions>
+                                    </MudCard>
+                                </MudItem>
+                            }
                         </MudGrid>
                     </MudItem>
                 }
@@ -42,24 +49,22 @@
                     <MudVirtualize Items="sportCategoryContents" Context="categoryData">
                         <MudItem xs="12">
                             <MudStack Spacing="2">
-                                <MudPaper Elevation="0" Class="gradient-orange-left pa-3">
-                                    <MudText Style="color: white" Typo="Typo.h2">
-                                        @categoryData.Category
-                                    </MudText>
-                                </MudPaper>
+                                <MudText Typo="Typo.h2" Style="@($"color:{ColorSettings.BackgroundColor}")">
+                                    @categoryData.Category
+                                </MudText>
                                 <MudDivider />
                                 <MudGrid>
                                     <MudVirtualize Items="categoryData.SportList" Context="sportData">
                                         <MudItem xs="12" md="6" lg="4">
-                                            <MudPaper Elevation="0" Style="height: 100%">
+                                            <MudPaper Square Elevation="0" Style="height: 100%">
                                                 <MudStack Spacing="3">
-                                                    <MudImage Src="@($"Media/Sports/Images/{sportData.Sport}.png")" Class="rounded-t" ObjectPosition="ObjectPosition.Top" ObjectFit="ObjectFit.Cover" Height="300" />
+                                                    <MudImage Src="@($"Media/Sports/Images/{sportData.Sport}.png")" ObjectPosition="ObjectPosition.Top" ObjectFit="ObjectFit.Cover" Height="300" />
                                                     <MudStack Class="pa-3">
-                                                        <MudText Typo="Typo.h3" Color="Color.Tertiary">@sportData.Sport</MudText>
-                                                        <MudText Typo="Typo.caption" Color="Color.Tertiary">@sportData.Description</MudText>
+                                                        <MudText Typo="Typo.h3" Style="@($"color:{ColorSettings.BackgroundColor}")">@sportData.Sport</MudText>
+                                                        <MudText Typo="Typo.caption">@sportData.Description</MudText>
                                                     </MudStack>
                                                     <MudSpacer />
-                                                    <MudButton Variant="Variant.Text" Color="Color.Primary">Learn More</MudButton>
+                                                    <MudButton Variant="Variant.Text" Style="@($"color:{ColorSettings.BackgroundColor}")">Learn More</MudButton>
                                                 </MudStack>
                                             </MudPaper>
                                         </MudItem>
@@ -79,10 +84,17 @@
     private readonly string API_URL = APIService.Palaro2026API;
     private List<CategoriesContent>? sportCategoryContents;
 
+    protected override void OnInitialized()
+    {
+        ColorSettings.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        ColorSettings.OnChange -= StateHasChanged;
+    }
 
     //API/Sports/SportCategoryAndSubCategoryDetails
-
-
     public class CategoriesContent
     {
         public string? Category { get; set; }

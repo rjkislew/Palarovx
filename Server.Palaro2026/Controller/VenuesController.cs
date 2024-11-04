@@ -65,7 +65,7 @@ namespace Server.Palaro2026.Controller
         {
             if (id != venuesContent.ID)
             {
-                return BadRequest("Event Versus ID mismatch");
+                return BadRequest("Venue ID mismatch");
             }
 
             try

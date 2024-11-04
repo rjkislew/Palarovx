@@ -1,4 +1,6 @@
+using Blazored.LocalStorage;
 using Client.Palaro2026;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor;
@@ -22,5 +24,12 @@ builder.Services.AddMudServices(config =>
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddScoped<MapBoxService>();
+builder.Services.AddScoped<APIService>();
+builder.Services.AddScoped<ColorService>();
+builder.Services.AddScoped<AuthenticationService>();
+builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
+
+builder.Services.AddBlazoredLocalStorage();
+builder.Services.AddAuthorizationCore();
 
 await builder.Build().RunAsync();

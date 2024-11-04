@@ -1,27 +1,35 @@
-﻿@page "/Venues"
+﻿@page "/venues"
 @using System.Text.Json
 @inject IJSRuntime JSRuntime
+@inject ColorService ColorService
 
 <MudContainer Gutters="false" MaxWidth="MaxWidth.False">
-    <MudPaper Class="ma-3 pa-2" Style="z-index: 1; position: absolute">
-        <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined"
-                   Value="newLocation" AdornmentIcon="@Icons.Material.Filled.LocationOn"
-                   ValueChanged="HandleLocationChange"
-                   AdornmentColor="Color.Secondary" FullWidth Label="Venue"
-                   AnchorOrigin="Origin.BottomCenter"
-                   OnClearButtonClick="ClearSelection"
-                   Adornment="Adornment.Start">
-            <MudVirtualize Items="venueContents" Context="venue">
-                <MudSelectItem T="string" Value="@venue.Venue">
-                    <MudText Typo="Typo.body2">@venue.Venue</MudText>
-                </MudSelectItem>
-            </MudVirtualize>
-        </MudSelect>
+    <MudPaper Square Elevation="0" Class="ma-3 pa-2" Style="z-index: 1; position: absolute">
+        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+            <MudIcon Icon="@Icons.Material.Filled.LocationOn" Style="@($"color: {ColorService.BackgroundColor}")" />
+            <MudSelect Margin="Margin.Dense"Clearable T="string" Variant="Variant.Outlined"
+                       Value="newLocation" 
+                       ValueChanged="HandleLocationChange"
+                       FullWidth Label="Venue"
+                       AnchorOrigin="Origin.BottomCenter"
+                       OnClearButtonClick="ClearSelection">
+                <MudVirtualize Items="venueContents" Context="venue">
+                    <MudSelectItem T="string" Value="@venue.Venue">
+                        <MudText Typo="Typo.body2">@venue.Venue</MudText>
+                    </MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudStack>
     </MudPaper>
     <MudStack id="map"
               Style="width: 100%; height: calc(100vh - 64px); overflow: hidden">
     </MudStack>
 </MudContainer>
+<style>
+    :root {
+        color: @ColorService.BackgroundColor; /* Default color */
+    }
+</style>
 @code {
     private readonly string API_URL = APIService.Palaro2026API;
     private string mapboxToken = MapBoxService.mapboxToken;
@@ -29,6 +37,21 @@
     private string? selectedLocation;
     private VenuesContents? selectedVenue; // Changed to store the selected venue
     private List<VenuesContents>? venueContents;
+
+
+    [Parameter] public string? TooltipText { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    protected override void OnInitialized()
+    {
+        ColorService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        ColorService.OnChange -= StateHasChanged;
+    }
 
     //API/Venues/Venue
     public class VenuesContents
@@ -103,6 +126,7 @@
     // Method to initialize the map on the first render
     protected override async Task OnInitializedAsync()
     {
+        await ColorService.InitializeAsync();
         await GetVenues();
         await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapboxToken, venueContents);
     }
