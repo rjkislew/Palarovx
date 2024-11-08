@@ -5,8 +5,10 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class Users
+public partial class UsersDetails
 {
+    public string? Role { get; set; }
+
     public string ID { get; set; } = null!;
 
     public string? FirstName { get; set; }
@@ -26,12 +28,4 @@ public partial class Users
     public DateTime? LastLogin { get; set; }
 
     public bool? Active { get; set; }
-
-    public string? SessionID { get; set; }
-
-    public string? RecentIP { get; set; }
-
-    public int? RoleID { get; set; }
-
-    public virtual UserRoles? Role { get; set; }
 }

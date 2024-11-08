@@ -1,10 +1,11 @@
-﻿@page "/events-control"
+﻿@page "/events-management"
 
 @using System.Net.Http
 @using System.Text.Json
 @using System.Threading.Tasks
 @using System.Text
 @inject ISnackbar Snackbar
+@inject HttpClient httpClient
 
 <MudGrid>
     <MudItem xs="12">
@@ -115,7 +116,7 @@
                                        Variant="Variant.Outlined"
                                        DateFormat="yyyy-MM-dd" />
 
-                        <MudTimePicker @bind-Time="selectedTime" 
+                        <MudTimePicker @bind-Time="selectedTime"
                                        Disabled="enableTime"
                                        Adornment="Adornment.Start"
                                        AdornmentColor="Color.Primary"
@@ -505,8 +506,6 @@
         enableStreamCheck = false;
     }
 
-    private static readonly HttpClient httpClient = new HttpClient();
-
     private async Task AddEvent()
     {
         // Check for null or empty fields
@@ -519,7 +518,7 @@
 
         // Create a new event object
         EventsContent newEvent = new EventsContent
-        {
+            {
                 SportSubCategoryID = selectedSubCategory.ID,
                 VenueID = selectedVenue.ID,
                 EventTitle = eventTitle,
@@ -535,23 +534,14 @@
 
         try
         {
-            // Serialize the newEvent object to JSON
             string jsonContent = JsonSerializer.Serialize(newEvent);
             var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-            // Send the POST request
             HttpResponseMessage response = await httpClient.PostAsync($"{API_URL}/Events/AddEvent", content);
             response.EnsureSuccessStatusCode();
 
-            /*
-            // Optionally read the response content
-            var responseBody = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"Response from server: {responseBody}");
-            */
-
             await GetCategories();
 
-            Console.WriteLine("Event added successfully.");
             // Clear fields and reset state
             ClearFields();
             Snackbar.Add($"Successfully Added Event", Severity.Success);

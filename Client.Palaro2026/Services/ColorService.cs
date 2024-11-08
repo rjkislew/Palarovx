@@ -4,9 +4,9 @@ public class ColorService
 {
     private readonly ILocalStorageService _localStorage;
 
-    public string BackgroundColor { get; set; } = "#1e4ca1";
+    public string SelectedColor { get; set; } = "#1e4ca1";
     public string BlueColor { get; set; } = "#1e4ca1";
-    public string YellowColor { get; set; } = "#ebb94d";
+    public string YellowColor { get; set; } = "#e7a53c";
     public string RedColor { get; set; } = "#ba3535";
 
     public bool ToggledBlue { get; set; }
@@ -17,7 +17,9 @@ public class ColorService
     public bool DisableYellow { get; set; }
     public bool DisableRed { get; set; }
 
+
     public event Action OnChange;
+    private void NotifyStateChanged() => OnChange?.Invoke();
 
     public ColorService(ILocalStorageService localStorage)
     {
@@ -28,65 +30,75 @@ public class ColorService
     {
         await LoadSettingsAsync();
 
-        // If no color is toggled after loading settings, set the color based on the BackgroundColor
+        // If no color is toggled after loading settings, set the color based on the SelectedColor
         if (!ToggledBlue && !ToggledYellow && !ToggledRed)
         {
-            if (BackgroundColor == BlueColor)
-            {
-                ToggledBlue = true;
-                DisableBlue = true;
-                DisableYellow = DisableRed = false;
-            }
-            else if (BackgroundColor == YellowColor)
-            {
-                ToggledYellow = true;
-                DisableYellow = true;
-                DisableBlue = DisableRed = false;
-            }
-            else if (BackgroundColor == RedColor)
-            {
-                ToggledRed = true;
-                DisableRed = true;
-                DisableBlue = DisableYellow = false;
-            }
-            else
-            {
-                // If BackgroundColor doesn't match any color, set blue as default
-                ToggledBlue = true;
-                DisableBlue = true;
-                DisableYellow = DisableRed = false;
-                BackgroundColor = BlueColor;
-            }
-
-            await SaveSettingsAsync();
+            SetInitialColorState();
         }
 
         NotifyStateChanged();
     }
 
+    private void SetInitialColorState()
+    {
+        if (SelectedColor == BlueColor)
+        {
+            ToggledBlue = true;
+            DisableBlue = true;
+            DisableYellow = DisableRed = false;
+        }
+        else if (SelectedColor == YellowColor)
+        {
+            ToggledYellow = true;
+            DisableYellow = true;
+            DisableBlue = DisableRed = false;
+        }
+        else if (SelectedColor == RedColor)
+        {
+            ToggledRed = true;
+            DisableRed = true;
+            DisableBlue = DisableYellow = false;
+        }
+        else
+        {
+            // If SelectedColor doesn't match any color, set blue as default
+            ToggledBlue = true;
+            DisableBlue = true;
+            DisableYellow = DisableRed = false;
+            SelectedColor = BlueColor;
+        }
+    }
+
     public async Task LoadSettingsAsync()
     {
-        var storedBackgroundColor = await _localStorage.GetItemAsStringAsync("BackgroundColor");
-        var storedBlueColor = await _localStorage.GetItemAsStringAsync("BlueColor");
-        var storedYellowColor = await _localStorage.GetItemAsStringAsync("YellowColor");
-        var storedRedColor = await _localStorage.GetItemAsStringAsync("RedColor");
+        // Load and clean stored colors
+        SelectedColor = await LoadAndCleanColorAsync("SelectedColor", SelectedColor);
 
-        // Clean the stored values by removing extra quotes and escape characters
-        BackgroundColor = storedBackgroundColor != null ? CleanStoredValue(storedBackgroundColor) : BackgroundColor;
-        BlueColor = storedBlueColor != null ? CleanStoredValue(storedBlueColor) : BlueColor;
-        YellowColor = storedYellowColor != null ? CleanStoredValue(storedYellowColor) : YellowColor;
-        RedColor = storedRedColor != null ? CleanStoredValue(storedRedColor) : RedColor;
+        // Load toggled states
+        ToggledBlue = await LoadBooleanAsync("ToggledBlue");
+        ToggledYellow = await LoadBooleanAsync("ToggledYellow");
+        ToggledRed = await LoadBooleanAsync("ToggledRed");
 
+        // Load disable states
+        DisableBlue = await LoadBooleanAsync("DisableBlue");
+        DisableYellow = await LoadBooleanAsync("DisableYellow");
+        DisableRed = await LoadBooleanAsync("DisableRed");
 
-        ToggledBlue = bool.TryParse(await _localStorage.GetItemAsStringAsync("ToggledBlue"), out var blue) && blue;
-        ToggledYellow = bool.TryParse(await _localStorage.GetItemAsStringAsync("ToggledYellow"), out var yellow) && yellow;
-        ToggledRed = bool.TryParse(await _localStorage.GetItemAsStringAsync("ToggledRed"), out var red) && red;
-
-        DisableBlue = bool.TryParse(await _localStorage.GetItemAsStringAsync("DisableBlue"), out var disableBlue) && disableBlue;
-        DisableYellow = bool.TryParse(await _localStorage.GetItemAsStringAsync("DisableYellow"), out var disableYellow) && disableYellow;
-        DisableRed = bool.TryParse(await _localStorage.GetItemAsStringAsync("DisableRed"), out var disableRed) && disableRed;
+        // Ensure correct state is set based on SelectedColor
+        SetInitialColorState();
 
         NotifyStateChanged();
+    }
+
+    private async Task<string> LoadAndCleanColorAsync(string key, string defaultValue)
+    {
+        var storedValue = await _localStorage.GetItemAsStringAsync(key);
+        return storedValue != null ? CleanStoredValue(storedValue) : defaultValue;
+    }
+
+    private async Task<bool> LoadBooleanAsync(string key)
+    {
+        return bool.TryParse(await _localStorage.GetItemAsStringAsync(key), out var result) && result;
     }
 
     private string CleanStoredValue(string value)
@@ -100,10 +112,7 @@ public class ColorService
     public async Task SaveSettingsAsync()
     {
         // Save values without extra quotes
-        await _localStorage.SetItemAsync("BackgroundColor", BackgroundColor);
-        await _localStorage.SetItemAsync("BlueColor", BlueColor);
-        await _localStorage.SetItemAsync("YellowColor", YellowColor);
-        await _localStorage.SetItemAsync("RedColor", RedColor);
+        await _localStorage.SetItemAsync("SelectedColor", SelectedColor);
 
         await _localStorage.SetItemAsync("ToggledBlue", ToggledBlue.ToString());
         await _localStorage.SetItemAsync("ToggledYellow", ToggledYellow.ToString());
@@ -126,11 +135,11 @@ public class ColorService
                     DisableBlue = true;
                     DisableYellow = DisableRed = false;
                     ToggledYellow = ToggledRed = false;
-                    BackgroundColor = BlueColor;
+                    SelectedColor = BlueColor;
                 }
                 else
                 {
-                    // Enable all colors
+                    // Enable all colors if toggled off
                     DisableBlue = DisableYellow = DisableRed = false;
                 }
                 break;
@@ -143,11 +152,11 @@ public class ColorService
                     DisableYellow = true;
                     DisableBlue = DisableRed = false;
                     ToggledBlue = ToggledRed = false;
-                    BackgroundColor = YellowColor;
+                    SelectedColor = YellowColor;
                 }
                 else
                 {
-                    // Enable all colors
+                    // Enable all colors if toggled off
                     DisableBlue = DisableYellow = DisableRed = false;
                 }
                 break;
@@ -160,19 +169,18 @@ public class ColorService
                     DisableRed = true;
                     DisableBlue = DisableYellow = false;
                     ToggledBlue = ToggledYellow = false;
-                    BackgroundColor = RedColor;
+                    SelectedColor = RedColor;
                 }
                 else
                 {
-                    // Enable all colors
+                    // Enable all colors if toggled off
                     DisableBlue = DisableYellow = DisableRed = false;
                 }
                 break;
         }
 
-        SaveSettingsAsync().ConfigureAwait(false);
+        // Ensure settings are saved after toggling
+        SaveSettingsAsync().ConfigureAwait(false); // Use ConfigureAwait(false) in async void methods
         NotifyStateChanged();
     }
-
-    private void NotifyStateChanged() => OnChange?.Invoke();
 }

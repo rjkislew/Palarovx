@@ -21,7 +21,7 @@ namespace Server.Palaro2026.Controller
 
         // Create
         [HttpPost("Venue")]
-        public async Task<ActionResult<VenuesDTO.Venues.VenuesContents>> CreateSport([FromBody] VenuesDTO.Venues.VenuesContents venuesContent)
+        public async Task<ActionResult<VenuesDTO.Venues.VenuesContents>> CreateVenue([FromBody] VenuesDTO.Venues.VenuesContents venuesContent)
         {
             try
             {

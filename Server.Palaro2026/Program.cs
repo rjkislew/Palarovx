@@ -1,56 +1,47 @@
 using Microsoft.EntityFrameworkCore;
+using Server.Palaro2026.Context;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configure the database context based on the environment
-var environment = builder.Environment.EnvironmentName;
-string? connectionString; // Change to nullable type
+// Configure the database context
+var connectionString = builder.Configuration.GetConnectionString("palaro_2026")
+                       ?? throw new InvalidOperationException("Connection string is not configured properly.");
 
-connectionString = builder.Configuration.GetConnectionString("palaro_2026");
-
-// Check for null and handle it appropriately
-if (string.IsNullOrEmpty(connectionString))
-{
-    throw new InvalidOperationException("Connection string is not configured properly.");
-}
-
-builder.Services.AddDbContext<Server.Palaro2026.Context.Palaro2026Context>(
-    options =>
-    {
-        options.UseSqlServer(connectionString);
-    }
+builder.Services.AddDbContext<Palaro2026Context>(options =>
+    options.UseSqlServer(connectionString)
 );
 
 // Configure CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
-    {
-        builder.AllowAnyMethod()
-               .AllowAnyHeader()
-               .SetIsOriginAllowed(origin => true) // allow any origin
-               .AllowCredentials();
-    });
+    options.AddPolicy("AllowAll", policy =>
+        policy.AllowAnyMethod()
+              .AllowAnyHeader()
+              .SetIsOriginAllowed(origin => new[]
+              {
+                  "https://pgas.ph",
+                  "https://localhost:7169",
+                  "https://localhost:7063"
+              }.Contains(origin))
+              .AllowCredentials());
 });
 
+// Build the application
 var app = builder.Build();
 
-// Use CORS policy
+// Middleware pipeline
 app.UseCors("AllowAll");
-
-// Enable Swagger for all environments
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
     options.SwaggerEndpoint("v1/swagger.json", "Palaro 2026 API v1");
     options.DefaultModelsExpandDepth(-1);
 });
-
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();

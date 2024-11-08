@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class Roles
+public partial class UserRoles
 {
     public int ID { get; set; }
 

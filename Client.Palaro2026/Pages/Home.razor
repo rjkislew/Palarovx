@@ -4,6 +4,7 @@
 @using System.Text.Json
 @using System.Threading.Tasks
 @inject ColorService ColorService
+@inject HttpClient httpClient
 
 <MudGrid Spacing="10">
     <MudItem xs="12">
@@ -14,7 +15,7 @@
                         <MudImage Src="Media/Logo/Logo-with-2026.png" Height="200" Width="200" />
                         <MudStack Spacing="0">
                             <MudText Typo="Typo.h2" Class="pl-2" HtmlTag="h1" Style="color: white">Palarong Pambansa <br> Agusan del Sur 2026</MudText>
-                            <MudPaper Square Elevation="0" Class="pa-2" Style="@($"background-color: {ColorService.BackgroundColor}")" Width="190px">
+                            <MudPaper Square Elevation="0" Class="pa-2" Style="@($"background-color: {ColorService.SelectedColor}")" Width="190px">
                                 <MudText Typo="Typo.body2" Class="pl-2" Style="color: white">@days d : @hours h : @min m : @sec s</MudText>
                             </MudPaper>
                         </MudStack>
@@ -25,7 +26,7 @@
                         <MudText Class="mb-n4" HtmlTag="h1" Typo="Typo.h2" Style="color: white; font-size: 40px">Palarong Pambansa</MudText>
                         <MudText HtmlTag="h1" Typo="Typo.h2" Style="color: white; font-size: 40px">Agusan del Sur 2026</MudText>
                     </MudStack>
-                    <MudPaper Square Elevation="0" Class="pa-2" Style="@($"background-color: {ColorService.BackgroundColor}")" Width="190px">
+                    <MudPaper Square Elevation="0" Class="pa-2" Style="@($"background-color: {ColorService.SelectedColor}")" Width="190px">
                         <MudText Typo="Typo.body2" Class="pl-2" Style="color: white">@days d : @hours h : @min m : @sec s</MudText>
                     </MudPaper>
                 </MudHidden>
@@ -90,10 +91,10 @@
                         <!-- MAP -->
                         <MudItem xs="12">
                             <MudStack Row Spacing="5">
-                                <MudButton FullWidth DropShadow="false" Variant="Variant.Filled" Style="@($"background-color: {ColorService.BackgroundColor}; color: white")" Class="rounded-0 pa-5" Href="./venues">
+                                <MudButton FullWidth DropShadow="false" Variant="Variant.Filled" Style="@($"background-color: {ColorService.SelectedColor}; color: white")" Class="rounded-0 pa-5" Href="./venues">
                                     <MudText Typo="Typo.h3" HtmlTag="h2">Event Venues</MudText>
                                 </MudButton>
-                                <MudButton FullWidth DropShadow="false" Variant="Variant.Filled" Style="@($"background-color: {ColorService.BackgroundColor}; color: white")" Class="rounded-0 pa-5" Href="./billeting-quarters" >
+                                <MudButton FullWidth DropShadow="false" Variant="Variant.Filled" Style="@($"background-color: {ColorService.SelectedColor}; color: white")" Class="rounded-0 pa-5" Href="./billeting-quarters" >
                                     <MudText Typo="Typo.h3" HtmlTag="h2">Billeting Quarters</MudText>
                                 </MudButton>
                             </MudStack>
@@ -106,7 +107,7 @@
                                         @if (sportCategoryContents == null || sportCategoryContents.Count == 0)
                                         {
                                             <MudItem xs="12">
-                                                <MudProgressLinear Style="@($"background-color: {ColorService.BackgroundColor}")" Indeterminate="true" Class="my-7" />
+                                                <MudProgressLinear Style="@($"background-color: {ColorService.SelectedColor}")" Indeterminate="true" />
                                             </MudItem>
                                         }
                                         else
@@ -114,7 +115,7 @@
                                             <Virtualize Items="sportCategoryContents" Context="categoryData">
                                                 <MudItem xs="12">
                                                     <MudStack Spacing="2">
-                                                        <MudText Style="@($"color: {ColorService.BackgroundColor}")" Typo="Typo.h3">
+                                                        <MudText Style="@($"color: {ColorService.SelectedColor}")" Typo="Typo.h3">
                                                             @categoryData.Category
                                                         </MudText>
                                                         <MudDivider />
@@ -162,7 +163,6 @@
     private List<CategoriesContent>? sportCategoryContents;
     private List<SportsContent>? sportContents;
 
-    private bool isLoading = true;
 
     //API/Sports/SportCategoryDetails
     public partial class CategoriesContent
@@ -230,8 +230,7 @@
     {
         try
         {
-            using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportCategoryDetails")!;
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsCategoriesDetails")!;
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
@@ -249,7 +248,6 @@
     {
         try
         {
-            using HttpClient httpClient = new HttpClient();
             HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/Sport")!;
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
@@ -259,7 +257,7 @@
 
             // Shuffle the list to randomize order
             var random = new Random();
-            sportContents = sportContents.OrderBy(_ => random.Next()).ToList();
+            sportContents = sportContents?.OrderBy(_ => random.Next()).ToList();
         }
         catch (HttpRequestException ex)
         {

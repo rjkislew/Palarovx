@@ -36,13 +36,13 @@ public partial class Palaro2026Context : DbContext
 
     public virtual DbSet<Regions> Regions { get; set; }
 
-    public virtual DbSet<Roles> Roles { get; set; }
-
     public virtual DbSet<SchoolDetails> SchoolDetails { get; set; }
 
     public virtual DbSet<SchoolLevels> SchoolLevels { get; set; }
 
     public virtual DbSet<Schools> Schools { get; set; }
+
+    public virtual DbSet<SessionDetails> SessionDetails { get; set; }
 
     public virtual DbSet<SportCategories> SportCategories { get; set; }
 
@@ -54,7 +54,11 @@ public partial class Palaro2026Context : DbContext
 
     public virtual DbSet<TeamCoaches> TeamCoaches { get; set; }
 
+    public virtual DbSet<UserRoles> UserRoles { get; set; }
+
     public virtual DbSet<Users> Users { get; set; }
+
+    public virtual DbSet<UsersDetails> UsersDetails { get; set; }
 
     public virtual DbSet<Venues> Venues { get; set; }
 
@@ -283,17 +287,6 @@ public partial class Palaro2026Context : DbContext
                 .IsUnicode(false);
         });
 
-        modelBuilder.Entity<Roles>(entity =>
-        {
-            entity.HasKey(e => e.ID).HasName("PK_roles");
-
-            entity.Property(e => e.ID).ValueGeneratedNever();
-            entity.Property(e => e.Description).IsUnicode(false);
-            entity.Property(e => e.Role)
-                .HasMaxLength(50)
-                .IsUnicode(false);
-        });
-
         modelBuilder.Entity<SchoolDetails>(entity =>
         {
             entity
@@ -336,6 +329,23 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.Division).WithMany(p => p.Schools)
                 .HasForeignKey(d => d.DivisionID)
                 .HasConstraintName("FK__Schools__Divisio__5BE2A6F2");
+        });
+
+        modelBuilder.Entity<SessionDetails>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToView("SessionDetails");
+
+            entity.Property(e => e.ID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.RecentIP)
+                .HasMaxLength(40)
+                .IsUnicode(false);
+            entity.Property(e => e.SessionID)
+                .HasMaxLength(50)
+                .IsUnicode(false);
         });
 
         modelBuilder.Entity<SportCategories>(entity =>
@@ -430,16 +440,40 @@ public partial class Palaro2026Context : DbContext
                 .HasConstraintName("FK__team_coac__sport__59063A47");
         });
 
+        modelBuilder.Entity<UserRoles>(entity =>
+        {
+            entity.HasKey(e => e.ID).HasName("PK_roles");
+
+            entity.Property(e => e.ID).ValueGeneratedNever();
+            entity.Property(e => e.Description).IsUnicode(false);
+            entity.Property(e => e.Role)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+        });
+
         modelBuilder.Entity<Users>(entity =>
         {
-            entity.HasKey(e => e.ID).HasName("PK_users");
-
+            entity.Property(e => e.ID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
             entity.Property(e => e.CreatedAt).HasColumnType("datetime");
             entity.Property(e => e.Email)
                 .HasMaxLength(100)
                 .IsUnicode(false);
+            entity.Property(e => e.FirstName)
+                .HasMaxLength(50)
+                .IsUnicode(false);
             entity.Property(e => e.LastLogin).HasColumnType("datetime");
+            entity.Property(e => e.LastName)
+                .HasMaxLength(50)
+                .IsUnicode(false);
             entity.Property(e => e.PasswordHash).IsUnicode(false);
+            entity.Property(e => e.RecentIP)
+                .HasMaxLength(40)
+                .IsUnicode(false);
+            entity.Property(e => e.SessionID)
+                .HasMaxLength(50)
+                .IsUnicode(false);
             entity.Property(e => e.UpdateAt).HasColumnType("datetime");
             entity.Property(e => e.Username)
                 .HasMaxLength(50)
@@ -448,6 +482,36 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.Role).WithMany(p => p.Users)
                 .HasForeignKey(d => d.RoleID)
                 .HasConstraintName("FK_users_roles");
+        });
+
+        modelBuilder.Entity<UsersDetails>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToView("UsersDetails");
+
+            entity.Property(e => e.CreatedAt).HasColumnType("datetime");
+            entity.Property(e => e.Email)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.FirstName)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.ID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.LastLogin).HasColumnType("datetime");
+            entity.Property(e => e.LastName)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.PasswordHash).IsUnicode(false);
+            entity.Property(e => e.Role)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.UpdateAt).HasColumnType("datetime");
+            entity.Property(e => e.Username)
+                .HasMaxLength(50)
+                .IsUnicode(false);
         });
 
         modelBuilder.Entity<Venues>(entity =>

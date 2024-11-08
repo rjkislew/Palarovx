@@ -18,7 +18,7 @@ namespace Server.Palaro2026.Controller
         /// 
         /// 
 
-        [HttpGet("SportDetails")]
+        [HttpGet("SportsDetails")]
         public async Task<ActionResult<IEnumerable<SportsDTO.SportDetails.SD_SportCategoriesContent>>> GetSportsDetails()
         {
             try
@@ -76,7 +76,7 @@ namespace Server.Palaro2026.Controller
             }
         }
 
-        [HttpGet("SportCategoryDetails")]
+        [HttpGet("SportsCategoriesDetails")]
         public async Task<ActionResult<IEnumerable<SportsDTO.SportCategoryDetails.SCD_CategoriesContent>>> GetSportCategoriesDetails()
         {
             try
@@ -117,7 +117,7 @@ namespace Server.Palaro2026.Controller
             }
         }
 
-        [HttpGet("SportCategoryAndSubCategoryDetails")]
+        [HttpGet("SportCategoriesAndSubCategoriesDetails")]
         public async Task<ActionResult<IEnumerable<SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_CategoriesContent>>> GetSportsCategoriesAndSubCategoriesDetails()
         {
             try

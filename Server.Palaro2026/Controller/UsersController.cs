@@ -14,52 +14,10 @@ namespace Server.Palaro2026.Controller
     {
         private readonly Palaro2026Context _context = context;
 
-        /// 
-        /// 
-        /// Users
-        /// 
-        /// 
-
-        // Create
-        [HttpPost("User")]
-        public async Task<ActionResult<UsersDTO.UsersDetails.UD_Users>> CreateUser([FromBody] UsersDTO.UsersDetails.UD_Users usersContent)
-        {
-            try
-            {
-                // Hash the password
-                using (var sha256 = SHA256.Create())
-                {
-                    var bytes = Encoding.UTF8.GetBytes(usersContent.PasswordHash);
-                    var hashedBytes = sha256.ComputeHash(bytes);
-                    usersContent.PasswordHash = BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
-                }
-
-                var users = new Users
-                {
-                    ID = usersContent.ID,
-                    Username = usersContent.Username,
-                    Email = usersContent.Email,
-                    PasswordHash = usersContent.PasswordHash, // Save the hashed password
-                    CreatedAt = usersContent.CreatedAt,
-                    UpdateAt = usersContent.UpdateAt,
-                    LastLogin = usersContent.LastLogin,
-                    Active = usersContent.Active,
-                    RoleID = usersContent.RoleID,
-                };
-
-                _context.Users.Add(users);
-                await _context.SaveChangesAsync();
-
-                return CreatedAtAction(nameof(GetUsers), new { id = users.ID }, usersContent);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
-            }
-        }
+        // Login
 
         [HttpPost("Login")]
-        public async Task<ActionResult<UsersDTO.UserLoginDetails.ULD_Users>> Login([FromBody] UsersDTO.UserLoginDetails.ULD_Users loginContent)
+        public async Task<ActionResult<UsersDTO.Users.UserID>> Login([FromBody] UsersDTO.UserLoginDetails.ULD_UsersContent loginContent)
         {
             try
             {
@@ -80,22 +38,29 @@ namespace Server.Palaro2026.Controller
                         return Unauthorized("Invalid username or password.");
                     }
 
+                    // Update session ID if provided in loginContent
+                    if (!string.IsNullOrEmpty(loginContent.SessionID))
+                    {
+                        user.SessionID = loginContent.SessionID;
+                    }
+
+                    // Update Recent IP if provided in loginContent
+                    if (!string.IsNullOrEmpty(loginContent.RecentIP))
+                    {
+                        user.RecentIP = loginContent.RecentIP;
+                    }
+
                     // Update last login time
                     user.LastLogin = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
 
-                    // Prepare the response object (you might want to limit the details returned)
-                    var userDto = new UsersDTO.UsersDetails.UD_Users
+                    // Return the user's ID upon successful login
+                    var userID = new UsersDTO.Users.UserID
                     {
-                        ID = user.ID,
-                        Username = user.Username,
-                        Email = user.Email,
-                        LastLogin = user.LastLogin,
-                        Active = user.Active,
-                        RoleID = user.RoleID
+                        ID = user.ID // Assuming 'user.ID' is the field representing the user's ID
                     };
 
-                    return Ok(userDto);
+                    return Ok(userID); // Return the UserID
                 }
             }
             catch (Exception ex)
@@ -105,9 +70,191 @@ namespace Server.Palaro2026.Controller
         }
 
 
+        /// 
+        /// 
+        /// VIEW
+        /// 
+        /// 
+
+        [HttpGet("UsersDetails")]
+        public async Task<ActionResult<IEnumerable<UsersDTO.UsersDetails.UD_RolesContent>>> GetUsersDetails()
+        {
+            try
+            {
+                // Fetch the data from the database
+                var users = await _context.UsersDetails
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                // Group the users by roles
+                var groupedUsers = users
+                    .GroupBy(c => c.Role)
+                    .Select(role => new UsersDTO.UsersDetails.UD_RolesContent
+                    {
+                        Role = role.Key,
+                        UserList = role
+                        .Select(user => new UsersDTO.UsersDetails.UD_UsersContent
+                        {
+                            ID = user.ID,
+                            FirstName = user.FirstName,
+                            LastName = user.LastName,
+                            Username = user.Username,
+                            Email = user.Email,
+                            PasswordHash = user.PasswordHash,
+                            CreatedAt = user.CreatedAt,
+                            UpdateAt = user.UpdateAt,
+                            LastLogin = user.LastLogin,
+                            Active = user.Active,
+                        }).ToList()
+                    }).ToList();
+
+                return Ok(groupedUsers);
+            }
+            catch (DbUpdateException dbEx)
+            {
+                // Handle database update exceptions
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    $"Database update error: {dbEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                // Handle other exceptions
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet("UserDetails")]
+        public async Task<ActionResult<IEnumerable<UsersDTO.UserDetails.UD_UserContent>>> GetUserDetails(string searchTerm = null)
+        {
+            try
+            {
+                var usersQuery = _context.UsersDetails.AsNoTracking().AsQueryable();
+
+                // Apply filtering if searchTerm is provided, focusing only on the ID field
+                if (!string.IsNullOrEmpty(searchTerm))
+                {
+                    // Use EF.Functions.Like for case-insensitive searching based on ID
+                    usersQuery = usersQuery.Where(user =>
+                        EF.Functions.Like(user.ID.ToString(), $"%{searchTerm.ToLower()}%"));
+                }
+
+                // Return the entire list of users (no projection)
+                var users = await usersQuery.ToListAsync();
+
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+
+        [HttpGet("AuthenticateUser")]
+        public async Task<ActionResult<IEnumerable<UsersDTO.Users.UsersContent>>> GetUserAuthentication(string searchTerm = null)
+        {
+            try
+            {
+                var usersQuery = _context.SessionDetails.AsNoTracking().AsQueryable();
+
+                // Apply filtering if searchTerm is provided, focusing only on the ID field
+                if (!string.IsNullOrEmpty(searchTerm))
+                {
+                    // Use EF.Functions.Like for case-insensitive searching based on ID
+                    usersQuery = usersQuery.Where(user =>
+                        EF.Functions.Like(user.ID.ToString(), $"%{searchTerm.ToLower()}%"));
+                }
+
+                // Return the entire list of users (no projection)
+                var users = await usersQuery.ToListAsync();
+
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+
+        /// 
+        /// 
+        /// USERS
+        /// 
+        /// 
+
+
+        // Helper method to generate a 20-character uppercase ID
+        private string GenerateRandomId()
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            var random = new Random();
+            var id = new string(Enumerable.Range(0, 20)
+                                           .Select(_ => chars[random.Next(chars.Length)])
+                                           .ToArray());
+            return id;
+        }
+
+        // Helper method to hash the password
+        private string HashPassword(string password)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                var bytes = Encoding.UTF8.GetBytes(password);
+                var hashedBytes = sha256.ComputeHash(bytes);
+                return BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
+            }
+        }
+
+        // Create
+        [HttpPost("User")]
+        public async Task<ActionResult<UsersDTO.Users.UsersContent>> CreateUser([FromBody] UsersDTO.Users.UsersContent usersContent)
+        {
+            try
+            {
+                // Generate the ID if not provided
+                if (string.IsNullOrEmpty(usersContent.ID))
+                {
+                    usersContent.ID = GenerateRandomId();
+                }
+
+                // Hash the password
+                usersContent.PasswordHash = HashPassword(usersContent.PasswordHash);
+
+                // Map the UsersContent to Users entity
+                var users = new Users
+                {
+                    ID = usersContent.ID,
+                    FirstName = usersContent.FirstName,
+                    LastName = usersContent.LastName,
+                    Username = usersContent.Username,
+                    Email = usersContent.Email,
+                    PasswordHash = usersContent.PasswordHash, // Save the hashed password
+                    CreatedAt = usersContent.CreatedAt,
+                    UpdateAt = usersContent.UpdateAt,
+                    LastLogin = usersContent.LastLogin,
+                    Active = usersContent.Active,
+                    RoleID = usersContent.RoleID,
+                };
+
+                // Add the new user to the database
+                _context.Users.Add(users);
+                await _context.SaveChangesAsync();
+
+                // Return the created user with a location header
+                return CreatedAtAction(nameof(GetUsers), new { id = users.ID }, usersContent);
+            }
+            catch (Exception ex)
+            {
+                // Return 500 Internal Server Error with exception details
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
         // Read
         [HttpGet("User")]
-        public async Task<ActionResult<IEnumerable<UsersDTO.UsersDetails.UD_Users>>> GetUsers()
+        public async Task<ActionResult<IEnumerable<UsersDTO.Users.UsersContent>>> GetUsers()
         {
             try
             {
@@ -120,10 +267,9 @@ namespace Server.Palaro2026.Controller
             }
         }
 
-
-        //Update
+        // Update
         [HttpPut("User/{id}")]
-        public async Task<IActionResult> UpdateUser(int id, UsersDTO.UserUpdateDetails.UUD_Users usersContent)
+        public async Task<IActionResult> UpdateUser(string id, UsersDTO.UserUpdateDetails.UUD_UsersContent usersContent)
         {
             if (id != usersContent.ID)
             {
@@ -140,6 +286,8 @@ namespace Server.Palaro2026.Controller
                 }
 
                 // Update only the fields that are not null
+                existingUser.FirstName = usersContent.FirstName ?? existingUser.FirstName;
+                existingUser.LastName = usersContent.LastName ?? existingUser.LastName;
                 existingUser.Username = usersContent.Username ?? existingUser.Username;
                 existingUser.Email = usersContent.Email ?? existingUser.Email;
 
@@ -178,7 +326,6 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-
         // Delete
         [HttpDelete("User/{id}")]
         public async Task<IActionResult> DeleteUser(int id)
@@ -190,6 +337,102 @@ namespace Server.Palaro2026.Controller
             }
 
             _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+
+
+        /// 
+        /// 
+        /// ROLES
+        /// 
+        /// 
+
+        // Create
+        [HttpPost("UserRoles")]
+        public async Task<ActionResult<UsersDTO.UserRoles.UserRolesContent>> CreateRole([FromBody] UsersDTO.UserRoles.UserRolesContent rolesContent)
+        {
+            try
+            {
+                var role = new UserRoles
+                {
+                    ID = rolesContent.ID,
+                    Description = rolesContent.Description,
+                };
+
+                _context.UserRoles.Add(role);
+                await _context.SaveChangesAsync();
+
+                return CreatedAtAction(nameof(GetRoles), new { id = role.ID }, rolesContent);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // Read
+        [HttpGet("UserRoles")]
+        public async Task<ActionResult<IEnumerable<UsersDTO.UserRoles.UserRolesContent>>> GetRoles()
+        {
+            try
+            {
+                var roles = await _context.UserRoles.AsNoTracking().ToListAsync();
+                return Ok(roles);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // Update
+        [HttpPut("UserRoles/{id}")]
+        public async Task<IActionResult> UpdateRoles(int id, UsersDTO.UserRoles.UserRolesContent rolesContent)
+        {
+            if (id != rolesContent.ID)
+            {
+                return BadRequest("Role ID mismatch");
+            }
+
+            try
+            {
+                var role = new UserRoles
+                {
+                    ID = rolesContent.ID,
+                    Description = rolesContent.Description,
+                };
+
+                _context.UserRoles.Attach(role);
+                _context.Entry(role).State = EntityState.Modified;
+
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.UserRoles.Any(e => e.ID == id))
+                {
+                    return NotFound($"Role with ID {id} not found");
+                }
+                throw;
+            }
+
+            return NoContent();
+        }
+
+        // Delete
+        [HttpDelete("UserRoles/{id}")]
+        public async Task<IActionResult> DeleteRole(int id)
+        {
+            var role = await _context.UserRoles.FindAsync(id);
+            if (role == null)
+            {
+                return NotFound($"Role with ID {id} not found");
+            }
+
+            _context.UserRoles.Remove(role);
             await _context.SaveChangesAsync();
 
             return NoContent();

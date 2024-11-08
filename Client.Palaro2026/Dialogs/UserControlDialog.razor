@@ -1,0 +1,135 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+
+@inject IJSRuntime JS
+@inject HttpClient httpClient
+@inject ISnackbar Snackbar
+@inject CookieService CookieService
+@inject ColorService ColorService
+
+<MudDialog Style="width: auto">
+    <DialogContent>
+        <MudStack>
+            <MudPaper Class="pa-5 mt-5">
+                @if (userDetails != null && userDetails.Any())
+                {
+                    <MudStack>
+                        <MudVirtualize Items="userDetails" Context="user">
+                            <MudText>
+                                <MudStack>
+                                    <MudStack Row AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.body2" Style="font-size: 20px"><b>@user.FirstName @user.LastName</b> </MudText>
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@user.Role</MudChip>
+                                    </MudStack>
+                                    <MudStack Row>
+                                        <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.AlternateEmail" />
+                                        <MudText Typo="Typo.caption">@user.Username</MudText>
+                                    </MudStack>
+                                    <MudStack Row>
+                                        <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Mail" />
+                                        <MudText Typo="Typo.caption">@user.Email</MudText>
+                                    </MudStack>
+                                </MudStack>
+                            </MudText>
+                        </MudVirtualize>
+                    </MudStack>
+                }
+                else
+                {
+                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+                }
+            </MudPaper>
+            <MudDivider />
+            <AdminNavigationMenu />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudStack Row Class="pa-3">
+            <MudPaper>
+                <MudButton Color="Color.Primary" OnClick="LogoutUser" Style="text-transform: none">Logout</MudButton>
+            </MudPaper>
+        </MudStack>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private readonly string API_URL = APIService.Palaro2026API;
+    [CascadingParameter] private MudDialogInstance? MudDialog { get; set; }
+    private string? ipAddress;
+
+    private List<Users>? userDetails;
+
+    private string? userID; // class-level variable
+
+    public class Users
+    {
+        public string? Role { get; set; }
+        public string? ID { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? Username { get; set; }
+        public string? Email { get; set; }
+        public string? PasswordHash { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        public DateTime? UpdateAt { get; set; }
+        public DateTime? LastLogin { get; set; }
+        public bool Active { get; set; }
+    }
+
+    // Ensure GetUser is called when the component is initialized
+    protected override async Task OnInitializedAsync()
+    {
+        // Call JavaScript to get the IP address
+        ipAddress = await JS.InvokeAsync<string>("getClientIP");
+        userID = await CookieService.GetCookie("ID"); // Assign class-level variable
+        await GetUser();
+    }
+
+    private async Task GetUser()
+    {
+        try
+        {
+            // Use the class-level userID here, so it references the correct value
+            if (string.IsNullOrEmpty(userID))
+            {
+                Console.WriteLine("Session ID is missing.");
+                return;
+            }
+            Console.WriteLine($"UserID: {userID}");
+
+            // Send userID correctly in the query string
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Users/UserDetails?searchTerm={userID}");
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            string responseStream = await httpResponse.Content.ReadAsStringAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            userDetails = JsonSerializer.Deserialize<List<Users>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+        catch (JsonException jsonEx)
+        {
+            // Handle JSON deserialization errors
+            Console.WriteLine($"JSON error: {jsonEx.Message}");
+        }
+    }
+
+    private async Task LogoutUser()
+    {
+        // Call the SignOut method to clear session
+        await CookieService.ClearCookie("SessionID");
+        await CookieService.ClearCookie("ID");
+
+        // Optionally show a logout notification
+        Snackbar.Add("You have logged out successfully.", Severity.Info);
+
+        // Close the dialog
+        MudDialog?.Close(DialogResult.Ok(true));
+    }
+}
+
