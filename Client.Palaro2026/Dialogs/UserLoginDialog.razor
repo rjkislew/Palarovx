@@ -2,15 +2,14 @@
 @using System.Text.Json
 @using System.Threading.Tasks
 @using System.Text
-@using System.Security.Cryptography;
-@using Blazored.LocalStorage;
-
+@using Blazored.LocalStorage
 @inject HttpClient httpClient
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 @inject CookieService CookieService
 @inject ColorService ColorService
 @inject ILocalStorageService LocalStorageService
+@inject AuthenticationService authenticationService
 
 <MudDialog Style="width: 300px">
     <DialogContent>
@@ -27,8 +26,8 @@
         </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton  Color="Color.Primary" OnClick="Cancel">Cancel</MudButton>
-        <MudButton  Color="Color.Primary" OnClick="LoginUser">Login</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="LoginUser ">Login</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -48,102 +47,27 @@
         public string? ID { get; set; }
         public string? Username { get; set; }
         public string? PasswordHash { get; set; }
-        public string? SessionID { get; set; }
-        public string? RecentIP { get; set; }
-    }
-
-    private (string hashedSessionId, string salt) HashUserIDWithSalt(string userID)
-    {
-        var salt = GenerateRandomSalt(16); // Generate a 16-byte salt
-        var saltedUserID = userID + salt;
-
-        using (var sha256 = SHA256.Create())
-        {
-            var bytes = Encoding.UTF8.GetBytes(saltedUserID);
-            var hash = sha256.ComputeHash(bytes);
-            var hashedSessionId = Convert.ToBase64String(hash);
-            return (hashedSessionId, salt);
-        }
-    }
-
-    private string GenerateRandomSalt(int size)
-    {
-        var saltBytes = new byte[size];
-        using (var rng = RandomNumberGenerator.Create())
-        {
-            rng.GetBytes(saltBytes);
-        }
-        return Convert.ToBase64String(saltBytes);
     }
 
     private async Task LoginUser()
     {
-        // Generate a random 50-character SessionID
-        string sessionID = GenerateRandomString(50);
-
-        var user = new UsersContent
-            {
-                Username = username,
-                PasswordHash = password,
-                SessionID = sessionID,
-                RecentIP = await JS.InvokeAsync<string>("getClientIP"),
-            };
+        var loginResponse = await authenticationService.Login(username, password);
 
         try
         {
-            var jsonContent = JsonSerializer.Serialize(user);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            // Send the login request
-            HttpResponseMessage response = await httpClient.PostAsync($"{API_URL}/Users/Login", content);
-            response.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            // Check if response content is not empty
-            if (response.Content == null)
+            if (loginResponse != null)
             {
-                Snackbar.Add("Response is empty.", Severity.Error);
-                return;
+                MudDialog?.Close(DialogResult.Ok(true));
+                Snackbar.Add("Logged-in Successfully", Severity.Success);
             }
-
-            // Deserialize the response to get the UserID and JWT Token
-            using var responseStream = await response.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            userID = await JsonSerializer.DeserializeAsync<UsersContent>(responseStream, options);
-
-            // Set a cookie with an expiration of 1 hour, secure flag, and SameSite=None for cross-site requests
-            if (userID?.ID != null)
+            else
             {
-                await CookieService.SetCookie("SessionID", sessionID, 3600); // Store the generated SessionID
-                await CookieService.SetCookie("ID", userID?.ID ?? "", 3600);
+                Snackbar.Add("Login failed: Invalid credentials", Severity.Error);
             }
-
-            // Set the user ID in local cookie
-            await LocalStorageService.SetItemAsync("ID", userID?.ID ?? "");
-
-            MudDialog?.Close(DialogResult.Ok(true));
-            Snackbar.Add("Logged-in Successfully", Severity.Success);
-        }
-        catch (HttpRequestException)
-        {
-            Snackbar.Add($"Login failed: User does not exist", Severity.Error);
-        }
-        catch (JsonException jsonEx)
-        {
-            Snackbar.Add($"Error processing response: {jsonEx.Message}", Severity.Error);
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Unexpected error: {ex.Message}", Severity.Error);
         }
     }
-
-    // Helper function to generate a random 50-character alphanumeric string
-    private static string GenerateRandomString(int length)
-    {
-        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        var random = new Random();
-        return new string(Enumerable.Repeat(chars, length)
-            .Select(s => s[random.Next(s.Length)]).ToArray());
-    }
-
 }

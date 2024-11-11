@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Server.Palaro2026.Context;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,14 +10,36 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+// Register TokenService
+builder.Services.AddScoped<TokenService>();
 
 // Configure the database context
-var connectionString = builder.Configuration.GetConnectionString("palaro_2026")
+var connectionString = builder.Configuration.GetConnectionString("Palaro2026")
                        ?? throw new InvalidOperationException("Connection string is not configured properly.");
 
 builder.Services.AddDbContext<Palaro2026Context>(options =>
     options.UseSqlServer(connectionString)
 );
+
+// Configure JWT authentication
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+    };
+});
 
 // Configure CORS
 builder.Services.AddCors(options =>
@@ -39,10 +64,12 @@ app.UseCors("AllowAll");
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
-    options.SwaggerEndpoint("v1/swagger.json", "Palaro 2026 API v1");
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Palaro 2026 API v1");
     options.DefaultModelsExpandDepth(-1);
 });
 app.UseHttpsRedirection();
-app.UseAuthorization();
-app.MapControllers();
-app.Run();
+app.UseAuthentication(); // Ensure authentication is used
+app.UseAuthorization(); // Ensure authorization is used
+
+app.MapControllers(); // Map controller routes
+app.Run(); // Run the application

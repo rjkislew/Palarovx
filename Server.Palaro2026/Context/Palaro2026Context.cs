@@ -42,8 +42,6 @@ public partial class Palaro2026Context : DbContext
 
     public virtual DbSet<Schools> Schools { get; set; }
 
-    public virtual DbSet<SessionDetails> SessionDetails { get; set; }
-
     public virtual DbSet<SportCategories> SportCategories { get; set; }
 
     public virtual DbSet<SportDetails> SportDetails { get; set; }
@@ -331,23 +329,6 @@ public partial class Palaro2026Context : DbContext
                 .HasConstraintName("FK__Schools__Divisio__5BE2A6F2");
         });
 
-        modelBuilder.Entity<SessionDetails>(entity =>
-        {
-            entity
-                .HasNoKey()
-                .ToView("SessionDetails");
-
-            entity.Property(e => e.ID)
-                .HasMaxLength(20)
-                .IsUnicode(false);
-            entity.Property(e => e.RecentIP)
-                .HasMaxLength(40)
-                .IsUnicode(false);
-            entity.Property(e => e.SessionID)
-                .HasMaxLength(50)
-                .IsUnicode(false);
-        });
-
         modelBuilder.Entity<SportCategories>(entity =>
         {
             entity.HasKey(e => e.ID).HasName("PK__SportCat__3214EC274517CC87");
@@ -468,12 +449,6 @@ public partial class Palaro2026Context : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false);
             entity.Property(e => e.PasswordHash).IsUnicode(false);
-            entity.Property(e => e.RecentIP)
-                .HasMaxLength(40)
-                .IsUnicode(false);
-            entity.Property(e => e.SessionID)
-                .HasMaxLength(50)
-                .IsUnicode(false);
             entity.Property(e => e.UpdateAt).HasColumnType("datetime");
             entity.Property(e => e.Username)
                 .HasMaxLength(50)

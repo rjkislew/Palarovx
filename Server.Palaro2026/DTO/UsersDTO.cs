@@ -2,12 +2,6 @@
 
 public class UsersDTO
 {
-    public class UserSessionID
-    {
-        public string? ID { get; set; }
-        public string? SessionID { get; set; }
-        public string? RecentIP { get; set; }
-    }
 
     public class UserLoginDetails
     {
@@ -15,8 +9,6 @@ public class UsersDTO
         {
             public string? Username { get; set; }
             public string? PasswordHash { get; set; }
-            public string? SessionID { get; set; }
-            public string? RecentIP { get; set; }
             public DateTime? LastLogin { get; set; }
         }
     }
@@ -93,7 +85,6 @@ public class UsersDTO
             public DateTime? UpdateAt { get; set; }
             public DateTime? LastLogin { get; set; }
             public bool? Active { get; set; }
-            public string? SessionID { get; set; }
             public int? RoleID { get; set; }
         }
 

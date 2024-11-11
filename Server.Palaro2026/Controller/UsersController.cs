@@ -10,58 +10,55 @@ namespace Server.Palaro2026.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UsersController(Palaro2026Context context) : ControllerBase
+    public class UsersController(Palaro2026Context context, TokenService tokenService) : ControllerBase
     {
         private readonly Palaro2026Context _context = context;
-
-        // Login
+        private readonly TokenService _tokenServiceon = tokenService;
 
         [HttpPost("Login")]
         public async Task<ActionResult<UsersDTO.Users.UserID>> Login([FromBody] UsersDTO.UserLoginDetails.ULD_UsersContent loginContent)
         {
             try
             {
+                // Validate input
+                if (string.IsNullOrWhiteSpace(loginContent.Username) || string.IsNullOrWhiteSpace(loginContent.PasswordHash))
+                {
+                    return BadRequest("Username and password are required.");
+                }
+
                 // Hash the input password for comparison
+                string hashedPassword;
                 using (var sha256 = SHA256.Create())
                 {
                     var bytes = Encoding.UTF8.GetBytes(loginContent.PasswordHash);
                     var hashedBytes = sha256.ComputeHash(bytes);
-                    var hashedPassword = BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
-
-                    // Find the user by username
-                    var user = await _context.Users
-                        .FirstOrDefaultAsync(u => u.Username == loginContent.Username);
-
-                    // Check if user exists and password matches
-                    if (user == null || user.PasswordHash != hashedPassword)
-                    {
-                        return Unauthorized("Invalid username or password.");
-                    }
-
-                    // Update session ID if provided in loginContent
-                    if (!string.IsNullOrEmpty(loginContent.SessionID))
-                    {
-                        user.SessionID = loginContent.SessionID;
-                    }
-
-                    // Update Recent IP if provided in loginContent
-                    if (!string.IsNullOrEmpty(loginContent.RecentIP))
-                    {
-                        user.RecentIP = loginContent.RecentIP;
-                    }
-
-                    // Update last login time
-                    user.LastLogin = DateTime.UtcNow;
-                    await _context.SaveChangesAsync();
-
-                    // Return the user's ID upon successful login
-                    var userID = new UsersDTO.Users.UserID
-                    {
-                        ID = user.ID // Assuming 'user.ID' is the field representing the user's ID
-                    };
-
-                    return Ok(userID); // Return the UserID
+                    hashedPassword = BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
                 }
+
+                // Find the user by username
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Username == loginContent.Username);
+
+                // Check if user exists and password matches
+                if (user == null || user.PasswordHash != hashedPassword)
+                {
+                    return Unauthorized("Invalid username or password.");
+                }
+
+                // Update last login time
+                user.LastLogin = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                // Generate JWT token with user ID
+                var token = tokenService.GenerateToken(user.Username, user.ID.ToString()); // Pass user ID for uniqueness
+
+                // Return the user's ID and token upon successful login
+                var userID = new UsersDTO.Users.UserID
+                {
+                    ID = user.ID // Assuming 'user.ID' is the field representing the user's ID
+                };
+
+                return Ok(new { UserID = userID, Token = token }); // Return the UserID and Token
             }
             catch (Exception ex)
             {
@@ -130,33 +127,6 @@ namespace Server.Palaro2026.Controller
             try
             {
                 var usersQuery = _context.UsersDetails.AsNoTracking().AsQueryable();
-
-                // Apply filtering if searchTerm is provided, focusing only on the ID field
-                if (!string.IsNullOrEmpty(searchTerm))
-                {
-                    // Use EF.Functions.Like for case-insensitive searching based on ID
-                    usersQuery = usersQuery.Where(user =>
-                        EF.Functions.Like(user.ID.ToString(), $"%{searchTerm.ToLower()}%"));
-                }
-
-                // Return the entire list of users (no projection)
-                var users = await usersQuery.ToListAsync();
-
-                return Ok(users);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
-            }
-        }
-
-
-        [HttpGet("AuthenticateUser")]
-        public async Task<ActionResult<IEnumerable<UsersDTO.Users.UsersContent>>> GetUserAuthentication(string searchTerm = null)
-        {
-            try
-            {
-                var usersQuery = _context.SessionDetails.AsNoTracking().AsQueryable();
 
                 // Apply filtering if searchTerm is provided, focusing only on the ID field
                 if (!string.IsNullOrEmpty(searchTerm))
