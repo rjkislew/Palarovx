@@ -2,9 +2,9 @@
 {
     public class VenuesDTO
     {
-        public partial class Venues
+        public class Venues
         {
-            public partial class VenuesContents
+            public class VenuesContents
             {
                 public int ID { get; set; }
                 public string? Venue { get; set; }

@@ -30,7 +30,7 @@ namespace Server.Palaro2026.Controller
 
                 // Group the sports by category
                 var groupedSports = sports
-                    .GroupBy(c => c.Sport)
+                    .GroupBy(c => c.Category)
                     .Select(category => new SportsDTO.SportDetails.SD_SportCategoriesContent
                     {
                         Category = category.Key,
@@ -50,7 +50,7 @@ namespace Server.Palaro2026.Controller
                                 .Select(gender => new SportsDTO.SportDetails.SD_GenderCategoriesContent
                                 {
                                     Gender = gender.Key,
-                                    SportSubCategoryList = gender
+                                    SubCategoryList = gender
                                     .Select(subCategory => new SportsDTO.SportDetails.SD_SubCategoriesContent
                                     {
                                         SubCategory = subCategory.SubCategory
@@ -75,6 +75,88 @@ namespace Server.Palaro2026.Controller
                     $"Internal server error: {ex.Message}");
             }
         }
+
+        [HttpGet("SportsDetailsFiltered")]
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportDetails.SD_SportCategoriesContent>>> GetSportsDetailsFiltered(
+        [FromQuery] string? category = null,
+        [FromQuery] string? sport = null,
+        [FromQuery] string? level = null,
+        [FromQuery] string? gender = null)
+        {
+            try
+            {
+                // Fetch the data from the database with optional filtering
+                var sportsQuery = _context.SportDetails.AsNoTracking();
+
+                // Apply filters if parameters are provided
+                if (!string.IsNullOrEmpty(category))
+                {
+                    sportsQuery = sportsQuery.Where(s => s.Category == category);
+                }
+                if (!string.IsNullOrEmpty(sport))
+                {
+                    sportsQuery = sportsQuery.Where(s => s.Sport == sport);
+                }
+                if (!string.IsNullOrEmpty(level))
+                {
+                    sportsQuery = sportsQuery.Where(s => s.Level == level);
+                }
+                if (!string.IsNullOrEmpty(gender))
+                {
+                    sportsQuery = sportsQuery.Where(s => s.Gender == gender);
+                }
+
+                // Execute the query and get the list
+                var sports = await sportsQuery.ToListAsync();
+
+                // Group the sports by category
+                var groupedSports = sports
+                    .GroupBy(c => c.Category)
+                    .Select(categoryGroup => new SportsDTO.SportDetails.SD_SportCategoriesContent
+                    {
+                        Category = categoryGroup.Key,
+                        SportList = categoryGroup
+                            .GroupBy(s => new { s.Sport, s.Description })
+                            .Select(sportGroup => new SportsDTO.SportDetails.SD_SportsContent
+                            {
+                                Sport = sportGroup.Key.Sport,
+                                Description = sportGroup.Key.Description,
+                                LevelList = sportGroup
+                                    .GroupBy(l => l.Level)
+                                    .Select(levelGroup => new SportsDTO.SportDetails.SD_SchoolLevelsContent
+                                    {
+                                        Level = levelGroup.Key,
+                                        GenderList = levelGroup
+                                            .GroupBy(g => g.Gender)
+                                            .Select(genderGroup => new SportsDTO.SportDetails.SD_GenderCategoriesContent
+                                            {
+                                                Gender = genderGroup.Key,
+                                                SubCategoryList = genderGroup
+                                                    .Select(subCategory => new SportsDTO.SportDetails.SD_SubCategoriesContent
+                                                    {
+                                                        SubCategory = subCategory.SubCategory
+                                                    }).ToList()
+                                            }).ToList()
+                                    }).ToList()
+                            }).ToList()
+                    }).ToList();
+
+                return Ok(groupedSports);
+            }
+            catch (DbUpdateException dbEx)
+            {
+                // Handle database update exceptions
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    $"Database update error: {dbEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                // Handle other exceptions
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    $"Internal server error: {ex.Message}");
+            }
+        }
+
 
         [HttpGet("SportsCategoriesDetails")]
         public async Task<ActionResult<IEnumerable<SportsDTO.SportCategoryDetails.SCD_CategoriesContent>>> GetSportCategoriesDetails()
@@ -117,8 +199,8 @@ namespace Server.Palaro2026.Controller
             }
         }
 
-        [HttpGet("SportCategoriesAndSubCategoriesDetails")]
-        public async Task<ActionResult<IEnumerable<SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_CategoriesContent>>> GetSportsCategoriesAndSubCategoriesDetails()
+        [HttpGet("SportCategoriesAndSportsDetails")]
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_CategoriesContent>>> GetSportCategoriesAndSportsDetails()
         {
             try
             {
@@ -138,12 +220,7 @@ namespace Server.Palaro2026.Controller
                         .Select(sport => new SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_SportsContent
                         {
                             Sport = sport.Key.Sport,
-                            Description = sport.Key.Description,
-                            SportSubCategoryList = sport
-                            .Select(subCategory => new SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_SubCategoriesContent
-                            {
-                                SubCategory = subCategory.SubCategory
-                            }).ToList()
+                            Description = sport.Key.Description
                         }).ToList()
                     }).ToList();
 
@@ -161,6 +238,166 @@ namespace Server.Palaro2026.Controller
                 return StatusCode(StatusCodes.Status500InternalServerError,
                     $"Internal server error: {ex.Message}");
             }
+        }
+
+        [HttpGet("SportCategoriesAndSubCategoriesDetailsFiltered")]
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_CategoriesContent>>> GetSportsCategoriesAndSubCategoriesDetailsFiltered(
+        [FromQuery] string? category = null,
+        [FromQuery] string? sport = null)
+        {
+            try
+            {
+                // Fetch the data from the database
+                var sportsQuery = _context.SportDetails.AsNoTracking();
+
+                // Apply filtering if `category` is provided
+                if (!string.IsNullOrEmpty(category))
+                {
+                    sportsQuery = sportsQuery.Where(s => s.Category == category);
+                }
+
+                // Apply filtering if `sport` is provided
+                if (!string.IsNullOrEmpty(sport))
+                {
+                    sportsQuery = sportsQuery.Where(s => s.Sport == sport);
+                }
+
+                var sports = await sportsQuery.ToListAsync();
+
+                // Group the sports by category
+                var groupedSports = sports
+                    .GroupBy(c => c.Category)
+                    .Select(categoryGroup => new SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_CategoriesContent
+                    {
+                        Category = categoryGroup.Key,
+                        SportList = categoryGroup
+                            .GroupBy(s => new { s.Sport, s.Description })
+                            .Select(sportGroup => new SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_SportsContent
+                            {
+                                Sport = sportGroup.Key.Sport,
+                                Description = sportGroup.Key.Description,
+                                SportSubCategoryList = sportGroup
+                                .Select(subCategory => subCategory.SubCategory)
+                                .Distinct()
+                                .Select(distinctSubCategory => new SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_SubCategoriesContent
+                                {
+                                    SubCategory = distinctSubCategory
+                                })
+                                .ToList()
+                            }).ToList()
+                    }).ToList();
+
+                return Ok(groupedSports);
+            }
+            catch (DbUpdateException dbEx)
+            {
+                // Handle database update exceptions
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    $"Database update error: {dbEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                // Handle other exceptions
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    $"Internal server error: {ex.Message}");
+            }
+        }
+
+
+
+        /// 
+        /// 
+        /// SPORT CATEGORIES
+        /// 
+        /// 
+
+        // Create
+        [HttpPost("SportCategory")]
+        public async Task<ActionResult<SportsDTO.SportCategories.SportCategoriesContent>> CreateSportCategory(SportsDTO.SportCategories.SportCategoriesContent sportCategoryContent)
+        {
+
+            try
+            {
+                var sportCategory = new SportCategories
+                {
+                    ID = sportCategoryContent.ID,
+                    Category = sportCategoryContent.Category,
+                };
+
+                _context.SportCategories.Add(sportCategory);
+                await _context.SaveChangesAsync();
+
+                return CreatedAtAction(nameof(GetSports), new { id = sportCategory.ID }, sportCategoryContent);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // Read
+        [HttpGet("SportCategory")]
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportCategories.SportCategoriesContent>>> GetSportCategory()
+        {
+            try
+            {
+                var categories = await _context.SportCategories.AsNoTracking().ToListAsync();
+                return Ok(categories);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        // Update
+        [HttpPut("SportCategory/{id}")]
+        public async Task<IActionResult> UpdateSportCategory(int id, SportsDTO.SportCategories.SportCategoriesContent sportCategoryContent)
+        {
+            if (id != sportCategoryContent.ID)
+            {
+                return BadRequest("Event Versus ID mismatch");
+            }
+
+            try
+            {
+                var sportCategory = new SportCategories
+                {
+                    ID = sportCategoryContent.ID,
+                    Category = sportCategoryContent.Category,
+                };
+
+                _context.SportCategories.Attach(sportCategory);
+                _context.Entry(sportCategory).State = EntityState.Modified;
+
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.SportCategories.Any(e => e.ID == id))
+                {
+                    return NotFound($"Event Versus with ID {id} not found");
+                }
+                throw;
+            }
+
+            return NoContent();
+        }
+
+        // Delete
+        [HttpDelete("SportCategory/{id}")]
+        public async Task<IActionResult> DeleteSportCategory(int id)
+        {
+            var sportCategory = await _context.SportCategories.FindAsync(id);
+            if (sportCategory == null)
+            {
+                return NotFound($"Sport Category with ID {id} not found");
+            }
+
+            _context.SportCategories.Remove(sportCategory);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
 
 
@@ -255,102 +492,6 @@ namespace Server.Palaro2026.Controller
             }
 
             _context.Sports.Remove(sport);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
-
-        /// 
-        /// 
-        /// SPORT CATEGORIES
-        /// 
-        /// 
-
-        // Create
-        [HttpPost("SportCategory")]
-        public async Task<ActionResult<SportsDTO.SportCategories.SportCategoriesContent>> CreateSportCategory(SportsDTO.SportCategories.SportCategoriesContent sportCategoryContent)
-        {
-
-            try
-            {
-                var sportCategory = new SportCategories
-                {
-                    ID = sportCategoryContent.ID,
-                    Category = sportCategoryContent.Category,
-                };
-
-                _context.SportCategories.Add(sportCategory);
-                await _context.SaveChangesAsync();
-
-                return CreatedAtAction(nameof(GetSports), new { id = sportCategory.ID }, sportCategoryContent);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
-            }
-        }
-
-        // Read
-        [HttpGet("SportCategory")]
-        public async Task<ActionResult<IEnumerable<SportsDTO.SportCategories.SportCategoriesContent>>> GetSportCategory()
-        {
-            try
-            {
-                var categories = await _context.SportCategories.AsNoTracking().ToListAsync();
-                return Ok(categories);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
-            }
-        }
-
-        // Update
-        [HttpPut("SportCategory/{id}")]
-        public async Task<IActionResult> UpdateSportCategory(int id, SportsDTO.SportCategories.SportCategoriesContent sportCategoryContent)
-        {
-            if (id != sportCategoryContent.ID)
-            {
-                return BadRequest("Event Versus ID mismatch");
-            }
-
-            try
-            {
-                var sportCategory = new SportCategories
-                {
-                    ID = sportCategoryContent.ID,
-                    Category = sportCategoryContent.Category,
-                };
-
-                _context.SportCategories.Attach(sportCategory);
-                _context.Entry(sportCategory).State = EntityState.Modified;
-
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!_context.SportCategories.Any(e => e.ID == id))
-                {
-                    return NotFound($"Event Versus with ID {id} not found");
-                }
-                throw;
-            }
-
-            return NoContent();
-        }
-
-        // Delete
-        [HttpDelete("SportCategory/{id}")]
-        public async Task<IActionResult> DeleteSportCategory(int id)
-        {
-            var sportCategory = await _context.SportCategories.FindAsync(id);
-            if (sportCategory == null)
-            {
-                return NotFound($"Sport Category with ID {id} not found");
-            }
-
-            _context.SportCategories.Remove(sportCategory);
             await _context.SaveChangesAsync();
 
             return NoContent();

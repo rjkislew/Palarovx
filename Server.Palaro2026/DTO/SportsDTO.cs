@@ -23,7 +23,7 @@ public class SportsDTO
         public class SD_GenderCategoriesContent
         {
             public string? Gender { get; set; }
-            public List<SD_SubCategoriesContent>? SportSubCategoryList { get; set; }
+            public List<SD_SubCategoriesContent>? SubCategoryList { get; set; }
         }
         public class SD_SubCategoriesContent
         {

@@ -1,0 +1,169 @@
+﻿@page "/sports/{Category}/{Sports}"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@inject ColorService ColorSettings
+
+<MudGrid>
+    <!-- Header -->
+    <MudItem xs="12">
+        <MudContainer Gutters="false" MaxWidth="MaxWidth.False">
+            <MudVirtualize Items="sportCategoryContents" Context="sportCategory">
+                <MudVirtualize Items="sportCategory.SportList" Context="sport">
+                    <!-- Image container -->
+                    <MudItem xs="12" class="pa-0" Style="position: relative;">
+                        <MudImage Style="width: 100vw; height: calc(100vh - 64px);" Class="z-1 rounded-0"
+                                  Fluid
+                                  ObjectFit="ObjectFit.Cover"
+                                  ObjectPosition="ObjectPosition.Top"
+                                  Src="@($"Media/Sports/Images/{sport.Sport}.png")" />
+
+                        <!-- Overlay with MudPaper -->
+                        <MudPaper Elevation="0" Class="rounded-0 absolute"
+                                  Style="width: 100%; height: calc(100% - 4px); background-color: rgba(0, 0, 0, 0.6); top: 0; left: 0;">
+                        </MudPaper>
+                        <!-- Centered text -->
+                        <MudStack Class="absolute"
+                                  Style="top: 50%; left: 50%; transform: translate(-50%, -50%);"
+                                  AlignItems="AlignItems.Center" Justify="Justify.Center">
+                            <MudText Align="Align.Center" Typo="Typo.h3" Color="Color.Secondary">@sportCategory.Category</MudText>
+                            <MudText Align="Align.Center" Typo="Typo.h1" Color="Color.Secondary">@sport.Sport</MudText>
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">@sport.Description</MudText>
+                        </MudStack>
+                    </MudItem>
+                </MudVirtualize>
+            </MudVirtualize>
+        </MudContainer>
+    </MudItem>
+
+    <!-- Content -->
+    <MudItem xs="12">
+        <MudContainer MaxWidth="MaxWidth.Large">
+            <MudGrid>
+                <!-- Sport sub categories -->
+                <MudItem xs="12">
+                    <MudVirtualize Items="sportCategoryContents" Context="sportCategory">
+                        <MudVirtualize Items="sportCategory.SportList" Context="sport">
+                            <MudPaper Elevation="0" Class="pa-5">
+                                <MudText Typo="Typo.h2" Color="Color.Primary">Categories</MudText>
+                                <MudVirtualize Items="sport.SportSubCategoryList" Context="subCategories">
+                                    <MudChip Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined" T="string">
+                                        <MudText Typo="Typo.caption" Color="Color.Tertiary">@subCategories.SubCategory</MudText>
+                                    </MudChip>
+                                </MudVirtualize>
+                            </MudPaper>
+                        </MudVirtualize>
+                    </MudVirtualize>
+                </MudItem>
+
+                <!-- Event Schedules -->
+                <MudItem xs="12" md="6">
+                    <MudPaper Elevation="0" Square Class="pa-5">
+                        <!-- Live Now Header -->
+                        <MudText Class="mb-5" Typo="Typo.h3" Color="Color.Primary">Live Now</MudText>
+
+                        <!-- Live Now Content -->
+                        <MudStack Row>
+                            <MudIcon Icon="@Icons.Material.Filled.NotificationsActive"/>
+                            <MudText>No Ongoing Live Events</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudPaper Elevation="0" Square Class="pa-5">
+                        <!-- Upcoming Schedules Header -->
+                        <MudText Class="mb-5" Typo="Typo.h3" Color="Color.Primary">Upcoming Schedules</MudText>
+
+                        <!-- Upcoming Schedules Content -->
+                        <MudStack Row>
+                            <MudIcon Icon="@Icons.Material.Filled.NotificationsActive" />
+                            <MudText>No Upcoming Events</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- New and Updates -->
+                <MudItem xs="12">
+                    <MudPaper Elevation="0" Square Class="pa-5">
+                        <!--News and Updates Header -->
+                        <MudText Class="mb-5" Typo="Typo.h3" Color="Color.Primary">News Updates</MudText>
+
+                        <!-- News and Updates  Content -->
+                        <MudStack Row>
+                            <MudIcon Icon="@Icons.Material.Filled.NotificationsActive" />
+                            <MudText>No News and Updates</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudContainer>
+    </MudItem>
+</MudGrid>
+<FooterComponent />
+
+@code {
+    [Parameter]
+    public string? Category { get; set; }
+
+    [Parameter]
+    public string? Sports { get; set; }
+
+    private readonly string API_URL = APIService.Palaro2026API;
+    private List<CategoriesContent>? sportCategoryContents;
+
+    //API/Sports/SportCategoryAndSubCategoryDetails
+    public class CategoriesContent
+    {
+        public string? Category { get; set; }
+        public List<SportsContent>? SportList { get; set; }
+    }
+    public class SportsContent
+    {
+        public string? Sport { get; set; }
+        public string? Description { get; set; }
+        public List<SubCategoriesContent>? SportSubCategoryList { get; set; }
+    }
+
+    public class SubCategoriesContent
+    {
+        public string? SubCategory { get; set; }
+    }
+
+    protected override void OnInitialized()
+    {
+        ColorSettings.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        ColorSettings.OnChange -= StateHasChanged;
+    }
+
+    // Initialization method to fetch data and update UI elements
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSportCategoryAndSubCategoryDetailsList();
+    }
+    private async Task GetSportCategoryAndSubCategoryDetailsList()
+    {
+        try
+        {
+            using HttpClient httpClient = new HttpClient();
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportCategoriesAndSubCategoriesDetailsFiltered?category={Category}&sport={Sports}");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            sportCategoryContents = await JsonSerializer.DeserializeAsync<List<CategoriesContent>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+}

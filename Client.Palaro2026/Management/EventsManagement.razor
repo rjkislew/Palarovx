@@ -1,562 +1,250 @@
-﻿@page "/events-management"
+﻿@page "/events/management"
 
 @using System.Net.Http
 @using System.Text.Json
 @using System.Threading.Tasks
 @using System.Text
+
 @inject ISnackbar Snackbar
 @inject HttpClient httpClient
+@inject ColorService ColorSettings
 
 <MudGrid>
     <MudItem xs="12">
-        <MudStack Spacing="1">
-            <MudText Typo="Typo.h2" Class="mb-n3" Color="Color.Secondary">Admin Control</MudText>
-            <MudText Typo="Typo.h3" Color="Color.Tertiary">Events Management</MudText>
-        </MudStack>
+        <MudContainer Gutters="false" MaxWidth="MaxWidth.False">
+            <MudPaper Height="150px" Square Elevation="0" Class="mud-theme-primary">
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 100%">
+                    <MudText Typo="Typo.h2" Style="color: white">Admin Control</MudText>
+                    <MudText Typo="Typo.h3" Style="color: white">Events Management</MudText>
+                </MudStack>
+            </MudPaper>
+        </MudContainer>
     </MudItem>
-    <MudItem xs="12" md=6>
-        <MudPaper Class="pa-3 mud-border-tertiary" Outlined>
-            <MudStack Spacing="3">
-                <MudStack Spacing="0">
-                    <MudField Adornment="Adornment.Start" HelperText="This is an auto generated field" AdornmentColor="Color.Primary" AdornmentIcon="@Icons.Material.Filled.Title" Margin="Margin.Dense" Label="Event Title" Variant="Variant.Outlined">@eventTitle</MudField>
-                </MudStack>
+    <MudItem xs="12">
+        <MudContainer Gutters="false" MaxWidth="MaxWidth.False">
+            <MudGrid Class="pa-5">
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-3" Outlined>
+                        <MudText>Event Form</MudText>
+                        <MudField Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Numbers" Label="Match ID" AdornmentColor="Color.Primary" Variant="Variant.Outlined" FullWidth></MudField>
+                        <MudField Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Title" Label="Event Title" AdornmentColor="Color.Primary" Variant="Variant.Outlined" FullWidth></MudField>
 
-                <MudDivider />
-
-                <MudDivider />
-
-                <MudStack Spacing="0">
-                    <!-- Category Select -->
-                    <MudStack Row AlignItems="AlignItems.Center">
-                        <MudIcon Icon="@Icons.Material.Filled.Category" Color="Color.Primary"></MudIcon>
-                        <MudSelect T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Category" @bind-Value="selectedCategory" SelectedValuesChanged="GetLevels">
-                            @if (sportCategoryContent != null)
-                            {
-                                <MudVirtualize Items="sportCategoryContent" Context="category">
-                                    <MudSelectItem T="string" Value="@category.Category">@category.Category</MudSelectItem>
-                                </MudVirtualize>
-                            }
+                        <MudSelect Margin="Margin.Dense" T="string" Label="Sport Category" AdornmentColor="Color.Primary" Variant="Variant.Outlined" @bind-Value="categoryValue" FullWidth Clearable SelectedValuesChanged="GetSportList">
+                            <MudVirtualize Items="categories" Context="category">
+                                <MudSelectItem Value="category.Category">@category.Category</MudSelectItem>
+                            </MudVirtualize>
                         </MudSelect>
-                    </MudStack>
 
-                    <!-- Level Select -->
-                    <MudStack Row AlignItems="AlignItems.Center">
-                        <MudIcon Icon="@Icons.Material.Filled.SignalCellularAlt2Bar" Color="Color.Primary"></MudIcon>
-                        <MudSelect Disabled="enableLevel" T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Level" @bind-Value="selectedLevel" SelectedValuesChanged="GetSports">
-                            @if (schoolLevelContent != null)
-                            {
-                                <MudVirtualize Items="schoolLevelContent" Context="level">
-                                    <MudSelectItem T="string" Value="@level.Level">@level.Level</MudSelectItem>
+                        <MudSelect Margin="Margin.Dense" T="string" Label="Sport" AdornmentColor="Color.Primary" Variant="Variant.Outlined" @bind-Value="sportValue" FullWidth Clearable SelectedValuesChanged="GetLevelList">
+                            <MudVirtualize Items="categories" Context="category">
+                                <MudVirtualize Items="category.SportList" Context="sport">
+                                    <MudSelectItem Value="sport.Sport">@sport.Sport</MudSelectItem>
                                 </MudVirtualize>
-                            }
+                            </MudVirtualize>
                         </MudSelect>
-                    </MudStack>
 
-                    <!-- Sport Select -->
-                    <MudStack Row AlignItems="AlignItems.Center">
-                        <MudIcon Icon="@Icons.Material.Filled.Sports" Color="Color.Primary"></MudIcon>
-                        <MudSelect Disabled="enableSport" T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Sport" @bind-Value="selectedSport" SelectedValuesChanged="GetGenders">
-                            @if (sportContent != null)
-                            {
-                                <MudVirtualize Items="sportContent" Context="sport">
-                                    <MudSelectItem T="string" Value="@sport.Sport">@sport.Sport</MudSelectItem>
+                        <MudSelect Margin="Margin.Dense" T="string" Label="Level" AdornmentColor="Color.Primary" Variant="Variant.Outlined" @bind-Value="levelValue" FullWidth Clearable SelectedValuesChanged="GetGenderList">
+                            <MudVirtualize Items="categories" Context="category">
+                                <MudVirtualize Items="category.SportList" Context="sport">
+                                    <MudVirtualize Items="sport.LevelList" Context="level">
+                                        <MudSelectItem Value="level.Level">@level.Level</MudSelectItem>
+                                    </MudVirtualize>
                                 </MudVirtualize>
-                            }
+                            </MudVirtualize>
                         </MudSelect>
-                    </MudStack>
 
-                    <!-- Gender Select -->
-                    <MudStack Row AlignItems="AlignItems.Center">
-                        <MudIcon Icon="@Icons.Material.Filled.PeopleAlt" Color="Color.Primary"></MudIcon>
-                        <MudSelect Disabled="enableGender" T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Gender" @bind-Value="selectedGender" SelectedValuesChanged="GetSubCategories">
-                            @if (genderCategoryContent != null)
-                            {
-                                <MudVirtualize Items="genderCategoryContent" Context="gender">
-                                    <MudSelectItem T="string" Value="@gender.Gender">@gender.Gender</MudSelectItem>
+                        <MudSelect Margin="Margin.Dense" T="string" Label="Gender" AdornmentColor="Color.Primary" Variant="Variant.Outlined" @bind-Value="genderValue" FullWidth Clearable SelectedValuesChanged="GetSubCategoryList">
+                            <MudVirtualize Items="categories" Context="category">
+                                <MudVirtualize Items="category.SportList" Context="sport">
+                                    <MudVirtualize Items="sport.LevelList" Context="level">
+                                        <MudVirtualize Items="level.GenderList" Context="gender">
+                                            <MudSelectItem Value="gender.Gender">@gender.Gender</MudSelectItem>
+                                        </MudVirtualize>
+                                    </MudVirtualize>
                                 </MudVirtualize>
-                            }
+                            </MudVirtualize>
                         </MudSelect>
-                    </MudStack>
 
-                    <!-- SubCategory Select -->
-                    <MudStack Row AlignItems="AlignItems.Center">
-                        <MudIcon Icon="@Icons.Material.Filled.Sports" Color="Color.Primary"></MudIcon>
-                        <MudSelect Disabled="enableSubCategory" T="SportSubCategoriesContent" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Sub Category" @bind-Value="selectedSubCategory" SelectedValuesChanged="GetVenues">
-                            @if (sportSubCategortContent != null)
-                            {
-                                <MudVirtualize Items="sportSubCategortContent" Context="subCategory">
-                                    <MudSelectItem T="SportSubCategoriesContent" Value="@subCategory">@subCategory.SubCategory</MudSelectItem>
+                        <MudSelect Margin="Margin.Dense" T="string" Label="Sub Category" AdornmentColor="Color.Primary" Variant="Variant.Outlined" @bind-Value="subCategoryValue" FullWidth Clearable>
+                            <MudVirtualize Items="categories" Context="category">
+                                <MudVirtualize Items="category.SportList" Context="sport">
+                                    <MudVirtualize Items="sport.LevelList" Context="level">
+                                        <MudVirtualize Items="level.GenderList" Context="gender">
+                                            <MudVirtualize Items="gender.SubCategoryList" Context="subCategory">
+                                                <MudSelectItem Value="subCategory.SubCategory">@subCategory.SubCategory</MudSelectItem>
+                                            </MudVirtualize>
+                                        </MudVirtualize>
+                                    </MudVirtualize>
                                 </MudVirtualize>
-                            }
+                            </MudVirtualize>
                         </MudSelect>
-                    </MudStack>
 
-                    <!-- Venue Select -->
-                    <MudStack Row AlignItems="AlignItems.Center">
-                        <MudIcon Icon="@Icons.Material.Filled.HomeWork" Color="Color.Primary"></MudIcon>
-                        <MudSelect Disabled="enableVenue" T="VenuesContents" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable Label="Venue" @bind-Value="selectedVenue" SelectedValuesChanged="EnableDate">
-                            @if (venueContent != null)
-                            {
-                                <MudVirtualize Items="venueContent" Context="venue">
-                                    <MudSelectItem T="VenuesContents" Value="@venue">@venue.Venue</MudSelectItem>
-                                </MudVirtualize>
-                            }
+
+                        <MudSelect Margin="Margin.Dense" T="string" Label="Venue" AdornmentColor="Color.Primary" Variant="Variant.Outlined" @bind-Value="venueValue" FullWidth Clearable>
+                            <MudVirtualize Items="venues" Context="venue">
+                                <MudSelectItem Value="venue.Venue">@venue.Venue</MudSelectItem>
+                            </MudVirtualize>
                         </MudSelect>
-                    </MudStack>
-
-                    <!-- Date Time -->
-                    <MudStack Row>
-                        <MudDatePicker @bind-Date="selectedDate"
-                                       Disabled="@enableDate"
-                                       Adornment="Adornment.Start"
-                                       AdornmentColor="Color.Primary"
-                                       Margin="Margin.Dense"
-                                       Label="Date"
-                                       PickerClosed="EnableTime"
-                                       Variant="Variant.Outlined"
-                                       DateFormat="yyyy-MM-dd" />
-
-                        <MudTimePicker @bind-Time="selectedTime"
-                                       Disabled="enableTime"
-                                       Adornment="Adornment.Start"
-                                       AdornmentColor="Color.Primary"
-                                       Margin="Margin.Dense"
-                                       Label="Time"
-                                       PickerClosed="EnableStreamCheck"
-                                       Variant="Variant.Outlined"
-                                       AmPm />
-                    </MudStack>
-
-                    <!-- Stream Checkbox and URL Field -->
-                    <MudStack Row AlignItems="AlignItems.Center">
-                        <MudCheckBox Value="hasStreamURL" Disabled="enableStreamCheck" T="bool" Label="On Stream" @bind-Checked="enableOnStream" ValueChanged="ToggleStream" Size="Size.Small"></MudCheckBox>
-                        <MudTextField Disabled="enableOnStream" Adornment="Adornment.Start" AdornmentColor="Color.Primary" Margin="Margin.Dense" AdornmentIcon="@Icons.Material.Filled.Link" T="string" @bind-Value="streamURL" Label="Stream URL" Variant="Variant.Outlined"></MudTextField>
-                    </MudStack>
-                </MudStack>
-
-                <MudDivider />
-
-                <MudStack Row Justify="Justify.FlexEnd">
-                    <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Clear" Variant="Variant.Outlined" Color="Color.Error" @onclick="ClearFields">
-                        <MudText Typo="Typo.body2" Color="Color.Tertiary">Clear Fields</MudText>
-                    </MudButton>
-                    <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.AddBox" Variant="Variant.Outlined" Color="Color.Primary" OnClick="AddEvent">
-                        <MudText Typo="Typo.body2" Color="Color.Tertiary">Add Event</MudText>
-                    </MudButton>
-                </MudStack>
-            </MudStack>
-        </MudPaper>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="8">
+                    <MudPaper Class="pa-3" Outlined>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudContainer>
     </MudItem>
 </MudGrid>
 
 @code {
     private readonly string API_URL = APIService.Palaro2026API;
-    private List<SportCategoriesContent>? sportCategoryContent;
-    private List<SportsContent>? sportContent;
-    private List<SchoolLevelsContent>? schoolLevelContent;
-    private List<GenderCategoriesContent>? genderCategoryContent;
-    private List<SportSubCategoriesContent>? sportSubCategortContent;
-    private List<VenuesContents>? venueContent;
-    private List<RegionsContent>? regionContent;
+    private List<SportCategories>? categories;
+    private List<Venues>? venues;
 
-    private string? selectedCategory;
-    private string? selectedLevel;
-    private string? selectedSport;
-    private string? selectedGender;
-    private SportSubCategoriesContent? selectedSubCategory;
-    private VenuesContents? selectedVenue;
-    private string? eventTitle;
-    private DateTime? selectedDate;
-    private TimeSpan? selectedTime;
-    private bool hasStreamURL = false;
-    private string? streamURL;
+    private string? categoryValue;
+    private string? sportValue;
+    private string? levelValue;
+    private string? genderValue;
+    private string? subCategoryValue;
+    private string? venueValue;
 
-    private bool enableLevel = true;
-    private bool enableSport = true;
-    private bool enableGender = true;
-    private bool enableSubCategory = true;
-    private bool enableVenue = true;
-    private bool enableDate = true;
-    private bool enableTime = true;
-    private bool enableStreamCheck = true;
-    private bool enableOnStream = true;
-
-    private void ToggleCheck()
+    public class SportCategories
     {
-        hasStreamURL = !hasStreamURL;
-    }
-
-    private void eventTitleUpdate()
-    {
-        // Generate eventTitle, handling potential nulls and empty strings
-        var titleParts = new List<string>();
-
-        if (!string.IsNullOrEmpty(selectedCategory))
-            titleParts.Add(selectedCategory);
-
-        if (!string.IsNullOrEmpty(selectedLevel))
-            titleParts.Add(selectedLevel);
-
-        if (!string.IsNullOrEmpty(selectedSport))
-            titleParts.Add(selectedSport);
-
-        if (!string.IsNullOrEmpty(selectedGender))
-            titleParts.Add(selectedGender);
-
-        if (selectedSubCategory != null)
-            titleParts.Add(selectedSubCategory.SubCategory);
-
-        if (selectedVenue != null)
-            titleParts.Add(selectedVenue.Venue);
-
-        // Join the non-empty parts with " | " separator
-        eventTitle = string.Join(" | ", titleParts);
-    }
-
-    public partial class VenuesContents
-    {
-        public int ID { get; set; }
-        public string? Venue { get; set; }
-        public decimal? Latitude { get; set; }
-        public decimal? Longitude { get; set; }
-
-    }
-
-    public partial class RegionsContent
-    {
-        public int ID { get; set; }
-        public string? Region { get; set; }
-        public string? Abbreviation { get; set; }
-    }
-
-
-    public class SportCategoriesContent
-    {
-        public int ID { get; set; }
         public string? Category { get; set; }
+        public List<Sports>? SportList { get; set; }
     }
-
-    public class SportsContent
+    public class Sports
     {
-        public int ID { get; set; }
         public string? Sport { get; set; }
-        public string? Description { get; set; }
+        public List<SchoolLevels>? LevelList { get; set; }
     }
-
-
-    public class SchoolLevelsContent
+    public class SchoolLevels
     {
-        public int ID { get; set; }
         public string? Level { get; set; }
+        public List<GenderCategories>? GenderList { get; set; }
     }
-
-    public class GenderCategoriesContent
+    public class GenderCategories
     {
-        public int ID { get; set; }
         public string? Gender { get; set; }
+        public List<SubCategories>? SubCategoryList { get; set; }
     }
-
-    public class SportSubCategoriesContent
+    public class SubCategories
     {
-        public int ID { get; set; }
         public string? SubCategory { get; set; }
-        public int? SportID { get; set; }
-        public int? GenderCategoryID { get; set; }
-        public int? SchoolLevelID { get; set; }
     }
 
-    public class EventsContent
+    public class Venues
     {
-        public int ID { get; set; }
-        public int? SportSubCategoryID { get; set; }
-        public int? VenueID { get; set; }
-        public string? EventTitle { get; set; }
-        public DateTime? Date { get; set; }
-        public TimeSpan? Time { get; set; }
-        public bool? OnStream { get; set; }
-        public string? StreamURL { get; set; }
-        public bool? IsFinished { get; set; }
-        public byte[]? Attachement { get; set; }
-        public bool? Archived { get; set; }
-        public bool? Deleted { get; set; }
+        public string? Venue { get; set; }
     }
 
     protected override async Task OnInitializedAsync()
     {
-        await GetRegionalTeams();
-        await GetCategories();
-        EnableElementFlag();
+        await GetSportCategoryList();
+        await GetVenueList();
     }
 
-    private void EnableElementFlag()
-    {
-        enableLevel = true;
-        enableSport = true;
-        enableGender = true;
-        enableSubCategory = true;
-        enableVenue = true;
-        enableDate = true;
-        enableTime = true;
-        enableStreamCheck = true;
-        enableOnStream = true;
-    }
-
-    public void ToggleStream()
-    {
-        enableOnStream = !enableOnStream;
-        ToggleCheck();
-    }
-
-    private void ClearFields()
-    {
-        eventTitle = null;
-        selectedCategory = null;
-        selectedLevel = null;
-        selectedSport = null;
-        selectedGender = null;
-        selectedSubCategory = null;
-        selectedVenue = null;
-        selectedDate = null;
-        selectedTime = null;
-        enableOnStream = true;
-        streamURL = null;
-
-        enableLevel = true;
-        enableSport = true;
-        enableGender = true;
-        enableSubCategory = true;
-        enableVenue = true;
-        enableDate = true;
-        enableTime = true;
-        enableStreamCheck = true;
-
-        hasStreamURL = false;
-
-        StateHasChanged();
-    }
-
-    private async Task GetCategories()
+    private async Task GetSportCategoryList()
     {
         try
         {
-            using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/Categories");
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportCategory");
+            httpResponse.EnsureSuccessStatusCode();
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            sportCategoryContent = await JsonSerializer.DeserializeAsync<List<SportCategoriesContent>>(responseStream, options);
-
-            eventTitleUpdate();
-            StateHasChanged();
+            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
-            Console.Write($"Error fetching categories: {ex.Message}");
-        }
-    }
-
-    private async Task GetRegionalTeams()
-    {
-        try
-        {
-            using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/RegionalTeams/Teams");
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            regionContent = await JsonSerializer.DeserializeAsync<List<RegionsContent>>(responseStream, options);
-
-            eventTitleUpdate();
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.Write($"Error fetching categories: {ex.Message}");
-        }
-    }
-
-    private async Task GetLevels()
-    {
-        try
-        {
-            using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/Levels?category={selectedCategory}");
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            schoolLevelContent = await JsonSerializer.DeserializeAsync<List<SchoolLevelsContent>>(responseStream, options);
-
-            enableLevel = false;
-            eventTitleUpdate();
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.Write($"Error fetching categories: {ex.Message}");
-        }
-    }
-
-    private async Task GetSports()
-    {
-        try
-        {
-            using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/Sports?category={selectedCategory}&level={selectedLevel}");
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            sportContent = await JsonSerializer.DeserializeAsync<List<SportsContent>>(responseStream, options);
-
-            enableSport = false;
-            eventTitleUpdate();
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.Write($"Error fetching categories: {ex.Message}");
-        }
-    }
-
-    private async Task GetGenders()
-    {
-        try
-        {
-            using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/Genders?category={selectedCategory}&level={selectedLevel}&sport={selectedSport}");
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            genderCategoryContent = await JsonSerializer.DeserializeAsync<List<GenderCategoriesContent>>(responseStream, options);
-
-            enableGender = false;
-            eventTitleUpdate();
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.Write($"Error fetching categories: {ex.Message}");
-        }
-    }
-
-    private async Task GetSubCategories()
-    {
-        try
-        {
-            using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SubCategories?category={selectedCategory}&level={selectedLevel}&sport={selectedSport}&gender={selectedGender}");
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            sportSubCategortContent = await JsonSerializer.DeserializeAsync<List<SportSubCategoriesContent>>(responseStream, options);
-
-            enableSubCategory = false;
-            eventTitleUpdate();
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.Write($"Error fetching categories: {ex.Message}");
-        }
-    }
-
-    private async Task GetVenues()
-    {
-        try
-        {
-            using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Venues/Venues")!;
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            venueContent = await JsonSerializer.DeserializeAsync<List<VenuesContents>>(responseStream, options);
-
-            enableVenue = false;
-            eventTitleUpdate();
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
 
-    private void EnableDate()
+    private async Task GetSportList()
     {
-        enableDate = false;
-        eventTitleUpdate();
-
-        StateHasChanged();
-    }
-
-    private void EnableTime()
-    {
-        enableTime = false;
-    }
-
-    private void EnableStreamCheck()
-    {
-        enableStreamCheck = false;
-    }
-
-    private async Task AddEvent()
-    {
-        // Check for null or empty fields
-        if (selectedVenue == null || selectedSubCategory == null ||
-            string.IsNullOrEmpty(eventTitle) || selectedDate == null || selectedTime == null)
-        {
-            Console.WriteLine("Please fill in all required fields.");
-            return;
-        }
-
-        // Create a new event object
-        EventsContent newEvent = new EventsContent
-            {
-                SportSubCategoryID = selectedSubCategory.ID,
-                VenueID = selectedVenue.ID,
-                EventTitle = eventTitle,
-                Date = selectedDate,
-                Time = selectedTime,
-                OnStream = enableOnStream,
-                StreamURL = enableOnStream ? streamURL : null,
-                IsFinished = false,
-                Archived = false,
-                Deleted = false,
-                Attachement = null,
-            };
-
         try
         {
-            string jsonContent = JsonSerializer.Serialize(newEvent);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsFiltered?category={categoryValue}");
+            httpResponse.EnsureSuccessStatusCode();
 
-            HttpResponseMessage response = await httpClient.PostAsync($"{API_URL}/Events/AddEvent", content);
-            response.EnsureSuccessStatusCode();
-
-            await GetCategories();
-
-            // Clear fields and reset state
-            ClearFields();
-            Snackbar.Add($"Successfully Added Event", Severity.Success);
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
-            Console.WriteLine($"Error adding event: {ex.Message}");
+            Console.WriteLine($"Error fetching data: {ex.Message}");
         }
-        catch (JsonException jsonEx)
+    }
+
+    private async Task GetLevelList()
+    {
+        try
         {
-            Console.WriteLine($"Error serializing or deserializing event data: {jsonEx.Message}");
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsFiltered?category={categoryValue}&sport={sportValue}");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            Console.WriteLine($"Unexpected error: {ex.Message}");
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetGenderList()
+    {
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsFiltered?category={categoryValue}&sport={sportValue}&level={levelValue}");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSubCategoryList()
+    {
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsFiltered?category={categoryValue}&sport={sportValue}&level={levelValue}&gender={genderValue}");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+
+
+    private async Task GetVenueList()
+    {
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Venues/Venue");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            venues = await JsonSerializer.DeserializeAsync<List<Venues>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
 }

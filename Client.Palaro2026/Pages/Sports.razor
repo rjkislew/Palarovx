@@ -6,23 +6,32 @@
 @inject ColorService ColorSettings
 
 <MudGrid>
+    <!-- Header -->
     <MudItem xs="12">
         <MudContainer Gutters="false" MaxWidth="MaxWidth.False">
-            <MudPaper Height="300px" Square Elevation="0" Style="@($"background-color: {ColorSettings.SelectedColor}")">
+            <MudPaper Height="300px" Square Elevation="0" Class="mud-theme-primary">
                 <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 100%">
                     <MudText Typo="Typo.h1" Style="color: white">Sports</MudText>
                 </MudStack>
             </MudPaper>
         </MudContainer>
     </MudItem>
+
+    <!-- Content -->
     <MudItem xs="12">
         <MudContainer MaxWidth="MaxWidth.Large">
-            <MudGrid Spacing="10" Justify="Justify.Center">
+            <MudGrid Spacing="10">
+                <!-- Sport Cards -->
                 @if (sportCategoryContents == null || sportCategoryContents.Count == 0)
                 {
+                    <!-- Skeleton if Data doesnt exist -->
+
+                    <!-- Skeleton Header -->
                     <MudItem xs="12">
                         <MudSkeleton Width="20%" Height="75px" />
                     </MudItem>
+
+                    <!-- Skeleton Content -->
                     <MudItem xs="12">
                         <MudGrid>
                             @for (int i = 0; i < 6; i++)
@@ -46,13 +55,19 @@
                 }
                 else
                 {
+                    <!-- Cards -->
                     <MudVirtualize Items="sportCategoryContents" Context="categoryData">
                         <MudItem xs="12">
                             <MudStack Spacing="2">
-                                <MudText Typo="Typo.h2" Style="@($"color:{ColorSettings.SelectedColor}")">
+
+                                <!-- Header -->
+                                <MudText Typo="Typo.h2" Color="Color.Primary">
                                     @categoryData.Category
                                 </MudText>
+
                                 <MudDivider />
+
+                                <!-- Content -->
                                 <MudGrid>
                                     <MudVirtualize Items="categoryData.SportList" Context="sportData">
                                         <MudItem xs="12" md="6" lg="4">
@@ -60,11 +75,11 @@
                                                 <MudStack Spacing="3">
                                                     <MudImage Src="@($"Media/Sports/Images/{sportData.Sport}.png")" ObjectPosition="ObjectPosition.Top" ObjectFit="ObjectFit.Cover" Height="300" />
                                                     <MudStack Class="pa-3">
-                                                        <MudText Typo="Typo.h3" Style="@($"color:{ColorSettings.SelectedColor}")">@sportData.Sport</MudText>
+                                                        <MudText Typo="Typo.h3" Color="Color.Primary">@sportData.Sport</MudText>
                                                         <MudText Typo="Typo.caption">@sportData.Description</MudText>
                                                     </MudStack>
                                                     <MudSpacer />
-                                                    <MudButton Variant="Variant.Text" Style="@($"color:{ColorSettings.SelectedColor}")">Learn More</MudButton>
+                                                    <MudButton Variant="Variant.Text" Href=@($"/sports/{categoryData.Category}/{sportData.Sport}") Color="Color.Primary">Learn More</MudButton>
                                                 </MudStack>
                                             </MudPaper>
                                         </MudItem>
@@ -78,6 +93,9 @@
         </MudContainer>
     </MudItem>
 </MudGrid>
+
+<!-- Footer -->
+<FooterComponent />
 
 @code {
     // Get API URL
@@ -107,6 +125,7 @@
         public List<SubCategoriesContent>? SportSubCategoryList { get; set; }
         public bool IsExpanded { get; set; } // Use a different property name to avoid conflicts
     }
+
     public class SubCategoriesContent
     {
         public string? SubCategory { get; set; }
@@ -120,15 +139,15 @@
     // Initialization method to fetch data and update UI elements
     protected override async Task OnInitializedAsync()
     {
-        await GetSportCategoryAndSubCategoryDetailsList();
+        await GetSportCategoriesAndSportsDetails();
     }
 
-    private async Task GetSportCategoryAndSubCategoryDetailsList()
+    private async Task GetSportCategoriesAndSportsDetails()
     {
         try
         {
             using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportCategoriesAndSubCategoriesDetails");
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportCategoriesAndSportsDetails");
             httpResponse.EnsureSuccessStatusCode();
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
