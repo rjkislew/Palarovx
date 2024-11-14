@@ -431,6 +431,40 @@ namespace Server.Palaro2026.Controller
             }
         }
 
+        // Get By Sport Category ID
+        [HttpGet("SportsByCategory")]
+        public async Task<ActionResult<IEnumerable<SportsDTO.Sports.SportsContent>>> GetSportsByCategory(
+        [FromQuery] int? SportCategoryID = null)
+        {
+            try
+            {
+                // If SportSubCategoryID is provided, filter based on it
+                var query = _context.Sports.AsNoTracking();
+
+                if (SportCategoryID.HasValue)
+                {
+                    query = query.Where(s => s.SportCategoryID == SportCategoryID);
+                }
+
+                // Fetch the filtered sports list
+                var sports = await query
+                    .Select(s => new SportsDTO.Sports.SportsContent
+                    {
+                        ID = s.ID,
+                        Sport = s.Sport,
+                        Description = s.Description,
+                        SportCategoryID = s.SportCategoryID
+                    })
+                    .ToListAsync();
+
+                return Ok(sports);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
         // Read
         [HttpGet("Sport")]
         public async Task<ActionResult<IEnumerable<SportsDTO.Sports.SportsContent>>> GetSports()
@@ -717,8 +751,57 @@ namespace Server.Palaro2026.Controller
             }
         }
 
+        // Filtered
+        [HttpGet("SportSubCategoriesFiltered")]
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportSubCategories.SportSubCategoriesContent>>> GetSportSubCategoriesFiltered(
+        [FromQuery] int? sport = null,
+        [FromQuery] int? level = null,
+        [FromQuery] int? gender = null)
+        {
+            try
+            {
+                // Start with the base query for SportSubCategories
+                var query = _context.SportSubCategories.AsNoTracking();
+
+                // Apply filtering based on the provided query parameters
+                if (sport.HasValue)
+                {
+                    query = query.Where(s => s.SportID == sport);
+                }
+
+                if (level.HasValue)
+                {
+                    query = query.Where(s => s.SchoolLevelID == level);
+                }
+
+                if (gender.HasValue)
+                {
+                    query = query.Where(s => s.GenderCategoryID == gender);
+                }
+
+                // Fetch the filtered SportSubCategories list
+                var subCategories = await query
+                    .Select(s => new SportsDTO.SportSubCategories.SportSubCategoriesContent
+                    {
+                        ID = s.ID,
+                        SubCategory = s.SubCategory,
+                        SportID = s.SportID,
+                        GenderCategoryID = s.GenderCategoryID,
+                        SchoolLevelID = s.SchoolLevelID
+                    })
+                    .ToListAsync();
+
+                return Ok(subCategories);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
+            }
+        }
+
+
         // Read
-        [HttpGet("SportSubCategory")]
+        [HttpGet("SportSubCategories")]
         public async Task<ActionResult<IEnumerable<SportsDTO.SportSubCategories.SportSubCategoriesContent>>> GetSportSubCategories()
         {
             try

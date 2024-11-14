@@ -64,7 +64,6 @@ namespace Server.Palaro2026.Controller
                                             .GroupBy(e => new { e.EventTitle, e.Date, e.Time, e.OnStream, e.StreamURL, e.IsFinished, e.Attachement, e.Archived, e.Deleted })
                                             .Select(events => new EventsDTO.EventDetail.ED_EventsContent
                                             {
-                                                EventTitle = events.Key.EventTitle,
                                                 Date = events.Key.Date,
                                                 Time = events.Key.Time,
                                                 OnStream = events.Key.OnStream,
@@ -122,7 +121,6 @@ namespace Server.Palaro2026.Controller
                     ID = eventContent.ID,
                     SportSubCategoryID = eventContent.SportSubCategoryID,
                     VenueID = eventContent.VenueID,
-                    EventTitle = eventContent.EventTitle,
                     Date = eventContent.Date,
                     Time = eventContent.Time,
                     OnStream = eventContent.OnStream,
@@ -160,7 +158,7 @@ namespace Server.Palaro2026.Controller
 
         // Update
         [HttpPut("Event/{id}")]
-        public async Task<IActionResult> UpdateEvent(int id, EventsDTO.Events.EventsContent eventContent)
+        public async Task<IActionResult> UpdateEvent(string id, EventsDTO.Events.EventsContent eventContent)
         {
             if (id != eventContent.ID)
             {
@@ -174,7 +172,6 @@ namespace Server.Palaro2026.Controller
                     ID = eventContent.ID,
                     SportSubCategoryID = eventContent.SportSubCategoryID,
                     VenueID = eventContent.VenueID,
-                    EventTitle = eventContent.EventTitle,
                     Date = eventContent.Date,
                     Time = eventContent.Time,
                     OnStream = eventContent.OnStream,

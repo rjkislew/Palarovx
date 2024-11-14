@@ -13,7 +13,7 @@ public partial class EventVersus
 
     public int? RegionID { get; set; }
 
-    public int? EventID { get; set; }
+    public string? EventID { get; set; }
 
     public virtual Events? Event { get; set; }
 

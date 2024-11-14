@@ -7,13 +7,11 @@ namespace Server.Palaro2026.Entities;
 
 public partial class Events
 {
-    public int ID { get; set; }
+    public string ID { get; set; } = null!;
 
     public int? SportSubCategoryID { get; set; }
 
     public int? VenueID { get; set; }
-
-    public string? EventTitle { get; set; }
 
     public DateTime? Date { get; set; }
 

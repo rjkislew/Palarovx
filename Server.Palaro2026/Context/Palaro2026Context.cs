@@ -165,6 +165,10 @@ public partial class Palaro2026Context : DbContext
 
         modelBuilder.Entity<EventVersus>(entity =>
         {
+            entity.Property(e => e.EventID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+
             entity.HasOne(d => d.Event).WithMany(p => p.EventVersus)
                 .HasForeignKey(d => d.EventID)
                 .HasConstraintName("FK_Versus_Events");
@@ -178,8 +182,10 @@ public partial class Palaro2026Context : DbContext
         {
             entity.HasKey(e => e.ID).HasName("PK__events__3213E83F7F467A0E");
 
+            entity.Property(e => e.ID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
             entity.Property(e => e.Date).HasColumnType("datetime");
-            entity.Property(e => e.EventTitle).IsUnicode(false);
             entity.Property(e => e.StreamURL).IsUnicode(false);
 
             entity.HasOne(d => d.SportSubCategory).WithMany(p => p.Events)

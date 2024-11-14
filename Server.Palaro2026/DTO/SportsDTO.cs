@@ -81,6 +81,7 @@ public class SportsDTO
             public int ID { get; set; }
             public string? Sport { get; set; }
             public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
         }
     }
 

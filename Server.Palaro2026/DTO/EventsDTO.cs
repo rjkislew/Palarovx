@@ -42,7 +42,6 @@ public class EventsDTO
 
         public class ED_EventsContent
         {
-            public string? EventTitle { get; set; }
 
             public DateTime? Date { get; set; }
 
@@ -74,10 +73,9 @@ public class EventsDTO
     {
         public class EventsContent
         {
-            public int ID { get; set; }
+            public string? ID { get; set; }
             public int? SportSubCategoryID { get; set; }
             public int? VenueID { get; set; }
-            public string? EventTitle { get; set; }
             public DateTime? Date { get; set; }
             public TimeSpan? Time { get; set; }
             public bool? OnStream { get; set; }
@@ -96,7 +94,7 @@ public class EventsDTO
             public int ID { get; set; }
             public int? Score { get; set; }
             public int? RegionID { get; set; }
-            public int? EventID { get; set; }
+            public string? EventID { get; set; }
         }
     }
 }
