@@ -50,20 +50,17 @@ namespace Server.Palaro2026.Controller
                                 .Select(gender => new EventsDTO.EventDetail.ED_GenderCategoriesContent
                                 {
                                     Gender = gender.Key,
-                                    SportSubCategoryList = gender
+                                    SportSubcategoryList = gender
                                     .GroupBy(sc => sc.SubCategory)
                                     .Select(subCategory => new EventsDTO.EventDetail.ED_SubCategoriesContent
                                     {
                                         SubCategory = subCategory.Key,
-                                        VenueList = subCategory
-                                        .GroupBy(v => v.Venue)
-                                        .Select(venue => new EventsDTO.EventDetail.ED_VenuesContent
-                                        {
-                                            Venue = venue.Key,
-                                            EventList = venue
-                                            .GroupBy(e => new { e.EventTitle, e.Date, e.Time, e.OnStream, e.StreamURL, e.IsFinished, e.Attachement, e.Archived, e.Deleted })
+                                        EventList = subCategory
+                                            .GroupBy(e => new { e.ID, e.Venue, e.Date, e.Time, e.OnStream, e.StreamURL, e.IsFinished, e.Attachement, e.Archived, e.Deleted })
                                             .Select(events => new EventsDTO.EventDetail.ED_EventsContent
                                             {
+                                                ID = events.Key.ID,
+                                                Venue = events.Key.Venue,
                                                 Date = events.Key.Date,
                                                 Time = events.Key.Time,
                                                 OnStream = events.Key.OnStream,
@@ -80,7 +77,6 @@ namespace Server.Palaro2026.Controller
                                                     Score = teams.Score
                                                 }).ToList()
                                             }).ToList()
-                                        }).ToList()
                                     }).ToList()
                                 }).ToList()
                             }).ToList()
@@ -222,22 +218,28 @@ namespace Server.Palaro2026.Controller
 
         // Create
         [HttpPost("EventVersus")]
-        public async Task<ActionResult<EventsDTO.EventVersus.EventVersusContent>> CreateEventVersus([FromBody] EventsDTO.EventVersus.EventVersusContent eventVersusContent)
+        public async Task<ActionResult<List<EventsDTO.EventVersus.EventVersusContent>>> CreateEventVersus([FromBody] List<EventsDTO.EventVersus.EventVersusContent> eventVersusContents)
         {
             try
             {
-                var eventsVersus = new Entities.EventVersus
-                {
-                    ID = eventVersusContent.ID,
-                    Score = eventVersusContent.Score,
-                    RegionID = eventVersusContent.RegionID,
-                    EventID = eventVersusContent.EventID,
-                };
+                var eventsVersusList = new List<Entities.EventVersus>();
 
-                _context.EventVersus.Add(eventsVersus);
+                foreach (var eventVersusContent in eventVersusContents)
+                {
+                    var eventsVersus = new Entities.EventVersus
+                    {
+                        Score = eventVersusContent.Score,
+                        RegionID = eventVersusContent.RegionID,
+                        EventID = eventVersusContent.EventID,
+                    };
+
+                    _context.EventVersus.Add(eventsVersus);
+                    eventsVersusList.Add(eventsVersus);
+                }
+
                 await _context.SaveChangesAsync();
 
-                return CreatedAtAction(nameof(GetEventVersus), new { id = eventsVersus.ID }, eventVersusContent);
+                return CreatedAtAction(nameof(GetEventVersus), new { id = eventsVersusList.FirstOrDefault()?.ID }, eventVersusContents);
             }
             catch (Exception ex)
             {

@@ -46,6 +46,8 @@ public partial class Palaro2026Context : DbContext
 
     public virtual DbSet<SportDetails> SportDetails { get; set; }
 
+    public virtual DbSet<SportDetailsIDLinkage> SportDetailsIDLinkage { get; set; }
+
     public virtual DbSet<SportSubCategories> SportSubCategories { get; set; }
 
     public virtual DbSet<Sports> Sports { get; set; }
@@ -141,9 +143,11 @@ public partial class Palaro2026Context : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false);
             entity.Property(e => e.Date).HasColumnType("datetime");
-            entity.Property(e => e.EventTitle).IsUnicode(false);
             entity.Property(e => e.Gender)
                 .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.ID)
+                .HasMaxLength(20)
                 .IsUnicode(false);
             entity.Property(e => e.Level)
                 .HasMaxLength(50)
@@ -355,6 +359,29 @@ public partial class Palaro2026Context : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false);
             entity.Property(e => e.Description).IsUnicode(false);
+            entity.Property(e => e.Gender)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.Level)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.Sport)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.SubCategory)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<SportDetailsIDLinkage>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToView("SportDetailsIDLinkage");
+
+            entity.Property(e => e.Category)
+                .HasMaxLength(50)
+                .IsUnicode(false);
             entity.Property(e => e.Gender)
                 .HasMaxLength(50)
                 .IsUnicode(false);

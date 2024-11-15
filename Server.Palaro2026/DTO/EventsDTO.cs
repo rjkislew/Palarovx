@@ -25,38 +25,26 @@ public class EventsDTO
         public class ED_GenderCategoriesContent
         {
             public string? Gender { get; set; }
-            public List<ED_SubCategoriesContent>? SportSubCategoryList { get; set; }
+            public List<ED_SubCategoriesContent>? SportSubcategoryList { get; set; }
         }
 
         public class ED_SubCategoriesContent
         {
             public string? SubCategory { get; set; }
-            public List<ED_VenuesContent>? VenueList { get; set; }
-        }
-
-        public class ED_VenuesContent
-        {
-            public string? Venue { get; set; }
             public List<ED_EventsContent>? EventList { get; set; }
         }
 
         public class ED_EventsContent
         {
-
+            public string ID { get; set; } = null!;
+            public string? Venue { get; set; }
             public DateTime? Date { get; set; }
-
             public TimeSpan? Time { get; set; }
-
             public bool? OnStream { get; set; }
-
             public string? StreamURL { get; set; }
-
             public bool? IsFinished { get; set; }
-
             public byte[]? Attachement { get; set; }
-
             public bool? Archived { get; set; }
-
             public bool? Deleted { get; set; }
             public List<ED_RegionsContent>? TeamList { get; set; }
         }

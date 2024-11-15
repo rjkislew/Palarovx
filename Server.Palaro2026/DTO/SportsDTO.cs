@@ -30,6 +30,38 @@ public class SportsDTO
             public string? SubCategory { get; set; }
         }
     }
+    public class SportDetailsIDLinkage
+    {
+        public class SDIDL_SportCategoriesContent
+        {
+            public int CategoryID { get; set; }
+            public string? Category { get; set; }
+            public List<SDIDL_SportsContent>? SportList { get; set; }
+        }
+        public class SDIDL_SportsContent
+        {
+            public int SportID { get; set; }
+            public string? Sport { get; set; }
+            public List<SDIDL_SchoolLevelsContent>? LevelList { get; set; }
+        }
+        public class SDIDL_SchoolLevelsContent
+        {
+            public int LevelID { get; set; }
+            public string? Level { get; set; }
+            public List<SDIDL_GenderCategoriesContent>? GenderList { get; set; }
+        }
+        public class SDIDL_GenderCategoriesContent
+        {
+            public int GenderID { get; set; }
+            public string? Gender { get; set; }
+            public List<SDIDL_SubCategoriesContent>? SubCategoryList { get; set; }
+        }
+        public class SDIDL_SubCategoriesContent
+        {
+            public int SubCategoryID { get; set; }
+            public string? SubCategory { get; set; }
+        }
+    }
 
     public class SportCategoryDetails
     {

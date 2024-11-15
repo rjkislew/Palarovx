@@ -7,7 +7,7 @@ namespace Server.Palaro2026.Entities;
 
 public partial class EventDetails
 {
-    public string? EventTitle { get; set; }
+    public string ID { get; set; } = null!;
 
     public string? Category { get; set; }
 
@@ -17,7 +17,7 @@ public partial class EventDetails
 
     public string? Gender { get; set; }
 
-    public string? SubCategory { get; set; }
+    public string? Subcategory { get; set; }
 
     public string? Venue { get; set; }
 

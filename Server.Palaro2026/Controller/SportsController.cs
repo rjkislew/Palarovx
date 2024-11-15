@@ -76,8 +76,8 @@ namespace Server.Palaro2026.Controller
             }
         }
 
-        [HttpGet("SportsDetailsFiltered")]
-        public async Task<ActionResult<IEnumerable<SportsDTO.SportDetails.SD_SportCategoriesContent>>> GetSportsDetailsFiltered(
+        [HttpGet("SportsDetailsIDLinkage")]
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportDetailsIDLinkage.SDIDL_SportCategoriesContent>>> GetSportsDetailsIDLinkage(
         [FromQuery] string? category = null,
         [FromQuery] string? sport = null,
         [FromQuery] string? level = null,
@@ -86,7 +86,7 @@ namespace Server.Palaro2026.Controller
             try
             {
                 // Fetch the data from the database with optional filtering
-                var sportsQuery = _context.SportDetails.AsNoTracking();
+                var sportsQuery = _context.SportDetailsIDLinkage.AsNoTracking();
 
                 // Apply filters if parameters are provided
                 if (!string.IsNullOrEmpty(category))
@@ -111,29 +111,33 @@ namespace Server.Palaro2026.Controller
 
                 // Group the sports by category
                 var groupedSports = sports
-                    .GroupBy(c => c.Category)
-                    .Select(categoryGroup => new SportsDTO.SportDetails.SD_SportCategoriesContent
+                    .GroupBy(c => new { c.CategoryID, c.Category })
+                    .Select(categoryGroup => new SportsDTO.SportDetailsIDLinkage.SDIDL_SportCategoriesContent
                     {
-                        Category = categoryGroup.Key,
+                        CategoryID = categoryGroup.Key.CategoryID,
+                        Category = categoryGroup.Key.Category,
                         SportList = categoryGroup
-                            .GroupBy(s => new { s.Sport, s.Description })
-                            .Select(sportGroup => new SportsDTO.SportDetails.SD_SportsContent
+                            .GroupBy(s => new { s.SportID, s.Sport })
+                            .Select(sportGroup => new SportsDTO.SportDetailsIDLinkage.SDIDL_SportsContent
                             {
+                                SportID = sportGroup.Key.SportID,
                                 Sport = sportGroup.Key.Sport,
-                                Description = sportGroup.Key.Description,
                                 LevelList = sportGroup
-                                    .GroupBy(l => l.Level)
-                                    .Select(levelGroup => new SportsDTO.SportDetails.SD_SchoolLevelsContent
+                                    .GroupBy(l => new { l.LevelID, l.Level })
+                                    .Select(levelGroup => new SportsDTO.SportDetailsIDLinkage.SDIDL_SchoolLevelsContent
                                     {
-                                        Level = levelGroup.Key,
+                                        LevelID = levelGroup.Key.LevelID,
+                                        Level = levelGroup.Key.Level,
                                         GenderList = levelGroup
-                                            .GroupBy(g => g.Gender)
-                                            .Select(genderGroup => new SportsDTO.SportDetails.SD_GenderCategoriesContent
+                                            .GroupBy(g => new { g.GenderID, g.Gender })
+                                            .Select(genderGroup => new SportsDTO.SportDetailsIDLinkage.SDIDL_GenderCategoriesContent
                                             {
-                                                Gender = genderGroup.Key,
+                                                GenderID = genderGroup.Key.GenderID,
+                                                Gender = genderGroup.Key.Gender,
                                                 SubCategoryList = genderGroup
-                                                    .Select(subCategory => new SportsDTO.SportDetails.SD_SubCategoriesContent
+                                                    .Select(subCategory => new SportsDTO.SportDetailsIDLinkage.SDIDL_SubCategoriesContent
                                                     {
+                                                        SubCategoryID = subCategory.SubCategoryID,
                                                         SubCategory = subCategory.SubCategory
                                                     }).ToList()
                                             }).ToList()
@@ -156,7 +160,6 @@ namespace Server.Palaro2026.Controller
                     $"Internal server error: {ex.Message}");
             }
         }
-
 
         [HttpGet("SportsCategoriesDetails")]
         public async Task<ActionResult<IEnumerable<SportsDTO.SportCategoryDetails.SCD_CategoriesContent>>> GetSportCategoriesDetails()
@@ -304,7 +307,6 @@ namespace Server.Palaro2026.Controller
         }
 
 
-
         /// 
         /// 
         /// SPORT CATEGORIES
@@ -424,40 +426,6 @@ namespace Server.Palaro2026.Controller
                 await _context.SaveChangesAsync();
 
                 return CreatedAtAction(nameof(GetSports), new { id = sport.ID }, sportContent);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
-            }
-        }
-
-        // Get By Sport Category ID
-        [HttpGet("SportsByCategory")]
-        public async Task<ActionResult<IEnumerable<SportsDTO.Sports.SportsContent>>> GetSportsByCategory(
-        [FromQuery] int? SportCategoryID = null)
-        {
-            try
-            {
-                // If SportSubCategoryID is provided, filter based on it
-                var query = _context.Sports.AsNoTracking();
-
-                if (SportCategoryID.HasValue)
-                {
-                    query = query.Where(s => s.SportCategoryID == SportCategoryID);
-                }
-
-                // Fetch the filtered sports list
-                var sports = await query
-                    .Select(s => new SportsDTO.Sports.SportsContent
-                    {
-                        ID = s.ID,
-                        Sport = s.Sport,
-                        Description = s.Description,
-                        SportCategoryID = s.SportCategoryID
-                    })
-                    .ToListAsync();
-
-                return Ok(sports);
             }
             catch (Exception ex)
             {
