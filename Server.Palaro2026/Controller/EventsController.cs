@@ -20,63 +20,83 @@ namespace Server.Palaro2026.Controller
 
         // Read
         [HttpGet("EventDetails")]
-        public async Task<ActionResult<IEnumerable<EventsDTO.EventDetail.ED_SportCategoriesContent>>> GetEventDetails()
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventDetail.ED_DateContent>>> GetEventDetails(
+            [FromQuery] string? category = null,
+            [FromQuery] string? sport = null)
         {
             try
             {
-                // Fetch the data from the database
-                var sports = await _context.EventDetails
-                    .AsNoTracking()
-                    .ToListAsync();
+                // Start with fetching the data
+                var query = _context.EventDetails.AsNoTracking().AsQueryable();
+
+                // Apply filters based on the query parameters
+                if (!string.IsNullOrEmpty(category))
+                {
+                    query = query.Where(e => e.Category.Contains(category)); // Filter by category
+                }
+                if (!string.IsNullOrEmpty(sport))
+                {
+                    query = query.Where(e => e.Sport.Contains(sport)); // Filter by sport
+                }
+
+                // Fetch the data
+                var sports = await query.ToListAsync();
 
                 // Group the sports by category
                 var groupedSports = sports
-                    .GroupBy(c => c.Category)
-                    .Select(category => new EventsDTO.EventDetail.ED_SportCategoriesContent
+                    .GroupBy(d => d.Date)
+    .OrderByDescending(date => date.Key) // Reverse date order
+                    .Select(date => new EventsDTO.EventDetail.ED_DateContent
                     {
-                        Category = category.Key,
-                        SportList = category
-                        .GroupBy(s => new { s.Sport })
-                        .Select(sport => new EventsDTO.EventDetail.ED_SportsContent
+                        Date = date.Key,
+                        CategoryList = date
+                        .GroupBy(c => c.Category)
+                        .Select(category => new EventsDTO.EventDetail.ED_SportCategoriesContent
                         {
-                            Sport = sport.Key.Sport,
-                            LevelList = sport
-                            .GroupBy(l => l.Level)
-                            .Select(level => new EventsDTO.EventDetail.ED_SchoolLevelsContent
+                            Category = category.Key,
+                            SportList = category
+                            .GroupBy(s => new { s.Sport })
+                            .Select(sport => new EventsDTO.EventDetail.ED_SportsContent
                             {
-                                Level = level.Key,
-                                GenderList = level
-                                .GroupBy(gc => gc.Gender)
-                                .Select(gender => new EventsDTO.EventDetail.ED_GenderCategoriesContent
+                                Sport = sport.Key.Sport,
+                                LevelList = sport
+                                .GroupBy(l => l.Level)
+                                .Select(level => new EventsDTO.EventDetail.ED_SchoolLevelsContent
                                 {
-                                    Gender = gender.Key,
-                                    SportSubcategoryList = gender
-                                    .GroupBy(sc => sc.SubCategory)
-                                    .Select(subCategory => new EventsDTO.EventDetail.ED_SubCategoriesContent
+                                    Level = level.Key,
+                                    GenderList = level
+                                    .GroupBy(gc => gc.Gender)
+                                    .Select(gender => new EventsDTO.EventDetail.ED_GenderCategoriesContent
                                     {
-                                        SubCategory = subCategory.Key,
-                                        EventList = subCategory
-                                            .GroupBy(e => new { e.ID, e.Venue, e.Date, e.Time, e.OnStream, e.StreamURL, e.IsFinished, e.Attachement, e.Archived, e.Deleted })
-                                            .Select(events => new EventsDTO.EventDetail.ED_EventsContent
-                                            {
-                                                ID = events.Key.ID,
-                                                Venue = events.Key.Venue,
-                                                Date = events.Key.Date,
-                                                Time = events.Key.Time,
-                                                OnStream = events.Key.OnStream,
-                                                StreamURL = events.Key.StreamURL,
-                                                IsFinished = events.Key.IsFinished,
-                                                Attachement = events.Key.Attachement,
-                                                Archived = events.Key.Archived,
-                                                Deleted = events.Key.Deleted,
-                                                TeamList = events
-                                                .Select(teams => new EventsDTO.EventDetail.ED_RegionsContent
+                                        Gender = gender.Key,
+                                        SportSubcategoryList = gender
+                                        .GroupBy(sc => sc.Subcategory)
+                                        .Select(subCategory => new EventsDTO.EventDetail.ED_SubCategoriesContent
+                                        {
+                                            SubCategory = subCategory.Key,
+                                            EventList = subCategory
+                                                .GroupBy(e => new { e.ID, e.Venue, e.Date, e.Time, e.OnStream, e.StreamURL, e.IsFinished, e.Attachement, e.Archived, e.Deleted })
+                                                .Select(events => new EventsDTO.EventDetail.ED_EventsContent
                                                 {
-                                                    Region = teams.Region,
-                                                    Abbreviation = teams.Abbreviation,
-                                                    Score = teams.Score
+                                                    ID = events.Key.ID,
+                                                    Venue = events.Key.Venue,
+                                                    Date = events.Key.Date,
+                                                    Time = events.Key.Time,
+                                                    OnStream = events.Key.OnStream,
+                                                    StreamURL = events.Key.StreamURL,
+                                                    IsFinished = events.Key.IsFinished,
+                                                    Attachement = events.Key.Attachement,
+                                                    Archived = events.Key.Archived,
+                                                    Deleted = events.Key.Deleted,
+                                                    TeamList = events
+                                                    .Select(teams => new EventsDTO.EventDetail.ED_RegionsContent
+                                                    {
+                                                        Region = teams.Region,
+                                                        Abbreviation = teams.Abbreviation,
+                                                        Score = teams.Score
+                                                    }).ToList()
                                                 }).ToList()
-                                            }).ToList()
+                                        }).ToList()
                                     }).ToList()
                                 }).ToList()
                             }).ToList()
@@ -115,7 +135,7 @@ namespace Server.Palaro2026.Controller
                 var events = new Entities.Events
                 {
                     ID = eventContent.ID,
-                    SportSubCategoryID = eventContent.SportSubCategoryID,
+                    SportSubcategoryID = eventContent.SportSubcategoryID,
                     VenueID = eventContent.VenueID,
                     Date = eventContent.Date,
                     Time = eventContent.Time,
@@ -166,7 +186,7 @@ namespace Server.Palaro2026.Controller
                 var events = new Entities.Events
                 {
                     ID = eventContent.ID,
-                    SportSubCategoryID = eventContent.SportSubCategoryID,
+                    SportSubcategoryID = eventContent.SportSubcategoryID,
                     VenueID = eventContent.VenueID,
                     Date = eventContent.Date,
                     Time = eventContent.Time,

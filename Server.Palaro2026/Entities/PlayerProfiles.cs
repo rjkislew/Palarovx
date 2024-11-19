@@ -19,5 +19,5 @@ public partial class PlayerProfiles
 
     public virtual Schools? School { get; set; }
 
-    public virtual SportSubCategories? SportSubCategory { get; set; }
+    public virtual SportSubcategories? SportSubCategory { get; set; }
 }

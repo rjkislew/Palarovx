@@ -4,6 +4,12 @@ public class EventsDTO
 {
     public class EventDetail
     {
+        public class ED_DateContent
+        {
+            public DateTime? Date { get; set; }
+            public List<ED_SportCategoriesContent>? CategoryList { get; set; }
+        }
+
         public class ED_SportCategoriesContent
         {
             public string? Category { get; set; }
@@ -62,7 +68,7 @@ public class EventsDTO
         public class EventsContent
         {
             public string? ID { get; set; }
-            public int? SportSubCategoryID { get; set; }
+            public int? SportSubcategoryID { get; set; }
             public int? VenueID { get; set; }
             public DateTime? Date { get; set; }
             public TimeSpan? Time { get; set; }

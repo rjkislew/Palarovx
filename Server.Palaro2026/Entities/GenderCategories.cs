@@ -11,5 +11,5 @@ public partial class GenderCategories
 
     public string? Gender { get; set; }
 
-    public virtual ICollection<SportSubCategories> SportSubCategories { get; set; } = new List<SportSubCategories>();
+    public virtual ICollection<SportSubcategories> SportSubcategories { get; set; } = new List<SportSubcategories>();
 }

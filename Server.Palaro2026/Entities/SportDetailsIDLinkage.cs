@@ -23,7 +23,7 @@ public partial class SportDetailsIDLinkage
 
     public string? Gender { get; set; }
 
-    public int SubCategoryID { get; set; }
+    public int SubcategoryID { get; set; }
 
-    public string? SubCategory { get; set; }
+    public string? Subcategory { get; set; }
 }

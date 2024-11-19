@@ -9,7 +9,7 @@ public partial class Events
 {
     public string ID { get; set; } = null!;
 
-    public int? SportSubCategoryID { get; set; }
+    public int? SportSubcategoryID { get; set; }
 
     public int? VenueID { get; set; }
 
@@ -31,7 +31,7 @@ public partial class Events
 
     public virtual ICollection<EventVersus> EventVersus { get; set; } = new List<EventVersus>();
 
-    public virtual SportSubCategories? SportSubCategory { get; set; }
+    public virtual SportSubcategories? SportSubcategory { get; set; }
 
     public virtual Venues? Venue { get; set; }
 }

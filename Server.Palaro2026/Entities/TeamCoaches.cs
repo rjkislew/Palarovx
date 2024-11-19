@@ -19,5 +19,5 @@ public partial class TeamCoaches
 
     public virtual Regions? Region { get; set; }
 
-    public virtual SportSubCategories? SportSubCategory { get; set; }
+    public virtual SportSubcategories? SportSubCategory { get; set; }
 }

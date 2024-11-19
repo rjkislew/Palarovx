@@ -1,16 +1,45 @@
-const CACHE_NAME = 'blazor-pwa-cache-v1';
-const MAPBOX_URLS = [
-    'https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.js',
-    'https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.css',
-    'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12',
-    // Add other Mapbox resources like tiles, images, etc.
+const CACHE_NAME = 'blazor-pwa-cache-v3';
+const APP_SHELL = [
+    '/', // Root path
+    '/index.html', // Main HTML file
+    '/manifest.webmanifest',
+    '/Media/Icon/site.webmanifest',
+    '/Media/Icon/favicon-32x32.png',
+    '/Media/Icon/favicon-16x16.png',
+    '/Media/Icon/apple-touch-icon.png',
+    '/css/app.css',
+    '/_content/MudBlazor/MudBlazor.min.css',
+    '/js/cookieService.js',
+    '/js/mapBoxService.js',
+    '/js/getUserIPService.js',
+    '/_framework/blazor.webassembly.js',
+    '/_content/MudBlazor/MudBlazor.min.js',
 ];
 
-// Install the service worker and cache Mapbox files
+const EXTERNAL_RESOURCES = [
+    'https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css',
+    'https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js',
+];
+
+// Install the service worker and cache essential files
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(MAPBOX_URLS);
+            const appShellCache = APP_SHELL.map((url) =>
+                cache.add(url).catch((error) => {
+                    console.error(`Failed to cache ${url}:`, error);
+                })
+            );
+
+            const externalCache = EXTERNAL_RESOURCES.map((url) =>
+                fetch(url, { mode: 'no-cors' })
+                    .then((response) => cache.put(url, response))
+                    .catch((error) => {
+                        console.error(`Failed to fetch and cache ${url}:`, error);
+                    })
+            );
+
+            return Promise.all([...appShellCache, ...externalCache]);
         })
     );
 });
@@ -31,7 +60,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.match(event.request).then((response) => {
-            return response || fetch(event.request);
+            return response || fetch(event.request).catch(() => {
+                if (event.request.destination === 'document') {
+                    return caches.match('/index.html');
+                }
+            });
         })
     );
 });

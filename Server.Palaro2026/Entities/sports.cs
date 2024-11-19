@@ -17,5 +17,5 @@ public partial class Sports
 
     public virtual SportCategories? SportCategory { get; set; }
 
-    public virtual ICollection<SportSubCategories> SportSubCategories { get; set; } = new List<SportSubCategories>();
+    public virtual ICollection<SportSubcategories> SportSubcategories { get; set; } = new List<SportSubcategories>();
 }

@@ -5,11 +5,11 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class SportSubCategories
+public partial class SportSubcategories
 {
     public int ID { get; set; }
 
-    public string? SubCategory { get; set; }
+    public string? Subcategory { get; set; }
 
     public int? SportID { get; set; }
 

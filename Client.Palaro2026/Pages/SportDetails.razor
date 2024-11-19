@@ -3,6 +3,8 @@
 @using System.Net.Http
 @using System.Text.Json
 @using System.Threading.Tasks
+
+@inject HttpClient httpClient
 @inject ColorService ColorSettings
 
 <MudGrid>
@@ -43,12 +45,13 @@
             <MudGrid>
                 <!-- Sport sub categories -->
                 <MudItem xs="12">
+                    <MudBreadcrumbs Items="links"></MudBreadcrumbs>
                     <MudVirtualize Items="sportCategoryContents" Context="sportCategory">
                         <MudVirtualize Items="sportCategory.SportList" Context="sport">
                             <MudPaper Elevation="0" Class="pa-5">
                                 <MudText Typo="Typo.h2" Color="Color.Primary">Categories</MudText>
                                 <MudVirtualize Items="sport.SportSubCategoryList" Context="subCategories">
-                                    <MudChip Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined" T="string">
+                                    <MudChip Size="Size.Small" Color="Color.Primary" Variant="Variant.Text" T="string">
                                         <MudText Typo="Typo.caption" Color="Color.Tertiary">@subCategories.SubCategory</MudText>
                                     </MudChip>
                                 </MudVirtualize>
@@ -57,42 +60,159 @@
                     </MudVirtualize>
                 </MudItem>
 
-                <!-- Event Schedules -->
-                <MudItem xs="12" md="6">
-                    <MudPaper Elevation="0" Square Class="pa-5">
-                        <!-- Live Now Header -->
-                        <MudText Class="mb-5" Typo="Typo.h3" Color="Color.Primary">Live Now</MudText>
+                <MudItem xs="12" id="#events">
+                    <MudPaper Elevation="0" Class="pa-5">
+                        <MudText Color="Color.Primary" Typo="Typo.h2">@Sports Events</MudText>
+                        <MudStack>
+                            <MudTimeline TimelineAlign="TimelineAlign.Start" TimelinePosition="TimelinePosition.Start" Modifiers>
+                                <MudVirtualize Items="dateDetails" Context="dateList">
+                                    <MudTimelineItem Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small">
+                                        <MudStack Spacing="3">
 
-                        <!-- Live Now Content -->
-                        <MudStack Row>
-                            <MudIcon Icon="@Icons.Material.Filled.NotificationsActive"/>
-                            <MudText>No Ongoing Live Events</MudText>
-                        </MudStack>
-                    </MudPaper>
-                </MudItem>
-                <MudItem xs="12" md="6">
-                    <MudPaper Elevation="0" Square Class="pa-5">
-                        <!-- Upcoming Schedules Header -->
-                        <MudText Class="mb-5" Typo="Typo.h3" Color="Color.Primary">Upcoming Schedules</MudText>
+                                            <!-- Event Date -->
+                                            <MudStack>
+                                                @if (dateList.Date?.Date == DateTime.Today)
+                                                {
+                                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                                        <MudText Typo="Typo.h3" Color="Color.Tertiary">@dateList.Date?.ToString("MMMM dd, yyyy")</MudText>
+                                                        <MudChip T="string" Variant="Variant.Text" Size="Size.Small" Color="Color.Primary">
+                                                            <MudText Typo="Typo.caption" Color="Color.Tertiary">Today</MudText>
+                                                        </MudChip>
+                                                    </MudStack>
+                                                }
+                                                else if (dateList.Date?.Date > DateTime.Today)
+                                                {
+                                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                                        <MudText Typo="Typo.h3" Color="Color.Tertiary">@dateList.Date?.ToString("MMMM dd, yyyy")</MudText>
+                                                        <MudChip T="string" Variant="Variant.Text" Size="Size.Small" Color="Color.Primary">
+                                                            <MudText Typo="Typo.caption" Color="Color.Tertiary">Tomorrow</MudText>
+                                                        </MudChip>
+                                                    </MudStack>
+                                                }
+                                                else
+                                                {
+                                                    <MudText Typo="Typo.h3" Color="Color.Tertiary">@dateList.Date?.ToString("MMMM dd, yyyy")</MudText>
+                                                }
+                                            </MudStack>
+                                            <MudDivider />
+                                            <MudGrid>
+                                                <MudVirtualize Items="dateList.CategoryList" Context="sportCategoriesDetails">
+                                                    <MudVirtualize Items="sportCategoriesDetails.SportList" Context="sportsDetail">
+                                                        <MudVirtualize Items="sportsDetail.LevelList" Context="levelsDetail">
+                                                            <MudVirtualize Items="levelsDetail.GenderList" Context="gendersDetail">
+                                                                <MudVirtualize Items="gendersDetail.SportSubcategoryList" Context="sportSubcategoriesDetail">
+                                                                    <MudVirtualize Items="sportSubcategoriesDetail.EventList" Context="eventsDetail">
+                                                                        <MudItem xs="12" md="6" lg="4">
+                                                                            <MudPaper>
+                                                                                <MudStack Class="pa-2">
 
-                        <!-- Upcoming Schedules Content -->
-                        <MudStack Row>
-                            <MudIcon Icon="@Icons.Material.Filled.NotificationsActive" />
-                            <MudText>No Upcoming Events</MudText>
-                        </MudStack>
-                    </MudPaper>
-                </MudItem>
+                                                                                    <!-- Event Subcategory, Gender -->
+                                                                                    <MudStack Spacing="1">
+                                                                                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                                                                            <MudText Typo="Typo.body1"><b>@sportSubcategoriesDetail.Subcategory</b></MudText>
+                                                                                            @if (gendersDetail.Gender == "Male")
+                                                                                            {
+                                                                                                <MudIcon Icon="@Icons.Material.Filled.Male" Color="Color.Info" />
+                                                                                            }
+                                                                                            else if (gendersDetail.Gender == "Female")
+                                                                                            {
+                                                                                                <MudIcon Icon="@Icons.Material.Filled.Female" Color="Color.Error" />
+                                                                                            }
+                                                                                            else
+                                                                                            {
+                                                                                                <MudStack Row Spacing="0">
+                                                                                                    <MudIcon Icon="@Icons.Material.Filled.Male" Color="Color.Info" />
+                                                                                                    <MudIcon Icon="@Icons.Material.Filled.Female" Color="Color.Error" />
+                                                                                                </MudStack>
+                                                                                            }
+                                                                                        </MudStack>
+                                                                                        <MudText Typo="Typo.caption">@eventsDetail.ID</MudText>
+                                                                                        <MudText Typo="Typo.caption">@levelsDetail.Level</MudText>
+                                                                                    </MudStack>
 
-                <!-- New and Updates -->
-                <MudItem xs="12">
-                    <MudPaper Elevation="0" Square Class="pa-5">
-                        <!--News and Updates Header -->
-                        <MudText Class="mb-5" Typo="Typo.h3" Color="Color.Primary">News Updates</MudText>
+                                                                                    <!-- Event Time, Venue, Stream -->
+                                                                                    <MudPaper Outlined Class="pa-2">
+                                                                                        <MudStack Row Wrap="Wrap.Wrap" Spacing="0">
+                                                                                            @{
+                                                                                                string displayTime = eventsDetail.Time.HasValue
+                                                                                                ? DateTime.Today.Add(eventsDetail.Time.Value).ToString("hh:mm tt")
+                                                                                                : "No time available";
+                                                                                            }
 
-                        <!-- News and Updates  Content -->
-                        <MudStack Row>
-                            <MudIcon Icon="@Icons.Material.Filled.NotificationsActive" />
-                            <MudText>No News and Updates</MudText>
+                                                                                            <!-- Time Chip -->
+                                                                                            <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.AccessTime" Color="Color.Primary" Variant="Variant.Text">
+                                                                                                <MudText Typo="Typo.caption" Color="Color.Tertiary">@displayTime</MudText>
+                                                                                            </MudChip>
+
+                                                                                            <!-- Venue Chip -->
+                                                                                            <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.LocationOn" Color="Color.Primary" Variant="Variant.Text">
+                                                                                                <MudText Typo="Typo.caption" Color="Color.Tertiary">@eventsDetail.Venue</MudText>
+                                                                                            </MudChip>
+
+                                                                                            <!-- Stream Chip -->
+                                                                                            @if (eventsDetail.OnStream == true)
+                                                                                            {
+                                                                                                @if (dateList.Date?.Date == DateTime.Today)
+                                                                                                {
+                                                                                                    <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.FiberManualRecord" Color="Color.Primary" Variant="Variant.Text">
+                                                                                                        <MudText Typo="Typo.caption" Color="Color.Tertiary">
+                                                                                                            On stream
+                                                                                                        </MudText>
+                                                                                                    </MudChip>
+                                                                                                }
+                                                                                                else
+                                                                                                {
+                                                                                                    <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.FiberManualRecord" Color="Color.Primary" Variant="Variant.Text">
+                                                                                                        <MudText Typo="Typo.caption" Color="Color.Tertiary">
+                                                                                                            Was on stream
+                                                                                                        </MudText>
+                                                                                                    </MudChip>
+                                                                                                }
+                                                                                            }
+                                                                                        </MudStack>
+                                                                                    </MudPaper>
+
+                                                                                    <!-- Event Buttons-->
+                                                                                    <MudStack Row Justify="Justify.FlexEnd">
+
+                                                                                        <!-- Attachement Button -->
+                                                                                        @if (eventsDetail.Attachement != null)
+                                                                                        {
+                                                                                            <MudButton StartIcon="@Icons.Material.Filled.Link" Variant="Variant.Text" Size="Size.Small" Color="Color.Primary">
+                                                                                                <MudText Typo="Typo.caption">View Attachement</MudText>
+                                                                                            </MudButton>
+                                                                                        }
+
+                                                                                        <!-- Stream Button -->
+                                                                                        @if (eventsDetail.OnStream == true)
+                                                                                        {
+                                                                                            <MudButton Href="@eventsDetail.StreamURL" Target="_blank" Variant="Variant.Text" Size="Size.Small" Color="Color.Primary">
+                                                                                                <MudText Typo="Typo.caption">Stream Link</MudText>
+                                                                                            </MudButton>
+                                                                                        }
+
+                                                                                        <!-- Location Button -->
+                                                                                        @if (dateList.Date?.Date == DateTime.Today)
+                                                                                        {
+                                                                                            <MudButton Target="_blank" Variant="Variant.Text" Size="Size.Small" Color="Color.Primary">
+                                                                                                <MudText Typo="Typo.caption">View Location</MudText>
+                                                                                            </MudButton>
+                                                                                        }
+                                                                                    </MudStack>
+                                                                                </MudStack>
+                                                                            </MudPaper>
+                                                                        </MudItem>
+                                                                    </MudVirtualize>
+                                                                </MudVirtualize>
+                                                            </MudVirtualize>
+                                                        </MudVirtualize>
+                                                    </MudVirtualize>
+                                                </MudVirtualize>
+                                            </MudGrid>
+                                        </MudStack>
+                                    </MudTimelineItem>
+                                </MudVirtualize>
+                            </MudTimeline>
                         </MudStack>
                     </MudPaper>
                 </MudItem>
@@ -109,8 +229,55 @@
     [Parameter]
     public string? Sports { get; set; }
 
+
+    private List<BreadcrumbItem> links = new();
+
+    protected override void OnParametersSet()
+    {
+        links = new List<BreadcrumbItem>
+        {
+            new BreadcrumbItem("Home", href: "#"),
+            new BreadcrumbItem($"{Category}", href: $"sports/{Category}"),
+            new BreadcrumbItem($"{Sports}", href: null, disabled: true)
+        };
+    }
+
     private readonly string API_URL = APIService.Palaro2026API;
     private List<CategoriesContent>? sportCategoryContents;
+    private List<EventDetail.ED_DateContent>? dateDetails;
+    private Dictionary<string, bool> expandedStatesTeams = new();
+
+
+    private bool _openTeamsPopOver;
+
+    private bool GetTeamsButtonExpandedState(string id)
+    {
+        return expandedStatesTeams.TryGetValue(id, out var isExpanded) && isExpanded;
+    }
+
+    private void ToggleTeamsButtonExpandedState(string id)
+    {
+        if (expandedStatesTeams.ContainsKey(id))
+        {
+            expandedStatesTeams[id] = !expandedStatesTeams[id];
+            _openTeamsPopOver = !_openTeamsPopOver;
+        }
+        else
+        {
+            expandedStatesTeams[id] = true;
+        }
+    }
+
+    private string GetRankColor(int rank)
+    {
+        return rank switch
+        {
+            1 => MudBlazor.Colors.Amber.Accent4,
+            2 => MudBlazor.Colors.Gray.Lighten2,
+            3 => MudBlazor.Colors.Brown.Lighten3,
+            _ => "inherit" // Default color for others
+        };
+    }
 
     //API/Sports/SportCategoryAndSubCategoryDetails
     public class CategoriesContent
@@ -123,6 +290,67 @@
         public string? Sport { get; set; }
         public string? Description { get; set; }
         public List<SubCategoriesContent>? SportSubCategoryList { get; set; }
+    }
+
+    public class EventDetail
+    {
+        public class ED_DateContent
+        {
+            public DateTime? Date { get; set; }
+            public List<ED_SportCategoriesContent>? CategoryList { get; set; }
+        }
+
+        public class ED_SportCategoriesContent
+        {
+            public string? Category { get; set; }
+            public List<ED_SportsContent>? SportList { get; set; }
+        }
+
+        public class ED_SportsContent
+        {
+            public string? Sport { get; set; }
+            public List<ED_SchoolLevelsContent>? LevelList { get; set; }
+        }
+
+        public class ED_SchoolLevelsContent
+        {
+            public string? Level { get; set; }
+            public List<ED_GenderCategoriesContent>? GenderList { get; set; }
+        }
+
+        public class ED_GenderCategoriesContent
+        {
+            public string? Gender { get; set; }
+            public List<ED_SubCategoriesContent>? SportSubcategoryList { get; set; }
+        }
+
+        public class ED_SubCategoriesContent
+        {
+            public string? Subcategory { get; set; }
+            public List<ED_EventsContent>? EventList { get; set; }
+        }
+
+        public class ED_EventsContent
+        {
+            public string ID { get; set; } = null!;
+            public string? Venue { get; set; }
+            public DateTime? Date { get; set; }
+            public TimeSpan? Time { get; set; }
+            public bool? OnStream { get; set; }
+            public string? StreamURL { get; set; }
+            public bool? IsFinished { get; set; }
+            public byte[]? Attachement { get; set; }
+            public bool? Archived { get; set; }
+            public bool? Deleted { get; set; }
+            public List<ED_RegionsContent>? TeamList { get; set; }
+        }
+
+        public class ED_RegionsContent
+        {
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public int? Score { get; set; }
+        }
     }
 
     public class SubCategoriesContent
@@ -144,12 +372,12 @@
     protected override async Task OnInitializedAsync()
     {
         await GetSportCategoryAndSubCategoryDetailsList();
+        await GetEventDetails();
     }
     private async Task GetSportCategoryAndSubCategoryDetailsList()
     {
         try
         {
-            using HttpClient httpClient = new HttpClient();
             HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportCategoriesAndSubCategoriesDetailsFiltered?category={Category}&sport={Sports}");
             httpResponse.EnsureSuccessStatusCode();
 
@@ -164,6 +392,23 @@
         finally
         {
             StateHasChanged();
+        }
+    }
+
+    private async Task GetEventDetails()
+    {
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Events/EventDetails?category={Category}&sport={Sports}");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            dateDetails = await JsonSerializer.DeserializeAsync<List<EventDetail.ED_DateContent>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
 }

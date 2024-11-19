@@ -137,8 +137,8 @@ namespace Server.Palaro2026.Controller
                                                 SubCategoryList = genderGroup
                                                     .Select(subCategory => new SportsDTO.SportDetailsIDLinkage.SDIDL_SubCategoriesContent
                                                     {
-                                                        SubCategoryID = subCategory.SubCategoryID,
-                                                        SubCategory = subCategory.SubCategory
+                                                        SubCategoryID = subCategory.SubcategoryID,
+                                                        SubCategory = subCategory.Subcategory
                                                     }).ToList()
                                             }).ToList()
                                     }).ToList()
@@ -698,17 +698,17 @@ namespace Server.Palaro2026.Controller
 
         // Create
         [HttpPost("SportSubCategory")]
-        public async Task<ActionResult<SportsDTO.SportSubCategories.SportSubCategoriesContent>> CreateSportSubCategory(SportSubCategories sportSubCategoryContent)
+        public async Task<ActionResult<SportsDTO.SportSubCategories.SportSubCategoriesContent>> CreateSportSubCategory(SportSubcategories sportSubCategoryContent)
         {
             try
             {
-                var sportSubCategory = new SportSubCategories
+                var sportSubCategory = new SportSubcategories
                 {
                     ID = sportSubCategoryContent.ID,
-                    SubCategory = sportSubCategoryContent.SubCategory,
+                    Subcategory = sportSubCategoryContent.Subcategory,
                 };
 
-                _context.SportSubCategories.Add(sportSubCategory);
+                _context.SportSubcategories.Add(sportSubCategory);
                 await _context.SaveChangesAsync();
 
                 return CreatedAtAction(nameof(GetSports), new { id = sportSubCategory.ID }, sportSubCategoryContent);
@@ -729,7 +729,7 @@ namespace Server.Palaro2026.Controller
             try
             {
                 // Start with the base query for SportSubCategories
-                var query = _context.SportSubCategories.AsNoTracking();
+                var query = _context.SportSubcategories.AsNoTracking();
 
                 // Apply filtering based on the provided query parameters
                 if (sport.HasValue)
@@ -752,7 +752,7 @@ namespace Server.Palaro2026.Controller
                     .Select(s => new SportsDTO.SportSubCategories.SportSubCategoriesContent
                     {
                         ID = s.ID,
-                        SubCategory = s.SubCategory,
+                        SubCategory = s.Subcategory,
                         SportID = s.SportID,
                         GenderCategoryID = s.GenderCategoryID,
                         SchoolLevelID = s.SchoolLevelID
@@ -774,7 +774,7 @@ namespace Server.Palaro2026.Controller
         {
             try
             {
-                var subCategories = await _context.SportSubCategories.AsNoTracking().ToListAsync();
+                var subCategories = await _context.SportSubcategories.AsNoTracking().ToListAsync();
                 return Ok(subCategories);
             }
             catch (Exception ex)
@@ -794,20 +794,20 @@ namespace Server.Palaro2026.Controller
 
             try
             {
-                var sportSubCategory = new SportSubCategories
+                var sportSubCategory = new SportSubcategories
                 {
                     ID = sportSubCategoryContent.ID,
-                    SubCategory = sportSubCategoryContent.SubCategory,
+                    Subcategory = sportSubCategoryContent.SubCategory,
                 };
 
-                _context.SportSubCategories.Attach(sportSubCategory);
+                _context.SportSubcategories.Attach(sportSubCategory);
                 _context.Entry(sportSubCategory).State = EntityState.Modified;
 
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!_context.SportSubCategories.Any(e => e.ID == id))
+                if (!_context.SportSubcategories.Any(e => e.ID == id))
                 {
                     return NotFound($"Event Versus with ID {id} not found");
                 }
@@ -821,13 +821,13 @@ namespace Server.Palaro2026.Controller
         [HttpDelete("SportSubCategory/{id}")]
         public async Task<IActionResult> DeleteSportSubCategories(int id)
         {
-            var sportSubCategories = await _context.SportSubCategories.FindAsync(id);
+            var sportSubCategories = await _context.SportSubcategories.FindAsync(id);
             if (sportSubCategories == null)
             {
                 return NotFound($"Sport SubCategory with ID {id} not found");
             }
 
-            _context.SportSubCategories.Remove(sportSubCategories);
+            _context.SportSubcategories.Remove(sportSubCategories);
             await _context.SaveChangesAsync();
 
             return NoContent();

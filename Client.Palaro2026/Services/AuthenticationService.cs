@@ -50,8 +50,8 @@ public class AuthenticationService
 
                 if (result?.Token != null)
                 {
-                    await _cookieService.SetCookie("SessionToken", result.Token, 3600);
-                    await _cookieService.SetCookie("UserID", result.UserID?.ID, 3600);
+                    await _cookieService.SetCookie("SessionToken", result.Token, 86400);
+                    await _cookieService.SetCookie("UserID", result.UserID?.ID, 86400);
                     _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result.Token);
                 }
 
