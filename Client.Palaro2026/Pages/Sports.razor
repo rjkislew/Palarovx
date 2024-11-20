@@ -1,8 +1,5 @@
 ﻿@page "/sports"
 
-@using System.Net.Http
-@using System.Text.Json
-@using System.Threading.Tasks
 @inject ColorService ColorSettings
 
 <MudGrid>
@@ -21,11 +18,13 @@
     <MudItem xs="12">
         <MudContainer MaxWidth="MaxWidth.Large">
             <MudGrid Spacing="10">
+                <MudItem xs="12">
+                    <MudBreadcrumbs Items="links"></MudBreadcrumbs>
+                </MudItem>
                 <!-- Sport Cards -->
                 @if (sportCategoryContents == null || sportCategoryContents.Count == 0)
                 {
                     <!-- Skeleton if Data doesnt exist -->
-
                     <!-- Skeleton Header -->
                     <MudItem xs="12">
                         <MudSkeleton Width="20%" Height="75px" />
@@ -45,7 +44,7 @@
                                             <MudSkeleton Width="100%" />
                                         </MudCardContent>
                                         <MudCardActions>
-                                            <MudSkeleton Width="100%" Height="40px"/>
+                                            <MudSkeleton Width="100%" Height="40px" />
                                         </MudCardActions>
                                     </MudCard>
                                 </MudItem>
@@ -71,7 +70,7 @@
                                 <MudGrid>
                                     <MudVirtualize Items="categoryData.SportList" Context="sportData">
                                         <MudItem xs="12" md="6" lg="4">
-                                            <MudPaper Square Elevation="0" Style="height: 100%">
+                                            <MudPaper Style="height: 100%">
                                                 <MudStack Spacing="3">
                                                     <MudImage Src="@($"Media/Sports/Images/{sportData.Sport}.png")" ObjectPosition="ObjectPosition.Top" ObjectFit="ObjectFit.Cover" Height="300" />
                                                     <MudStack Class="pa-3">
@@ -79,7 +78,9 @@
                                                         <MudText Typo="Typo.caption">@sportData.Description</MudText>
                                                     </MudStack>
                                                     <MudSpacer />
-                                                    <MudButton Variant="Variant.Text" Href=@($"/sports/{categoryData.Category}/{sportData.Sport}") Color="Color.Primary">Learn More</MudButton>
+                                                    <MudButton Variant="Variant.Text" Href=@($"/sports/{categoryData.Category}/{sportData.Sport}") Color="Color.Primary">
+                                                        <MudText Color="Color.Tertiary" Typo="Typo.caption">Read More</MudText>
+                                                    </MudButton>
                                                 </MudStack>
                                             </MudPaper>
                                         </MudItem>
@@ -110,6 +111,16 @@
     public void Dispose()
     {
         ColorSettings.OnChange -= StateHasChanged;
+    }
+
+    private List<BreadcrumbItem> links = new();
+    protected override void OnParametersSet()
+    {
+        links = new List<BreadcrumbItem>
+        {
+            new BreadcrumbItem("Home", href: "#"),
+            new BreadcrumbItem("Sports", href: null, disabled: true)
+        };
     }
 
     //API/Sports/SportCategoryAndSubCategoryDetails
@@ -147,7 +158,7 @@
         try
         {
             using HttpClient httpClient = new HttpClient();
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportCategoriesAndSportsDetails");
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsCategoriesDetails");
             httpResponse.EnsureSuccessStatusCode();
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();

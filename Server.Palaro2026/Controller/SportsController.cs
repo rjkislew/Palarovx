@@ -162,14 +162,22 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpGet("SportsCategoriesDetails")]
-        public async Task<ActionResult<IEnumerable<SportsDTO.SportCategoryDetails.SCD_CategoriesContent>>> GetSportCategoriesDetails()
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportCategoryDetails.SCD_CategoriesContent>>> GetSportCategoriesDetails(
+            [FromQuery] string? category = null)
         {
             try
             {
+
                 // Fetch the data from the database
-                var sports = await _context.SportDetails
-                    .AsNoTracking()
-                    .ToListAsync();
+                var sportsQuery = _context.SportDetails.AsNoTracking();
+
+                // Apply filters if parameters are provided
+                if (!string.IsNullOrEmpty(category))
+                {
+                    sportsQuery = sportsQuery.Where(s => s.Category == category);
+                }
+
+                var sports = await sportsQuery.ToListAsync();
 
                 // Group the sports by category
                 var groupedSports = sports
@@ -202,67 +210,34 @@ namespace Server.Palaro2026.Controller
             }
         }
 
-        [HttpGet("SportCategoriesAndSportsDetails")]
-        public async Task<ActionResult<IEnumerable<SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_CategoriesContent>>> GetSportCategoriesAndSportsDetails()
-        {
-            try
-            {
-                // Fetch the data from the database
-                var sports = await _context.SportDetails
-                .AsNoTracking()
-                .ToListAsync();
-
-                // Group the sports by category
-                var groupedSports = sports
-                    .GroupBy(c => c.Category)
-                    .Select(category => new SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_CategoriesContent
-                    {
-                        Category = category.Key,
-                        SportList = category
-                        .GroupBy(s => new { s.Sport, s.Description })
-                        .Select(sport => new SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_SportsContent
-                        {
-                            Sport = sport.Key.Sport,
-                            Description = sport.Key.Description
-                        }).ToList()
-                    }).ToList();
-
-                return Ok(groupedSports);
-            }
-            catch (DbUpdateException dbEx)
-            {
-                // Handle database update exceptions
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    $"Database update error: {dbEx.Message}");
-            }
-            catch (Exception ex)
-            {
-                // Handle other exceptions
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    $"Internal server error: {ex.Message}");
-            }
-        }
-
         [HttpGet("SportCategoriesAndSubCategoriesDetailsFiltered")]
         public async Task<ActionResult<IEnumerable<SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_CategoriesContent>>> GetSportsCategoriesAndSubCategoriesDetailsFiltered(
         [FromQuery] string? category = null,
-        [FromQuery] string? sport = null)
+        [FromQuery] string? sport = null,
+        [FromQuery] string? level = null,
+        [FromQuery] string? gender = null)
         {
             try
             {
                 // Fetch the data from the database
                 var sportsQuery = _context.SportDetails.AsNoTracking();
 
-                // Apply filtering if `category` is provided
+                // Apply filters if parameters are provided
                 if (!string.IsNullOrEmpty(category))
                 {
                     sportsQuery = sportsQuery.Where(s => s.Category == category);
                 }
-
-                // Apply filtering if `sport` is provided
                 if (!string.IsNullOrEmpty(sport))
                 {
                     sportsQuery = sportsQuery.Where(s => s.Sport == sport);
+                }
+                if (!string.IsNullOrEmpty(level))
+                {
+                    sportsQuery = sportsQuery.Where(s => s.Level == level);
+                }
+                if (!string.IsNullOrEmpty(gender))
+                {
+                    sportsQuery = sportsQuery.Where(s => s.Gender == gender);
                 }
 
                 var sports = await sportsQuery.ToListAsync();
