@@ -45,7 +45,7 @@ namespace Server.Palaro2026.Controller
                 // Group the sports by category
                 var groupedSports = sports
                     .GroupBy(d => d.Date)
-    .OrderByDescending(date => date.Key) // Reverse date order
+                    .OrderByDescending(date => date.Key) // Reverse date order
                     .Select(date => new EventsDTO.EventDetail.ED_DateContent
                     {
                         Date = date.Key,
@@ -73,7 +73,7 @@ namespace Server.Palaro2026.Controller
                                         .GroupBy(sc => sc.Subcategory)
                                         .Select(subCategory => new EventsDTO.EventDetail.ED_SubCategoriesContent
                                         {
-                                            SubCategory = subCategory.Key,
+                                            Subcategory = subCategory.Key,
                                             EventList = subCategory
                                                 .GroupBy(e => new { e.ID, e.Venue, e.Date, e.Time, e.OnStream, e.StreamURL, e.IsFinished, e.Attachement, e.Archived, e.Deleted })
                                                 .Select(events => new EventsDTO.EventDetail.ED_EventsContent
@@ -140,7 +140,7 @@ namespace Server.Palaro2026.Controller
                     Date = eventContent.Date,
                     Time = eventContent.Time,
                     OnStream = eventContent.OnStream,
-                    StreamURL = eventContent.StreamURL,
+                    StreamURLID = eventContent.StreamURLID,
                     IsFinished = eventContent.IsFinished,
                     Archived = eventContent.Archived,
                     Deleted = eventContent.Deleted
@@ -191,7 +191,7 @@ namespace Server.Palaro2026.Controller
                     Date = eventContent.Date,
                     Time = eventContent.Time,
                     OnStream = eventContent.OnStream,
-                    StreamURL = eventContent.StreamURL,
+                    StreamURLID = eventContent.StreamURLID,
                     IsFinished = eventContent.IsFinished,
                     Archived = eventContent.Archived,
                     Deleted = eventContent.Deleted

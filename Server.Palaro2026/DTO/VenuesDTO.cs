@@ -12,7 +12,6 @@
                 public decimal? Longitude { get; set; }
 
             }
-
         }
     }
 }

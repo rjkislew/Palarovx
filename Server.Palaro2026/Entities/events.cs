@@ -19,7 +19,7 @@ public partial class Events
 
     public bool? OnStream { get; set; }
 
-    public string? StreamURL { get; set; }
+    public int? StreamURLID { get; set; }
 
     public bool? IsFinished { get; set; }
 
@@ -32,6 +32,8 @@ public partial class Events
     public virtual ICollection<EventVersus> EventVersus { get; set; } = new List<EventVersus>();
 
     public virtual SportSubcategories? SportSubcategory { get; set; }
+
+    public virtual StreamURLs? StreamURL { get; set; }
 
     public virtual Venues? Venue { get; set; }
 }

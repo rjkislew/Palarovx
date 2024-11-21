@@ -1,0 +1,661 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+
+@inject ISnackbar Snackbar
+@inject HttpClient httpClient
+@inject ColorService ColorSettings
+
+<MudDialog>
+    <DialogContent>
+        <!-- Event Form -->
+        <MudText Typo="Typo.h3" Color="Color.Primary">Event Form</MudText>
+        <MudStack Spacing="1" Class="pt-5">
+            <!-- Match ID -->
+            <MudField Margin="Margin.Dense" @bind-Value="eventIDValue" Label="Match ID" Variant="Variant.Outlined" FullWidth>@eventIDValue</MudField>
+
+            <!-- Sport Category Selection -->
+            <MudSelect Margin="Margin.Dense" T="string" Label="Category" AdornmentColor="Color.Primary" Variant="Variant.Outlined"
+                       @bind-Value="sportCategoryValue" FullWidth Clearable SelectedValuesChanged="SetSportCategoryID">
+                <MudVirtualize Items="categories" Context="category">
+                    <MudSelectItem Value="category.Category">@category.Category</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+
+            <!-- Sport Selection -->
+            <MudSelect Margin="Margin.Dense" T="string" Label="Sport" AdornmentColor="Color.Primary" Variant="Variant.Outlined"
+                       @bind-Value="sportValue" FullWidth Clearable SelectedValuesChanged="SetSportID">
+                <MudVirtualize Items="categories" Context="category">
+                    <MudVirtualize Items="category.SportList" Context="sport">
+                        <MudSelectItem Value="sport.Sport">@sport.Sport</MudSelectItem>
+                    </MudVirtualize>
+                </MudVirtualize>
+            </MudSelect>
+
+            <!-- School Level Selection -->
+            <MudSelect Margin="Margin.Dense" T="string" Label="School Level" AdornmentColor="Color.Primary" Variant="Variant.Outlined"
+                       @bind-Value="schoolLevelValue" FullWidth Clearable SelectedValuesChanged="SetSchoolLevelID">
+                <MudVirtualize Items="categories" Context="category">
+                    <MudVirtualize Items="category.SportList" Context="sport">
+                        <MudVirtualize Items="sport.LevelList" Context="level">
+                            <MudSelectItem Value="level.Level">@level.Level</MudSelectItem>
+                        </MudVirtualize>
+                    </MudVirtualize>
+                </MudVirtualize>
+            </MudSelect>
+
+            <!-- Gender Category Selection -->
+            <MudSelect Margin="Margin.Dense" T="string" Label="Gender Category" AdornmentColor="Color.Primary" Variant="Variant.Outlined"
+                       @bind-Value="genderCategoryValue" FullWidth Clearable SelectedValuesChanged="SetGenderCategoryID">
+                <MudVirtualize Items="categories" Context="category">
+                    <MudVirtualize Items="category.SportList" Context="sport">
+                        <MudVirtualize Items="sport.LevelList" Context="level">
+                            <MudVirtualize Items="level.GenderList" Context="gender">
+                                <MudSelectItem Value="gender.Gender">@gender.Gender</MudSelectItem>
+                            </MudVirtualize>
+                        </MudVirtualize>
+                    </MudVirtualize>
+                </MudVirtualize>
+            </MudSelect>
+
+            <!-- Sport Subcategory Selection -->
+            <MudSelect Margin="Margin.Dense" T="string" Label="Sport Subcategory" AdornmentColor="Color.Primary" Variant="Variant.Outlined"
+                       @bind-Value="sportSubcategoryValue" FullWidth Clearable SelectedValuesChanged="SetSportSubcategoryID">
+                <MudVirtualize Items="categories" Context="category">
+                    <MudVirtualize Items="category.SportList" Context="sport">
+                        <MudVirtualize Items="sport.LevelList" Context="level">
+                            <MudVirtualize Items="level.GenderList" Context="gender">
+                                <MudVirtualize Items="gender.SubCategoryList" Context="subCategory">
+                                    <MudSelectItem Value="subCategory.SubCategory">@subCategory.SubCategory</MudSelectItem>
+                                </MudVirtualize>
+                            </MudVirtualize>
+                        </MudVirtualize>
+                    </MudVirtualize>
+                </MudVirtualize>
+            </MudSelect>
+
+            <!-- Venue Selection -->
+            <MudSelect Margin="Margin.Dense" T="string" Label="Venue" Variant="Variant.Outlined" @bind-Value="venueValue" AdornmentColor="Color.Primary" FullWidth Clearable SelectedValuesChanged="SetVenueID">
+                <MudVirtualize Items="venues" Context="venue">
+                    <MudSelectItem Value="venue.Venue">@venue.Venue</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+
+            <!-- Team Versus Selection -->
+            <MudField Label="Regional Teams" Variant="Variant.Outlined">
+                <MudStack Spacing="2">
+                    <MudChipSet @bind-SelectedValues="regionalTeamsValue" SelectionMode="SelectionMode.MultiSelection" CheckMark Variant="Variant.Outlined" Class="gap-3">
+                        <MudVirtualize Items="regions" Context="region">
+                            <MudChip SelectedColor="Color.Primary" Value="@region.ID.ToString()">
+                                <MudText Typo="Typo.caption">
+                                    @region.Region (@region.Abbreviation)
+                                </MudText>
+                            </MudChip>
+                        </MudVirtualize>
+                    </MudChipSet>
+                    <MudStack Row Justify="Justify.FlexEnd" Class="pt-3">
+                        <MudPaper>
+                            <MudButton Class="rounded-0"
+                                       Size="Size.Small"
+                                       Color="@(regionalTeamsValue.Any() ? Color.Error : Color.Primary)"
+                                       Style="text-transform:none"
+                                       OnClick="ToggleSelectAll">
+                                @(regionalTeamsValue.Any() ? "Clear" : "Select All")
+                            </MudButton>
+                        </MudPaper>
+                    </MudStack>
+                </MudStack>
+            </MudField>
+
+            <!-- Schedule -->
+            <MudField Label="Schedule" Variant="Variant.Outlined">
+                <MudStack Row>
+
+                    <!-- Date -->
+                    <MudDatePicker Variant="Variant.Outlined" Margin="Margin.Dense" Color="Color.Primary" AdornmentColor="Color.Primary" @bind-Date="dateValue" />
+
+                    <!-- Time -->
+                    <MudTimePicker Variant="Variant.Outlined" Margin="Margin.Dense" Color="Color.Primary" AdornmentColor="Color.Primary" @bind-Time="timeValue" AmPm />
+                </MudStack>
+            </MudField>
+
+            <!-- On Stream -->
+            <MudField Label="Stream" Variant="Variant.Outlined">
+                <MudStack Row AlignItems="AlignItems.Center">
+
+                    <!-- Check if on Stream-->
+                    <MudCheckBox Size="Size.Small" Color="Color.Primary" T="bool" Label="On Stream" @bind-Value="onStreamChecked" />
+
+                    <!-- Stream Service -->
+                    <MudSelect Margin="Margin.Dense" T="string" Label="Stream Service" Variant="Variant.Outlined" @bind-Value="streamURLValue" AdornmentColor="Color.Primary" FullWidth Clearable SelectedValuesChanged="SetStreamServiceID">
+                        <MudVirtualize Items="streamServices" Context="streamService">
+                            <MudSelectItem Value="streamService.StreamServiceName">@streamService.StreamServiceName</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudStack>
+            </MudField>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Class="rounded-0"
+                   Size="Size.Small"
+                   Variant="Variant.Text"
+                   Color="Color.Error"
+                   Style="text-transform:none">
+            Clear
+        </MudButton>
+        <MudButton OnClick="Submit"
+                   Class="rounded-0"
+                   Size="Size.Small"
+                   Variant="Variant.Text"
+                   Color="Color.Primary"
+                   Style="text-transform:none">
+            Add Event
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private MudDialogInstance? MudDialog { get; set; }
+    private readonly string API_URL = APIService.Palaro2026API;
+
+    private List<Venues>? venues;
+    private List<Regions>? regions;
+    private List<StreamService>? streamServices;
+
+    private Dictionary<string, bool> expandedStatesTeams = new();
+    private Dictionary<string, bool> expandedStatesSettings = new();
+
+    private IReadOnlyCollection<string> regionalTeamsValue = new List<string>();
+    private bool selectAllChecked;
+
+    private string? eventIDValue;
+
+    private List<SportCategories>? categories;
+    private string? sportCategoryValue; private int? sportCategoryID;
+    private string? sportValue; private int? sportID;
+    private string? schoolLevelValue; private int? schoolLevelID;
+    private string? genderCategoryValue; private int? genderCategoryID;
+    private string? sportSubcategoryValue; private int? sportSubcategoryID;
+    private string? venueValue; private int? venueID;
+
+    private bool onStreamChecked;
+    private string? streamURLValue; private int? streamURLID;
+    private DateTime? dateValue = DateTime.Today;
+    private TimeSpan? timeValue = DateTime.Now.TimeOfDay;
+
+    private async Task Submit()
+    {
+        await CreateAndPostEvent();
+
+        // Close the dialog with a positive result
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private bool _openTeamsPopOver;
+
+    private bool GetTeamsButtonExpandedState(string id)
+    {
+        return expandedStatesTeams.TryGetValue(id, out var isExpanded) && isExpanded;
+    }
+
+    private void ToggleTeamsButtonExpandedState(string id)
+    {
+        if (expandedStatesTeams.ContainsKey(id))
+        {
+            expandedStatesTeams[id] = !expandedStatesTeams[id];
+            _openTeamsPopOver = !_openTeamsPopOver;
+        }
+        else
+        {
+            expandedStatesTeams[id] = true;
+        }
+    }
+
+    private bool _openEventSettings;
+
+    private bool GetOpenEventSettings(string id)
+    {
+        return expandedStatesSettings.TryGetValue(id, out var isExpanded) && isExpanded;
+    }
+
+    private void ToggleOpenEventSettings(string id)
+    {
+        if (expandedStatesSettings.ContainsKey(id))
+        {
+            expandedStatesSettings[id] = !expandedStatesSettings[id];
+            _openEventSettings = !_openEventSettings;
+        }
+        else
+        {
+            expandedStatesSettings[id] = true;
+        }
+    }
+
+    private string GetRankColor(int rank)
+    {
+        return rank switch
+        {
+            1 => MudBlazor.Colors.Amber.Accent4,
+            2 => MudBlazor.Colors.Gray.Lighten2,
+            3 => MudBlazor.Colors.Brown.Lighten3,
+            _ => "inherit" // Default color for others
+        };
+    }
+
+
+    private bool _openAddEvent;
+
+    private void ToggleOpenAddEvent() => _openAddEvent = !_openAddEvent;
+
+    public class SportCategories
+    {
+        public int CategoryID { get; set; }
+        public string? Category { get; set; }
+        public List<SportsContent>? SportList { get; set; }
+    }
+    public class SportsContent
+    {
+        public int SportID { get; set; }
+        public string? Sport { get; set; }
+        public List<SchoolLevels>? LevelList { get; set; }
+    }
+    public class SchoolLevels
+    {
+        public int LevelID { get; set; }
+        public string? Level { get; set; }
+        public List<GenderCategories>? GenderList { get; set; }
+    }
+    public class GenderCategories
+    {
+        public int GenderID { get; set; }
+        public string? Gender { get; set; }
+        public List<SportSubCategories>? SubCategoryList { get; set; }
+    }
+    public class SportSubCategories
+    {
+        public int SubCategoryID { get; set; }
+        public string? SubCategory { get; set; }
+    }
+
+    public class Venues
+    {
+        public int? ID { get; set; }
+        public string? Venue { get; set; }
+    }
+
+
+    public class StreamService
+    {
+        public int ID { get; set; }
+        public string? StreamServiceName { get; set; }
+        public string? StreamURL { get; set; }
+    }
+
+    public class Regions
+    {
+        public int? ID { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
+    public class Events
+    {
+        public string? ID { get; set; }
+        public int? SportSubcategoryID { get; set; }
+        public int? VenueID { get; set; }
+        public DateTime? Date { get; set; }
+        public TimeSpan? Time { get; set; }
+        public bool? OnStream { get; set; }
+        public int? StreamURLID { get; set; }
+        public bool? IsFinished { get; set; }
+        public byte[]? Attachement { get; set; }
+        public bool? Archived { get; set; }
+        public bool? Deleted { get; set; }
+    }
+
+    public class EventVersus
+    {
+        public int ID { get; set; }
+        public int? Score { get; set; }
+        public int? RegionID { get; set; }
+        public string? EventID { get; set; }
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSportCategoryList();
+        await GetVenueList();
+        await GetRegionList();
+        await GetStreamServices();
+
+        eventIDValue = GenerateRandomString();
+    }
+
+    private async Task ToggleSelectAll()
+    {
+        if (regionalTeamsValue.Any())
+        {
+            // Deselect all (clear selection)
+            regionalTeamsValue = new List<string>().AsReadOnly();
+        }
+        else
+        {
+            // Select all region IDs as strings (populate as needed)
+            regionalTeamsValue = regions.Select(r => r.ID.ToString()).ToList().AsReadOnly();
+        }
+
+        // Toggle the selectAllChecked flag
+        selectAllChecked = !selectAllChecked;
+
+        // Force UI update
+        StateHasChanged();
+    }
+
+    public string GenerateRandomString(int length = 20)
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"; // Uppercase alphabet and digits
+        Random random = new Random();
+        char[] stringChars = new char[length];
+
+        for (int i = 0; i < length; i++)
+        {
+            stringChars[i] = chars[random.Next(chars.Length)];
+        }
+
+        return new string(stringChars);
+    }
+
+    private async Task GetSportCategoryList()
+    {
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsIDLinkage");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+    private async Task SetSportCategoryID(IEnumerable<string> values)
+    {
+        sportCategoryValue = values.FirstOrDefault();
+        sportCategoryID = categories?.FirstOrDefault(c => c.Category == sportCategoryValue)?.CategoryID;
+
+        await GetSportList();
+    }
+
+    private async Task GetSportList()
+    {
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsIDLinkage?category={sportCategoryValue}");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+    private async Task SetSportID(IEnumerable<string> values)
+    {
+        if (sportValue != null || string.IsNullOrEmpty(sportValue) == false)
+        {
+            sportValue = values.FirstOrDefault();
+            sportID = categories?
+                      .SelectMany(c => c.SportList ?? new List<SportsContent>())
+                      .FirstOrDefault(s => s.Sport == sportValue)?.SportID;
+
+            await GetSchoolLevelList();
+        }
+    }
+
+    private async Task GetSchoolLevelList()
+    {
+            try
+            {
+                HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsIDLinkage?category={sportCategoryValue}&sport={sportValue}");
+                httpResponse.EnsureSuccessStatusCode();
+
+                using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"Error fetching data: {ex.Message}");
+            }
+    }
+    private async Task SetSchoolLevelID(IEnumerable<string> values)
+    {
+        schoolLevelValue = values.FirstOrDefault();
+        schoolLevelID = categories?
+                       .SelectMany(c => c.SportList ?? new List<SportsContent>())
+                       .SelectMany(s => s.LevelList ?? new List<SchoolLevels>())
+                       .FirstOrDefault(l => l.Level == schoolLevelValue)?.LevelID;
+
+        await GetGenderCategoryList();
+    }
+
+    private async Task GetGenderCategoryList()
+    {
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsIDLinkage?category={sportCategoryValue}&sport={sportValue}&level={schoolLevelValue}");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+    private async Task SetGenderCategoryID(IEnumerable<string> values)
+    {
+        genderCategoryValue = values.FirstOrDefault();
+        genderCategoryID = categories?
+                          .SelectMany(c => c.SportList ?? new List<SportsContent>())
+                          .SelectMany(s => s.LevelList ?? new List<SchoolLevels>())
+                          .SelectMany(l => l.GenderList ?? new List<GenderCategories>())
+                          .FirstOrDefault(g => g.Gender == genderCategoryValue)?.GenderID;
+
+        await GetSportSubCategoryList();
+    }
+
+    private async Task GetSportSubCategoryList()
+    {
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsIDLinkage?category={sportCategoryValue}&sport={sportValue}&level={schoolLevelValue}&gender={genderCategoryValue}");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+    private async Task SetSportSubcategoryID(IEnumerable<string> values)
+    {
+        sportSubcategoryValue = values.FirstOrDefault();
+        sportSubcategoryID = categories?
+                            .SelectMany(c => c.SportList ?? new List<SportsContent>())
+                            .SelectMany(s => s.LevelList ?? new List<SchoolLevels>())
+                            .SelectMany(l => l.GenderList ?? new List<GenderCategories>())
+                            .SelectMany(g => g.SubCategoryList ?? new List<SportSubCategories>())
+                            .FirstOrDefault(sc => sc.SubCategory == sportSubcategoryValue)?.SubCategoryID;
+    }
+
+    private async Task GetVenueList()
+    {
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Venues/Venue");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            venues = await JsonSerializer.DeserializeAsync<List<Venues>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+    private async Task SetVenueID(IEnumerable<string> values)
+    {
+        venueValue = values.FirstOrDefault();
+        venueID = venues?.FirstOrDefault(c => c.Venue == venueValue)?.ID;
+    }
+
+    private async Task GetStreamServices()
+    {
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/StreamServices/StreamService");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            streamServices = await JsonSerializer.DeserializeAsync<List<StreamService>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+    private async Task SetStreamServiceID(IEnumerable<string> values)
+    {
+        streamURLValue = values.FirstOrDefault();
+        streamURLID = streamServices?.FirstOrDefault(c => c.StreamServiceName == streamURLValue)?.ID;
+    }
+
+    private async Task GetRegionList()
+    {
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/RegionalTeams/Region");
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            regions = await JsonSerializer.DeserializeAsync<List<Regions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task PostSelectedRegions()
+    {
+        var selectedRegionIds = regionalTeamsValue
+                                .Select(id => int.TryParse(id, out var parsedId) ? parsedId : (int?)null)
+                                .Where(id => id.HasValue)
+                                .Select(id => id.Value)
+                                .ToList();
+
+        if (!selectedRegionIds.Any())
+        {
+            Console.WriteLine("No regions selected.");
+            return;
+        }
+
+        var eventVersusList = selectedRegionIds
+                              .Select(regionId => new EventVersus
+                                  {
+                                      RegionID = regionId,
+                                      EventID = eventIDValue
+                                  })
+                              .ToList();
+
+        try
+        {
+            var jsonContent = JsonSerializer.Serialize(eventVersusList);
+            //Console.WriteLine($"Request Payload: {jsonContent}"); // Log payload for troubleshooting
+
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            // Create HttpClient and send the POST request
+            using var httpClient = new HttpClient();
+            var response = await httpClient.PostAsync($"{API_URL}/Events/EventVersus", content);
+
+            Console.WriteLine("Regions successfully posted.");
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error posting regions: {ex.Message}");
+        }
+    }
+
+
+
+    private async Task CreateAndPostEvent()
+    {
+        try
+        {
+            // Create and populate the new event
+            var newEvent = new Events
+                {
+                    ID = eventIDValue,
+                    SportSubcategoryID = sportSubcategoryID,
+                    VenueID = venueID,
+                    Date = dateValue,
+                    Time = timeValue,
+                    OnStream = onStreamChecked,
+                    StreamURLID = streamURLID,
+                    IsFinished = false,  // Default value; adjust as needed
+                    Attachement = null,  // Set if you have an attachment to upload
+                    Archived = false,    // Default value
+                    Deleted = false      // Default value
+                };
+
+            // Serialize the event to JSON
+            var jsonContent = JsonSerializer.Serialize(newEvent);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            // Create HttpClient and send the POST request
+            using var httpClient = new HttpClient();
+            var response = await httpClient.PostAsync($"{API_URL}/Events/Event", content);
+
+
+            if (response.IsSuccessStatusCode)
+            {
+                await PostSelectedRegions();
+                Snackbar.Add("Event created successfully!", Severity.Success);
+                eventIDValue = GenerateRandomString();
+            }
+            else
+            {
+                Console.WriteLine($"Error creating event: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception: {ex.Message}");
+        }
+    }
+}

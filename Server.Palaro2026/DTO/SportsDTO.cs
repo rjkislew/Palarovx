@@ -30,6 +30,7 @@ public class SportsDTO
             public string? SubCategory { get; set; }
         }
     }
+
     public class SportDetailsIDLinkage
     {
         public class SDIDL_SportCategoriesContent

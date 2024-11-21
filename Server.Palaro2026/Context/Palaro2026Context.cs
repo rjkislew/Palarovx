@@ -52,6 +52,12 @@ public partial class Palaro2026Context : DbContext
 
     public virtual DbSet<Sports> Sports { get; set; }
 
+    public virtual DbSet<StreamDetails> StreamDetails { get; set; }
+
+    public virtual DbSet<StreamServices> StreamServices { get; set; }
+
+    public virtual DbSet<StreamURLs> StreamURLs { get; set; }
+
     public virtual DbSet<TeamCoaches> TeamCoaches { get; set; }
 
     public virtual DbSet<UserRoles> UserRoles { get; set; }
@@ -162,6 +168,7 @@ public partial class Palaro2026Context : DbContext
             entity.Property(e => e.Subcategory)
                 .HasMaxLength(100)
                 .IsUnicode(false);
+            entity.Property(e => e.Time).HasColumnType("time(2)");
             entity.Property(e => e.Venue)
                 .HasMaxLength(100)
                 .IsUnicode(false);
@@ -190,11 +197,15 @@ public partial class Palaro2026Context : DbContext
                 .HasMaxLength(20)
                 .IsUnicode(false);
             entity.Property(e => e.Date).HasColumnType("datetime");
-            entity.Property(e => e.StreamURL).IsUnicode(false);
+            entity.Property(e => e.Time).HasColumnType("time(2)");
 
             entity.HasOne(d => d.SportSubcategory).WithMany(p => p.Events)
                 .HasForeignKey(d => d.SportSubcategoryID)
                 .HasConstraintName("FK_events_sport_sub_categories");
+
+            entity.HasOne(d => d.StreamURL).WithMany(p => p.Events)
+                .HasForeignKey(d => d.StreamURLID)
+                .HasConstraintName("FK_Events_StreamURLs");
 
             entity.HasOne(d => d.Venue).WithMany(p => p.Events)
                 .HasForeignKey(d => d.VenueID)
@@ -431,6 +442,37 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.SportCategory).WithMany(p => p.Sports)
                 .HasForeignKey(d => d.SportCategoryID)
                 .HasConstraintName("FK__sports__sports_c__5070F446");
+        });
+
+        modelBuilder.Entity<StreamDetails>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToView("StreamDetails");
+
+            entity.Property(e => e.Date).HasColumnType("datetime");
+            entity.Property(e => e.StreamService)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.StreamURL).IsUnicode(false);
+        });
+
+        modelBuilder.Entity<StreamServices>(entity =>
+        {
+            entity.Property(e => e.StreamService)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<StreamURLs>(entity =>
+        {
+            entity.Property(e => e.Date).HasColumnType("datetime");
+            entity.Property(e => e.StreamURL).IsUnicode(false);
+
+            entity.HasOne(d => d.StreamService).WithMany(p => p.StreamURLs)
+                .HasForeignKey(d => d.StreamServiceID)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_StreamURLs_StreamServices1");
         });
 
         modelBuilder.Entity<TeamCoaches>(entity =>
