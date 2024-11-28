@@ -1,19 +1,19 @@
 const CACHE_NAME = 'blazor-pwa-cache-v3';
 const APP_SHELL = [
     '/', // Root path
-    '/index.html', // Main HTML file
-    '/manifest.webmanifest',
-    '/Media/Icon/site.webmanifest',
-    '/Media/Icon/favicon-32x32.png',
-    '/Media/Icon/favicon-16x16.png',
-    '/Media/Icon/apple-touch-icon.png',
-    '/css/app.css',
-    '/_content/MudBlazor/MudBlazor.min.css',
-    '/js/cookieService.js',
-    '/js/mapBoxService.js',
-    '/js/getUserIPService.js',
-    '/_framework/blazor.webassembly.js',
-    '/_content/MudBlazor/MudBlazor.min.js',
+    'index.html', // Main HTML file
+    'manifest.webmanifest',
+    'Media/Icon/site.webmanifest',
+    'Media/Icon/favicon-32x32.png',
+    'Media/Icon/favicon-16x16.png',
+    'Media/Icon/apple-touch-icon.png',
+    'css/app.css',
+    '_content/MudBlazor/MudBlazor.min.css',
+    'js/cookieService.js',
+    'js/mapBoxService.js',
+    'js/getUserIPService.js',
+    '_framework/blazor.webassembly.js',
+    '_content/MudBlazor/MudBlazor.min.js',
 ];
 
 const EXTERNAL_RESOURCES = [

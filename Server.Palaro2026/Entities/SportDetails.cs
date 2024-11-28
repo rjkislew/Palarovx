@@ -7,15 +7,25 @@ namespace Server.Palaro2026.Entities;
 
 public partial class SportDetails
 {
+    public int CategoryID { get; set; }
+
     public string? Category { get; set; }
+
+    public int SportID { get; set; }
 
     public string? Sport { get; set; }
 
     public string? Description { get; set; }
 
+    public int LevelID { get; set; }
+
     public string? Level { get; set; }
+
+    public int GenderID { get; set; }
 
     public string? Gender { get; set; }
 
-    public string? SubCategory { get; set; }
+    public int SubcategoryID { get; set; }
+
+    public string? Subcategory { get; set; }
 }

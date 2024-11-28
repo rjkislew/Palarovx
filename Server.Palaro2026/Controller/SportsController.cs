@@ -19,65 +19,7 @@ namespace Server.Palaro2026.Controller
         /// 
 
         [HttpGet("SportsDetails")]
-        public async Task<ActionResult<IEnumerable<SportsDTO.SportDetails.SD_SportCategoriesContent>>> GetSportsDetails()
-        {
-            try
-            {
-                // Fetch the data from the database
-                var sports = await _context.SportDetails
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                // Group the sports by category
-                var groupedSports = sports
-                    .GroupBy(c => c.Category)
-                    .Select(category => new SportsDTO.SportDetails.SD_SportCategoriesContent
-                    {
-                        Category = category.Key,
-                        SportList = category
-                        .GroupBy(s => new { s.Sport, s.Description })
-                        .Select(sport => new SportsDTO.SportDetails.SD_SportsContent
-                        {
-                            Sport = sport.Key.Sport,
-                            Description = sport.Key.Description,
-                            LevelList = sport
-                            .GroupBy(l => l.Level)
-                            .Select(level => new SportsDTO.SportDetails.SD_SchoolLevelsContent
-                            {
-                                Level = level.Key,
-                                GenderList = level
-                                .GroupBy(gc => gc.Gender)
-                                .Select(gender => new SportsDTO.SportDetails.SD_GenderCategoriesContent
-                                {
-                                    Gender = gender.Key,
-                                    SubCategoryList = gender
-                                    .Select(subCategory => new SportsDTO.SportDetails.SD_SubCategoriesContent
-                                    {
-                                        SubCategory = subCategory.SubCategory
-                                    }).ToList()
-                                }).ToList()
-                            }).ToList()
-                        }).ToList()
-                    }).ToList();
-
-                return Ok(groupedSports);
-            }
-            catch (DbUpdateException dbEx)
-            {
-                // Handle database update exceptions
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    $"Database update error: {dbEx.Message}");
-            }
-            catch (Exception ex)
-            {
-                // Handle other exceptions
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    $"Internal server error: {ex.Message}");
-            }
-        }
-
-        [HttpGet("SportsDetailsIDLinkage")]
-        public async Task<ActionResult<IEnumerable<SportsDTO.SportDetailsIDLinkage.SDIDL_SportCategoriesContent>>> GetSportsDetailsIDLinkage(
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportDetails.SD_SportCategoriesContent>>> GetSportsDetails(
         [FromQuery] string? category = null,
         [FromQuery] string? sport = null,
         [FromQuery] string? level = null,
@@ -86,7 +28,7 @@ namespace Server.Palaro2026.Controller
             try
             {
                 // Fetch the data from the database with optional filtering
-                var sportsQuery = _context.SportDetailsIDLinkage.AsNoTracking();
+                var sportsQuery = _context.SportDetails.AsNoTracking();
 
                 // Apply filters if parameters are provided
                 if (!string.IsNullOrEmpty(category))
@@ -109,40 +51,42 @@ namespace Server.Palaro2026.Controller
                 // Execute the query and get the list
                 var sports = await sportsQuery.ToListAsync();
 
+
                 // Group the sports by category
                 var groupedSports = sports
                     .GroupBy(c => new { c.CategoryID, c.Category })
-                    .Select(categoryGroup => new SportsDTO.SportDetailsIDLinkage.SDIDL_SportCategoriesContent
+                    .Select(category => new SportsDTO.SportDetails.SD_SportCategoriesContent
                     {
-                        CategoryID = categoryGroup.Key.CategoryID,
-                        Category = categoryGroup.Key.Category,
-                        SportList = categoryGroup
-                            .GroupBy(s => new { s.SportID, s.Sport })
-                            .Select(sportGroup => new SportsDTO.SportDetailsIDLinkage.SDIDL_SportsContent
+                        CategoryID = category.Key.CategoryID,
+                        Category = category.Key.Category,
+                        SportList = category
+                        .GroupBy(s => new { s.SportID, s.Sport, s.Description })
+                        .Select(sport => new SportsDTO.SportDetails.SD_SportsContent
+                        {
+                            SportID = sport.Key.SportID,
+                            Sport = sport.Key.Sport,
+                            Description = sport.Key.Description,
+                            LevelList = sport
+                            .GroupBy(l => new { l.LevelID, l.Level })
+                            .Select(level => new SportsDTO.SportDetails.SD_SchoolLevelsContent
                             {
-                                SportID = sportGroup.Key.SportID,
-                                Sport = sportGroup.Key.Sport,
-                                LevelList = sportGroup
-                                    .GroupBy(l => new { l.LevelID, l.Level })
-                                    .Select(levelGroup => new SportsDTO.SportDetailsIDLinkage.SDIDL_SchoolLevelsContent
+                                LevelID = level.Key.LevelID,
+                                Level = level.Key.Level,
+                                GenderList = level
+                                .GroupBy(gc => new { gc.GenderID, gc.Gender })
+                                .Select(gender => new SportsDTO.SportDetails.SD_GenderCategoriesContent
+                                {
+                                    GenderID = gender.Key.GenderID,
+                                    Gender = gender.Key.Gender,
+                                    SubcategoryList = gender
+                                    .Select(subCategory => new SportsDTO.SportDetails.SD_SubCategoriesContent
                                     {
-                                        LevelID = levelGroup.Key.LevelID,
-                                        Level = levelGroup.Key.Level,
-                                        GenderList = levelGroup
-                                            .GroupBy(g => new { g.GenderID, g.Gender })
-                                            .Select(genderGroup => new SportsDTO.SportDetailsIDLinkage.SDIDL_GenderCategoriesContent
-                                            {
-                                                GenderID = genderGroup.Key.GenderID,
-                                                Gender = genderGroup.Key.Gender,
-                                                SubCategoryList = genderGroup
-                                                    .Select(subCategory => new SportsDTO.SportDetailsIDLinkage.SDIDL_SubCategoriesContent
-                                                    {
-                                                        SubCategoryID = subCategory.SubcategoryID,
-                                                        SubCategory = subCategory.Subcategory
-                                                    }).ToList()
-                                            }).ToList()
+                                        SubcategoryID = subCategory.SubcategoryID,
+                                        Subcategory = subCategory.Subcategory
                                     }).ToList()
+                                }).ToList()
                             }).ToList()
+                        }).ToList()
                     }).ToList();
 
                 return Ok(groupedSports);
@@ -254,12 +198,12 @@ namespace Server.Palaro2026.Controller
                             {
                                 Sport = sportGroup.Key.Sport,
                                 Description = sportGroup.Key.Description,
-                                SportSubCategoryList = sportGroup
-                                .Select(subCategory => subCategory.SubCategory)
+                                SportSubcategoryList = sportGroup
+                                .Select(subCategory => subCategory.Subcategory)
                                 .Distinct()
                                 .Select(distinctSubCategory => new SportsDTO.SportCategoryAndSubCategoryDetails.SCASD_SubCategoriesContent
                                 {
-                                    SubCategory = distinctSubCategory
+                                    Subcategory = distinctSubCategory
                                 })
                                 .ToList()
                             }).ToList()

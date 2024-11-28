@@ -140,7 +140,7 @@ namespace Server.Palaro2026.Controller
                     Date = eventContent.Date,
                     Time = eventContent.Time,
                     OnStream = eventContent.OnStream,
-                    StreamURLID = eventContent.StreamURLID,
+                    StreamURL = eventContent.StreamURL,
                     IsFinished = eventContent.IsFinished,
                     Archived = eventContent.Archived,
                     Deleted = eventContent.Deleted
@@ -191,7 +191,7 @@ namespace Server.Palaro2026.Controller
                     Date = eventContent.Date,
                     Time = eventContent.Time,
                     OnStream = eventContent.OnStream,
-                    StreamURLID = eventContent.StreamURLID,
+                    StreamURL = eventContent.StreamURL,
                     IsFinished = eventContent.IsFinished,
                     Archived = eventContent.Archived,
                     Deleted = eventContent.Deleted

@@ -73,7 +73,7 @@
                 public DateTime? Date { get; set; }
                 public TimeSpan? Time { get; set; }
                 public bool? OnStream { get; set; }
-                public int? StreamURLID { get; set; }
+                public string? StreamURL { get; set; }
                 public bool? IsFinished { get; set; }
                 public byte[]? Attachement { get; set; }
                 public bool? Archived { get; set; }

@@ -66,8 +66,8 @@
                     <MudVirtualize Items="category.SportList" Context="sport">
                         <MudVirtualize Items="sport.LevelList" Context="level">
                             <MudVirtualize Items="level.GenderList" Context="gender">
-                                <MudVirtualize Items="gender.SubCategoryList" Context="subCategory">
-                                    <MudSelectItem Value="subCategory.SubCategory">@subCategory.SubCategory</MudSelectItem>
+                                <MudVirtualize Items="gender.SubcategoryList" Context="subcategory">
+                                    <MudSelectItem Value="subcategory.Subcategory">@subcategory.Subcategory</MudSelectItem>
                                 </MudVirtualize>
                             </MudVirtualize>
                         </MudVirtualize>
@@ -128,11 +128,7 @@
                     <MudCheckBox Size="Size.Small" Color="Color.Primary" T="bool" Label="On Stream" @bind-Value="onStreamChecked" />
 
                     <!-- Stream Service -->
-                    <MudSelect Margin="Margin.Dense" T="string" Label="Stream Service" Variant="Variant.Outlined" @bind-Value="streamURLValue" AdornmentColor="Color.Primary" FullWidth Clearable SelectedValuesChanged="SetStreamServiceID">
-                        <MudVirtualize Items="streamServices" Context="streamService">
-                            <MudSelectItem Value="streamService.StreamServiceName">@streamService.StreamServiceName</MudSelectItem>
-                        </MudVirtualize>
-                    </MudSelect>
+                    <MudTextField T="string" Clearable @bind-Value="streamURLValue" Variant="Variant.Outlined" Label="Stream Service"></MudTextField>
                 </MudStack>
             </MudField>
         </MudStack>
@@ -163,7 +159,6 @@
 
     private List<Venues>? venues;
     private List<Regions>? regions;
-    private List<StreamService>? streamServices;
 
     private Dictionary<string, bool> expandedStatesTeams = new();
     private Dictionary<string, bool> expandedStatesSettings = new();
@@ -173,7 +168,7 @@
 
     private string? eventIDValue;
 
-    private List<SportCategories>? categories;
+    private List<SportDetails.SD_SportCategoriesContent>? categories;
     private string? sportCategoryValue; private int? sportCategoryID;
     private string? sportValue; private int? sportID;
     private string? schoolLevelValue; private int? schoolLevelID;
@@ -254,48 +249,43 @@
 
     private void ToggleOpenAddEvent() => _openAddEvent = !_openAddEvent;
 
-    public class SportCategories
+    public class SportDetails
     {
-        public int CategoryID { get; set; }
-        public string? Category { get; set; }
-        public List<SportsContent>? SportList { get; set; }
-    }
-    public class SportsContent
-    {
-        public int SportID { get; set; }
-        public string? Sport { get; set; }
-        public List<SchoolLevels>? LevelList { get; set; }
-    }
-    public class SchoolLevels
-    {
-        public int LevelID { get; set; }
-        public string? Level { get; set; }
-        public List<GenderCategories>? GenderList { get; set; }
-    }
-    public class GenderCategories
-    {
-        public int GenderID { get; set; }
-        public string? Gender { get; set; }
-        public List<SportSubCategories>? SubCategoryList { get; set; }
-    }
-    public class SportSubCategories
-    {
-        public int SubCategoryID { get; set; }
-        public string? SubCategory { get; set; }
+        public class SD_SportCategoriesContent
+        {
+            public int CategoryID { get; set; }
+            public string? Category { get; set; }
+            public List<SD_SportsContent>? SportList { get; set; }
+        }
+        public class SD_SportsContent
+        {
+            public int SportID { get; set; }
+            public string? Sport { get; set; }
+            public List<SD_SchoolLevelsContent>? LevelList { get; set; }
+        }
+        public class SD_SchoolLevelsContent
+        {
+            public int LevelID { get; set; }
+            public string? Level { get; set; }
+            public List<SD_GenderCategoriesContent>? GenderList { get; set; }
+        }
+        public class SD_GenderCategoriesContent
+        {
+            public int GenderID { get; set; }
+            public string? Gender { get; set; }
+            public List<SD_SubCategoriesContent>? SubcategoryList { get; set; }
+        }
+        public class SD_SubCategoriesContent
+        {
+            public int SubcategoryID { get; set; }
+            public string? Subcategory { get; set; }
+        }
     }
 
     public class Venues
     {
         public int? ID { get; set; }
         public string? Venue { get; set; }
-    }
-
-
-    public class StreamService
-    {
-        public int ID { get; set; }
-        public string? StreamServiceName { get; set; }
-        public string? StreamURL { get; set; }
     }
 
     public class Regions
@@ -313,7 +303,7 @@
         public DateTime? Date { get; set; }
         public TimeSpan? Time { get; set; }
         public bool? OnStream { get; set; }
-        public int? StreamURLID { get; set; }
+        public string? StreamURL { get; set; }
         public bool? IsFinished { get; set; }
         public byte[]? Attachement { get; set; }
         public bool? Archived { get; set; }
@@ -329,18 +319,15 @@
     }
 
 
-
     protected override async Task OnInitializedAsync()
     {
+        eventIDValue = GenerateRandomString();
         await GetSportCategoryList();
         await GetVenueList();
         await GetRegionList();
-        await GetStreamServices();
-
-        eventIDValue = GenerateRandomString();
     }
 
-    private async Task ToggleSelectAll()
+    private void ToggleSelectAll()
     {
         if (regionalTeamsValue.Any())
         {
@@ -378,12 +365,12 @@
     {
         try
         {
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsIDLinkage");
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetails");
             httpResponse.EnsureSuccessStatusCode();
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
+            categories = await JsonSerializer.DeserializeAsync<List<SportDetails.SD_SportCategoriesContent>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
@@ -402,12 +389,12 @@
     {
         try
         {
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsIDLinkage?category={sportCategoryValue}");
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetails?category={sportCategoryValue}");
             httpResponse.EnsureSuccessStatusCode();
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
+            categories = await JsonSerializer.DeserializeAsync<List<SportDetails.SD_SportCategoriesContent>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
@@ -420,7 +407,7 @@
         {
             sportValue = values.FirstOrDefault();
             sportID = categories?
-                      .SelectMany(c => c.SportList ?? new List<SportsContent>())
+                      .SelectMany(c => c.SportList ?? new List<SportDetails.SD_SportsContent>())
                       .FirstOrDefault(s => s.Sport == sportValue)?.SportID;
 
             await GetSchoolLevelList();
@@ -429,26 +416,26 @@
 
     private async Task GetSchoolLevelList()
     {
-            try
-            {
-                HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsIDLinkage?category={sportCategoryValue}&sport={sportValue}");
-                httpResponse.EnsureSuccessStatusCode();
+        try
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetails?category={sportCategoryValue}&sport={sportValue}");
+            httpResponse.EnsureSuccessStatusCode();
 
-                using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
-            }
-            catch (HttpRequestException ex)
-            {
-                Console.WriteLine($"Error fetching data: {ex.Message}");
-            }
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            categories = await JsonSerializer.DeserializeAsync<List<SportDetails.SD_SportCategoriesContent>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
     }
     private async Task SetSchoolLevelID(IEnumerable<string> values)
     {
         schoolLevelValue = values.FirstOrDefault();
         schoolLevelID = categories?
-                       .SelectMany(c => c.SportList ?? new List<SportsContent>())
-                       .SelectMany(s => s.LevelList ?? new List<SchoolLevels>())
+                       .SelectMany(c => c.SportList ?? new List<SportDetails.SD_SportsContent>())
+                       .SelectMany(s => s.LevelList ?? new List<SportDetails.SD_SchoolLevelsContent>())
                        .FirstOrDefault(l => l.Level == schoolLevelValue)?.LevelID;
 
         await GetGenderCategoryList();
@@ -458,12 +445,12 @@
     {
         try
         {
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsIDLinkage?category={sportCategoryValue}&sport={sportValue}&level={schoolLevelValue}");
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetails?category={sportCategoryValue}&sport={sportValue}&level={schoolLevelValue}");
             httpResponse.EnsureSuccessStatusCode();
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
+            categories = await JsonSerializer.DeserializeAsync<List<SportDetails.SD_SportCategoriesContent>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
@@ -474,9 +461,9 @@
     {
         genderCategoryValue = values.FirstOrDefault();
         genderCategoryID = categories?
-                          .SelectMany(c => c.SportList ?? new List<SportsContent>())
-                          .SelectMany(s => s.LevelList ?? new List<SchoolLevels>())
-                          .SelectMany(l => l.GenderList ?? new List<GenderCategories>())
+                          .SelectMany(c => c.SportList ?? new List<SportDetails.SD_SportsContent>())
+                          .SelectMany(s => s.LevelList ?? new List<SportDetails.SD_SchoolLevelsContent>())
+                          .SelectMany(l => l.GenderList ?? new List<SportDetails.SD_GenderCategoriesContent>())
                           .FirstOrDefault(g => g.Gender == genderCategoryValue)?.GenderID;
 
         await GetSportSubCategoryList();
@@ -486,12 +473,12 @@
     {
         try
         {
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetailsIDLinkage?category={sportCategoryValue}&sport={sportValue}&level={schoolLevelValue}&gender={genderCategoryValue}");
+            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/Sports/SportsDetails?category={sportCategoryValue}&sport={sportValue}&level={schoolLevelValue}&gender={genderCategoryValue}");
             httpResponse.EnsureSuccessStatusCode();
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            categories = await JsonSerializer.DeserializeAsync<List<SportCategories>>(responseStream, options);
+            categories = await JsonSerializer.DeserializeAsync<List<SportDetails.SD_SportCategoriesContent>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
@@ -502,11 +489,11 @@
     {
         sportSubcategoryValue = values.FirstOrDefault();
         sportSubcategoryID = categories?
-                            .SelectMany(c => c.SportList ?? new List<SportsContent>())
-                            .SelectMany(s => s.LevelList ?? new List<SchoolLevels>())
-                            .SelectMany(l => l.GenderList ?? new List<GenderCategories>())
-                            .SelectMany(g => g.SubCategoryList ?? new List<SportSubCategories>())
-                            .FirstOrDefault(sc => sc.SubCategory == sportSubcategoryValue)?.SubCategoryID;
+                            .SelectMany(c => c.SportList ?? new List<SportDetails.SD_SportsContent>())
+                            .SelectMany(s => s.LevelList ?? new List<SportDetails.SD_SchoolLevelsContent>())
+                            .SelectMany(l => l.GenderList ?? new List<SportDetails.SD_GenderCategoriesContent>())
+                            .SelectMany(g => g.SubcategoryList ?? new List<SportDetails.SD_SubCategoriesContent>())
+                            .FirstOrDefault(sc => sc.Subcategory == sportSubcategoryValue)?.SubcategoryID;
     }
 
     private async Task GetVenueList()
@@ -529,28 +516,6 @@
     {
         venueValue = values.FirstOrDefault();
         venueID = venues?.FirstOrDefault(c => c.Venue == venueValue)?.ID;
-    }
-
-    private async Task GetStreamServices()
-    {
-        try
-        {
-            HttpResponseMessage httpResponse = await httpClient.GetAsync($"{API_URL}/StreamServices/StreamService");
-            httpResponse.EnsureSuccessStatusCode();
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            streamServices = await JsonSerializer.DeserializeAsync<List<StreamService>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-    private async Task SetStreamServiceID(IEnumerable<string> values)
-    {
-        streamURLValue = values.FirstOrDefault();
-        streamURLID = streamServices?.FirstOrDefault(c => c.StreamServiceName == streamURLValue)?.ID;
     }
 
     private async Task GetRegionList()
@@ -626,7 +591,7 @@
                     Date = dateValue,
                     Time = timeValue,
                     OnStream = onStreamChecked,
-                    StreamURLID = streamURLID,
+                    StreamURL = streamURLValue,
                     IsFinished = false,  // Default value; adjust as needed
                     Attachement = null,  // Set if you have an attachment to upload
                     Archived = false,    // Default value
