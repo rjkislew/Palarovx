@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
 using Server.Palaro2026.Context;
 using System.Text;
 
@@ -8,8 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddControllers();
+builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 // Register TokenService
 builder.Services.AddScoped<TokenService>();
 
@@ -61,12 +62,13 @@ var app = builder.Build();
 
 // Middleware pipeline
 app.UseCors("AllowAll");
-app.UseSwagger();
-app.UseSwaggerUI(options =>
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
 {
-    options.SwaggerEndpoint("v1/swagger.json", "Palaro 2026 API v1");
-    options.DefaultModelsExpandDepth(-1);
-});
+    app.MapScalarApiReference();
+    app.MapOpenApi();
+}
+
 app.UseHttpsRedirection();
 app.UseAuthentication(); // Ensure authentication is used
 app.UseAuthorization(); // Ensure authorization is used
