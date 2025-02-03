@@ -1,46 +1,27 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Scalar.AspNetCore;
+using Microsoft.EntityFrameworkCore;
 using Server.Palaro2026.Context;
+using Scalar.AspNetCore;
 using System.Text;
+using Server.Palaro2026;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container
-builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+// Add services to the container.
+builder.Services.AddControllers(options =>
+{
+    options.MaxValidationDepth = 64; // Adjust this value as needed
+});
 builder.Services.AddEndpointsApiExplorer();
-// Register TokenService
-builder.Services.AddScoped<TokenService>();
 
 // Configure the database context
-var connectionString = builder.Configuration.GetConnectionString("Palaro2026")
+var connectionString = builder.Configuration.GetConnectionString("Palaro2026DB")
                        ?? throw new InvalidOperationException("Connection string is not configured properly.");
+
 
 builder.Services.AddDbContext<Palaro2026Context>(options =>
     options.UseSqlServer(connectionString)
 );
-
-// Configure JWT authentication
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-    };
-});
 
 // Configure CORS
 builder.Services.AddCors(options =>
@@ -50,28 +31,66 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .SetIsOriginAllowed(origin => new[]
               {
+                  "https://localhost",
                   "https://pgas.ph",
-                  "https://localhost:7169",
-                  "https://localhost:7063"
+                  "https://localhost:7061",
+                  "https://localhost:7170",
+                  "https://localhost:7169"
               }.Contains(origin))
               .AllowCredentials());
 });
 
-// Build the application
+// Configure JWT Authentication
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var key = jwtSettings["Key"];
+var issuer = jwtSettings["Issuer"];
+var audience = jwtSettings["Audience"];
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = issuer,
+        ValidAudience = audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
+    };
+    options.IncludeErrorDetails = true;
+});
+
+
+builder.Services.AddOpenApi("v1", options => { options.AddDocumentTransformer<BearerSecuritySchemeTransformer>(); });
+
 var app = builder.Build();
 
-// Middleware pipeline
-app.UseCors("AllowAll");
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapScalarApiReference();
+    app.MapScalarApiReference(options =>
+    {
+        options.Title = "Palaro 2026 API";
+        options.ShowSidebar = true;
+        options.HideModels = true;
+    });
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
-app.UseAuthentication(); // Ensure authentication is used
-app.UseAuthorization(); // Ensure authorization is used
+app.UseCors("AllowAll");
 
-app.MapControllers(); // Map controller routes
-app.Run(); // Run the application
+app.UseHttpsRedirection();
+
+// Use Authentication and Authorization
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();

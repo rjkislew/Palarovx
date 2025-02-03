@@ -11,7 +11,7 @@ public partial class Events
 
     public int? SportSubcategoryID { get; set; }
 
-    public int? VenueID { get; set; }
+    public int? EventVenuesID { get; set; }
 
     public DateTime? Date { get; set; }
 
@@ -19,7 +19,7 @@ public partial class Events
 
     public bool? OnStream { get; set; }
 
-    public string? StreamURL { get; set; }
+    public int? StreamID { get; set; }
 
     public bool? IsFinished { get; set; }
 
@@ -29,9 +29,13 @@ public partial class Events
 
     public bool? Deleted { get; set; }
 
+    public string? UserID { get; set; }
+
+    public virtual EventVenues? EventVenues { get; set; }
+
     public virtual ICollection<EventVersus> EventVersus { get; set; } = new List<EventVersus>();
 
     public virtual SportSubcategories? SportSubcategory { get; set; }
 
-    public virtual Venues? Venue { get; set; }
+    public virtual EventStreams? Stream { get; set; }
 }

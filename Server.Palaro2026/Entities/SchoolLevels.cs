@@ -11,5 +11,7 @@ public partial class SchoolLevels
 
     public string? Level { get; set; }
 
+    public virtual ICollection<Schools> Schools { get; set; } = new List<Schools>();
+
     public virtual ICollection<SportSubcategories> SportSubcategories { get; set; } = new List<SportSubcategories>();
 }

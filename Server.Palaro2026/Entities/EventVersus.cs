@@ -11,11 +11,13 @@ public partial class EventVersus
 
     public int? Score { get; set; }
 
-    public int? RegionID { get; set; }
+    public int? SchoolRegionID { get; set; }
 
     public string? EventID { get; set; }
 
+    public DateTime? RecentUpdateAt { get; set; }
+
     public virtual Events? Event { get; set; }
 
-    public virtual Regions? Region { get; set; }
+    public virtual SchoolRegions? SchoolRegion { get; set; }
 }

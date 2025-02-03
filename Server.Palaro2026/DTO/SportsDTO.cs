@@ -1,124 +1,35 @@
-﻿namespace Server.Palaro2026.DTO;
+﻿using Server.Palaro2026.Entities;
+
+namespace Server.Palaro2026.DTO;
 
 public class SportsDTO
 {
-    public class SportDetails
+    public class Sports
     {
-        public class SD_SportCategoriesContent
-        {
-            public int CategoryID { get; set; }
-            public string? Category { get; set; }
-            public List<SD_SportsContent>? SportList { get; set; }
-        }
-        public class SD_SportsContent
-        {
-            public int SportID { get; set; }
-            public string? Sport { get; set; }
-            public string? Description { get; set; }
-            public List<SD_SchoolLevelsContent>? LevelList { get; set; }
-        }
-        public class SD_SchoolLevelsContent
-        {
-            public int LevelID { get; set; }
-            public string? Level { get; set; }
-            public List<SD_GenderCategoriesContent>? GenderList { get; set; }
-        }
-        public class SD_GenderCategoriesContent
-        {
-            public int GenderID { get; set; }
-            public string? Gender { get; set; }
-            public List<SD_SubCategoriesContent>? SubcategoryList { get; set; }
-        }
-        public class SD_SubCategoriesContent
-        {
-            public int SubcategoryID { get; set; }
-            public string? Subcategory { get; set; }
-        }
-    }
-
-    public class SportCategoryDetails
-    {
-        public class SCD_CategoriesContent
-        {
-            public string? Category { get; set; }
-            public List<SCD_SportsContent>? SportList { get; set; }
-        }
-        public class SCD_SportsContent
-        {
-            public string? Sport { get; set; }
-            public string? Description { get; set; }
-        }
-    }
-
-    public class SportCategoryAndSubCategoryDetails
-    {
-        public class SCASD_CategoriesContent
-        {
-            public string? Category { get; set; }
-            public List<SCASD_SportsContent>? SportList { get; set; }
-        }
-        public class SCASD_SportsContent
-        {
-            public string? Sport { get; set; }
-            public string? Description { get; set; }
-            public List<SCASD_SubCategoriesContent>? SportSubcategoryList { get; set; }
-        }
-        public class SCASD_SubCategoriesContent
-        {
-            public string? Subcategory { get; set; }
-        }
+        public int ID { get; set; }
+        public string? Sport { get; set; }
+        public string? Description { get; set; }
+        public int? SportCategoryID { get; set; }
     }
 
     public class SportCategories
     {
-        public class SportCategoriesContent
-        {
-            public int ID { get; set; }
-            public string? Category { get; set; }
-
-        }
+        public int ID { get; set; }
+        public string? Category { get; set; }
     }
 
-    public class Sports
+    public class SportGenderCategories
     {
-        public class SportsContent
-        {
-            public int ID { get; set; }
-            public string? Sport { get; set; }
-            public string? Description { get; set; }
-            public int? SportCategoryID { get; set; }
-        }
+        public int ID { get; set; }
+        public string? Gender { get; set; }
     }
 
-    public class SchoolLevels
+    public class SportSubcategories
     {
-        public class SchoolLevelsContent
-        {
-            public int ID { get; set; }
-            public string? Level { get; set; }
-        }
+        public int ID { get; set; }
+        public string? Subcategory { get; set; }
+        public int? SportID { get; set; }
+        public int? SportGenderCategoryID { get; set; }
+        public int? SchoolLevelID { get; set; }
     }
-
-    public class GenderCategories
-    {
-        public class GenderCategoriesContent
-        {
-            public int ID { get; set; }
-            public string? Gender { get; set; }
-        }
-
-    }
-
-    public class SportSubCategories
-    {
-        public class SportSubCategoriesContent
-        {
-            public int ID { get; set; }
-            public string? SubCategory { get; set; }
-            public int? SportID { get; set; }
-            public int? GenderCategoryID { get; set; }
-            public int? SchoolLevelID { get; set; }
-        }
-    }
-
 }

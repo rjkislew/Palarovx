@@ -1,227 +1,143 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Server.Palaro2026.Context;
 using Server.Palaro2026.DTO;
+using Server.Palaro2026.Entities;
+using static Server.Palaro2026.DTO.SchoolDTO;
 
 namespace Server.Palaro2026.Controller
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class EventsController(Palaro2026Context context) : ControllerBase
+    public class EventsController : ControllerBase
     {
-        private readonly Palaro2026Context _context = context;
+        private readonly Palaro2026Context _context;
 
-
-        /// 
-        /// 
-        /// VIEWS
-        /// 
-        /// 
-
-        // Read
-        [HttpGet("EventDetails")]
-        public async Task<ActionResult<IEnumerable<EventsDTO.EventDetail.ED_DateContent>>> GetEventDetails(
-            [FromQuery] string? category = null,
-            [FromQuery] string? sport = null)
+        public EventsController(Palaro2026Context context)
         {
-            try
-            {
-                // Start with fetching the data
-                var query = _context.EventDetails.AsNoTracking().AsQueryable();
-
-                // Apply filters based on the query parameters
-                if (!string.IsNullOrEmpty(category))
-                {
-                    query = query.Where(e => e.Category.Contains(category)); // Filter by category
-                }
-                if (!string.IsNullOrEmpty(sport))
-                {
-                    query = query.Where(e => e.Sport.Contains(sport)); // Filter by sport
-                }
-
-                // Fetch the data
-                var sports = await query.ToListAsync();
-
-                // Group the sports by category
-                var groupedSports = sports
-                    .GroupBy(d => d.Date)
-                    .OrderByDescending(date => date.Key) // Reverse date order
-                    .Select(date => new EventsDTO.EventDetail.ED_DateContent
-                    {
-                        Date = date.Key,
-                        CategoryList = date
-                        .GroupBy(c => c.Category)
-                        .Select(category => new EventsDTO.EventDetail.ED_SportCategoriesContent
-                        {
-                            Category = category.Key,
-                            SportList = category
-                            .GroupBy(s => new { s.Sport })
-                            .Select(sport => new EventsDTO.EventDetail.ED_SportsContent
-                            {
-                                Sport = sport.Key.Sport,
-                                LevelList = sport
-                                .GroupBy(l => l.Level)
-                                .Select(level => new EventsDTO.EventDetail.ED_SchoolLevelsContent
-                                {
-                                    Level = level.Key,
-                                    GenderList = level
-                                    .GroupBy(gc => gc.Gender)
-                                    .Select(gender => new EventsDTO.EventDetail.ED_GenderCategoriesContent
-                                    {
-                                        Gender = gender.Key,
-                                        SportSubcategoryList = gender
-                                        .GroupBy(sc => sc.Subcategory)
-                                        .Select(subCategory => new EventsDTO.EventDetail.ED_SubCategoriesContent
-                                        {
-                                            Subcategory = subCategory.Key,
-                                            EventList = subCategory
-                                                .GroupBy(e => new { e.ID, e.Venue, e.Date, e.Time, e.OnStream, e.StreamURL, e.IsFinished, e.Attachement, e.Archived, e.Deleted })
-                                                .Select(events => new EventsDTO.EventDetail.ED_EventsContent
-                                                {
-                                                    ID = events.Key.ID,
-                                                    Venue = events.Key.Venue,
-                                                    Date = events.Key.Date,
-                                                    Time = events.Key.Time,
-                                                    OnStream = events.Key.OnStream,
-                                                    StreamURL = events.Key.StreamURL,
-                                                    IsFinished = events.Key.IsFinished,
-                                                    Attachement = events.Key.Attachement,
-                                                    Archived = events.Key.Archived,
-                                                    Deleted = events.Key.Deleted,
-                                                    TeamList = events
-                                                    .Select(teams => new EventsDTO.EventDetail.ED_RegionsContent
-                                                    {
-                                                        Region = teams.Region,
-                                                        Abbreviation = teams.Abbreviation,
-                                                        Score = teams.Score
-                                                    }).ToList()
-                                                }).ToList()
-                                        }).ToList()
-                                    }).ToList()
-                                }).ToList()
-                            }).ToList()
-                        }).ToList()
-                    }).ToList();
-
-                return Ok(groupedSports);
-            }
-            catch (DbUpdateException dbEx)
-            {
-                // Handle database update exceptions
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    $"Database update error: {dbEx.Message}");
-            }
-            catch (Exception ex)
-            {
-                // Handle other exceptions
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    $"Internal server error: {ex.Message}");
-            }
+            _context = context;
         }
 
+        private static EventsDTO.Events EventsDTOMapper(Events events) =>
+           new EventsDTO.Events
+           {
+               ID = events.ID,
+               SportSubcategoryID = events.SportSubcategoryID,
+               EventVenuesID = events.EventVenuesID,
+               Date = events.Date,
+               Time = events.Time,
+               OnStream = events.OnStream,
+               StreamID = events.StreamID,
+               IsFinished = events.IsFinished,
+               Attachement = events.Attachement,
+               Archived = events.Archived,
+               Deleted = events.Deleted,
+               UserID = events.UserID,
+    };
 
-        /// 
-        /// 
-        /// EVENT
-        /// 
-        /// 
-
-        // Create
-        [HttpPost("Event")]
-        public async Task<ActionResult<EventsDTO.Events.EventsContent>> CreateEvent([FromBody] EventsDTO.Events.EventsContent eventContent)
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<EventsDTO.Events>>> GetEvents()
         {
-            try
-            {
-                var events = new Entities.Events
-                {
-                    ID = eventContent.ID,
-                    SportSubcategoryID = eventContent.SportSubcategoryID,
-                    VenueID = eventContent.VenueID,
-                    Date = eventContent.Date,
-                    Time = eventContent.Time,
-                    OnStream = eventContent.OnStream,
-                    StreamURL = eventContent.StreamURL,
-                    IsFinished = eventContent.IsFinished,
-                    Archived = eventContent.Archived,
-                    Deleted = eventContent.Deleted
-                };
-
-                _context.Events.Add(events);
-                await _context.SaveChangesAsync();
-
-                return CreatedAtAction(nameof(GetEvents), new { id = events.ID }, eventContent);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
-            }
+            return await _context.Events
+                .Select(x => EventsDTOMapper(x))
+                .ToListAsync();
         }
 
-        // Read
-        [HttpGet("Event")]
-        public async Task<ActionResult<IEnumerable<EventsDTO.Events.EventsContent>>> GetEvents()
+        [HttpGet("{id}")]
+        public async Task<ActionResult<EventsDTO.Events>> GetEvents(string id)
         {
-            try
+            var events = await _context.Events.FindAsync(id);
+
+            if (events == null)
             {
-                var events = await _context.Events.AsNoTracking().ToListAsync();
-                return Ok(events);
+                return NotFound();
             }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
-            }
+
+            return EventsDTOMapper(events);
         }
 
-        // Update
-        [HttpPut("Event/{id}")]
-        public async Task<IActionResult> UpdateEvent(string id, EventsDTO.Events.EventsContent eventContent)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutEvents(string id, EventsDTO.Events events)
         {
-            if (id != eventContent.ID)
+            if (id != events.ID)
             {
-                return BadRequest("Event ID mismatch");
+                return BadRequest();
             }
+
+            _context.Entry(events).State = EntityState.Modified;
 
             try
             {
-                var events = new Entities.Events
-                {
-                    ID = eventContent.ID,
-                    SportSubcategoryID = eventContent.SportSubcategoryID,
-                    VenueID = eventContent.VenueID,
-                    Date = eventContent.Date,
-                    Time = eventContent.Time,
-                    OnStream = eventContent.OnStream,
-                    StreamURL = eventContent.StreamURL,
-                    IsFinished = eventContent.IsFinished,
-                    Archived = eventContent.Archived,
-                    Deleted = eventContent.Deleted
-                };
-
-                _context.Events.Attach(events);
-                _context.Entry(events).State = EntityState.Modified;
-
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!_context.Events.Any(e => e.ID == id))
+                if (!EventsExists(id))
                 {
-                    return NotFound($"Event with ID {id} not found");
+                    return NotFound();
                 }
-                throw;
+                else
+                {
+                    throw;
+                }
             }
 
             return NoContent();
         }
 
-        // Delete
-        [HttpDelete("Event/{id}")]
-        public async Task<IActionResult> DeleteEvent(int id)
+        [HttpPost]
+        public async Task<ActionResult<Events>> PostEvents(EventsDTO.Events events)
+        {
+            var eventsDTO = new Events
+            {
+                ID = events.ID,
+                SportSubcategoryID = events.SportSubcategoryID,
+                EventVenuesID = events.EventVenuesID,
+                Date = events.Date,
+                Time = events.Time,
+                OnStream = events.OnStream,
+                StreamID = events.StreamID,
+                IsFinished = events.IsFinished,
+                Attachement = events.Attachement,
+                Archived = events.Archived,
+                Deleted = events.Deleted,
+                UserID = events.UserID,
+            };
+
+            _context.Events.Add(eventsDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventsExists(events.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEvents", new { id = events.ID }, EventsDTOMapper(eventsDTO));
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteEvents(string id)
         {
             var events = await _context.Events.FindAsync(id);
             if (events == null)
             {
-                return NotFound($"Event with ID {id} not found");
+                return NotFound();
             }
 
             _context.Events.Remove(events);
@@ -230,108 +146,451 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        /// 
-        /// 
-        /// EVENT VERSUS
-        /// 
-        /// 
-
-        // Create
-        [HttpPost("EventVersus")]
-        public async Task<ActionResult<List<EventsDTO.EventVersus.EventVersusContent>>> CreateEventVersus([FromBody] List<EventsDTO.EventVersus.EventVersusContent> eventVersusContents)
+        private bool EventsExists(string id)
         {
-            try
-            {
-                var eventsVersusList = new List<Entities.EventVersus>();
-
-                foreach (var eventVersusContent in eventVersusContents)
-                {
-                    var eventsVersus = new Entities.EventVersus
-                    {
-                        Score = eventVersusContent.Score,
-                        RegionID = eventVersusContent.RegionID,
-                        EventID = eventVersusContent.EventID,
-                    };
-
-                    _context.EventVersus.Add(eventsVersus);
-                    eventsVersusList.Add(eventsVersus);
-                }
-
-                await _context.SaveChangesAsync();
-
-                return CreatedAtAction(nameof(GetEventVersus), new { id = eventsVersusList.FirstOrDefault()?.ID }, eventVersusContents);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
-            }
+            return _context.Events.Any(e => e.ID == id);
         }
 
-        // Read
-        [HttpGet("EventVersus")]
-        public async Task<ActionResult<IEnumerable<EventsDTO.EventVersus.EventVersusContent>>> GetEventVersus()
+
+
+
+
+        // Event News
+
+        private static EventsDTO.EventNews EventNewsDTOMapper(EventNews eventNews) =>
+           new EventsDTO.EventNews
+           {
+               ID = eventNews.ID,
+               FacebookLink = eventNews.FacebookLink,
+           };
+
+        [HttpGet("News")]
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventNews>>> GetEventNews()
         {
-            try
-            {
-                var eventVersus = await _context.EventVersus.AsNoTracking().ToListAsync();
-                return Ok(eventVersus);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal server error: {ex.Message}");
-            }
+            return await _context.EventNews
+                .Select(x => EventNewsDTOMapper(x))
+                .ToListAsync();
         }
 
-        // Update
-        [HttpPut("EventVersus/{id}")]
-        public async Task<IActionResult> UpdateEventVersus(int id, EventsDTO.EventVersus.EventVersusContent eventVersusContent)
+        [HttpGet("News/{id}")]
+        public async Task<ActionResult<EventsDTO.EventNews>> GetEventNews(int id)
         {
-            if (id != eventVersusContent.ID)
+            var eventNews = await _context.EventNews.FindAsync(id);
+
+            if (eventNews == null)
             {
-                return BadRequest("Event Versus ID mismatch");
+                return NotFound();
             }
+
+            return EventNewsDTOMapper(eventNews);
+        }
+
+        [HttpPut("News/{id}")]
+        public async Task<IActionResult> PutEventNews(int id, EventsDTO.EventNews eventNews)
+        {
+            if (id != eventNews.ID)
+            {
+                return BadRequest();
+            }
+
+            _context.Entry(eventNews).State = EntityState.Modified;
 
             try
             {
-                var eventVersus = new Entities.EventVersus
-                {
-                    ID = eventVersusContent.ID,
-                    Score = eventVersusContent.Score,
-                    RegionID = eventVersusContent.RegionID,
-                    EventID = eventVersusContent.EventID
-                };
-
-                _context.EventVersus.Attach(eventVersus);
-                _context.Entry(eventVersus).State = EntityState.Modified;
-
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!_context.EventVersus.Any(e => e.ID == id))
+                if (!EventNewsExists(id))
                 {
-                    return NotFound($"Event Versus with ID {id} not found");
+                    return NotFound();
                 }
-                throw;
+                else
+                {
+                    throw;
+                }
             }
 
             return NoContent();
         }
 
-        // Delete
-        [HttpDelete("EventVersus/{id}")]
+        [HttpPost("News")]
+        public async Task<ActionResult<EventNews>> PostEventNews(EventsDTO.EventNews eventNews)
+        {
+            var eventNewsDTO = new EventNews
+            {
+                ID = eventNews.ID,
+                FacebookLink = eventNews.FacebookLink,
+            };
+
+            _context.EventNews.Add(eventNewsDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventNewsExists(eventNews.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEventNews", new { id = eventNews.ID }, EventNewsDTOMapper(eventNewsDTO));
+        }
+
+        [HttpDelete("News/{id}")]
+        public async Task<IActionResult> DeleteEventNews(int id)
+        {
+            var eventNews = await _context.EventNews.FindAsync(id);
+            if (eventNews == null)
+            {
+                return NotFound();
+            }
+
+            _context.EventNews.Remove(eventNews);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        private bool EventNewsExists(int id)
+        {
+            return _context.EventNews.Any(e => e.ID == id);
+        }
+
+
+
+
+        // Event Streams
+        private static EventsDTO.EventStreams EventStreamsDTOMapper(EventStreams eventStreams) =>
+           new EventsDTO.EventStreams
+           {
+               ID = eventStreams.ID,
+               Stream = eventStreams.Stream,
+               StreamURL = eventStreams.StreamURL
+           };
+
+        [HttpGet("Streams")]
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventStreams>>> GetEventStreams()
+        {
+            return await _context.EventStreams
+                .Select(x => EventStreamsDTOMapper(x))
+                .ToListAsync();
+        }
+
+        [HttpGet("Streams/{id}")]
+        public async Task<ActionResult<EventsDTO.EventStreams>> GetEventStreams(int id)
+        {
+            var eventStreams = await _context.EventStreams.FindAsync(id);
+
+            if (eventStreams == null)
+            {
+                return NotFound();
+            }
+
+            return EventStreamsDTOMapper(eventStreams);
+        }
+
+        [HttpPut("Streams/{id}")]
+        public async Task<IActionResult> PutEventStreams(int id, EventsDTO.EventStreams eventStreams)
+        {
+            if (id != eventStreams.ID)
+            {
+                return BadRequest();
+            }
+
+            _context.Entry(eventStreams).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventStreamsExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+
+        [HttpPost("Streams")]
+        public async Task<ActionResult<EventStreams>> PostEventStreams(EventsDTO.EventStreams eventStreams)
+        {
+            var eventStreamsDTO = new EventStreams
+            {
+                ID = eventStreams.ID,
+                Stream = eventStreams.Stream,
+                StreamURL = eventStreams.StreamURL
+            };
+
+            _context.EventStreams.Add(eventStreamsDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventStreamsExists(eventStreams.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEventStreams", new { id = eventStreams.ID }, EventStreamsDTOMapper(eventStreamsDTO));
+        }
+
+        [HttpDelete("Streams/{id}")]
+        public async Task<IActionResult> DeleteEventStreams(int id)
+        {
+            var eventStreams = await _context.EventStreams.FindAsync(id);
+            if (eventStreams == null)
+            {
+                return NotFound();
+            }
+
+            _context.EventStreams.Remove(eventStreams);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        private bool EventStreamsExists(int id)
+        {
+            return _context.EventStreams.Any(e => e.ID == id);
+        }
+
+
+
+
+        // Venues
+
+        private static EventsDTO.EventVenues EventVenuesDTOMapper(EventVenues eventVenues) =>
+           new EventsDTO.EventVenues
+           {
+               ID = eventVenues.ID,
+               Venue = eventVenues.Venue,
+               Latitude = eventVenues.Latitude,
+               Longitude = eventVenues.Longitude,
+           };
+
+        [HttpGet("Venues")]
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventVenues>>> GetEventVenues()
+        {
+            return await _context.EventVenues
+                .Select(x => EventVenuesDTOMapper(x))
+                .ToListAsync();
+        }
+
+        [HttpGet("Venues/{id}")]
+        public async Task<ActionResult<EventsDTO.EventVenues>> GetEventVenues(int id)
+        {
+            var eventVenues = await _context.EventVenues.FindAsync(id);
+
+            if (eventVenues == null)
+            {
+                return NotFound();
+            }
+
+            return EventVenuesDTOMapper(eventVenues);
+        }
+
+        [HttpPut("Venues/{id}")]
+        public async Task<IActionResult> PutEventVenues(int id, EventsDTO.EventVenues eventVenues)
+        {
+            if (id != eventVenues.ID)
+            {
+                return BadRequest();
+            }
+
+            _context.Entry(eventVenues).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventVenuesExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+
+        [HttpPost("Venues")]
+        public async Task<ActionResult<EventVenues>> PostEventVenues(EventsDTO.EventVenues eventVenues)
+        {
+            var eventVenuesDTO = new EventVenues
+            {
+                ID = eventVenues.ID,
+                Venue = eventVenues.Venue,
+                Latitude = eventVenues.Latitude,
+                Longitude = eventVenues.Longitude,
+            };
+
+            _context.EventVenues.Add(eventVenuesDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventVenuesExists(eventVenues.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEventVenues", new { id = eventVenues.ID }, EventVenuesDTOMapper(eventVenuesDTO));
+        }
+
+        [HttpDelete("Venues/{id}")]
+        public async Task<IActionResult> DeleteEventVenues(int id)
+        {
+            var eventVenues = await _context.EventVenues.FindAsync(id);
+            if (eventVenues == null)
+            {
+                return NotFound();
+            }
+
+            _context.EventVenues.Remove(eventVenues);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        private bool EventVenuesExists(int id)
+        {
+            return _context.EventVenues.Any(e => e.ID == id);
+        }
+
+
+
+
+        // Event Versus
+
+        private static EventsDTO.EventVersus EventVersusDTOMapper(EventVersus eventVersus) =>
+           new EventsDTO.EventVersus
+           {
+               ID = eventVersus.ID,
+               Score = eventVersus.Score,
+               SchoolRegionID = eventVersus.SchoolRegionID,
+               EventID = eventVersus.EventID,
+               RecentUpdateAt = eventVersus.RecentUpdateAt,
+           };
+
+        [HttpGet("Versus")]
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventVersus>>> GetEventVersus()
+        {
+            return await _context.EventVersus
+                .Select(x => EventVersusDTOMapper(x))
+                .ToListAsync();
+        }
+
+        [HttpGet("Versus/{id}")]
+        public async Task<ActionResult<EventsDTO.EventVersus>> GetEventVersus(int id)
+        {
+            var eventVersus = await _context.EventVersus.FindAsync(id);
+
+            if (eventVersus == null)
+            {
+                return NotFound();
+            }
+
+            return EventVersusDTOMapper(eventVersus);
+        }
+
+        [HttpPut("Versus/{id}")]
+        public async Task<IActionResult> PutEventVersus(int id, EventsDTO.EventVersus eventVersus)
+        {
+            if (id != eventVersus.ID)
+            {
+                return BadRequest();
+            }
+
+            _context.Entry(eventVersus).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventVersusExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+
+        [HttpPost("Versus")]
+        public async Task<ActionResult<EventVersus>> PostEventVersus(EventsDTO.EventVersus eventVersus)
+        {
+            var eventVersusDTO = new EventVersus
+            {
+                ID = eventVersus.ID,
+                Score = eventVersus.Score,
+                SchoolRegionID = eventVersus.SchoolRegionID,
+                EventID = eventVersus.EventID,
+                RecentUpdateAt = eventVersus.RecentUpdateAt,
+            };
+
+            _context.EventVersus.Add(eventVersusDTO);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction("GetEventVersus", new { id = eventVersus.ID }, EventVersusDTOMapper(eventVersusDTO));
+        }
+
+        [HttpDelete("Versus/{id}")]
         public async Task<IActionResult> DeleteEventVersus(int id)
         {
             var eventVersus = await _context.EventVersus.FindAsync(id);
             if (eventVersus == null)
             {
-                return NotFound($"Event Versus with ID {id} not found");
+                return NotFound();
             }
 
             _context.EventVersus.Remove(eventVersus);
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        private bool EventVersusExists(int id)
+        {
+            return _context.EventVersus.Any(e => e.ID == id);
         }
     }
 }
