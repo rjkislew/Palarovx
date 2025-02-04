@@ -9,7 +9,7 @@ public partial class EventStreams
 {
     public int ID { get; set; }
 
-    public string? Stream { get; set; }
+    public string? StreamService { get; set; }
 
     public string? StreamURL { get; set; }
 

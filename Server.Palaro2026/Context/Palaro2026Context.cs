@@ -63,7 +63,7 @@ public partial class Palaro2026Context : DbContext
         modelBuilder.Entity<EventStreams>(entity =>
         {
             entity.Property(e => e.ID).ValueGeneratedNever();
-            entity.Property(e => e.Stream)
+            entity.Property(e => e.StreamService)
                 .HasMaxLength(50)
                 .IsUnicode(false);
             entity.Property(e => e.StreamURL).IsUnicode(false);
