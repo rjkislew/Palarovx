@@ -27,11 +27,27 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<SportsDTO.Sports>>> GetSports()
+        public async Task<ActionResult<IEnumerable<SportsDTO.Sports>>> GetSports(
+        [FromQuery] int? id = null,
+        [FromQuery] int? sportCategoryID = null)
         {
-            return await _context.Sports
+            var query = _context.Sports.AsQueryable();
+
+            if (id.HasValue)
+            {
+                query = query.Where(x => x.ID == id);
+            }
+            if (sportCategoryID.HasValue)
+            {
+                query = query.Where(x => x.SportCategoryID == sportCategoryID);
+            }
+
+            // Map the results to DTO and return
+            var result = await query
                 .Select(x => SportsDTOMapper(x))
                 .ToListAsync();
+
+            return result;
         }
 
         [HttpGet("{id}")]
@@ -140,11 +156,22 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Categories")]
-        public async Task<ActionResult<IEnumerable<SportsDTO.SportCategories>>> GetSportCategories()
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportCategories>>> GetSportCategories(
+        [FromQuery] int? id = null)
         {
-            return await _context.SportCategories
+            var query = _context.SportCategories.AsQueryable();
+
+            if (id.HasValue)
+            {
+                query = query.Where(x => x.ID == id);
+            }
+
+            // Map the results to DTO and return
+            var categories = await query
                 .Select(x => SportCategoriesDTOMapper(x))
                 .ToListAsync();
+
+            return Ok(categories);
         }
 
         [HttpGet("Categories/{id}")]
@@ -251,11 +278,22 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("GenderCategories")]
-        public async Task<ActionResult<IEnumerable<SportsDTO.SportGenderCategories>>> GetSportGenderCategories()
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportGenderCategories>>> GetSportGenderCategories(
+        [FromQuery] int? id = null)
         {
-            return await _context.SportGenderCategories
+            var query = _context.SportGenderCategories.AsQueryable();
+
+            if (id.HasValue)
+            {
+                query = query.Where(x => x.ID == id);
+            }
+
+            // Map the results to DTO and return
+            var genderCategories = await query
                 .Select(x => SportGenderCategoriesDTOMapper(x))
                 .ToListAsync();
+
+            return Ok(genderCategories);
         }
 
         [HttpGet("GenderCategories/{id}")]
@@ -364,12 +402,38 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Subcategories")]
-        public async Task<ActionResult<IEnumerable<SportsDTO.SportSubcategories>>> GetSportSubcategories()
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportSubcategories>>> GetSportSubcategories(
+        [FromQuery] int? ID,
+        [FromQuery] int? sportID,
+        [FromQuery] int? sportGenderCategoryID,
+        [FromQuery] int? schoolLevelID)
         {
-            return await _context.SportSubcategories
+            var query = _context.SportSubcategories.AsQueryable();
+
+            if (ID.HasValue)
+            {
+                query = query.Where(x => x.ID == ID);
+            }
+            if (sportID.HasValue)
+            {
+                query = query.Where(x => x.SportID == sportID);
+            }
+            if (sportGenderCategoryID.HasValue)
+            {
+                query = query.Where(x => x.SportGenderCategoryID == sportGenderCategoryID);
+            }
+            if (schoolLevelID.HasValue)
+            {
+                query = query.Where(x => x.SchoolLevelID == schoolLevelID);
+            }
+
+            var result = await query
                 .Select(x => SportSubcategoriesDTOMapper(x))
                 .ToListAsync();
+
+            return Ok(result);
         }
+
 
         [HttpGet("Subcategories/{id}")]
         public async Task<ActionResult<SportsDTO.SportSubcategories>> GetSportSubcategories(int id)

@@ -38,4 +38,6 @@ public partial class Events
     public virtual SportSubcategories? SportSubcategory { get; set; }
 
     public virtual EventStreams? Stream { get; set; }
+
+    public virtual Users? User { get; set; }
 }

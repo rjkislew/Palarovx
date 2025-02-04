@@ -27,5 +27,7 @@ public partial class Users
 
     public int? RoleID { get; set; }
 
+    public virtual ICollection<Events> Events { get; set; } = new List<Events>();
+
     public virtual UserRoles? Role { get; set; }
 }

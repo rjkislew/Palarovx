@@ -10,4 +10,10 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddMudServices();
 
+// Load configuration from appsettings.json
+builder.Services.AddSingleton<IConfiguration>(builder.Configuration);
+
+// Register APIService
+builder.Services.AddSingleton<APIService>();
+
 await builder.Build().RunAsync();

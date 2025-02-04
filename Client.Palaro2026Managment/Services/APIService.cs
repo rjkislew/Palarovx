@@ -1,6 +1,13 @@
 ﻿public class APIService
 {
-    public static readonly string development_url = "https://localhost:7063/";
-    public static readonly string published_url = "https://pgas.ph/palaro2026API/";
-    public static readonly string Palaro2026API = $"{development_url}api";
+    private readonly IConfiguration _configuration;
+
+    public APIService(IConfiguration configuration)
+    {
+        _configuration = configuration;
+    }
+
+    public string ApiUrl => _configuration["ApiUrl"] ?? throw new InvalidOperationException("ApiUrl is not configured.");
+
+    public string Palaro2026API => $"{ApiUrl}api";
 }

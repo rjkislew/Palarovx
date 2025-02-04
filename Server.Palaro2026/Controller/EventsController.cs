@@ -53,6 +53,7 @@ namespace Server.Palaro2026.Controller
                     .Include(e => e.Stream)
                     .Include(e => e.EventVersus)
                         .ThenInclude(ev => ev.SchoolRegion)
+                    .Include(u => u.User)
                     .AsQueryable();
 
                 // Apply filters based on query parameters
@@ -153,7 +154,8 @@ namespace Server.Palaro2026.Controller
                         Attachement = eventEntity.Attachement,
                         Archived = eventEntity.Archived,
                         Deleted = eventEntity.Deleted,
-                        UserID = eventEntity.UserID,
+                        FirstName = eventEntity.User?.FirstName,
+                        LastName = eventEntity.User?.LastName,
                     }).ToList();
 
                 return Ok(eventDTO);

@@ -121,6 +121,10 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.Stream).WithMany(p => p.Events)
                 .HasForeignKey(d => d.StreamID)
                 .HasConstraintName("FK_Events_EventStreams1");
+
+            entity.HasOne(d => d.User).WithMany(p => p.Events)
+                .HasForeignKey(d => d.UserID)
+                .HasConstraintName("FK_Events_Users");
         });
 
         modelBuilder.Entity<SchoolBilletingQuarters>(entity =>
