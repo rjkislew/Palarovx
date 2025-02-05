@@ -4,6 +4,12 @@ namespace Server.Palaro2026.DTO;
 
 public class UsersDTO
 {
+    public class UserList
+    {
+        public string ID { get; set; } = null!;
+        public string? Name { get; set; }
+    }
+
     public class UserLogin
     {
         public string? Username { get; set; }

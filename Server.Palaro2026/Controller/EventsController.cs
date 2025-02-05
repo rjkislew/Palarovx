@@ -26,21 +26,21 @@ namespace Server.Palaro2026.Controller
 
         [HttpGet("Details")]
         public async Task<ActionResult<List<EventsDTO.EventDetails.Event>>> GetEventDetails(
-        [FromQuery] string? region = null,
-        [FromQuery] string? category = null,
-        [FromQuery] string? sport = null,
-        [FromQuery] string? subcategory = null,
-        [FromQuery] string? gender = null,
-        [FromQuery] string? level = null,
-        [FromQuery] string? venue = null,
-        [FromQuery] DateTime? date = null,
-        [FromQuery] bool? onStream = null,
-        [FromQuery] bool? isFinished = null,
-        [FromQuery] string? userID = null)
+    [FromQuery] string? region = null,
+    [FromQuery] string? category = null,
+    [FromQuery] string? sport = null,
+    [FromQuery] string? subcategory = null,
+    [FromQuery] string? gender = null,
+    [FromQuery] string? level = null,
+    [FromQuery] string? venue = null,
+    [FromQuery] DateTime? startDate = null,
+    [FromQuery] DateTime? endDate = null,
+    [FromQuery] bool? onStream = null,
+    [FromQuery] bool? isFinished = null,
+    [FromQuery] string? userID = null)
         {
             try
             {
-                // Start with the base query
                 var query = _context.Events
                     .Include(e => e.SportSubcategory)
                         .ThenInclude(ssc => ssc.SportGenderCategory)
@@ -56,7 +56,7 @@ namespace Server.Palaro2026.Controller
                     .Include(u => u.User)
                     .AsQueryable();
 
-                // Apply filters based on query parameters
+                // Apply filters
                 if (!string.IsNullOrEmpty(region))
                 {
                     query = query.Where(e => e.EventVersus.Any(ev => ev.SchoolRegion.Region == region));
@@ -92,9 +92,18 @@ namespace Server.Palaro2026.Controller
                     query = query.Where(e => e.EventVenues.Venue == venue);
                 }
 
-                if (date.HasValue)
+                // Filter by StartDate and EndDate range
+                if (startDate.HasValue && endDate.HasValue)
                 {
-                    query = query.Where(e => e.Date == date.Value.Date);
+                    query = query.Where(e => e.Date >= startDate.Value.Date && e.Date <= endDate.Value.Date);
+                }
+                else if (startDate.HasValue)
+                {
+                    query = query.Where(e => e.Date >= startDate.Value.Date);
+                }
+                else if (endDate.HasValue)
+                {
+                    query = query.Where(e => e.Date <= endDate.Value.Date);
                 }
 
                 if (onStream.HasValue)
@@ -112,60 +121,62 @@ namespace Server.Palaro2026.Controller
                     query = query.Where(e => e.UserID == userID);
                 }
 
-                // Execute the query
+                // Execute query
                 var eventEntities = await query.ToListAsync();
 
-                if (eventEntities == null || !eventEntities.Any())
+                if (!eventEntities.Any())
                 {
                     return NotFound("No events found matching the criteria.");
                 }
 
-                // Map events to DTO
-                var eventDTO = eventEntities
-                    .Select(eventEntity => new EventsDTO.EventDetails.Event
+                // Map to DTO
+                var eventDTO = eventEntities.Select(eventEntity => new EventsDTO.EventDetails.Event
+                {
+                    ID = eventEntity.ID,
+                    EventVersusList = eventEntity.EventVersus?.GroupBy(ev => new
                     {
-                        ID = eventEntity.ID,
+                        ev.Score,
+                        ev.SchoolRegion?.Region,
+                        ev.SchoolRegion?.Abbreviation,
+                        ev.RecentUpdateAt
+                    })
+                    .Select(ev => new EventsDTO.EventDetails.EventVersus
+                    {
+                        Score = ev.Key.Score,
+                        Region = ev.Key.Region,
+                        Abbreviation = ev.Key.Abbreviation,
+                        RecentUpdateAt = ev.Key.RecentUpdateAt,
+                    }).ToList() ?? new List<EventsDTO.EventDetails.EventVersus>(),
 
-                        // Include EventVersus if it exists, otherwise return an empty list
-                        EventVersusList = eventEntity.EventVersus
-                            ?.GroupBy(ev => new { ev.Score, ev.SchoolRegion?.Region, ev.SchoolRegion?.Abbreviation, ev.RecentUpdateAt })
-                            .Select(ev => new EventsDTO.EventDetails.EventVersus
-                            {
-                                Score = ev.Key.Score,
-                                Region = ev.Key.Region,
-                                Abbreviation = ev.Key.Abbreviation,
-                                RecentUpdateAt = ev.Key.RecentUpdateAt,
-                            }).ToList() ?? new List<EventsDTO.EventDetails.EventVersus>(), // Default to empty list if no EventVersus
-
-                        Category = eventEntity.SportSubcategory?.Sport?.SportCategory?.Category,
-                        Sport = eventEntity.SportSubcategory?.Sport?.Sport,
-                        Subcategory = eventEntity.SportSubcategory?.Subcategory,
-                        Gender = eventEntity.SportSubcategory?.SportGenderCategory?.Gender,
-                        Level = eventEntity.SportSubcategory?.SchoolLevel?.Level,
-                        Venue = eventEntity.EventVenues?.Venue,
-                        Latitude = eventEntity.EventVenues?.Latitude ?? 0, // Default value for nullable double
-                        Longitude = eventEntity.EventVenues?.Longitude ?? 0, // Default value for nullable double
-                        Date = eventEntity.Date,
-                        Time = eventEntity.Time,
-                        OnStream = eventEntity.OnStream ?? false, // Default value for nullable bool
-                        StreamService = eventEntity.Stream?.StreamService,
-                        StreamURL = eventEntity.Stream?.StreamURL,
-                        IsFinished = eventEntity.IsFinished,
-                        Attachement = eventEntity.Attachement,
-                        Archived = eventEntity.Archived,
-                        Deleted = eventEntity.Deleted,
-                        FirstName = eventEntity.User?.FirstName,
-                        LastName = eventEntity.User?.LastName,
-                    }).ToList();
+                    Category = eventEntity.SportSubcategory?.Sport?.SportCategory?.Category,
+                    Sport = eventEntity.SportSubcategory?.Sport?.Sport,
+                    Subcategory = eventEntity.SportSubcategory?.Subcategory,
+                    Gender = eventEntity.SportSubcategory?.SportGenderCategory?.Gender,
+                    Level = eventEntity.SportSubcategory?.SchoolLevel?.Level,
+                    Venue = eventEntity.EventVenues?.Venue,
+                    Latitude = eventEntity.EventVenues?.Latitude ?? 0,
+                    Longitude = eventEntity.EventVenues?.Longitude ?? 0,
+                    Date = eventEntity.Date,
+                    Time = eventEntity.Time,
+                    OnStream = eventEntity.OnStream ?? false,
+                    StreamService = eventEntity.Stream?.StreamService,
+                    StreamURL = eventEntity.Stream?.StreamURL,
+                    IsFinished = eventEntity.IsFinished,
+                    Attachement = eventEntity.Attachement,
+                    Archived = eventEntity.Archived,
+                    Deleted = eventEntity.Deleted,
+                    FirstName = eventEntity.User?.FirstName,
+                    LastName = eventEntity.User?.LastName,
+                }).ToList();
 
                 return Ok(eventDTO);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-
                 return StatusCode(500, "Internal server error. Please try again later.");
             }
         }
+
 
         private static EventsDTO.Events EventsDTOMapper(Events events) =>
            new EventsDTO.Events

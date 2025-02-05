@@ -83,6 +83,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.MapGet("/api/check", () => "Get Response");
+
 app.UseCors("AllowAll");
 
 app.UseHttpsRedirection();

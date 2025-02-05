@@ -1,0 +1,108 @@
+﻿@inherits LayoutComponentBase
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@inject APIService apiService
+@inject HttpClient httpClient
+
+@* Required *@
+<MudThemeProvider Theme="PalaroTheme" DefaultScrollbar="true" />
+<MudPopoverProvider />
+
+@* Needed for dialogs *@
+<MudDialogProvider />
+
+@* Needed for snackbars *@
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+        <MudText>Palaro 2026</MudText>
+        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+            <MudIcon Icon="@Icons.Material.Filled.Circle"  Size="Size.Small" Color="@(_apiStatus ? Color.Success : Color.Error)" />
+            <MudText Typo="Typo.caption">@apiStatusMessage</MudText>
+        </MudStack>
+        <MudSpacer />
+        <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0">
+        <NavMenu/>
+    </MudDrawer>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-5">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+@code {
+    private bool _drawerOpen = true;
+    private string? apiStatusMessage;
+    private bool _apiStatus;
+
+
+    void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private MudTheme PalaroTheme = new MudTheme()
+        {
+            PaletteLight = new PaletteLight()
+            {
+                Primary = Colors.Gray.Darken4,
+                Secondary = Colors.Gray.Darken3,
+                Tertiary = Colors.Gray.Darken2,
+                AppbarBackground = Colors.Shades.White,
+                AppbarText = Colors.Shades.Black
+            },
+            Typography = new Typography()
+            {
+                Default = new DefaultTypography()
+                {
+                    FontFamily = new[] { "Inter" },
+                    LineHeight = "1",
+                },
+            }
+        };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckAPI();
+    }
+
+    private async Task CheckAPI()
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync($"{apiService.Palaro2026API}/check");
+
+            if (response.IsSuccessStatusCode)
+            {
+                apiStatusMessage = "API is up";
+                _apiStatus = true;
+            }
+            else
+            {
+                apiStatusMessage = $"API responded with status: {response.StatusCode}";
+                _apiStatus = false;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            apiStatusMessage = $"API is down or unreachable: {ex.Message}";
+            _apiStatus = false;
+        }
+        catch (TaskCanceledException)
+        {
+            apiStatusMessage = "API request timed out.";
+            _apiStatus = false;
+        }
+        catch (Exception ex)
+        {
+            apiStatusMessage = $"Unexpected error: {ex.Message}";
+            _apiStatus = false;
+        }
+    }
+}

@@ -22,6 +22,22 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
+
+        [HttpGet("List")]
+        public async Task<ActionResult<IEnumerable<UsersDTO.UserList>>> GetUsersNameList()
+        {
+            var users = await _context.Users
+                .Select(u => new UsersDTO.UserList
+                {
+                    ID = u.ID,
+                    Name = $"{u.FirstName} {u.LastName}"
+                })
+                .ToListAsync();
+
+            return Ok(users);
+        }
+
+
         private static UsersDTO.Users UsersDTOMapper(Users users) =>
            new UsersDTO.Users
            {
