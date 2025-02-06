@@ -1,0 +1,169 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_streamServiceValue" AutoGrow Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+        <MudTextField @bind-Value="_streamURLValue" AutoGrow Margin="Margin.Dense" Label="URL" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+        <MudDivider Class="mt-10 mb-2" />
+        <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+            <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" Size="Size.Small" OnClick="ConfirmDeleteStreamAsync">Delete</MudButton>
+            <MudStack Row Justify="Justify.SpaceBetween">
+                <MudButton Style="text-transform: none" DropShadow="false" Size="Size.Small" OnClick="Cancel">Cancel</MudButton>
+                <MudButton Style="text-transform: none" Color="Color.Success" DropShadow="false" Size="Size.Small" OnClick="ConfirmUpdateStreamAsync">Update</MudButton>
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task ConfirmDeleteStreamAsync()
+    {
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small, // Increase width slightly
+                CloseOnEscapeKey = true // Allow closing with Esc
+            };
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm deletion of stream service?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await DeleteStreamAsync();
+            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+        }
+    }
+
+    private async Task ConfirmUpdateStreamAsync()
+    {
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small, // Increase width slightly
+                CloseOnEscapeKey = true // Allow closing with Esc
+            };
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm changes of stream service?",
+            yesText: "Yes",
+            options: options);
+
+        if (result == true)
+        {
+            await UpdateStreamAsync();
+            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+        }
+    }
+
+    [Parameter]
+    public int SelectedStreamID { get; set; }
+
+    private string? _streamServiceValue;
+    private string? _streamURLValue;
+
+    private EventsDTO.EventStreams? _eventStreams;
+
+    public class EventsDTO
+    {
+        public class EventStreams
+        {
+            public int ID { get; set; }
+            public string? StreamService { get; set; }
+            public string? StreamURL { get; set; }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetEventStreamsAsync();
+    }
+
+    private async Task GetEventStreamsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/Streams/{SelectedStreamID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            string responseStream = await httpResponse.Content.ReadAsStringAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var eventStreamsDetails = JsonSerializer.Deserialize<EventsDTO.EventStreams>(responseStream, options);
+
+            if (eventStreamsDetails != null)
+            {
+                _streamServiceValue = eventStreamsDetails.StreamService;
+                _streamURLValue = eventStreamsDetails.StreamURL;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateStreamAsync()
+    {
+        try
+        {
+            if (SelectedStreamID == 0) return;
+
+            var updatedStream = new EventsDTO.EventStreams
+                {
+                    ID = SelectedStreamID,
+                    StreamService = _streamServiceValue,
+                    StreamURL = _streamURLValue
+                };
+
+            string url = $"{apiService.Palaro2026API}/Events/Streams/{SelectedStreamID}";
+            var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await httpClient.PutAsync(url, content);
+            response.EnsureSuccessStatusCode();
+
+            Snackbar.Add("Stream updated successfully.", Severity.Success);
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error updating stream: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteStreamAsync()
+    {
+        try
+        {
+            if (SelectedStreamID == 0) return;
+
+            string url = $"{apiService.Palaro2026API}/Events/Streams/{SelectedStreamID}";
+
+            HttpResponseMessage response = await httpClient.DeleteAsync(url);
+            response.EnsureSuccessStatusCode();
+
+            Snackbar.Add("Stream deleted successfully.", Severity.Success);
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error deleting stream: {ex.Message}", Severity.Error);
+        }
+    }
+}

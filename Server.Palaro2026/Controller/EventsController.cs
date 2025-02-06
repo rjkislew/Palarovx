@@ -26,18 +26,18 @@ namespace Server.Palaro2026.Controller
 
         [HttpGet("Details")]
         public async Task<ActionResult<List<EventsDTO.EventDetails.Event>>> GetEventDetails(
-    [FromQuery] string? region = null,
-    [FromQuery] string? category = null,
-    [FromQuery] string? sport = null,
-    [FromQuery] string? subcategory = null,
-    [FromQuery] string? gender = null,
-    [FromQuery] string? level = null,
-    [FromQuery] string? venue = null,
-    [FromQuery] DateTime? startDate = null,
-    [FromQuery] DateTime? endDate = null,
-    [FromQuery] bool? onStream = null,
-    [FromQuery] bool? isFinished = null,
-    [FromQuery] string? userID = null)
+            [FromQuery] string? region = null,
+            [FromQuery] string? category = null,
+            [FromQuery] string? sport = null,
+            [FromQuery] string? subcategory = null,
+            [FromQuery] string? gender = null,
+            [FromQuery] string? level = null,
+            [FromQuery] string? venue = null,
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null,
+            [FromQuery] bool? onStream = null,
+            [FromQuery] bool? isFinished = null,
+            [FromQuery] string? userID = null)
         {
             try
             {
@@ -450,14 +450,23 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPut("Streams/{id}")]
-        public async Task<IActionResult> PutEventStreams(int id, EventsDTO.EventStreams eventStreams)
+        public async Task<IActionResult> PutEventStreams(int id, EventsDTO.EventStreams eventStreamsDto)
         {
-            if (id != eventStreams.ID)
+            if (eventStreamsDto == null || id != eventStreamsDto.ID)
             {
-                return BadRequest();
+                return BadRequest("Invalid stream ID or request body.");
             }
 
-            _context.Entry(eventStreams).State = EntityState.Modified;
+            // Fetch the existing entity from the database
+            var existingEventStream = await _context.EventStreams.FindAsync(id);
+            if (existingEventStream == null)
+            {
+                return NotFound();
+            }
+
+            // Map DTO properties to the entity
+            existingEventStream.StreamService = eventStreamsDto.StreamService;
+            existingEventStream.StreamURL = eventStreamsDto.StreamURL;
 
             try
             {
@@ -469,14 +478,12 @@ namespace Server.Palaro2026.Controller
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
         }
+
 
         [HttpPost("Streams")]
         public async Task<ActionResult<EventStreams>> PostEventStreams(EventsDTO.EventStreams eventStreams)
@@ -537,6 +544,7 @@ namespace Server.Palaro2026.Controller
            new EventsDTO.EventVenues
            {
                ID = eventVenues.ID,
+               Address = eventVenues.Address,
                Venue = eventVenues.Venue,
                Latitude = eventVenues.Latitude,
                Longitude = eventVenues.Longitude,
@@ -564,14 +572,25 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPut("Venues/{id}")]
-        public async Task<IActionResult> PutEventVenues(int id, EventsDTO.EventVenues eventVenues)
+        public async Task<IActionResult> PutEventVenues(int id, EventsDTO.EventVenues eventVenuesDTO)
         {
-            if (id != eventVenues.ID)
+            if (eventVenuesDTO == null || id != eventVenuesDTO.ID)
             {
-                return BadRequest();
+                return BadRequest("Invalid venue ID or request body.");
             }
 
-            _context.Entry(eventVenues).State = EntityState.Modified;
+            // Fetch the existing EventVenues entity from the database
+            var existingVenues = await _context.EventVenues.FindAsync(id);
+            if (existingVenues == null)
+            {
+                return NotFound();
+            }
+
+            // Map DTO properties to the entity
+            existingVenues.Address = eventVenuesDTO.Address;
+            existingVenues.Venue = eventVenuesDTO.Venue;
+            existingVenues.Latitude = eventVenuesDTO.Latitude;
+            existingVenues.Longitude = eventVenuesDTO.Longitude;
 
             try
             {
@@ -579,7 +598,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EventVenuesExists(id))
+                if (!EventVenuesExists(id)) // Make sure this checks EventVenues, not EventStreams
                 {
                     return NotFound();
                 }
@@ -592,12 +611,14 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
+
         [HttpPost("Venues")]
         public async Task<ActionResult<EventVenues>> PostEventVenues(EventsDTO.EventVenues eventVenues)
         {
             var eventVenuesDTO = new EventVenues
             {
                 ID = eventVenues.ID,
+                Address = eventVenues.Address,
                 Venue = eventVenues.Venue,
                 Latitude = eventVenues.Latitude,
                 Longitude = eventVenues.Longitude,

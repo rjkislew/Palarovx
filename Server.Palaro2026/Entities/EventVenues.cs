@@ -9,6 +9,8 @@ public partial class EventVenues
 {
     public int ID { get; set; }
 
+    public string? Address { get; set; }
+
     public string? Venue { get; set; }
 
     public decimal? Latitude { get; set; }

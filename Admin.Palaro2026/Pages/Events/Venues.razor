@@ -1,7 +1,199 @@
 ﻿@page "/events/venues"
 
-<MudText>Venues</MudText>
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h4">Event Venues</MudText>
+        <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <MudStack Row>
+            <MudTextField @bind-Value="_addressValue" AutoGrow Immediate Margin="Margin.Dense" Label="Address" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            <MudTextField @bind-Value="_venueValue" AutoGrow Immediate Margin="Margin.Dense" Label="Venue" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+        </MudStack>
+        <MudStack Row>
+            <MudTextField T="decimal?" @bind-Value="_latitudeValue" Mask="@(new PatternMask("0.000000"))"  AutoGrow Immediate Margin="Margin.Dense" Label="Latitude" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            <MudTextField T="decimal?" @bind-Value="_longitudeValue" Mask="@(new PatternMask("000.000000"))" AutoGrow Immediate Margin="Margin.Dense" Label="Longitude" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+        </MudStack>
+        <MudStack Row Style="width: 100%" Justify="Justify.FlexEnd">
+            <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" Color="Color.Primary"
+                       Disabled="_addStreamDisabled" OnClick="ConfirmPostEventVenuesAsync">Add</MudButton>
+        </MudStack>
+    </MudItem>
+    <MudFlexBreak />
+    <MudItem xs="12" sm="8">
+        <MudPaper Outlined>
+            <MudTable Items="_eventVenues" Dense="true" Striped Context="venue" Elevation="0">
+                <HeaderContent>
+                    <MudTh>Address</MudTh>
+                    <MudTh>Venue</MudTh>
+                    <MudTh>Latitude</MudTh>
+                    <MudTh>Longitude</MudTh>
+                    <MudTh>Settings</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd Datalabel="Address">@venue.Address</MudTd>
+                    <MudTd Datalabel="Venue">@venue.Venue</MudTd>
+                    <MudTd Datalabel="Latitude">@venue.Latitude</MudTd>
+                    <MudTd Datalabel="LongitudeL">@venue.Longitude</MudTd>
+                    <MudTd DataLabel="Settings">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" OnClick="() => OpenVenueDialog(venue.ID)"></MudIconButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+
 
 @code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+    private List<EventsDTO.EventVenues>? _eventVenues;
 
+    private string? _addressValue;
+    private string? _venueValue;
+    private decimal? _latitudeValue;
+    private decimal? _longitudeValue;
+    private bool _addStreamDisabled =>
+    string.IsNullOrEmpty(_addressValue) ||
+    string.IsNullOrEmpty(_venueValue) ||
+    !_latitudeValue.HasValue ||
+    !_longitudeValue.HasValue;
+
+    private List<BreadcrumbItem> _items =
+    [
+        new("Home", href: "./"),
+    new("Events", href: "./events"),
+    new("Venues", href: null, disabled: true)
+    ];
+
+    public class EventsDTO
+    {
+        public class EventVenues
+        {
+            public int ID { get; set; }
+            public string? Address { get; set; }
+            public string? Venue { get; set; }
+            public decimal? Latitude { get; set; }
+            public decimal? Longitude { get; set; }
+        }
+    }
+
+    private async Task ConfirmPostEventVenuesAsync()
+    {
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small, // Increase width slightly
+                CloseOnEscapeKey = true // Allow closing with Esc
+            };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_venueValue ?? "this venue"}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await PostEventVenueAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+
+
+    private async Task OpenVenueDialog(int selectedID)
+    {
+        var parameter = new DialogParameters<VenuesDialog>
+        {
+            {x => x.selectedVenueID, selectedID}
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<VenuesDialog>($"Venue Settings", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result.Canceled)
+        {
+            await GetEventVenuesAsync();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetEventVenuesAsync();
+    }
+
+    private async Task GetEventVenuesAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/Venues";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventVenues = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVenues>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task PostEventVenueAsync()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_venueValue) || !_latitudeValue.HasValue || !_longitudeValue.HasValue)
+            {
+                Console.WriteLine("Stream service and URL cannot be empty.");
+                return;
+            }
+
+            string url = $"{apiService.Palaro2026API}/Events/Venues";
+
+            var eventStream = new EventsDTO.EventVenues
+                {
+                    Address = _addressValue,
+                    Venue = _venueValue,
+                    Latitude = _latitudeValue,
+                    Longitude = _longitudeValue
+                };
+
+            var jsonContent = JsonSerializer.Serialize(eventStream);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            _addressValue = null;
+            _venueValue = null;
+            _latitudeValue = null;
+            _longitudeValue = null;
+
+            await GetEventVenuesAsync();
+            Snackbar.Add("Event venue added successfully.", Severity.Success);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error posting data: {ex.Message}");
+        }
+    }
 }

@@ -1,7 +1,179 @@
 ﻿@page "/events/streams"
 
-<MudText>Streams</MudText>
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h4">Stream Services</MudText>
+        <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <MudTextField @bind-Value="_streamServiceValue" AutoGrow Immediate Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+        <MudTextField @bind-Value="_streamURLValue" AutoGrow Immediate Margin="Margin.Dense" Label="URL" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+        <MudStack Row Style="width: 100%" Justify="Justify.FlexEnd">
+            <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" Color="Color.Primary"
+                       Disabled="_addStreamDisabled" OnClick="ConfirmPostEventStreamsAsync">Add</MudButton>
+        </MudStack>
+    </MudItem>
+    <MudFlexBreak/>
+    <MudItem xs="12" sm="8">
+        <MudPaper Outlined>
+            <MudTable Items="_eventStreams" Dense="true" Striped Context="stream" Elevation="0">
+                <HeaderContent>
+                    <MudTh>Stream Service</MudTh>
+                    <MudTh>Stream URL</MudTh>
+                    <MudTh>Settings</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd Datalabel="Stream Service">@stream.StreamService</MudTd>
+                    <MudTd Datalabel="Stream URL">@stream.StreamURL</MudTd>
+                    <MudTd DataLabel="Settings">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" OnClick="() => OpenStreamServiceDialog(stream.ID)"></MudIconButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+
 
 @code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+    private List<EventsDTO.EventStreams>? _eventStreams;
 
+    private string? _streamServiceValue;
+    private string? _streamURLValue;
+    private bool _addStreamDisabled =>
+    string.IsNullOrEmpty(_streamServiceValue) ||
+    string.IsNullOrEmpty(_streamURLValue);
+
+    private List<BreadcrumbItem> _items =
+    [
+        new("Home", href: "./"),
+        new("Events", href: "./events"),
+        new("Streams", href: null, disabled: true)
+    ];
+
+    public class EventsDTO
+    {
+        public class EventStreams
+        {
+            public int ID { get; set; }
+            public string? StreamService { get; set; }
+            public string? StreamURL { get; set; }
+        }
+    }
+
+    private async Task ConfirmPostEventStreamsAsync()
+    {
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small, // Increase width slightly
+                CloseOnEscapeKey = true // Allow closing with Esc
+            };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_streamServiceValue ?? "this stream"}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await PostEventStreamsAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+
+
+    private async Task OpenStreamServiceDialog(int selectedID)
+    {
+        var parameter = new DialogParameters<StreamServiceDialog>
+        {
+            {x => x.SelectedStreamID, selectedID}
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<StreamServiceDialog>("Stream Service", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result.Canceled)
+        {
+            await GetEventStreamsAsync();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetEventStreamsAsync();
+    }
+
+    private async Task GetEventStreamsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/Streams";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventStreams = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventStreams>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task PostEventStreamsAsync()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_streamServiceValue) || string.IsNullOrWhiteSpace(_streamURLValue))
+            {
+                Console.WriteLine("Stream service and URL cannot be empty.");
+                return;
+            }
+
+            string url = $"{apiService.Palaro2026API}/Events/Streams";
+
+            var eventStream = new EventsDTO.EventStreams
+                {
+                    StreamService = _streamServiceValue,
+                    StreamURL = _streamURLValue
+                };
+
+            var jsonContent = JsonSerializer.Serialize(eventStream);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            _streamServiceValue = null;
+            _streamURLValue = null;
+
+            await GetEventStreamsAsync();
+            Snackbar.Add("Event stream added successfully.", Severity.Success);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error posting data: {ex.Message}");
+        }
+    }
 }

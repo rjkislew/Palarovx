@@ -62,7 +62,6 @@ public partial class Palaro2026Context : DbContext
 
         modelBuilder.Entity<EventStreams>(entity =>
         {
-            entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.StreamService)
                 .HasMaxLength(50)
                 .IsUnicode(false);
@@ -73,11 +72,13 @@ public partial class Palaro2026Context : DbContext
         {
             entity.HasKey(e => e.ID).HasName("PK__Venues__3214EC2738289954");
 
-            entity.Property(e => e.ID).ValueGeneratedNever();
+            entity.Property(e => e.Address)
+                .HasMaxLength(200)
+                .IsUnicode(false);
             entity.Property(e => e.Latitude).HasColumnType("decimal(8, 6)");
             entity.Property(e => e.Longitude).HasColumnType("decimal(9, 6)");
             entity.Property(e => e.Venue)
-                .HasMaxLength(100)
+                .HasMaxLength(250)
                 .IsUnicode(false);
         });
 
