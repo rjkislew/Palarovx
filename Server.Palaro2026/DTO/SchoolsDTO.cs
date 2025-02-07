@@ -1,9 +1,20 @@
-﻿using Server.Palaro2026.Entities;
-
-namespace Server.Palaro2026.DTO;
+﻿namespace Server.Palaro2026.DTO;
 
 public class SchoolDTO
 {
+    public class SchoolDetails
+    {
+        public class Schools
+        {
+            public int? ID { get; set; }
+            public string? School { get; set; }
+            public string? Level { get; set; }
+            public string? Division { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
     public class Schools
     {
         public int ID { get; set; }
@@ -36,7 +47,6 @@ public class SchoolDTO
         public int ID { get; set; }
         public string? Division { get; set; }
         public int? SchoolRegionID { get; set; }
-        public virtual SchoolRegions? SchoolRegion { get; set; }
     }
 
     public class SchoolLevels

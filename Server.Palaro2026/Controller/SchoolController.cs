@@ -18,6 +18,39 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
+        [HttpGet("Details")]
+        public async Task<ActionResult<List<SchoolDTO.SchoolDetails.Schools>>> GetSchoolDetails()
+        {
+            try
+            {
+                var schools = await _context.Schools
+                    .Include(s => s.SchoolDivision)
+                        .ThenInclude(d => d!.SchoolRegion)
+                    .Include(s => s.SchoolLevels)
+                    .ToListAsync();
+
+                var schoolDTO = schools
+                    .Where(s => s.SchoolDivision?.SchoolRegion != null) // Ensure valid data
+                    .Select(s => new SchoolDTO.SchoolDetails.Schools
+                    {
+                        ID = s.ID,
+                        School = s.School,
+                        Level = s.SchoolLevels?.Level,
+                        Division = s.SchoolDivision?.Division,
+                        Region = s.SchoolDivision?.SchoolRegion?.Region,
+                        Abbreviation = s.SchoolDivision?.SchoolRegion?.Abbreviation
+                    })
+                    .ToList();
+
+                return Ok(schoolDTO);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Internal server error. Please try again later.");
+            }
+        }
+
+
         // Schools
 
         private static SchoolDTO.Schools SchoolsDTOMapper(Schools schools) =>
@@ -30,35 +63,50 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<SchoolDTO.Schools>>> GetSchools()
+        public async Task<ActionResult<IEnumerable<SchoolDTO.Schools>>> GetSchools(
+        [FromQuery] int? id = null,
+        [FromQuery] string? school = null,
+        [FromQuery] int? schoolDivisionID = null,
+        [FromQuery] int? schoolLevelsID = null)
         {
-            return await _context.Schools
+            var query = _context.Schools.AsQueryable();
+
+            if (id.HasValue)
+                query = query.Where(x => x.ID == id.Value);
+
+            if (!string.IsNullOrEmpty(school))
+                query = query.Where(x => x.School.Contains(school));
+
+            if (schoolDivisionID.HasValue)
+                query = query.Where(x => x.SchoolDivisionID == schoolDivisionID.Value);
+
+            if (schoolLevelsID.HasValue)
+                query = query.Where(x => x.SchoolLevelsID == schoolLevelsID.Value);
+
+            return await query
                 .Select(x => SchoolsDTOMapper(x))
                 .ToListAsync();
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<SchoolDTO.Schools>> GetSchools(int id)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutSchools(int id, SchoolDTO.Schools schoolsDto)
         {
-            var schools = await _context.Schools.FindAsync(id);
+            if (schoolsDto == null || id != schoolsDto.ID)
+            {
+                return BadRequest("Invalid school ID or request body.");
+            }
 
-            if (schools == null)
+            // Fetch the existing entity from the database
+            var existingSchool = await _context.Schools.FindAsync(id);
+            if (existingSchool == null)
             {
                 return NotFound();
             }
 
-            return SchoolsDTOMapper(schools);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutSchools(int id, SchoolDTO.Schools schools)
-        {
-            if (id != schools.ID)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(schools).State = EntityState.Modified;
+            // Map DTO properties to the entity
+            existingSchool.School = schoolsDto.School;
+            existingSchool.SchoolDivisionID = schoolsDto.SchoolDivisionID;
+            existingSchool.SchoolLevelsID = schoolsDto.SchoolLevelsID;
 
             try
             {
@@ -70,10 +118,7 @@ namespace Server.Palaro2026.Controller
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
@@ -149,24 +194,33 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("BilletingQuarters")]
-        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolBilletingQuarters>>> GetSchoolBilletingQuarters()
+        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolBilletingQuarters>>> GetSchoolBilletingQuarters(
+        [FromQuery] int? ID = null,
+        [FromQuery] int? schoolRegionID = null,
+        [FromQuery] string? billetingQuarter = null,
+        [FromQuery] string? address = null,
+        [FromQuery] string? contactPerson = null)
         {
-            return await _context.SchoolBilletingQuarters
+            var query = _context.SchoolBilletingQuarters.AsQueryable();
+
+            if (ID.HasValue)
+                query = query.Where(x => x.ID == ID.Value);
+
+            if (schoolRegionID.HasValue)
+                query = query.Where(x => x.SchoolRegionID == schoolRegionID.Value);
+
+            if (!string.IsNullOrEmpty(billetingQuarter))
+                query = query.Where(x => x.BilletingQuarter.Contains(billetingQuarter));
+
+            if (!string.IsNullOrEmpty(address))
+                query = query.Where(x => x.Address.Contains(address));
+
+            if (!string.IsNullOrEmpty(contactPerson))
+                query = query.Where(x => x.ContactPerson.Contains(contactPerson));
+
+            return await query
                 .Select(x => SchoolBilletingQuartersDTOMapper(x))
                 .ToListAsync();
-        }
-
-        [HttpGet("BilletingQuarters/{id}")]
-        public async Task<ActionResult<SchoolDTO.SchoolBilletingQuarters>> GetSchoolBilletingQuarters(int id)
-        {
-            var schoolBilletingQuarters = await _context.SchoolBilletingQuarters.FindAsync(id);
-
-            if (schoolBilletingQuarters == null)
-            {
-                return NotFound();
-            }
-
-            return SchoolBilletingQuartersDTOMapper(schoolBilletingQuarters);
         }
 
         [HttpPut("BilletingQuarters/{id}")]
@@ -253,24 +307,25 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Divisions")]
-        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolDivisions>>> GetSchoolDivisions()
+        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolDivisions>>> GetSchoolDivisions(
+        [FromQuery] int? id = null,
+        [FromQuery] string? division = null,
+        [FromQuery] int? schoolRegionID = null)
         {
-            return await _context.SchoolDivisions
+            var query = _context.SchoolDivisions.AsQueryable();
+
+            if (id.HasValue)
+                query = query.Where(x => x.ID == id.Value);
+
+            if (!string.IsNullOrEmpty(division))
+                query = query.Where(x => x.Division.Contains(division));
+
+            if (schoolRegionID.HasValue)
+                query = query.Where(x => x.SchoolRegionID == schoolRegionID.Value);
+
+            return await query
                 .Select(x => SchoolDivisionsDTOMapper(x))
                 .ToListAsync();
-        }
-
-        [HttpGet("Divisions/{id}")]
-        public async Task<ActionResult<SchoolDTO.SchoolDivisions>> GetSchoolDivisions(int id)
-        {
-            var schoolDivisions = await _context.SchoolDivisions.FindAsync(id);
-
-            if (schoolDivisions == null)
-            {
-                return NotFound();
-            }
-
-            return SchoolDivisionsDTOMapper(schoolDivisions);
         }
 
         [HttpPut("Divisions/{id}")]
@@ -364,24 +419,21 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Levels")]
-        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolLevels>>> GetSchoolLevels()
+        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolLevels>>> GetSchoolLevels(
+        [FromQuery] int? id = null,
+        [FromQuery] string? level = null)
         {
-            return await _context.SchoolLevels
+            var query = _context.SchoolLevels.AsQueryable();
+
+            if (id.HasValue)
+                query = query.Where(x => x.ID == id.Value);
+
+            if (!string.IsNullOrEmpty(level))
+                query = query.Where(x => x.Level.Contains(level));
+
+            return await query
                 .Select(x => SchoolLevelsDTOMapper(x))
                 .ToListAsync();
-        }
-
-        [HttpGet("Levels/{id}")]
-        public async Task<ActionResult<SchoolDTO.SchoolLevels>> GetSchoolLevels(int id)
-        {
-            var schoolLevels = await _context.SchoolLevels.FindAsync(id);
-
-            if (schoolLevels == null)
-            {
-                return NotFound();
-            }
-
-            return SchoolLevelsDTOMapper(schoolLevels);
         }
 
         [HttpPut("Levels/{id}")]
@@ -416,7 +468,7 @@ namespace Server.Palaro2026.Controller
         [HttpPost("Levels")]
         public async Task<ActionResult<SchoolLevels>> PostSchoolLevels(SchoolDTO.SchoolLevels schoolLevels)
         {
-            var schoolLevelsDTO  = new SchoolLevels
+            var schoolLevelsDTO = new SchoolLevels
             {
                 ID = schoolLevels.ID,
                 Level = schoolLevels.Level
@@ -475,24 +527,25 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Regions")]
-        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolRegions>>> GetSchoolRegions()
+        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolRegions>>> GetSchoolRegions(
+        [FromQuery] int? id = null,
+        [FromQuery] string? region = null,
+        [FromQuery] string? abbreviation = null)
         {
-            return await _context.SchoolRegions
+            var query = _context.SchoolRegions.AsQueryable();
+
+            if (id.HasValue)
+                query = query.Where(x => x.ID == id.Value);
+
+            if (!string.IsNullOrEmpty(region))
+                query = query.Where(x => x.Region.Contains(region));
+
+            if (!string.IsNullOrEmpty(abbreviation))
+                query = query.Where(x => x.Abbreviation.Contains(abbreviation));
+
+            return await query
                 .Select(x => SchoolRegionsDTOMapper(x))
                 .ToListAsync();
-        }
-
-        [HttpGet("Regions/{id}")]
-        public async Task<ActionResult<SchoolDTO.SchoolRegions>> GetSchoolRegions(int id)
-        {
-            var schoolRegions = await _context.SchoolRegions.FindAsync(id);
-
-            if (schoolRegions == null)
-            {
-                return NotFound();
-            }
-
-            return SchoolRegionsDTOMapper(schoolRegions);
         }
 
         [HttpPut("Regions/{id}")]

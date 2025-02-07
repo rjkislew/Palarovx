@@ -15,45 +15,83 @@
         <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
     </MudItem>
     <MudItem xs="12" sm="6" md="4">
-        <MudStack Row>
-            <MudTextField @bind-Value="_addressValue" AutoGrow Immediate Margin="Margin.Dense" Label="Address" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-            <MudTextField @bind-Value="_venueValue" AutoGrow Immediate Margin="Margin.Dense" Label="Venue" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-        </MudStack>
-        <MudStack Row>
-            <MudTextField T="decimal?" @bind-Value="_latitudeValue" Mask="@(new PatternMask("0.000000"))"  AutoGrow Immediate Margin="Margin.Dense" Label="Latitude" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-            <MudTextField T="decimal?" @bind-Value="_longitudeValue" Mask="@(new PatternMask("000.000000"))" AutoGrow Immediate Margin="Margin.Dense" Label="Longitude" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-        </MudStack>
-        <MudStack Row Style="width: 100%" Justify="Justify.FlexEnd">
-            <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" Color="Color.Primary"
-                       Disabled="_addStreamDisabled" OnClick="ConfirmPostEventVenuesAsync">Add</MudButton>
-        </MudStack>
+        <MudButton OnClick="OnExpandAddEventVenueButtonClick" Style="text-transform: none" Variant="Variant.Filled" DropShadow="false">@(_expandedAddEventVenue ? "Close" : "Add Event Venue")</MudButton>
+        <MudCollapse Expanded="_expandedAddEventVenue" Class="pt-5">
+            <MudStack Row>
+                <MudTextField @bind-Value="_addressValue" AutoGrow Immediate Margin="Margin.Dense" Label="Address" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+                <MudTextField @bind-Value="_venueValue" AutoGrow Immediate Margin="Margin.Dense" Label="Venue" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            </MudStack>
+            <MudStack Row>
+                <MudTextField T="decimal?" @bind-Value="_latitudeValue" Mask="@(new PatternMask("0.000000"))" AutoGrow Immediate Margin="Margin.Dense" Label="Latitude" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+                <MudTextField T="decimal?" @bind-Value="_longitudeValue" Mask="@(new PatternMask("000.000000"))" AutoGrow Immediate Margin="Margin.Dense" Label="Longitude" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            </MudStack>
+            <MudStack Row Style="width: 100%" Justify="Justify.FlexEnd">
+                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" Color="Color.Primary"
+                           Disabled="_addStreamDisabled" OnClick="ConfirmPostEventVenuesAsync">Add</MudButton>
+            </MudStack>
+        </MudCollapse>
     </MudItem>
     <MudFlexBreak />
     <MudItem xs="12" sm="8">
-        <MudPaper Outlined>
-            <MudTable Items="_eventVenues" Dense="true" Striped Context="venue" Elevation="0">
-                <HeaderContent>
-                    <MudTh>Address</MudTh>
-                    <MudTh>Venue</MudTh>
-                    <MudTh>Latitude</MudTh>
-                    <MudTh>Longitude</MudTh>
-                    <MudTh>Settings</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd Datalabel="Address">@venue.Address</MudTd>
-                    <MudTd Datalabel="Venue">@venue.Venue</MudTd>
-                    <MudTd Datalabel="Latitude">@venue.Latitude</MudTd>
-                    <MudTd Datalabel="LongitudeL">@venue.Longitude</MudTd>
-                    <MudTd DataLabel="Settings">
-                        <MudIconButton Icon="@Icons.Material.Filled.Settings" OnClick="() => OpenVenueDialog(venue.ID)"></MudIconButton>
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
-        </MudPaper>
+        <MudTable Outlined Items="_eventVenues" Dense="true" Striped Virtualize="true" Filter="FilterFunc" Elevation="0">
+            <ToolBarContent>
+                <MudText Typo="Typo.h6">List of Event Venues</MudText>
+                <MudSpacer />
+                <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="Size.Medium" />
+            </ToolBarContent>
+            <ColGroup>
+                <MudHidden Breakpoint="Breakpoint.Xs">
+                    <col style="width: 30%" />
+                    <col style="width: 30%" />
+                    <col style="width: 10%;" />
+                    <col style="width: 10%;" />
+                    <col style="width: 15%;" />
+                    <col style="width: 5%;" />
+                </MudHidden>
+            </ColGroup>
+            <HeaderContent>
+                <MudTh>
+                    <MudTableSortLabel SortBy="new Func<EventsDTO.EventVenues, object>(x=>x.Venue)">
+                        Venue
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>
+                    <MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<EventsDTO.EventVenues, object>(x=>x.Address)">
+                        Address
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>Latitude</MudTh>
+                <MudTh>Longitude</MudTh>
+                <MudTh>Goolge Map</MudTh>
+                <MudTh>Settings</MudTh>
+            </HeaderContent>
+            <RowTemplate Context="venue">
+                <MudTd DataLabel="Venue">@venue.Venue</MudTd>
+                <MudTd DataLabel="Address">@venue.Address</MudTd>
+                <MudTd DataLabel="Latitude">@venue.Latitude</MudTd>
+                <MudTd DataLabel="Longitude">@venue.Longitude</MudTd>
+                <MudTd DataLabel="Goolge Map" Style="text-align: center">
+                    <MudIconButton Icon="@Icons.Material.Filled.Map" Href="@($"https://www.google.com/maps/?q={venue.Latitude},{venue.Longitude}")" Target="_blank" Class="pa-1" />
+                </MudTd>
+                <MudTd DataLabel="Settings" Style="text-align: center">
+                    <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenVenueDialog(venue.ID)" />
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Typo="Typo.caption">No matching records found.</MudText>
+            </NoRecordsContent>
+            <LoadingContent>
+                <MudProgressLinear Indeterminate />
+            </LoadingContent>
+            <PagerContent>
+                <MudTablePager />
+            </PagerContent>
+        </MudTable>
     </MudItem>
 </MudGrid>
-
-
 
 @code {
     [CascadingParameter]
@@ -70,11 +108,28 @@
     !_latitudeValue.HasValue ||
     !_longitudeValue.HasValue;
 
+    private string _searchString = "";
+
+    bool _expandedAddEventVenue = false;
+
+    private void OnExpandAddEventVenueButtonClick()
+    {
+        _expandedAddEventVenue = !_expandedAddEventVenue;
+    }
+
+    private bool FilterFunc(EventsDTO.EventVenues venue)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return venue.Address.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               venue.Venue.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+
     private List<BreadcrumbItem> _items =
     [
         new("Home", href: "./"),
-    new("Events", href: "./events"),
-    new("Venues", href: null, disabled: true)
+        new("Events", href: "./events"),
+        new("Venues", href: null, disabled: true)
     ];
 
     public class EventsDTO
@@ -91,11 +146,7 @@
 
     private async Task ConfirmPostEventVenuesAsync()
     {
-        var options = new DialogOptions
-            {
-                MaxWidth = MaxWidth.Small, // Increase width slightly
-                CloseOnEscapeKey = true // Allow closing with Esc
-            };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
 
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
@@ -111,17 +162,15 @@
         }
     }
 
-
-
     private async Task OpenVenueDialog(int selectedID)
     {
         var parameter = new DialogParameters<VenuesDialog>
         {
             {x => x.selectedVenueID, selectedID}
         };
-        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+        var options = new DialogOptions { NoHeader = true, CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
 
-        var dialog = await DialogService.ShowAsync<VenuesDialog>($"Venue Settings", parameter, options);
+        var dialog = await DialogService.ShowAsync<VenuesDialog>("Venue Settings", parameter, options);
 
         var result = await dialog.Result;
 

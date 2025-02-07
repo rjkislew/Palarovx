@@ -15,31 +15,56 @@
         <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
     </MudItem>
     <MudItem xs="12" sm="6" md="4">
-        <MudTextField @bind-Value="_streamServiceValue" AutoGrow Immediate Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-        <MudTextField @bind-Value="_streamURLValue" AutoGrow Immediate Margin="Margin.Dense" Label="URL" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-        <MudStack Row Style="width: 100%" Justify="Justify.FlexEnd">
-            <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" Color="Color.Primary"
-                       Disabled="_addStreamDisabled" OnClick="ConfirmPostEventStreamsAsync">Add</MudButton>
-        </MudStack>
+        <MudButton OnClick="OnExpandAddStreamServiceButtonClick" Style="text-transform: none" Variant="Variant.Filled" DropShadow="false">@(_expandedAddStreamService ? "Close" : "Add Stream Service")</MudButton>
+        <MudCollapse Expanded="_expandedAddStreamService" Class="pt-5">
+            <MudTextField @bind-Value="_streamServiceValue" AutoGrow Immediate Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            <MudTextField @bind-Value="_streamURLValue" AutoGrow Immediate Margin="Margin.Dense" Label="URL" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            <MudStack Row Style="width: 100%" Justify="Justify.FlexEnd">
+                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" Color="Color.Primary"
+                           Disabled="_addStreamDisabled" OnClick="ConfirmPostEventStreamsAsync">Add</MudButton>
+            </MudStack>
+        </MudCollapse>
     </MudItem>
-    <MudFlexBreak/>
+    <MudFlexBreak />
     <MudItem xs="12" sm="8">
-        <MudPaper Outlined>
-            <MudTable Items="_eventStreams" Dense="true" Striped Context="stream" Elevation="0">
-                <HeaderContent>
-                    <MudTh>Stream Service</MudTh>
-                    <MudTh>Stream URL</MudTh>
-                    <MudTh>Settings</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd Datalabel="Stream Service">@stream.StreamService</MudTd>
-                    <MudTd Datalabel="Stream URL">@stream.StreamURL</MudTd>
-                    <MudTd DataLabel="Settings">
-                        <MudIconButton Icon="@Icons.Material.Filled.Settings" OnClick="() => OpenStreamServiceDialog(stream.ID)"></MudIconButton>
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
-        </MudPaper>
+        <MudTable Outlined Items="_eventStreams" Dense="true" Striped Context="stream" Filter="FilterFunc" Elevation="0">
+            <ToolBarContent>
+                <MudText Typo="Typo.h6">List of Stream Services</MudText>
+                <MudSpacer />
+                <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="Size.Medium" />
+            </ToolBarContent>
+            <ColGroup>
+                <MudHidden Breakpoint="Breakpoint.Xs">
+                    <col style="width: 35%" />
+                    <col style="width: 60%" />
+                    <col style="width: 5%;" />
+                </MudHidden>
+            </ColGroup>
+            <HeaderContent>
+                <MudTh>Stream Service</MudTh>
+                <MudTh>Stream URL</MudTh>
+                <MudTh>Settings</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd Datalabel="Stream Service">@stream.StreamService</MudTd>
+                <MudTd Datalabel="Stream URL">@stream.StreamURL</MudTd>
+                <MudTd DataLabel="Settings" Style="text-align: center">
+                    <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenStreamServiceDialog(stream.ID)"></MudIconButton>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Typo="Typo.caption">No matching records found.</MudText>
+            </NoRecordsContent>
+            <LoadingContent>
+                <MudProgressLinear Indeterminate />
+            </LoadingContent>
+            <PagerContent>
+                <MudTablePager />
+            </PagerContent>
+        </MudTable>
     </MudItem>
 </MudGrid>
 
@@ -56,11 +81,27 @@
     string.IsNullOrEmpty(_streamServiceValue) ||
     string.IsNullOrEmpty(_streamURLValue);
 
+    private string _searchString = "";
+
+    bool _expandedAddStreamService = false;
+
+    private void OnExpandAddStreamServiceButtonClick()
+    {
+        _expandedAddStreamService = !_expandedAddStreamService;
+    }
+
+    private bool FilterFunc(EventsDTO.EventStreams streams)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return streams.StreamService.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+
     private List<BreadcrumbItem> _items =
     [
         new("Home", href: "./"),
-        new("Events", href: "./events"),
-        new("Streams", href: null, disabled: true)
+    new("Events", href: "./events"),
+    new("Streams", href: null, disabled: true)
     ];
 
     public class EventsDTO
@@ -75,11 +116,7 @@
 
     private async Task ConfirmPostEventStreamsAsync()
     {
-        var options = new DialogOptions
-            {
-                MaxWidth = MaxWidth.Small, // Increase width slightly
-                CloseOnEscapeKey = true // Allow closing with Esc
-            };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
 
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
@@ -95,15 +132,13 @@
         }
     }
 
-
-
     private async Task OpenStreamServiceDialog(int selectedID)
     {
         var parameter = new DialogParameters<StreamServiceDialog>
         {
             {x => x.SelectedStreamID, selectedID}
         };
-        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
 
         var dialog = await DialogService.ShowAsync<StreamServiceDialog>("Stream Service", parameter, options);
 

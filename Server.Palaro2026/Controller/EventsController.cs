@@ -203,19 +203,6 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<EventsDTO.Events>> GetEvents(string id)
-        {
-            var events = await _context.Events.FindAsync(id);
-
-            if (events == null)
-            {
-                return NotFound();
-            }
-
-            return EventsDTOMapper(events);
-        }
-
         [HttpPut("{id}")]
         public async Task<IActionResult> PutEvents(string id, EventsDTO.Events events)
         {
@@ -325,18 +312,6 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpGet("News/{id}")]
-        public async Task<ActionResult<EventsDTO.EventNews>> GetEventNews(int id)
-        {
-            var eventNews = await _context.EventNews.FindAsync(id);
-
-            if (eventNews == null)
-            {
-                return NotFound();
-            }
-
-            return EventNewsDTOMapper(eventNews);
-        }
 
         [HttpPut("News/{id}")]
         public async Task<IActionResult> PutEventNews(int id, EventsDTO.EventNews eventNews)
@@ -436,19 +411,6 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpGet("Streams/{id}")]
-        public async Task<ActionResult<EventsDTO.EventStreams>> GetEventStreams(int id)
-        {
-            var eventStreams = await _context.EventStreams.FindAsync(id);
-
-            if (eventStreams == null)
-            {
-                return NotFound();
-            }
-
-            return EventStreamsDTOMapper(eventStreams);
-        }
-
         [HttpPut("Streams/{id}")]
         public async Task<IActionResult> PutEventStreams(int id, EventsDTO.EventStreams eventStreamsDto)
         {
@@ -483,7 +445,6 @@ namespace Server.Palaro2026.Controller
 
             return NoContent();
         }
-
 
         [HttpPost("Streams")]
         public async Task<ActionResult<EventStreams>> PostEventStreams(EventsDTO.EventStreams eventStreams)

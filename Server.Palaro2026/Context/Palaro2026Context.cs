@@ -193,7 +193,6 @@ public partial class Palaro2026Context : DbContext
         {
             entity.HasKey(e => e.ID).HasName("PK__Schools__3214EC27215C1750");
 
-            entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.School)
                 .HasMaxLength(100)
                 .IsUnicode(false);

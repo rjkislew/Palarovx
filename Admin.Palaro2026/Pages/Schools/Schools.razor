@@ -1,8 +1,352 @@
 ﻿@page "/schools"
 
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
 
-<MudText>Schools</MudText>
+<MudGrid>
+
+    <MudItem xs="12">
+        <MudText Typo="Typo.h4">Schools</MudText>
+        <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4">
+        <MudButton OnClick="OnExpandAddStreamServiceButtonClick" Style="text-transform: none" Variant="Variant.Filled" DropShadow="false">@(_expandedAddStreamService ? "Close" : "Add School")</MudButton>
+        <MudCollapse Expanded="_expandedAddStreamService" Class="pt-5">
+            <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetSchoolDivisionsAsync">
+                <MudVirtualize Items="_schoolRegions" Context="region">
+                    <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+            <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null">
+                <MudVirtualize Items="_schoolDivisions" Context="division">
+                    <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+            <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                <MudVirtualize Items="_schoolLevels" Context="level">
+                    <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+            <MudTextField @bind-Value="_schoolValue" AutoGrow Immediate Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable />
+            <MudStack Row Style="width: 100%" Justify="Justify.FlexEnd">
+                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" Color="Color.Primary"
+                           Disabled="_addSchoolDisabled" OnClick="ConfirmPostSchoolAsync">Add</MudButton>
+            </MudStack>
+        </MudCollapse>
+    </MudItem>
+    <MudFlexBreak />
+    <MudItem xs="12" sm="8">
+        <MudTable Outlined Items="_schoolDetails" Context="school" Dense="true" Striped Virtualize="true" Filter="FilterFunc" Elevation="0">
+            <ToolBarContent>
+                <MudText Typo="Typo.h6">List of Schools</MudText>
+                <MudSpacer />
+                <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="Size.Medium" />
+            </ToolBarContent>
+            <ColGroup>
+                <MudHidden Breakpoint="Breakpoint.Xs">
+                    <col style="width: 30%" />
+                    <col style="width: 20%" />
+                    <col style="width: 20%;" />
+                    <col style="width: 25%;" />
+                    <col style="width: 5%;" />
+                </MudHidden>
+            </ColGroup>
+            <HeaderContent>
+                <MudTh>
+                    <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.School)">
+                        School
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>
+                    <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.Level)">
+                        School Level
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>
+                    <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.Division)">
+                        Division
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>
+                    <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.Region)">
+                        Region
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>Settings</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="School">@school.School</MudTd>
+                <MudTd DataLabel="School Level">@school.Level</MudTd>
+                <MudTd DataLabel="Division">@school.Division</MudTd>
+                <MudTd DataLabel="Region">@school.Region (@school.Abbreviation)</MudTd>
+                <MudTd DataLabel="Settings" Style="text-align: center">
+                    <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenSchoolDialog(school.ID)" />
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Typo="Typo.caption">No matching records found.</MudText>
+            </NoRecordsContent>
+            <LoadingContent>
+                <MudProgressLinear Indeterminate />
+            </LoadingContent>
+            <PagerContent>
+                <MudTablePager />
+            </PagerContent>
+        </MudTable>
+    </MudItem>
+</MudGrid>
 
 @code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+    private List<SchoolDTO.SchoolDetails.Schools>? _schoolDetails;
+    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
+    private List<SchoolDTO.SchoolDivisions>? _schoolDivisions;
+    private List<SchoolDTO.SchoolLevels>? _schoolLevels;
 
+    private int? _selectedSchoolRegionIDValue;
+    private int? _selectedSchoolDivisionIDValue;
+    private string? _schoolValue;
+    private int? _selectedSchoolLevelIDValue;
+    private bool _addSchoolDisabled =>
+    _selectedSchoolRegionIDValue == null ||
+    _selectedSchoolDivisionIDValue == null ||
+    _selectedSchoolLevelIDValue == null ||
+    string.IsNullOrEmpty(_schoolValue);
+
+
+    private List<BreadcrumbItem> _items =
+    [
+        new("Home", href: "./"),
+    new("Schools", href: null, disabled: true)
+    ];
+
+    private string _searchString = "";
+
+    bool _expandedAddStreamService = false;
+
+    private void OnExpandAddStreamServiceButtonClick()
+    {
+        _expandedAddStreamService = !_expandedAddStreamService;
+    }
+
+    private bool FilterFunc(SchoolDTO.SchoolDetails.Schools schoolDetails)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return schoolDetails.School.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               schoolDetails.Division.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               schoolDetails.Region.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task ConfirmPostSchoolAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_schoolValue ?? "this venue"}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await PostSchoolAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private async Task OpenSchoolDialog(int selectedID)
+    {
+        var parameter = new DialogParameters<SchoolDialog>
+        {
+            {x => x.selectedSchoolID, selectedID}
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<SchoolDialog>($"Venue Settings", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result.Canceled)
+        {
+            await GetSchoolDetailsAsync();
+        }
+    }
+
+    public class SchoolDTO
+    {
+        public class SchoolDetails
+        {
+            public class Schools
+            {
+                public int ID { get; set; }
+                public string? School { get; set; }
+                public string? Level { get; set; }
+                public string? Division { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+            }
+        }
+
+        public class Schools
+        {
+            public int ID { get; set; }
+            public string? School { get; set; }
+            public int? SchoolDivisionID { get; set; }
+            public int? SchoolLevelsID { get; set; }
+        }
+
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+
+        public class SchoolDivisions
+        {
+            public int ID { get; set; }
+            public string? Division { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public virtual SchoolRegions? SchoolRegion { get; set; }
+        }
+
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSchoolDetailsAsync();
+        await GetSchoolRegionsAsync();
+        await GetSchoolLevelsAsync();
+    }
+
+    private async Task GetSchoolDetailsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Details";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolDetails = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolDetails.Schools>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolDivisionsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolDivisions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Levels";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolLevels>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task PostSchoolAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools";
+
+            var eventStream = new SchoolDTO.Schools
+                {
+                    SchoolDivisionID = _selectedSchoolDivisionIDValue,
+                    SchoolLevelsID = _selectedSchoolLevelIDValue,
+                    School = _schoolValue
+                };
+
+            var jsonContent = JsonSerializer.Serialize(eventStream);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            _selectedSchoolRegionIDValue = null;
+            _selectedSchoolDivisionIDValue = null;
+            _selectedSchoolLevelIDValue = null;
+            _schoolValue = null;
+
+            await GetSchoolDetailsAsync();
+            Snackbar.Add("Event venue added successfully.", Severity.Success);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error posting data: {ex.Message}");
+        }
+    }
 }
