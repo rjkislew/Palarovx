@@ -88,6 +88,19 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
+        [HttpGet("{id}")]
+        public async Task<ActionResult<SchoolDTO.Schools>> GetSchool(int id)
+        {
+            var school = await _context.Schools.FindAsync(id);
+
+            if (school == null)
+            {
+                return NotFound();
+            }
+
+            return SchoolsDTOMapper(school);
+        }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> PutSchools(int id, SchoolDTO.Schools schoolsDto)
         {
@@ -178,6 +191,39 @@ namespace Server.Palaro2026.Controller
 
 
 
+
+        [HttpGet("BilletingQuarters/Details")]
+        public async Task<ActionResult<List<SchoolDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>>> GetBilletingQuartersDetails()
+        {
+            try
+            {
+                var billetingQuarters = await _context.SchoolBilletingQuarters
+                    .Include(s => s.SchoolRegion)
+                    .ToListAsync();
+
+                var billetingQuarterDTO = billetingQuarters
+                    .Where(quarter => quarter.SchoolRegion != null)
+                    .Select(quarter => new SchoolDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters
+                    {
+                        ID = quarter.ID,
+                        Region = quarter.SchoolRegion?.Region,
+                        Abbreviation = quarter.SchoolRegion?.Abbreviation,
+                        BilletingQuarter = quarter.BilletingQuarter,
+                        Address = quarter.Address,
+                        Latitude = quarter.Latitude,
+                        Longitude = quarter.Longitude,
+                        ContactPerson = quarter.ContactPerson,
+                        ContactPersonNumber = quarter.ContactPersonNumber                        
+                    })
+                    .ToList();
+
+                return Ok(billetingQuarterDTO);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Internal server error. Please try again later.");
+            }
+        }
         // School Billeting Quarters
 
         private static SchoolDTO.SchoolBilletingQuarters SchoolBilletingQuartersDTOMapper(SchoolBilletingQuarters schoolBilletingQuarters) =>
@@ -223,6 +269,19 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
+        [HttpGet("BilletingQuarters/{id}")]
+        public async Task<ActionResult<SchoolDTO.SchoolBilletingQuarters>> GetSchoolBilletingQuarter(int id)
+        {
+            var billetingQuarter = await _context.SchoolBilletingQuarters.FindAsync(id);
+
+            if (billetingQuarter == null)
+            {
+                return NotFound();
+            }
+
+            return SchoolBilletingQuartersDTOMapper(billetingQuarter);
+        }
+
         [HttpPut("BilletingQuarters/{id}")]
         public async Task<IActionResult> PutSchoolBilletingQuarters(int id, SchoolDTO.SchoolBilletingQuarters schoolBilletingQuarters)
         {
@@ -231,7 +290,21 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(schoolBilletingQuarters).State = EntityState.Modified;
+            // Fetch the existing entity from the database
+            var existingEntity = await _context.SchoolBilletingQuarters.FindAsync(id);
+            if (existingEntity == null)
+            {
+                return NotFound();
+            }
+
+            // Update properties
+            existingEntity.SchoolRegionID = schoolBilletingQuarters.SchoolRegionID;
+            existingEntity.BilletingQuarter = schoolBilletingQuarters.BilletingQuarter;
+            existingEntity.Address = schoolBilletingQuarters.Address;
+            existingEntity.Latitude = schoolBilletingQuarters.Latitude;
+            existingEntity.Longitude = schoolBilletingQuarters.Longitude;
+            existingEntity.ContactPerson = schoolBilletingQuarters.ContactPerson;
+            existingEntity.ContactPersonNumber = schoolBilletingQuarters.ContactPersonNumber;
 
             try
             {
@@ -251,6 +324,7 @@ namespace Server.Palaro2026.Controller
 
             return NoContent();
         }
+
 
         [HttpPost("BilletingQuarters")]
         public async Task<ActionResult<SchoolBilletingQuarters>> PostSchoolBilletingQuarters(SchoolDTO.SchoolBilletingQuarters schoolBilletingQuarters)

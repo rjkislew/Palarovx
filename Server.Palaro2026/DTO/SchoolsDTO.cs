@@ -15,6 +15,22 @@ public class SchoolDTO
         }
     }
 
+    public class SchoolBillingQuarterDetails
+    {
+        public class SchoolBilletingQuarters
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public string? BilletingQuarter { get; set; }
+            public string? Address { get; set; }
+            public decimal? Latitude { get; set; }
+            public decimal? Longitude { get; set; }
+            public string? ContactPerson { get; set; }
+            public string? ContactPersonNumber { get; set; }
+        }
+    }
+
     public class Schools
     {
         public int ID { get; set; }

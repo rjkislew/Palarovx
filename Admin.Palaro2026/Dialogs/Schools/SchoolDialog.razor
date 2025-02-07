@@ -9,6 +9,8 @@
 
 <MudDialog>
     <DialogContent>
+        <MudText Typo="Typo.h6">@_dialogHeader</MudText>
+        <MudDivider Class="mb-5" />
         <MudStack>
             <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="OnRegionClear" TextChanged="GetSchoolDivisionsAsync">
                 <MudVirtualize Items="_schoolRegions" Context="region">
@@ -77,6 +79,7 @@
     [Parameter]
     public int selectedSchoolID { get; set; }
 
+    private string? _dialogHeader;
     private int? _selectedSchoolRegionIDValue;
     private int? _selectedSchoolDivisionIDValue;
     private string? _schoolValue;
@@ -87,7 +90,6 @@
     _selectedSchoolLevelIDValue == null ||
     string.IsNullOrEmpty(_schoolValue);
 
-    private List<SchoolDTO.Schools>? schools;
     private List<SchoolDTO.SchoolRegions>? _schoolRegions;
     private List<SchoolDTO.SchoolDivisions>? _schoolDivisions;
     private List<SchoolDTO.SchoolLevels>? _schoolLevels;
@@ -129,25 +131,28 @@
         await GetSchoolsOnDialogOpenAsync(selectedSchoolID);
         await GetSchoolDivisionsOnDialogOpenAsync();
         await GetSchoolLevelsOnDialogOpenAsync();
+        StateHasChanged();
     }
 
     private async Task GetSchoolsOnDialogOpenAsync(int schoolID)
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Schools?id={schoolID}";
+            string url = $"{apiService.Palaro2026API}/Schools/{schoolID}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            httpResponse.EnsureSuccessStatusCode();
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            string responseStream = await httpResponse.Content.ReadAsStringAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            schools = await JsonSerializer.DeserializeAsync<List<SchoolDTO.Schools>>(responseStream, options);
+            var school = JsonSerializer.Deserialize<SchoolDTO.Schools>(responseStream, options);
 
-            if (schools != null && schools.Any())
+            if (school != null)
             {
-                var school = schools.First(); // Store values from the first school as an example
+                // Title
+                _dialogHeader = $"Update: {school.School}";
 
+                // Data
                 _selectedSchoolDivisionIDValue = school.SchoolDivisionID;
                 _schoolValue = school.School;
                 _selectedSchoolLevelIDValue = school.SchoolLevelsID;
@@ -184,7 +189,7 @@
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
+            string url = $"{apiService.Palaro2026API}/Schools/Divisions?id={_selectedSchoolDivisionIDValue}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response

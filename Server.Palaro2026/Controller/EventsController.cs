@@ -411,6 +411,19 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
+        [HttpGet("Streams/{id}")]
+        public async Task<ActionResult<EventsDTO.EventStreams>> GetEventStreams(int id)
+        {
+            var eventStreams = await _context.EventStreams.FindAsync(id);
+
+            if (eventStreams == null)
+            {
+                return NotFound();
+            }
+
+            return EventStreamsDTOMapper(eventStreams);
+        }
+
         [HttpPut("Streams/{id}")]
         public async Task<IActionResult> PutEventStreams(int id, EventsDTO.EventStreams eventStreamsDto)
         {
