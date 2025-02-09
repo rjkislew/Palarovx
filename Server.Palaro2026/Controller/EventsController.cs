@@ -122,7 +122,7 @@ namespace Server.Palaro2026.Controller
                 }
 
                 // Execute query
-                var eventEntities = await query.ToListAsync();
+                var eventEntities = await query.AsNoTracking().ToListAsync();
 
                 if (!eventEntities.Any())
                 {
@@ -177,7 +177,6 @@ namespace Server.Palaro2026.Controller
             }
         }
 
-
         private static EventsDTO.Events EventsDTOMapper(Events events) =>
            new EventsDTO.Events
            {
@@ -196,10 +195,57 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<EventsDTO.Events>>> GetEvents()
+        public async Task<ActionResult<IEnumerable<EventsDTO.Events>>> GetEvents(
+        [FromQuery] string? ID = null,
+        [FromQuery] int? sportSubcategoryID = null,
+        [FromQuery] int? eventVenuesID = null,
+        [FromQuery] DateTime? date = null,
+        [FromQuery] TimeSpan? time = null,
+        [FromQuery] bool? onStream = null,
+        [FromQuery] int? streamID = null,
+        [FromQuery] bool? isFinished = null,
+        [FromQuery] bool? archived = null,
+        [FromQuery] bool? deleted = null,
+        [FromQuery] string? userID = null)
         {
-            return await _context.Events
+            var query = _context.Events.AsQueryable();
+
+            if (!string.IsNullOrEmpty(ID))
+                query = query.Where(x => x.ID == ID);
+
+            if (sportSubcategoryID.HasValue)
+                query = query.Where(x => x.SportSubcategoryID == sportSubcategoryID.Value);
+
+            if (eventVenuesID.HasValue)
+                query = query.Where(x => x.EventVenuesID == eventVenuesID.Value);
+
+            if (date.HasValue)
+                query = query.Where(x => x.Date == date.Value);
+
+            if (time.HasValue)
+                query = query.Where(x => x.Time == time.Value);
+
+            if (onStream.HasValue)
+                query = query.Where(x => x.OnStream == onStream.Value);
+
+            if (streamID.HasValue)
+                query = query.Where(x => x.StreamID == streamID.Value);
+
+            if (isFinished.HasValue)
+                query = query.Where(x => x.IsFinished == isFinished.Value);
+
+            if (archived.HasValue)
+                query = query.Where(x => x.Archived == archived.Value);
+
+            if (deleted.HasValue)
+                query = query.Where(x => x.Deleted == deleted.Value);
+
+            if (!string.IsNullOrEmpty(userID))
+                query = query.Where(x => x.UserID == userID);
+
+            return await query
                 .Select(x => EventsDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
         }
 
@@ -211,7 +257,23 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(events).State = EntityState.Modified;
+            var existingEvent = await _context.Events.FindAsync(id);
+            if (existingEvent == null)
+            {
+                return NotFound();
+            }
+
+            existingEvent.SportSubcategoryID = events.SportSubcategoryID;
+            existingEvent.EventVenuesID = events.EventVenuesID;
+            existingEvent.Date = events.Date;
+            existingEvent.Time = events.Time;
+            existingEvent.OnStream = events.OnStream;
+            existingEvent.StreamID = events.StreamID;
+            existingEvent.IsFinished = events.IsFinished;
+            existingEvent.Attachement = events.Attachement;
+            existingEvent.Archived = events.Archived;
+            existingEvent.Deleted = events.Deleted;
+            existingEvent.UserID = events.UserID;
 
             try
             {
@@ -305,13 +367,23 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("News")]
-        public async Task<ActionResult<IEnumerable<EventsDTO.EventNews>>> GetEventNews()
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventNews>>> GetEventNews(
+        [FromQuery] int? ID = null,
+        [FromQuery] string? facebookLink = null)
         {
-            return await _context.EventNews
+            var query = _context.EventNews.AsQueryable();
+
+            if (ID.HasValue)
+                query = query.Where(x => x.ID == ID.Value);
+
+            if (!string.IsNullOrEmpty(facebookLink))
+                query = query.Where(x => x.FacebookLink.Contains(facebookLink));
+
+            return await query
                 .Select(x => EventNewsDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
         }
-
 
         [HttpPut("News/{id}")]
         public async Task<IActionResult> PutEventNews(int id, EventsDTO.EventNews eventNews)
@@ -321,7 +393,13 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(eventNews).State = EntityState.Modified;
+            var existingEventNews = await _context.EventNews.FindAsync(id);
+            if (existingEventNews == null)
+            {
+                return NotFound();
+            }
+
+            existingEventNews.FacebookLink = eventNews.FacebookLink;
 
             try
             {
@@ -404,42 +482,42 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Streams")]
-        public async Task<ActionResult<IEnumerable<EventsDTO.EventStreams>>> GetEventStreams()
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventStreams>>> GetEventStreams(
+        [FromQuery] int? ID = null,
+        [FromQuery] string? streamService = null,
+        [FromQuery] string? streamURL = null)
         {
-            return await _context.EventStreams
+            var query = _context.EventStreams.AsQueryable();
+
+            if (ID.HasValue)
+                query = query.Where(x => x.ID == ID.Value);
+
+            if (!string.IsNullOrEmpty(streamService))
+                query = query.Where(x => x.StreamService.Contains(streamService));
+
+            if (!string.IsNullOrEmpty(streamURL))
+                query = query.Where(x => x.StreamURL.Contains(streamURL));
+
+            return await query
                 .Select(x => EventStreamsDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-        }
-
-        [HttpGet("Streams/{id}")]
-        public async Task<ActionResult<EventsDTO.EventStreams>> GetEventStreams(int id)
-        {
-            var eventStreams = await _context.EventStreams.FindAsync(id);
-
-            if (eventStreams == null)
-            {
-                return NotFound();
-            }
-
-            return EventStreamsDTOMapper(eventStreams);
         }
 
         [HttpPut("Streams/{id}")]
         public async Task<IActionResult> PutEventStreams(int id, EventsDTO.EventStreams eventStreamsDto)
         {
-            if (eventStreamsDto == null || id != eventStreamsDto.ID)
+            if (id != eventStreamsDto.ID)
             {
-                return BadRequest("Invalid stream ID or request body.");
+                return BadRequest();
             }
 
-            // Fetch the existing entity from the database
             var existingEventStream = await _context.EventStreams.FindAsync(id);
             if (existingEventStream == null)
             {
                 return NotFound();
             }
 
-            // Map DTO properties to the entity
             existingEventStream.StreamService = eventStreamsDto.StreamService;
             existingEventStream.StreamURL = eventStreamsDto.StreamURL;
 
@@ -525,24 +603,34 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Venues")]
-        public async Task<ActionResult<IEnumerable<EventsDTO.EventVenues>>> GetEventVenues()
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventVenues>>> GetEventVenues(
+        [FromQuery] int? ID = null,
+        [FromQuery] string? address = null,
+        [FromQuery] string? venue = null,
+        [FromQuery] decimal? latitude = null,
+        [FromQuery] decimal? longitude = null)
         {
-            return await _context.EventVenues
+            var query = _context.EventVenues.AsQueryable();
+
+            if (ID.HasValue)
+                query = query.Where(x => x.ID == ID.Value);
+
+            if (!string.IsNullOrEmpty(address))
+                query = query.Where(x => x.Address.Contains(address));
+
+            if (!string.IsNullOrEmpty(venue))
+                query = query.Where(x => x.Venue.Contains(venue));
+
+            if (latitude.HasValue)
+                query = query.Where(x => x.Latitude == latitude.Value);
+
+            if (longitude.HasValue)
+                query = query.Where(x => x.Longitude == longitude.Value);
+
+            return await query
                 .Select(x => EventVenuesDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-        }
-
-        [HttpGet("Venues/{id}")]
-        public async Task<ActionResult<EventsDTO.EventVenues>> GetEventVenues(int id)
-        {
-            var eventVenues = await _context.EventVenues.FindAsync(id);
-
-            if (eventVenues == null)
-            {
-                return NotFound();
-            }
-
-            return EventVenuesDTOMapper(eventVenues);
         }
 
         [HttpPut("Venues/{id}")]
@@ -553,14 +641,12 @@ namespace Server.Palaro2026.Controller
                 return BadRequest("Invalid venue ID or request body.");
             }
 
-            // Fetch the existing EventVenues entity from the database
             var existingVenues = await _context.EventVenues.FindAsync(id);
             if (existingVenues == null)
             {
                 return NotFound();
             }
 
-            // Map DTO properties to the entity
             existingVenues.Address = eventVenuesDTO.Address;
             existingVenues.Venue = eventVenuesDTO.Venue;
             existingVenues.Latitude = eventVenuesDTO.Latitude;
@@ -584,7 +670,6 @@ namespace Server.Palaro2026.Controller
 
             return NoContent();
         }
-
 
         [HttpPost("Venues")]
         public async Task<ActionResult<EventVenues>> PostEventVenues(EventsDTO.EventVenues eventVenues)
@@ -654,24 +739,34 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Versus")]
-        public async Task<ActionResult<IEnumerable<EventsDTO.EventVersus>>> GetEventVersus()
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventVersus>>> GetEventVersus(
+        [FromQuery] int? ID = null,
+        [FromQuery] int? score = null,
+        [FromQuery] int? schoolRegionID = null,
+        [FromQuery] string? eventID = null,
+        [FromQuery] DateTime? recentUpdateAt = null)
         {
-            return await _context.EventVersus
+            var query = _context.EventVersus.AsQueryable();
+
+            if (ID.HasValue)
+                query = query.Where(x => x.ID == ID.Value);
+
+            if (score.HasValue)
+                query = query.Where(x => x.Score == score.Value);
+
+            if (schoolRegionID.HasValue)
+                query = query.Where(x => x.SchoolRegionID == schoolRegionID.Value);
+
+            if (!string.IsNullOrEmpty(eventID))
+                query = query.Where(x => x.EventID == eventID);
+
+            if (recentUpdateAt.HasValue)
+                query = query.Where(x => x.RecentUpdateAt == recentUpdateAt.Value);
+
+            return await query
                 .Select(x => EventVersusDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-        }
-
-        [HttpGet("Versus/{id}")]
-        public async Task<ActionResult<EventsDTO.EventVersus>> GetEventVersus(int id)
-        {
-            var eventVersus = await _context.EventVersus.FindAsync(id);
-
-            if (eventVersus == null)
-            {
-                return NotFound();
-            }
-
-            return EventVersusDTOMapper(eventVersus);
         }
 
         [HttpPut("Versus/{id}")]
@@ -682,7 +777,16 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(eventVersus).State = EntityState.Modified;
+            var existingEventVersus = await _context.EventVersus.FindAsync(id);
+            if (existingEventVersus == null)
+            {
+                return NotFound();
+            }
+
+            existingEventVersus.Score = eventVersus.Score;
+            existingEventVersus.SchoolRegionID = eventVersus.SchoolRegionID;
+            existingEventVersus.EventID = eventVersus.EventID;
+            existingEventVersus.RecentUpdateAt = eventVersus.RecentUpdateAt;
 
             try
             {
@@ -694,10 +798,7 @@ namespace Server.Palaro2026.Controller
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();

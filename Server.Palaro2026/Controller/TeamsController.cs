@@ -34,24 +34,34 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Coach")]
-        public async Task<ActionResult<IEnumerable<TeamsDTO.TeamCoachProfiles>>> GetTeamCoachProfiles()
+        public async Task<ActionResult<IEnumerable<TeamsDTO.TeamCoachProfiles>>> GetTeamCoachProfiles(
+        [FromQuery] int? ID = null,
+        [FromQuery] string? firstName = null,
+        [FromQuery] string? lastName = null,
+        [FromQuery] int? schoolRegionID = null,
+        [FromQuery] int? sportSubcategoryID = null)
         {
-            return await _context.TeamCoachProfiles
+            var query = _context.TeamCoachProfiles.AsQueryable();
+
+            if (ID.HasValue)
+                query = query.Where(x => x.ID == ID.Value);
+
+            if (!string.IsNullOrEmpty(firstName))
+                query = query.Where(x => x.FirstName.Contains(firstName));
+
+            if (!string.IsNullOrEmpty(lastName))
+                query = query.Where(x => x.LastName.Contains(lastName));
+
+            if (schoolRegionID.HasValue)
+                query = query.Where(x => x.SchoolRegionID == schoolRegionID.Value);
+
+            if (sportSubcategoryID.HasValue)
+                query = query.Where(x => x.SportSubcategoryID == sportSubcategoryID.Value);
+
+            return await query
                 .Select(x => TeamCoachProfilesDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-        }
-
-        [HttpGet("Coach/{id}")]
-        public async Task<ActionResult<TeamsDTO.TeamCoachProfiles>> GetTeamCoachProfiles(int id)
-        {
-            var teamCoachProfiles = await _context.TeamCoachProfiles.FindAsync(id);
-
-            if (teamCoachProfiles == null)
-            {
-                return NotFound();
-            }
-
-            return TeamCoachProfilesDTOMapper(teamCoachProfiles);
         }
 
         [HttpPut("Coach/{id}")]
@@ -62,7 +72,16 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(teamCoachProfiles).State = EntityState.Modified;
+            var existingCoachProfile = await _context.TeamCoachProfiles.FindAsync(id);
+            if (existingCoachProfile == null)
+            {
+                return NotFound();
+            }
+
+            existingCoachProfile.FirstName = teamCoachProfiles.FirstName;
+            existingCoachProfile.LastName = teamCoachProfiles.LastName;
+            existingCoachProfile.SchoolRegionID = teamCoachProfiles.SchoolRegionID;
+            existingCoachProfile.SportSubcategoryID = teamCoachProfiles.SportSubcategoryID;
 
             try
             {
@@ -74,10 +93,7 @@ namespace Server.Palaro2026.Controller
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
@@ -150,24 +166,34 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Player")]
-        public async Task<ActionResult<IEnumerable<TeamsDTO.TeamPlayerProfiles>>> GetTeamPlayerProfiles()
+        public async Task<ActionResult<IEnumerable<TeamsDTO.TeamPlayerProfiles>>> GetTeamPlayerProfiles(
+        [FromQuery] int? ID = null,
+        [FromQuery] string? firstName = null,
+        [FromQuery] string? lastName = null,
+        [FromQuery] int? schoolID = null,
+        [FromQuery] int? sportSubcategoryID = null)
         {
-            return await _context.TeamPlayerProfiles
+            var query = _context.TeamPlayerProfiles.AsQueryable();
+
+            if (ID.HasValue)
+                query = query.Where(x => x.ID == ID.Value);
+
+            if (!string.IsNullOrEmpty(firstName))
+                query = query.Where(x => x.FirstName.Contains(firstName));
+
+            if (!string.IsNullOrEmpty(lastName))
+                query = query.Where(x => x.LastName.Contains(lastName));
+
+            if (schoolID.HasValue)
+                query = query.Where(x => x.SchoolID == schoolID.Value);
+
+            if (sportSubcategoryID.HasValue)
+                query = query.Where(x => x.SportSubcategoryID == sportSubcategoryID.Value);
+
+            return await query
                 .Select(x => TeamPlayerProfilesDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-        }
-
-        [HttpGet("Player/{id}")]
-        public async Task<ActionResult<TeamsDTO.TeamPlayerProfiles>> GetTeamPlayerProfiles(int id)
-        {
-            var teamPlayerProfiles = await _context.TeamPlayerProfiles.FindAsync(id);
-
-            if (teamPlayerProfiles == null)
-            {
-                return NotFound();
-            }
-
-            return TeamPlayerProfilesDTOMapper(teamPlayerProfiles);
         }
 
         [HttpPut("Player/{id}")]
@@ -178,7 +204,16 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(teamPlayerProfiles).State = EntityState.Modified;
+            var existingPlayerProfile = await _context.TeamPlayerProfiles.FindAsync(id);
+            if (existingPlayerProfile == null)
+            {
+                return NotFound();
+            }
+
+            existingPlayerProfile.FirstName = teamPlayerProfiles.FirstName;
+            existingPlayerProfile.LastName = teamPlayerProfiles.LastName;
+            existingPlayerProfile.SchoolID = teamPlayerProfiles.SchoolID;
+            existingPlayerProfile.SportSubcategoryID = teamPlayerProfiles.SportSubcategoryID;
 
             try
             {
@@ -190,10 +225,7 @@ namespace Server.Palaro2026.Controller
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();

@@ -10,101 +10,119 @@
 @inject HttpClient httpClient
 
 <MudGrid>
-
     <MudItem xs="12">
         <MudText Typo="Typo.h4">Schools</MudText>
         <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
     </MudItem>
-    <MudItem xs="12" sm="6">
-        <MudButton OnClick="OnExpandAddStreamServiceButtonClick" Style="text-transform: none" Variant="Variant.Filled" DropShadow="false">@(_expandedAddStreamService ? "Close" : "Add School")</MudButton>
-        <MudCollapse Expanded="_expandedAddStreamService" Class="pt-5">
-            <MudStack Row>
-                <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetSchoolDivisionsAsync">
-                    <MudVirtualize Items="_schoolRegions" Context="region">
-                        <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
-                    </MudVirtualize>
-                </MudSelect>
-                <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null">
-                    <MudVirtualize Items="_schoolDivisions" Context="division">
-                        <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
-                    </MudVirtualize>
-                </MudSelect>
-            </MudStack>
-            <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable>
-                <MudVirtualize Items="_schoolLevels" Context="level">
-                    <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
-                </MudVirtualize>
-            </MudSelect>
-            <MudTextField @bind-Value="_schoolValue" Immediate Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable />
-            <MudStack Row Style="width: 100%" Justify="Justify.FlexEnd">
-                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" Color="Color.Primary"
-                           Disabled="_addSchoolDisabled" OnClick="ConfirmPostSchoolAsync">Add</MudButton>
-            </MudStack>
-        </MudCollapse>
-    </MudItem>
-    <MudFlexBreak />
-    <MudItem xs="12">
-        <MudTable Outlined Items="_schoolDetails" Context="school" Striped Virtualize="true" Filter="FilterFunc" Elevation="0">
-            <ToolBarContent>
-                <MudText Typo="Typo.h6">List of Schools</MudText>
-                <MudSpacer />
-                <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Filled.Search"
-                              IconSize="Size.Medium" />
-            </ToolBarContent>
-            <ColGroup>
-                <MudHidden Breakpoint="Breakpoint.Xs">
-                    <col style="width: 30%" />
-                    <col style="width: 20%" />
-                    <col style="width: 20%;" />
-                    <col style="width: 25%;" />
-                    <col style="width: 5%;" />
-                </MudHidden>
-            </ColGroup>
-            <HeaderContent>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.School)">
-                        School
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.Level)">
-                        School Level
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.Division)">
-                        Division
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.Region)">
-                        Region
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>Settings</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="School">@school.School</MudTd>
-                <MudTd DataLabel="School Level">@school.Level</MudTd>
-                <MudTd DataLabel="Division">@school.Division</MudTd>
-                <MudTd DataLabel="Region">@school.Region (@school.Abbreviation)</MudTd>
-                <MudTd DataLabel="Settings" Style="text-align: center">
-                    <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenSchoolDialog(school.ID)" />
-                </MudTd>
-            </RowTemplate>
-            <NoRecordsContent>
-                <MudText Typo="Typo.caption">No matching records found.</MudText>
-            </NoRecordsContent>
-            <LoadingContent>
-                <MudProgressLinear Indeterminate />
-            </LoadingContent>
-            <PagerContent>
-                <MudTablePager />
-            </PagerContent>
-        </MudTable>
-    </MudItem>
+    @if (_schoolDetails != null && _schoolDetails.Any())
+    {
+        <MudItem xs="12" sm="6">
+            <MudButton OnClick="OnExpandAddStreamServiceButtonClick" Style="text-transform: none" Variant="Variant.Filled" DropShadow="false">@(_expandedAddStreamService ? "Close" : "Add School")</MudButton>
+            <MudCollapse Expanded="_expandedAddStreamService" Class="pt-5">
+                <MudPaper Outlined Class="pa-5">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="7">
+                            <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSchoolDivisionIDValue = null)" TextChanged="GetSchoolDivisionsAsync">
+                                <MudVirtualize Items="_schoolRegions" Context="region">
+                                    <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
+                                </MudVirtualize>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="5">
+                            <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null">
+                                <MudVirtualize Items="_schoolDivisions" Context="division">
+                                    <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
+                                </MudVirtualize>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                                <MudVirtualize Items="_schoolLevels" Context="level">
+                                    <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
+                                </MudVirtualize>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="8">
+                            <MudTextField @bind-Value="_schoolValue" Immediate Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
+                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
+                                           Disabled="_addSchoolDisabled" OnClick="ConfirmPostSchoolAsync">Add</MudButton>
+                            </MudStack>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudCollapse>
+        </MudItem>
+        <MudFlexBreak />
+        <MudItem xs="12">
+            <MudTable Outlined Items="_schoolDetails" Context="school" Striped Virtualize="true" Filter="FilterFunc" Elevation="0">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">List of Schools</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium" />
+                </ToolBarContent>
+                <ColGroup>
+                    <MudHidden Breakpoint="Breakpoint.Xs">
+                        <col style="width: 30%" />
+                        <col style="width: 20%" />
+                        <col style="width: 20%;" />
+                        <col style="width: 25%;" />
+                        <col style="width: 5%;" />
+                    </MudHidden>
+                </ColGroup>
+                <HeaderContent>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.School)">
+                            School
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.Level)">
+                            School Level
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.Division)">
+                            Division
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object>(x=>x.Region)">
+                            Region
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>Settings</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="School">@school.School</MudTd>
+                    <MudTd DataLabel="School Level">@school.Level</MudTd>
+                    <MudTd DataLabel="Division">@school.Division</MudTd>
+                    <MudTd DataLabel="Region">@school.Region (@school.Abbreviation)</MudTd>
+                    <MudTd DataLabel="Settings" Style="text-align: center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenSchoolDialog(school.ID)" />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.caption">No matching records found.</MudText>
+                </NoRecordsContent>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        </MudItem>
+    }
+    else
+    {
+        <MudItem xs="12">
+            <MudProgressLinear Indeterminate="true" />
+        </MudItem>
+    }
 </MudGrid>
 
 @code {
@@ -139,6 +157,14 @@
     private void OnExpandAddStreamServiceButtonClick()
     {
         _expandedAddStreamService = !_expandedAddStreamService;
+    }
+
+    private void ClearFields()
+    {
+        _selectedSchoolRegionIDValue = null;
+        _selectedSchoolDivisionIDValue = null;
+        _selectedSchoolLevelIDValue = null;
+        _schoolValue = null;
     }
 
     private bool FilterFunc(SchoolDTO.SchoolDetails.Schools schoolDetails)
@@ -338,12 +364,10 @@
             HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
-            _selectedSchoolRegionIDValue = null;
-            _selectedSchoolDivisionIDValue = null;
-            _selectedSchoolLevelIDValue = null;
-            _schoolValue = null;
+            ClearFields();
 
             await GetSchoolDetailsAsync();
+
             Snackbar.Add("Event venue added successfully.", Severity.Success);
         }
         catch (HttpRequestException ex)

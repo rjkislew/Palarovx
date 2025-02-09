@@ -9,34 +9,42 @@
 
 <MudDialog>
     <DialogContent>
-        <MudText Typo="Typo.h6">@_dialogHeader</MudText>
-        <MudDivider Class="mb-5" />
-        <MudStack>
-            <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="OnRegionClear" TextChanged="GetSchoolDivisionsAsync">
-                <MudVirtualize Items="_schoolRegions" Context="region">
-                    <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
-                </MudVirtualize>
-            </MudSelect>
-            <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null">
-                <MudVirtualize Items="_schoolDivisions" Context="division">
-                    <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
-                </MudVirtualize>
-            </MudSelect>
-            <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable>
-                <MudVirtualize Items="_schoolLevels" Context="level">
-                    <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
-                </MudVirtualize>
-            </MudSelect>
-            <MudTextField @bind-Value="_schoolValue" Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable />
-        </MudStack>
-        <MudDivider Class="mt-10 mb-2" />
-        <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
-            <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteSchoolAsync">Delete</MudButton>
-            <MudStack Row Justify="Justify.SpaceBetween">
-                <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
-                <MudButton Style="text-transform: none" Color="Color.Success" DropShadow="false" OnClick="ConfirmUpdateSchoolAsync" Disabled="_editSchoolButtonDisabled">Update</MudButton>
+        @if (_school != null)
+        {
+            <MudText Typo="Typo.h6">@_dialogHeader</MudText>
+            <MudDivider Class="mb-5" />
+            <MudStack>
+                <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="OnRegionClear" TextChanged="GetSchoolDivisionsAsync">
+                    <MudVirtualize Items="_schoolRegions" Context="region">
+                        <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+                <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null">
+                    <MudVirtualize Items="_schoolDivisions" Context="division">
+                        <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+                <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                    <MudVirtualize Items="_schoolLevels" Context="level">
+                        <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+                <MudTextField @bind-Value="_schoolValue" Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable />
             </MudStack>
-        </MudStack>
+            <MudDivider Class="mt-10 mb-2" />
+            <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteSchoolAsync">Delete</MudButton>
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+                    <MudButton Style="text-transform: none" Color="Color.Success" DropShadow="false" OnClick="ConfirmUpdateSchoolAsync" Disabled="_editSchoolButtonDisabled">Update</MudButton>
+                </MudStack>
+            </MudStack>
+        }
+        else
+        {
+            <MudText Typo="Typo.h6">Loading School Settings</MudText>
+            <MudProgressLinear Indeterminate="true" />
+        }
     </DialogContent>
 </MudDialog>
 
@@ -90,6 +98,7 @@
     _selectedSchoolLevelIDValue == null ||
     string.IsNullOrEmpty(_schoolValue);
 
+    private List<SchoolDTO.Schools>? _school;
     private List<SchoolDTO.SchoolRegions>? _schoolRegions;
     private List<SchoolDTO.SchoolDivisions>? _schoolDivisions;
     private List<SchoolDTO.SchoolLevels>? _schoolLevels;
@@ -131,39 +140,40 @@
         await GetSchoolsOnDialogOpenAsync(selectedSchoolID);
         await GetSchoolDivisionsOnDialogOpenAsync();
         await GetSchoolLevelsOnDialogOpenAsync();
-        StateHasChanged();
     }
-
     private async Task GetSchoolsOnDialogOpenAsync(int schoolID)
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Schools/{schoolID}";
+            string url = $"{apiService.Palaro2026API}/Schools?id={schoolID}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode();
 
-            string responseStream = await httpResponse.Content.ReadAsStringAsync();
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var school = JsonSerializer.Deserialize<SchoolDTO.Schools>(responseStream, options);
+            _school = await JsonSerializer.DeserializeAsync<List<SchoolDTO.Schools>>(responseStream, options);
 
-            if (school != null)
+            if (_school != null)
             {
+                var selectedSchool = _school.First();
                 // Title
-                _dialogHeader = $"Update: {school.School}";
+                _dialogHeader = $"Update: {selectedSchool.School}";
 
                 // Data
-                _selectedSchoolDivisionIDValue = school.SchoolDivisionID;
-                _schoolValue = school.School;
-                _selectedSchoolLevelIDValue = school.SchoolLevelsID;
+                _selectedSchoolDivisionIDValue = selectedSchool.SchoolDivisionID;
+                _schoolValue = selectedSchool.School;
+                _selectedSchoolLevelIDValue = selectedSchool.SchoolLevelsID;
             }
+
+            StateHasChanged();
         }
         catch (HttpRequestException ex)
         {
-            // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
+
 
     private async Task GetSchoolRegionsOnDialogOpenAsync()
     {
@@ -177,6 +187,8 @@
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
+
+            StateHasChanged();
         }
         catch (HttpRequestException ex)
         {
@@ -206,6 +218,8 @@
             }
 
             await GetSchoolRegionsOnDialogOpenAsync();
+
+            StateHasChanged();
         }
         catch (HttpRequestException ex)
         {
@@ -227,7 +241,7 @@
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolDivisions>>(responseStream, options);
 
-
+            StateHasChanged();
         }
         catch (HttpRequestException ex)
         {
@@ -253,6 +267,8 @@
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolLevels>>(responseStream, options);
+
+            StateHasChanged();
         }
         catch (HttpRequestException ex)
         {
@@ -260,8 +276,6 @@
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
-
-
 
     private async Task UpdateSchoolAsync()
     {

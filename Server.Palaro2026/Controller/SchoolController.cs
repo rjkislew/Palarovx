@@ -27,6 +27,7 @@ namespace Server.Palaro2026.Controller
                     .Include(s => s.SchoolDivision)
                         .ThenInclude(d => d!.SchoolRegion)
                     .Include(s => s.SchoolLevels)
+                    .AsNoTracking()
                     .ToListAsync();
 
                 var schoolDTO = schools
@@ -85,20 +86,8 @@ namespace Server.Palaro2026.Controller
 
             return await query
                 .Select(x => SchoolsDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult<SchoolDTO.Schools>> GetSchool(int id)
-        {
-            var school = await _context.Schools.FindAsync(id);
-
-            if (school == null)
-            {
-                return NotFound();
-            }
-
-            return SchoolsDTOMapper(school);
         }
 
         [HttpPut("{id}")]
@@ -245,7 +234,10 @@ namespace Server.Palaro2026.Controller
         [FromQuery] int? schoolRegionID = null,
         [FromQuery] string? billetingQuarter = null,
         [FromQuery] string? address = null,
-        [FromQuery] string? contactPerson = null)
+        [FromQuery] decimal? latitude = null,
+        [FromQuery] decimal? longitude = null,
+        [FromQuery] string? contactPerson = null,
+        [FromQuery] string? contactPersonNumber = null)
         {
             var query = _context.SchoolBilletingQuarters.AsQueryable();
 
@@ -261,25 +253,22 @@ namespace Server.Palaro2026.Controller
             if (!string.IsNullOrEmpty(address))
                 query = query.Where(x => x.Address.Contains(address));
 
+            if (latitude.HasValue)
+                query = query.Where(x => x.Latitude == latitude.Value);
+
+            if (longitude.HasValue)
+                query = query.Where(x => x.Longitude == longitude.Value);
+
             if (!string.IsNullOrEmpty(contactPerson))
                 query = query.Where(x => x.ContactPerson.Contains(contactPerson));
 
+            if (!string.IsNullOrEmpty(contactPersonNumber))
+                query = query.Where(x => x.ContactPersonNumber.Contains(contactPersonNumber));
+
             return await query
                 .Select(x => SchoolBilletingQuartersDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-        }
-
-        [HttpGet("BilletingQuarters/{id}")]
-        public async Task<ActionResult<SchoolDTO.SchoolBilletingQuarters>> GetSchoolBilletingQuarter(int id)
-        {
-            var billetingQuarter = await _context.SchoolBilletingQuarters.FindAsync(id);
-
-            if (billetingQuarter == null)
-            {
-                return NotFound();
-            }
-
-            return SchoolBilletingQuartersDTOMapper(billetingQuarter);
         }
 
         [HttpPut("BilletingQuarters/{id}")]
@@ -290,21 +279,19 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            // Fetch the existing entity from the database
-            var existingEntity = await _context.SchoolBilletingQuarters.FindAsync(id);
-            if (existingEntity == null)
+            var existingBilletingQuarter = await _context.SchoolBilletingQuarters.FindAsync(id);
+            if (existingBilletingQuarter == null)
             {
                 return NotFound();
             }
 
-            // Update properties
-            existingEntity.SchoolRegionID = schoolBilletingQuarters.SchoolRegionID;
-            existingEntity.BilletingQuarter = schoolBilletingQuarters.BilletingQuarter;
-            existingEntity.Address = schoolBilletingQuarters.Address;
-            existingEntity.Latitude = schoolBilletingQuarters.Latitude;
-            existingEntity.Longitude = schoolBilletingQuarters.Longitude;
-            existingEntity.ContactPerson = schoolBilletingQuarters.ContactPerson;
-            existingEntity.ContactPersonNumber = schoolBilletingQuarters.ContactPersonNumber;
+            existingBilletingQuarter.SchoolRegionID = schoolBilletingQuarters.SchoolRegionID;
+            existingBilletingQuarter.BilletingQuarter = schoolBilletingQuarters.BilletingQuarter;
+            existingBilletingQuarter.Address = schoolBilletingQuarters.Address;
+            existingBilletingQuarter.Latitude = schoolBilletingQuarters.Latitude;
+            existingBilletingQuarter.Longitude = schoolBilletingQuarters.Longitude;
+            existingBilletingQuarter.ContactPerson = schoolBilletingQuarters.ContactPerson;
+            existingBilletingQuarter.ContactPersonNumber = schoolBilletingQuarters.ContactPersonNumber;
 
             try
             {
@@ -324,7 +311,6 @@ namespace Server.Palaro2026.Controller
 
             return NoContent();
         }
-
 
         [HttpPost("BilletingQuarters")]
         public async Task<ActionResult<SchoolBilletingQuarters>> PostSchoolBilletingQuarters(SchoolDTO.SchoolBilletingQuarters schoolBilletingQuarters)
@@ -399,6 +385,7 @@ namespace Server.Palaro2026.Controller
 
             return await query
                 .Select(x => SchoolDivisionsDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
         }
 
@@ -410,7 +397,14 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(schoolDivisions).State = EntityState.Modified;
+            var existingDivision = await _context.SchoolDivisions.FindAsync(id);
+            if (existingDivision == null)
+            {
+                return NotFound();
+            }
+
+            existingDivision.Division = schoolDivisions.Division;
+            existingDivision.SchoolRegionID = schoolDivisions.SchoolRegionID;
 
             try
             {
@@ -484,7 +478,6 @@ namespace Server.Palaro2026.Controller
 
 
         // School Level
-
         private static SchoolDTO.SchoolLevels SchoolLevelsDTOMapper(SchoolLevels schoolLevels) =>
            new SchoolDTO.SchoolLevels
            {
@@ -507,6 +500,7 @@ namespace Server.Palaro2026.Controller
 
             return await query
                 .Select(x => SchoolLevelsDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
         }
 
@@ -518,7 +512,13 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(schoolLevels).State = EntityState.Modified;
+            var existingLevel = await _context.SchoolLevels.FindAsync(id);
+            if (existingLevel == null)
+            {
+                return NotFound();
+            }
+
+            existingLevel.Level = schoolLevels.Level;
 
             try
             {
@@ -619,6 +619,7 @@ namespace Server.Palaro2026.Controller
 
             return await query
                 .Select(x => SchoolRegionsDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
         }
 
@@ -630,7 +631,14 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(schoolRegions).State = EntityState.Modified;
+            var existingRegion = await _context.SchoolRegions.FindAsync(id);
+            if (existingRegion == null)
+            {
+                return NotFound();
+            }
+
+            existingRegion.Region = schoolRegions.Region;
+            existingRegion.Abbreviation = schoolRegions.Abbreviation;
 
             try
             {

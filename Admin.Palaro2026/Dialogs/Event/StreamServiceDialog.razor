@@ -9,18 +9,26 @@
 
 <MudDialog>
     <DialogContent>
-        <MudText Typo="Typo.h6">@_dialogHeader</MudText>
-        <MudDivider Class="mb-5" />
-        <MudTextField @bind-Value="_streamServiceValue" Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-        <MudTextField @bind-Value="_streamURLValue" Margin="Margin.Dense" Label="URL" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-        <MudDivider Class="mt-10 mb-2" />
-        <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
-            <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteStreamAsync">Delete</MudButton>
-            <MudStack Row Justify="Justify.SpaceBetween">
-                <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
-                <MudButton Style="text-transform: none" Color="Color.Success" DropShadow="false" OnClick="ConfirmUpdateStreamAsync">Update</MudButton>
+        @if (_eventStream != null)
+        {
+            <MudText Typo="Typo.h6">@_dialogHeader</MudText>
+            <MudDivider Class="mb-5" />
+            <MudTextField @bind-Value="_streamServiceValue" Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            <MudTextField @bind-Value="_streamURLValue" Margin="Margin.Dense" Label="URL" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            <MudDivider Class="mt-10 mb-2" />
+            <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteStreamAsync">Delete</MudButton>
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+                    <MudButton Style="text-transform: none" Color="Color.Success" DropShadow="false" OnClick="ConfirmUpdateStreamAsync">Update</MudButton>
+                </MudStack>
             </MudStack>
-        </MudStack>
+        }
+        else
+        {
+            <MudText Typo="Typo.h6">Loading Event Stream Settings</MudText>
+            <MudProgressLinear Indeterminate="true" />
+        }
     </DialogContent>
 </MudDialog>
 
@@ -81,6 +89,7 @@
     string.IsNullOrEmpty(_streamServiceValue) ||
     string.IsNullOrEmpty(_streamURLValue);
 
+    private List<EventsDTO.EventStreams>? _eventStream;
     public class EventsDTO
     {
         public class EventStreams
@@ -100,23 +109,24 @@
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Events/Streams/{SelectedStreamID}";
+            string url = $"{apiService.Palaro2026API}/Events/Streams?id={SelectedStreamID}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode();
 
-            string responseStream = await httpResponse.Content.ReadAsStringAsync();
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var eventStreamsDetails = JsonSerializer.Deserialize<EventsDTO.EventStreams>(responseStream, options);
+            _eventStream = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventStreams>>(responseStream, options);
 
-            if (eventStreamsDetails != null)
+            if (_eventStream != null)
             {
+                var selectedEventStream = _eventStream.First();
                 // Title
-                _dialogHeader = $"Update: {eventStreamsDetails.StreamService}";
+                _dialogHeader = $"Update: {selectedEventStream.StreamService}";
 
                 // Content
-                _streamServiceValue = eventStreamsDetails.StreamService;
-                _streamURLValue = eventStreamsDetails.StreamURL;
+                _streamServiceValue = selectedEventStream.StreamService;
+                _streamURLValue = selectedEventStream.StreamURL;
             }
         }
         catch (HttpRequestException ex)

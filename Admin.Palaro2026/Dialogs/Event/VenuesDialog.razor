@@ -9,24 +9,32 @@
 
 <MudDialog>
     <DialogContent>
-        <MudText Typo="Typo.h6" >@_dialogHeader</MudText>
-        <MudDivider Class="mb-5" />
-        <MudStack Row>
-            <MudTextField @bind-Value="_addressValue" Immediate Margin="Margin.Dense" Label="Address" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-            <MudTextField @bind-Value="_venueValue" Immediate Margin="Margin.Dense" Label="Venue" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-        </MudStack>
-        <MudStack Row>
-            <MudTextField T="decimal?" @bind-Value="_latitudeValue" Immediate Margin="Margin.Dense" Label="Latitude" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-            <MudTextField T="decimal?" @bind-Value="_longitudeValue" Immediate Margin="Margin.Dense" Label="Longitude" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-        </MudStack>
-        <MudDivider Class="mt-10 mb-2" />
-        <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%" >
-            <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteVenueAsync">Delete</MudButton>
-            <MudStack Row Justify="Justify.SpaceBetween">
-                <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
-                <MudButton Style="text-transform: none" Color="Color.Success" DropShadow="false" OnClick="ConfirmUpdateVenueAsync" Disabled="_editVenueButtonDisabled">Update</MudButton>
+        @if (_eventVenue != null)
+        {
+            <MudText Typo="Typo.h6">@_dialogHeader</MudText>
+            <MudDivider Class="mb-5" />
+            <MudStack Row>
+                <MudTextField @bind-Value="_addressValue" Immediate Margin="Margin.Dense" Label="Address" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+                <MudTextField @bind-Value="_venueValue" Immediate Margin="Margin.Dense" Label="Venue" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
             </MudStack>
-        </MudStack>
+            <MudStack Row>
+                <MudTextField T="decimal?" @bind-Value="_latitudeValue" Immediate Margin="Margin.Dense" Label="Latitude" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+                <MudTextField T="decimal?" @bind-Value="_longitudeValue" Immediate Margin="Margin.Dense" Label="Longitude" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            </MudStack>
+            <MudDivider Class="mt-10 mb-2" />
+            <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteVenueAsync">Delete</MudButton>
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+                    <MudButton Style="text-transform: none" Color="Color.Success" DropShadow="false" OnClick="ConfirmUpdateVenueAsync" Disabled="_editVenueButtonDisabled">Update</MudButton>
+                </MudStack>
+            </MudStack>
+        }
+        else
+        {
+            <MudText Typo="Typo.h6">Loading Event Venue Settings</MudText>
+            <MudProgressLinear Indeterminate="true" />
+        }
     </DialogContent>
 </MudDialog>
 
@@ -80,6 +88,8 @@
     _latitudeValue == null ||
     _longitudeValue == null;
 
+    private List<EventsDTO.EventVenues>? _eventVenue;
+
     public class EventsDTO
     {
         public class EventVenues
@@ -101,26 +111,26 @@
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Events/Venues/{ID}";
+            string url = $"{apiService.Palaro2026API}/Events/Venues?id={ID}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
-            string responseStream = await httpResponse.Content.ReadAsStringAsync();
-            Console.WriteLine(responseStream);
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var eventVenueDetails = JsonSerializer.Deserialize<EventsDTO.EventVenues>(responseStream, options);
+            _eventVenue = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVenues>>(responseStream, options);
 
-            if (eventVenueDetails != null)
+            if (_eventVenue != null)
             {
+                var selectedEventVenue = _eventVenue.First();
                 // Title
-                _dialogHeader = $"Update: {eventVenueDetails.Venue} - ({eventVenueDetails.Address})";
+                _dialogHeader = $"Update: {selectedEventVenue.Venue} - ({selectedEventVenue.Address})";
 
                 // Data
-                _addressValue = eventVenueDetails.Address;
-                _venueValue= eventVenueDetails.Venue;
-                _latitudeValue= eventVenueDetails.Latitude;
-                _longitudeValue= eventVenueDetails.Longitude;
+                _addressValue = selectedEventVenue.Address;
+                _venueValue = selectedEventVenue.Venue;
+                _latitudeValue = selectedEventVenue.Latitude;
+                _longitudeValue = selectedEventVenue.Longitude;
 
             }
         }

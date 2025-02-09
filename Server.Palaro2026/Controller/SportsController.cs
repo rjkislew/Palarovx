@@ -29,38 +29,28 @@ namespace Server.Palaro2026.Controller
         [HttpGet]
         public async Task<ActionResult<IEnumerable<SportsDTO.Sports>>> GetSports(
         [FromQuery] int? id = null,
+        [FromQuery] string? sport = null,
+        [FromQuery] string? description = null,
         [FromQuery] int? sportCategoryID = null)
         {
             var query = _context.Sports.AsQueryable();
 
             if (id.HasValue)
-            {
-                query = query.Where(x => x.ID == id);
-            }
+                query = query.Where(x => x.ID == id.Value);
+
+            if (!string.IsNullOrEmpty(sport))
+                query = query.Where(x => x.Sport.Contains(sport));
+
+            if (!string.IsNullOrEmpty(description))
+                query = query.Where(x => x.Description.Contains(description));
+
             if (sportCategoryID.HasValue)
-            {
-                query = query.Where(x => x.SportCategoryID == sportCategoryID);
-            }
+                query = query.Where(x => x.SportCategoryID == sportCategoryID.Value);
 
-            // Map the results to DTO and return
-            var result = await query
+            return await query
                 .Select(x => SportsDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-
-            return result;
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult<SportsDTO.Sports>> GetSports(int id)
-        {
-            var sports = await _context.Sports.FindAsync(id);
-
-            if (sports == null)
-            {
-                return NotFound();
-            }
-
-            return SportsDTOMapper(sports);
         }
 
         [HttpPut("{id}")]
@@ -71,7 +61,15 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(sports).State = EntityState.Modified;
+            var existingSport = await _context.Sports.FindAsync(id);
+            if (existingSport == null)
+            {
+                return NotFound();
+            }
+
+            existingSport.Sport = sports.Sport;
+            existingSport.Description = sports.Description;
+            existingSport.SportCategoryID = sports.SportCategoryID;
 
             try
             {
@@ -83,10 +81,7 @@ namespace Server.Palaro2026.Controller
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
@@ -146,7 +141,6 @@ namespace Server.Palaro2026.Controller
 
 
 
-
         // Sport Categories
         private static SportsDTO.SportCategories SportCategoriesDTOMapper(SportCategories sportCategories) =>
            new SportsDTO.SportCategories
@@ -157,34 +151,21 @@ namespace Server.Palaro2026.Controller
 
         [HttpGet("Categories")]
         public async Task<ActionResult<IEnumerable<SportsDTO.SportCategories>>> GetSportCategories(
-        [FromQuery] int? id = null)
+        [FromQuery] int? id = null,
+        [FromQuery] string? category = null)
         {
             var query = _context.SportCategories.AsQueryable();
 
             if (id.HasValue)
-            {
-                query = query.Where(x => x.ID == id);
-            }
+                query = query.Where(x => x.ID == id.Value);
 
-            // Map the results to DTO and return
-            var categories = await query
+            if (!string.IsNullOrEmpty(category))
+                query = query.Where(x => x.Category.Contains(category));
+
+            return await query
                 .Select(x => SportCategoriesDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-
-            return Ok(categories);
-        }
-
-        [HttpGet("Categories/{id}")]
-        public async Task<ActionResult<SportsDTO.SportCategories>> GetSportCategories(int id)
-        {
-            var sportCategories = await _context.SportCategories.FindAsync(id);
-
-            if (sportCategories == null)
-            {
-                return NotFound();
-            }
-
-            return SportCategoriesDTOMapper(sportCategories);
         }
 
         [HttpPut("Categories/{id}")]
@@ -195,7 +176,13 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(sportCategories).State = EntityState.Modified;
+            var existingCategory = await _context.SportCategories.FindAsync(id);
+            if (existingCategory == null)
+            {
+                return NotFound();
+            }
+
+            existingCategory.Category = sportCategories.Category;
 
             try
             {
@@ -207,10 +194,7 @@ namespace Server.Palaro2026.Controller
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
@@ -259,7 +243,6 @@ namespace Server.Palaro2026.Controller
 
             return NoContent();
         }
-
         private bool SportCategoriesExists(int id)
         {
             return _context.SportCategories.Any(e => e.ID == id);
@@ -279,34 +262,21 @@ namespace Server.Palaro2026.Controller
 
         [HttpGet("GenderCategories")]
         public async Task<ActionResult<IEnumerable<SportsDTO.SportGenderCategories>>> GetSportGenderCategories(
-        [FromQuery] int? id = null)
+        [FromQuery] int? id = null,
+        [FromQuery] string? gender = null)
         {
             var query = _context.SportGenderCategories.AsQueryable();
 
             if (id.HasValue)
-            {
-                query = query.Where(x => x.ID == id);
-            }
+                query = query.Where(x => x.ID == id.Value);
 
-            // Map the results to DTO and return
-            var genderCategories = await query
+            if (!string.IsNullOrEmpty(gender))
+                query = query.Where(x => x.Gender.Contains(gender));
+
+            return await query
                 .Select(x => SportGenderCategoriesDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-
-            return Ok(genderCategories);
-        }
-
-        [HttpGet("GenderCategories/{id}")]
-        public async Task<ActionResult<SportsDTO.SportGenderCategories>> GetSportGenderCategories(int id)
-        {
-            var sportGenderCategories = await _context.SportGenderCategories.FindAsync(id);
-
-            if (sportGenderCategories == null)
-            {
-                return NotFound();
-            }
-
-            return SportGenderCategoriesDTOMapper(sportGenderCategories);
         }
 
         [HttpPut("GenderCategories/{id}")]
@@ -317,7 +287,13 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(sportGenderCategories).State = EntityState.Modified;
+            var existingGenderCategory = await _context.SportGenderCategories.FindAsync(id);
+            if (existingGenderCategory == null)
+            {
+                return NotFound();
+            }
+
+            existingGenderCategory.Gender = sportGenderCategories.Gender;
 
             try
             {
@@ -329,10 +305,7 @@ namespace Server.Palaro2026.Controller
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
@@ -403,49 +376,33 @@ namespace Server.Palaro2026.Controller
 
         [HttpGet("Subcategories")]
         public async Task<ActionResult<IEnumerable<SportsDTO.SportSubcategories>>> GetSportSubcategories(
-        [FromQuery] int? ID,
-        [FromQuery] int? sportID,
-        [FromQuery] int? sportGenderCategoryID,
-        [FromQuery] int? schoolLevelID)
+        [FromQuery] int? ID = null,
+        [FromQuery] string? subcategory = null,
+        [FromQuery] int? sportID = null,
+        [FromQuery] int? sportGenderCategoryID = null,
+        [FromQuery] int? schoolLevelID = null)
         {
             var query = _context.SportSubcategories.AsQueryable();
 
             if (ID.HasValue)
-            {
-                query = query.Where(x => x.ID == ID);
-            }
+                query = query.Where(x => x.ID == ID.Value);
+
+            if (!string.IsNullOrEmpty(subcategory))
+                query = query.Where(x => x.Subcategory.Contains(subcategory));
+
             if (sportID.HasValue)
-            {
-                query = query.Where(x => x.SportID == sportID);
-            }
+                query = query.Where(x => x.SportID == sportID.Value);
+
             if (sportGenderCategoryID.HasValue)
-            {
-                query = query.Where(x => x.SportGenderCategoryID == sportGenderCategoryID);
-            }
+                query = query.Where(x => x.SportGenderCategoryID == sportGenderCategoryID.Value);
+
             if (schoolLevelID.HasValue)
-            {
-                query = query.Where(x => x.SchoolLevelID == schoolLevelID);
-            }
+                query = query.Where(x => x.SchoolLevelID == schoolLevelID.Value);
 
-            var result = await query
+            return await query
                 .Select(x => SportSubcategoriesDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-
-            return Ok(result);
-        }
-
-
-        [HttpGet("Subcategories/{id}")]
-        public async Task<ActionResult<SportsDTO.SportSubcategories>> GetSportSubcategories(int id)
-        {
-            var sportSubcategories = await _context.SportSubcategories.FindAsync(id);
-
-            if (sportSubcategories == null)
-            {
-                return NotFound();
-            }
-
-            return SportSubcategoriesDTOMapper(sportSubcategories);
         }
 
         [HttpPut("Subcategories/{id}")]
@@ -456,7 +413,16 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(sportSubcategories).State = EntityState.Modified;
+            var existingSubcategory = await _context.SportSubcategories.FindAsync(id);
+            if (existingSubcategory == null)
+            {
+                return NotFound();
+            }
+
+            existingSubcategory.Subcategory = sportSubcategories.Subcategory;
+            existingSubcategory.SportID = sportSubcategories.SportID;
+            existingSubcategory.SportGenderCategoryID = sportSubcategories.SportGenderCategoryID;
+            existingSubcategory.SchoolLevelID = sportSubcategories.SchoolLevelID;
 
             try
             {
@@ -468,10 +434,7 @@ namespace Server.Palaro2026.Controller
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();

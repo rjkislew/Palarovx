@@ -32,11 +32,11 @@ namespace Server.Palaro2026.Controller
                     ID = u.ID,
                     Name = $"{u.FirstName} {u.LastName}"
                 })
+                .AsNoTracking()
                 .ToListAsync();
 
             return Ok(users);
         }
-
 
         private static UsersDTO.Users UsersDTOMapper(Users users) =>
            new UsersDTO.Users
@@ -58,20 +58,8 @@ namespace Server.Palaro2026.Controller
         {
             return await _context.Users
                 .Select(x => UsersDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult<UsersDTO.Users>> GetUsers(string id)
-        {
-            var users = await _context.Users.FindAsync(id);
-
-            if (users == null)
-            {
-                return NotFound();
-            }
-
-            return UsersDTOMapper(users);
         }
 
         [HttpPut("{id}")]
@@ -82,7 +70,21 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(users).State = EntityState.Modified;
+            var existingUser = await _context.Users.FindAsync(id);
+            if (existingUser == null)
+            {
+                return NotFound();
+            }
+
+            existingUser.FirstName = users.FirstName;
+            existingUser.LastName = users.LastName;
+            existingUser.Username = users.Username;
+            existingUser.PasswordHash = users.PasswordHash;
+            existingUser.CreatedAt = users.CreatedAt;
+            existingUser.UpdateAt = users.UpdateAt;
+            existingUser.LastLogin = users.LastLogin;
+            existingUser.Active = users.Active;
+            existingUser.RoleID = users.RoleID;
 
             try
             {
@@ -94,10 +96,7 @@ namespace Server.Palaro2026.Controller
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
@@ -178,20 +177,8 @@ namespace Server.Palaro2026.Controller
         {
             return await _context.UserRoles
                 .Select(x => UserRolesDTOMapper(x))
+                .AsNoTracking()
                 .ToListAsync();
-        }
-
-        [HttpGet("Roles/{id}")]
-        public async Task<ActionResult<UsersDTO.UserRoles>> GetUserRoles(int id)
-        {
-            var userRoles = await _context.UserRoles.FindAsync(id);
-
-            if (userRoles == null)
-            {
-                return NotFound();
-            }
-
-            return UserRolesDTOMapper(userRoles);
         }
 
         [HttpPut("Roles/{id}")]
@@ -202,7 +189,14 @@ namespace Server.Palaro2026.Controller
                 return BadRequest();
             }
 
-            _context.Entry(userRoles).State = EntityState.Modified;
+            var existingUserRole = await _context.UserRoles.FindAsync(id);
+            if (existingUserRole == null)
+            {
+                return NotFound();
+            }
+
+            existingUserRole.Role = userRoles.Role;
+            existingUserRole.Description = userRoles.Description;
 
             try
             {
@@ -214,10 +208,7 @@ namespace Server.Palaro2026.Controller
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
