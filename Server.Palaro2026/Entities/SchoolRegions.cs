@@ -15,9 +15,9 @@ public partial class SchoolRegions
 
     public virtual ICollection<EventVersus> EventVersus { get; set; } = new List<EventVersus>();
 
+    public virtual ICollection<ProfileCoaches> ProfileCoaches { get; set; } = new List<ProfileCoaches>();
+
     public virtual ICollection<SchoolBilletingQuarters> SchoolBilletingQuarters { get; set; } = new List<SchoolBilletingQuarters>();
 
     public virtual ICollection<SchoolDivisions> SchoolDivisions { get; set; } = new List<SchoolDivisions>();
-
-    public virtual ICollection<TeamCoachProfiles> TeamCoachProfiles { get; set; } = new List<TeamCoachProfiles>();
 }

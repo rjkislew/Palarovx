@@ -1,6 +1,6 @@
 ﻿namespace Server.Palaro2026.DTO;
 
-public class SchoolDTO
+public class SchoolsDTO
 {
     public class SchoolDetails
     {

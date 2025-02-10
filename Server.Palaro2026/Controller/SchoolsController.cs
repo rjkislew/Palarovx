@@ -19,7 +19,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpGet("Details")]
-        public async Task<ActionResult<List<SchoolDTO.SchoolDetails.Schools>>> GetSchoolDetails()
+        public async Task<ActionResult<List<SchoolsDTO.SchoolDetails.Schools>>> GetSchoolDetails()
         {
             try
             {
@@ -30,9 +30,9 @@ namespace Server.Palaro2026.Controller
                     .AsNoTracking()
                     .ToListAsync();
 
-                var schoolDTO = schools
+                var SchoolsDTO = schools
                     .Where(s => s.SchoolDivision?.SchoolRegion != null) // Ensure valid data
-                    .Select(s => new SchoolDTO.SchoolDetails.Schools
+                    .Select(s => new SchoolsDTO.SchoolDetails.Schools
                     {
                         ID = s.ID,
                         School = s.School,
@@ -43,7 +43,7 @@ namespace Server.Palaro2026.Controller
                     })
                     .ToList();
 
-                return Ok(schoolDTO);
+                return Ok(SchoolsDTO);
             }
             catch (Exception)
             {
@@ -54,8 +54,8 @@ namespace Server.Palaro2026.Controller
 
         // Schools
 
-        private static SchoolDTO.Schools SchoolsDTOMapper(Schools schools) =>
-           new SchoolDTO.Schools
+        private static SchoolsDTO.Schools SchoolsDTOMapper(Schools schools) =>
+           new SchoolsDTO.Schools
            {
                ID = schools.ID,
                School = schools.School,
@@ -64,7 +64,7 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<SchoolDTO.Schools>>> GetSchools(
+        public async Task<ActionResult<IEnumerable<SchoolsDTO.Schools>>> GetSchools(
         [FromQuery] int? id = null,
         [FromQuery] string? school = null,
         [FromQuery] int? schoolDivisionID = null,
@@ -91,7 +91,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutSchools(int id, SchoolDTO.Schools schoolsDto)
+        public async Task<IActionResult> PutSchools(int id, SchoolsDTO.Schools schoolsDto)
         {
             if (schoolsDto == null || id != schoolsDto.ID)
             {
@@ -127,7 +127,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPost]
-        public async Task<ActionResult<Schools>> PostSchools(SchoolDTO.Schools schools)
+        public async Task<ActionResult<Schools>> PostSchools(SchoolsDTO.Schools schools)
         {
             var schoolsDTO = new Schools
             {
@@ -182,7 +182,7 @@ namespace Server.Palaro2026.Controller
 
 
         [HttpGet("BilletingQuarters/Details")]
-        public async Task<ActionResult<List<SchoolDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>>> GetBilletingQuartersDetails()
+        public async Task<ActionResult<List<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>>> GetBilletingQuartersDetails()
         {
             try
             {
@@ -192,7 +192,7 @@ namespace Server.Palaro2026.Controller
 
                 var billetingQuarterDTO = billetingQuarters
                     .Where(quarter => quarter.SchoolRegion != null)
-                    .Select(quarter => new SchoolDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters
+                    .Select(quarter => new SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters
                     {
                         ID = quarter.ID,
                         Region = quarter.SchoolRegion?.Region,
@@ -215,8 +215,8 @@ namespace Server.Palaro2026.Controller
         }
         // School Billeting Quarters
 
-        private static SchoolDTO.SchoolBilletingQuarters SchoolBilletingQuartersDTOMapper(SchoolBilletingQuarters schoolBilletingQuarters) =>
-           new SchoolDTO.SchoolBilletingQuarters
+        private static SchoolsDTO.SchoolBilletingQuarters SchoolBilletingQuartersDTOMapper(SchoolBilletingQuarters schoolBilletingQuarters) =>
+           new SchoolsDTO.SchoolBilletingQuarters
            {
                ID = schoolBilletingQuarters.ID,
                SchoolRegionID = schoolBilletingQuarters.SchoolRegionID,
@@ -229,7 +229,7 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("BilletingQuarters")]
-        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolBilletingQuarters>>> GetSchoolBilletingQuarters(
+        public async Task<ActionResult<IEnumerable<SchoolsDTO.SchoolBilletingQuarters>>> GetSchoolBilletingQuarters(
         [FromQuery] int? ID = null,
         [FromQuery] int? schoolRegionID = null,
         [FromQuery] string? billetingQuarter = null,
@@ -272,7 +272,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPut("BilletingQuarters/{id}")]
-        public async Task<IActionResult> PutSchoolBilletingQuarters(int id, SchoolDTO.SchoolBilletingQuarters schoolBilletingQuarters)
+        public async Task<IActionResult> PutSchoolBilletingQuarters(int id, SchoolsDTO.SchoolBilletingQuarters schoolBilletingQuarters)
         {
             if (id != schoolBilletingQuarters.ID)
             {
@@ -313,7 +313,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPost("BilletingQuarters")]
-        public async Task<ActionResult<SchoolBilletingQuarters>> PostSchoolBilletingQuarters(SchoolDTO.SchoolBilletingQuarters schoolBilletingQuarters)
+        public async Task<ActionResult<SchoolBilletingQuarters>> PostSchoolBilletingQuarters(SchoolsDTO.SchoolBilletingQuarters schoolBilletingQuarters)
         {
             var schoolBilletingQuartersDTO = new SchoolBilletingQuarters
             {
@@ -358,8 +358,8 @@ namespace Server.Palaro2026.Controller
 
         // School Division
 
-        private static SchoolDTO.SchoolDivisions SchoolDivisionsDTOMapper(SchoolDivisions schoolDivisions) =>
-           new SchoolDTO.SchoolDivisions
+        private static SchoolsDTO.SchoolDivisions SchoolDivisionsDTOMapper(SchoolDivisions schoolDivisions) =>
+           new SchoolsDTO.SchoolDivisions
            {
                ID = schoolDivisions.ID,
                Division = schoolDivisions.Division,
@@ -367,7 +367,7 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Divisions")]
-        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolDivisions>>> GetSchoolDivisions(
+        public async Task<ActionResult<IEnumerable<SchoolsDTO.SchoolDivisions>>> GetSchoolDivisions(
         [FromQuery] int? id = null,
         [FromQuery] string? division = null,
         [FromQuery] int? schoolRegionID = null)
@@ -390,7 +390,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPut("Divisions/{id}")]
-        public async Task<IActionResult> PutSchoolDivisions(int id, SchoolDTO.SchoolDivisions schoolDivisions)
+        public async Task<IActionResult> PutSchoolDivisions(int id, SchoolsDTO.SchoolDivisions schoolDivisions)
         {
             if (id != schoolDivisions.ID)
             {
@@ -426,7 +426,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPost("Divisions")]
-        public async Task<ActionResult<SchoolDivisions>> PostSchoolDivisions(SchoolDTO.SchoolDivisions schoolDivisions)
+        public async Task<ActionResult<SchoolDivisions>> PostSchoolDivisions(SchoolsDTO.SchoolDivisions schoolDivisions)
         {
             var schoolDivisionsDTO = new SchoolDivisions
             {
@@ -478,15 +478,15 @@ namespace Server.Palaro2026.Controller
 
 
         // School Level
-        private static SchoolDTO.SchoolLevels SchoolLevelsDTOMapper(SchoolLevels schoolLevels) =>
-           new SchoolDTO.SchoolLevels
+        private static SchoolsDTO.SchoolLevels SchoolLevelsDTOMapper(SchoolLevels schoolLevels) =>
+           new SchoolsDTO.SchoolLevels
            {
                ID = schoolLevels.ID,
                Level = schoolLevels.Level
            };
 
         [HttpGet("Levels")]
-        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolLevels>>> GetSchoolLevels(
+        public async Task<ActionResult<IEnumerable<SchoolsDTO.SchoolLevels>>> GetSchoolLevels(
         [FromQuery] int? id = null,
         [FromQuery] string? level = null)
         {
@@ -505,7 +505,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPut("Levels/{id}")]
-        public async Task<IActionResult> PutSchoolLevels(int id, SchoolDTO.SchoolLevels schoolLevels)
+        public async Task<IActionResult> PutSchoolLevels(int id, SchoolsDTO.SchoolLevels schoolLevels)
         {
             if (id != schoolLevels.ID)
             {
@@ -540,7 +540,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPost("Levels")]
-        public async Task<ActionResult<SchoolLevels>> PostSchoolLevels(SchoolDTO.SchoolLevels schoolLevels)
+        public async Task<ActionResult<SchoolLevels>> PostSchoolLevels(SchoolsDTO.SchoolLevels schoolLevels)
         {
             var schoolLevelsDTO = new SchoolLevels
             {
@@ -592,8 +592,8 @@ namespace Server.Palaro2026.Controller
 
         // School Regions
 
-        private static SchoolDTO.SchoolRegions SchoolRegionsDTOMapper(SchoolRegions schoolRegions) =>
-           new SchoolDTO.SchoolRegions
+        private static SchoolsDTO.SchoolRegions SchoolRegionsDTOMapper(SchoolRegions schoolRegions) =>
+           new SchoolsDTO.SchoolRegions
            {
                ID = schoolRegions.ID,
                Region = schoolRegions.Region,
@@ -601,7 +601,7 @@ namespace Server.Palaro2026.Controller
            };
 
         [HttpGet("Regions")]
-        public async Task<ActionResult<IEnumerable<SchoolDTO.SchoolRegions>>> GetSchoolRegions(
+        public async Task<ActionResult<IEnumerable<SchoolsDTO.SchoolRegions>>> GetSchoolRegions(
         [FromQuery] int? id = null,
         [FromQuery] string? region = null,
         [FromQuery] string? abbreviation = null)
@@ -624,7 +624,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPut("Regions/{id}")]
-        public async Task<IActionResult> PutSchoolRegions(int id, SchoolDTO.SchoolRegions schoolRegions)
+        public async Task<IActionResult> PutSchoolRegions(int id, SchoolsDTO.SchoolRegions schoolRegions)
         {
             if (id != schoolRegions.ID)
             {
@@ -660,7 +660,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPost("Regions")]
-        public async Task<ActionResult<SchoolRegions>> PostSchoolRegions(SchoolDTO.SchoolRegions schoolRegions)
+        public async Task<ActionResult<SchoolRegions>> PostSchoolRegions(SchoolsDTO.SchoolRegions schoolRegions)
         {
             var schoolRegionsDTO = new SchoolRegions
             {

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class TeamCoachProfiles
+public partial class ProfileCoaches
 {
     public int ID { get; set; }
 
@@ -15,9 +15,7 @@ public partial class TeamCoachProfiles
 
     public int? SchoolRegionID { get; set; }
 
-    public int? SportSubcategoryID { get; set; }
+    public virtual ICollection<ProfilePlayerSportCoaches> ProfilePlayerSportCoaches { get; set; } = new List<ProfilePlayerSportCoaches>();
 
     public virtual SchoolRegions? SchoolRegion { get; set; }
-
-    public virtual SportSubcategories? SportSubcategory { get; set; }
 }

@@ -1,0 +1,533 @@
+﻿@page "/profiles/players"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h4">Coaches</MudText>
+        <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
+    </MudItem>
+    @if (_profilePlayers != null && _profilePlayers.Any())
+    {
+        <MudItem xs="12" sm="6">
+            <MudButton OnClick="OnExpandAddEventVenueButtonClick" Style="text-transform: none" Variant="Variant.Filled" DropShadow="false">@(_expandedAddEventVenue ? "Close" : "Add Player")</MudButton>
+            <MudCollapse Expanded="_expandedAddEventVenue" Class="pt-5">
+                <MudPaper Outlined Class="pa-5">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="6">
+                            <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetSchoolDivisionAsync" OnClearButtonClick="@(() => _selectedSchoolDivisionIDValue = null)">
+                                <MudVirtualize Items="_schoolRegions" Context="region">
+                                    <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
+                                </MudVirtualize>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null" OnClearButtonClick="@(() => _selectedSchoolLevelIDValue = null)">
+                                <MudVirtualize Items="_schoolDivisions" Context="division">
+                                    <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
+                                </MudVirtualize>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetSchoolsAsync" Disabled="_selectedSchoolDivisionIDValue == null" OnClearButtonClick="@(() => _selectedSchoolIDValue = null)">
+                                <MudVirtualize Items="_schoolLevels" Context="level">
+                                    <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
+                                </MudVirtualize>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudSelect @bind-Value="_selectedSchoolIDValue" Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolLevelIDValue == null" OnClearButtonClick="@(() => { _firstnameValue = null; _lastnameValue = null; })">
+                                <MudVirtualize Items="_schools" Context="school">
+                                    <MudSelectItem T="int?" Value="school.ID">@school.School</MudSelectItem>
+                                </MudVirtualize>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolIDValue == null" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolIDValue == null" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
+                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
+                                Disabled="_addStreamDisabled" OnClick="ConfirmPostEventVenuesAsync">Add</MudButton>
+                            </MudStack>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudCollapse>
+        </MudItem>
+        <MudFlexBreak />
+        <MudItem xs="12" md="7">
+            <MudTable Outlined Items="_profilePlayers" Striped Virtualize="true" Filter="FilterFunc" Elevation="0" Hover>
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">List of Coaches</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
+                    Adornment="Adornment.Start"
+                    AdornmentIcon="@Icons.Material.Filled.Search"
+                    IconSize="Size.Medium" />
+                </ToolBarContent>
+                <ColGroup>
+                    <MudHidden Breakpoint="Breakpoint.Xs">
+                        <col />
+                        <col />
+                        <col />
+                        <col />
+                    </MudHidden>
+                </ColGroup>
+                <HeaderContent>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers, object>(x=>new {x.FirstName, x.LastName})">
+                            Player
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers, object>(x=> new {x.Region, x.Abbreviation})">
+                            School
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers, object>(x=> new {x.Region, x.Abbreviation})">
+                            Sport
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh Style="text-align: center">Settings</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="player">
+                    <MudTd DataLabel="Player">@player.FirstName @player.LastName</MudTd>
+                    <MudTd DataLabel="School">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.body2">
+                                @player.Region (@player.Abbreviation)
+                            </MudText>
+                            <MudText Typo="Typo.caption">
+                                @player.Division
+                            </MudText>
+                            <MudText Typo="Typo.caption">
+                                @player.School
+                            </MudText>
+                            <MudText Typo="Typo.caption">
+                                @player.Level
+                            </MudText>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Sport">
+                        <MudStack>
+                            <MudVirtualize Items="player.ProfilePlayerSportsList" Context="sport">
+                                <MudStack Spacing="2">
+                                    <MudStack Spacing="0">
+                                        <MudStack Row Spacing="1">
+                                            <MudText Typo="Typo.body2">
+                                                @sport.Category
+                                            </MudText>
+                                            @* Gender *@
+                                            <MudStack>
+                                                @if (sport.Gender == "Male")
+                                                {
+                                                    <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Male" Color="Color.Info" Size="Size.Small" />
+                                                        <MudText Typo="Typo.caption">Male</MudText>
+                                                    </MudStack>
+                                                }
+                                                else if (sport.Gender == "Female")
+                                                {
+                                                    <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Female" Color="Color.Error" Size="Size.Small" />
+                                                        <MudText Typo="Typo.caption">Female</MudText>
+                                                    </MudStack>
+                                                }
+                                                else
+                                                {
+                                                    <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                                        <MudStack Row Spacing="0">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Male" Color="Color.Info" Size="Size.Small" />
+                                                            <MudIcon Icon="@Icons.Material.Filled.Female" Color="Color.Error" Size="Size.Small" />
+                                                            <MudText Typo="Typo.caption">Mixed</MudText>
+                                                        </MudStack>
+                                                    </MudStack>
+                                                }
+                                            </MudStack>
+                                        </MudStack>
+                                        <MudStack Row Spacing="1">
+                                            <MudText Typo="Typo.caption">
+                                                @sport.Sport
+                                            </MudText>
+                                            <MudText Typo="Typo.caption">
+                                                [ @sport.Subcategory ]
+                                            </MudText>
+                                        </MudStack>
+                                    </MudStack>
+                                    <MudStack Spacing="0">
+                                        <MudText Typo="Typo.caption">Coach: </MudText>
+                                        <MudVirtualize Items="sport.ProfilePlayerSportCoachesList" Context="coach">
+                                            <MudText Typo="Typo.caption" Style="text-indent: 20px">
+                                                - @coach.CoachFirstName @coach.CoachLastName
+                                            </MudText>
+                                        </MudVirtualize>
+                                    </MudStack>
+                                    @if (sport.ProfilePlayerSportCoachesList?.Count > 1)
+                                    {
+                                        <MudDivider />
+                                    }
+                                </MudStack>
+                            </MudVirtualize>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Settings" Style="text-align: center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenVenueDialog(player.ID)" />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.caption">No matching records found.</MudText>
+                </NoRecordsContent>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        </MudItem>
+    }
+    else
+    {
+        <MudItem xs="12">
+            <MudProgressLinear Indeterminate="true" />
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+    private List<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>? _profilePlayers;
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+    private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SchoolsDTO.Schools>? _schools;
+
+    private int? _selectedSchoolRegionIDValue;
+    private int? _selectedSchoolDivisionIDValue;
+    private int? _selectedSchoolLevelIDValue;
+    private int? _selectedSchoolIDValue;
+    private string? _firstnameValue;
+    private string? _lastnameValue;
+    private bool _addStreamDisabled =>
+    string.IsNullOrEmpty(_firstnameValue) ||
+    string.IsNullOrEmpty(_lastnameValue) ||
+    !_selectedSchoolRegionIDValue.HasValue ||
+    !_selectedSchoolIDValue.HasValue;
+
+    private string _searchString = "";
+
+    bool _expandedAddEventVenue = false;
+
+    private void OnExpandAddEventVenueButtonClick()
+    {
+        _expandedAddEventVenue = !_expandedAddEventVenue;
+    }
+
+    private void ClearFields()
+    {
+        _selectedSchoolRegionIDValue = null;
+        _selectedSchoolDivisionIDValue = null;
+        _selectedSchoolLevelIDValue = null;
+        _selectedSchoolIDValue = null;
+        _firstnameValue = null;
+        _lastnameValue = null;
+    }
+
+    private bool FilterFunc(ProfilesDTO.ProfilePlayersDetails.ProfilePlayers profilePlayers)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return profilePlayers.FirstName.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               profilePlayers.LastName.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               profilePlayers.Region.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               profilePlayers.Abbreviation.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private List<BreadcrumbItem> _items =
+    [
+        new("Home", href: "./"),
+    new("Profiles", href: "./profiles"),
+    new("Players", href: null, disabled: true)
+    ];
+
+    public class ProfilesDTO
+    {
+        public class ProfilePlayersDetails
+        {
+            public class ProfilePlayers
+            {
+                public int ID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+                public string? Level { get; set; }
+                public string? Division { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public List<ProfilePlayerSports>? ProfilePlayerSportsList { get; set; }
+            }
+
+            public class ProfilePlayerSports
+            {
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public string? Gender { get; set; }
+                public string? Subcategory { get; set; }
+                public List<ProfilePlayerSportCoaches>? ProfilePlayerSportCoachesList { get; set; }
+            }
+
+            public class ProfilePlayerSportCoaches
+            {
+                public string? CoachFirstName { get; set; }
+                public string? CoachLastName { get; set; }
+            }
+        }
+
+        public class ProfilePlayers
+        {
+            public int ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public int? SchoolID { get; set; }
+        }
+
+        public class ProfilePlayerSports
+        {
+            public int ID { get; set; }
+            public int ProfilePlayerID { get; set; }
+            public int? ProfilePlayerSportCoachID { get; set; }
+            public int? SportSubcategoryID { get; set; }
+        }
+
+        public class ProfilePlayerSportCoaches
+        {
+            public int ID { get; set; }
+            public int? ProfileCoachID { get; set; }
+            public int? ProfilePlayerSportID { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class Schools
+        {
+            public int ID { get; set; }
+            public string? School { get; set; }
+            public int? SchoolDivisionID { get; set; }
+            public int? SchoolLevelsID { get; set; }
+        }
+
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+
+        public class SchoolDivisions
+        {
+            public int ID { get; set; }
+            public string? Division { get; set; }
+            public int? SchoolRegionID { get; set; }
+        }
+
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+    }
+
+    private async Task ConfirmPostEventVenuesAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_lastnameValue ?? "this venue"}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await PostEventVenueAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private async Task OpenVenueDialog(int selectedID)
+    {
+        var parameter = new DialogParameters<CoachDialog>
+        {
+            {x => x.selectedCoachID, selectedID}
+        };
+        var options = new DialogOptions { NoHeader = true, CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<CoachDialog>("Coach Settings", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result.Canceled)
+        {
+            await GetPlayersProfileAsync();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetPlayersProfileAsync();
+        await GetSchoolRegionsAsync();
+        await GetSchoolLevelsAsync();
+    }
+
+    private async Task GetPlayersProfileAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Profiles/Player/Details";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _profilePlayers = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolDivisionAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDivisions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Levels";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolLevels>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools?schoolDivisionID={_selectedSchoolDivisionIDValue}&schoolLevelsID={_selectedSchoolLevelIDValue}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schools = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.Schools>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task PostEventVenueAsync()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_firstnameValue) || string.IsNullOrWhiteSpace(_lastnameValue) || 
+            !_selectedSchoolRegionIDValue.HasValue|| !_selectedSchoolDivisionIDValue.HasValue|| 
+            !_selectedSchoolLevelIDValue.HasValue|| !_selectedSchoolIDValue.HasValue)
+            {
+                Snackbar.Add("Fields should be filled accordingly.", Severity.Warning);
+                return;
+            }
+
+            string url = $"{apiService.Palaro2026API}/Profiles/Player";
+
+            var eventStream = new ProfilesDTO.ProfilePlayers
+                {
+                    FirstName = _firstnameValue,
+                    LastName = _lastnameValue,
+                    SchoolID = _selectedSchoolIDValue
+                };
+
+            var jsonContent = JsonSerializer.Serialize(eventStream);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            httpResponse.EnsureSuccessStatusCode();
+
+            ClearFields();
+
+            await GetPlayersProfileAsync();
+            Snackbar.Add("Player added successfully.", Severity.Success);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error posting data: {ex.Message}");
+        }
+    }
+}

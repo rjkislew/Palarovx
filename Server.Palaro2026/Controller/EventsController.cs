@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore;
 using Server.Palaro2026.Context;
 using Server.Palaro2026.DTO;
 using Server.Palaro2026.Entities;
-using static Server.Palaro2026.DTO.SchoolDTO;
 
 namespace Server.Palaro2026.Controller
 {
@@ -133,7 +132,8 @@ namespace Server.Palaro2026.Controller
                 var eventDTO = eventEntities.Select(eventEntity => new EventsDTO.EventDetails.Event
                 {
                     ID = eventEntity.ID,
-                    EventVersusList = eventEntity.EventVersus?.GroupBy(ev => new
+                    EventVersusList = eventEntity.EventVersus?
+                    .GroupBy(ev => new
                     {
                         ev.Score,
                         ev.SchoolRegion?.Region,

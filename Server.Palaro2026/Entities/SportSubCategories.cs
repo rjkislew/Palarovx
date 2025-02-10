@@ -19,13 +19,11 @@ public partial class SportSubcategories
 
     public virtual ICollection<Events> Events { get; set; } = new List<Events>();
 
+    public virtual ICollection<ProfilePlayerSports> ProfilePlayerSports { get; set; } = new List<ProfilePlayerSports>();
+
     public virtual SchoolLevels? SchoolLevel { get; set; }
 
     public virtual Sports? Sport { get; set; }
 
     public virtual SportGenderCategories? SportGenderCategory { get; set; }
-
-    public virtual ICollection<TeamCoachProfiles> TeamCoachProfiles { get; set; } = new List<TeamCoachProfiles>();
-
-    public virtual ICollection<TeamPlayerProfiles> TeamPlayerProfiles { get; set; } = new List<TeamPlayerProfiles>();
 }

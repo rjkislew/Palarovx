@@ -15,9 +15,9 @@ public partial class Schools
 
     public int? SchoolLevelsID { get; set; }
 
+    public virtual ICollection<ProfilePlayers> ProfilePlayers { get; set; } = new List<ProfilePlayers>();
+
     public virtual SchoolDivisions? SchoolDivision { get; set; }
 
     public virtual SchoolLevels? SchoolLevels { get; set; }
-
-    public virtual ICollection<TeamPlayerProfiles> TeamPlayerProfiles { get; set; } = new List<TeamPlayerProfiles>();
 }

@@ -1,0 +1,230 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        @if (_profileCoaches != null)
+        {
+            <MudText Typo="Typo.h6">@_dialogHeader</MudText>
+            <MudDivider Class="mb-5" />
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                        <MudVirtualize Items="_schoolRegions" Context="region">
+                            <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+            </MudGrid>
+            <MudDivider Class="mt-10 mb-2" />
+            <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteProfileCoachAsync">Delete</MudButton>
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateProfileCoachAsync" Disabled="_editCoachButtonDisabled">Update</MudButton>
+                </MudStack>
+            </MudStack>
+        }
+        else
+        {
+            <MudText Typo="Typo.h6">Loading Coach Profile Settings</MudText>
+            <MudProgressLinear Indeterminate="true" />
+        }
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task ConfirmDeleteProfileCoachAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm deletion of school?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await DeleteProfileCoachAsync();
+            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+        }
+    }
+
+    private async Task ConfirmUpdateProfileCoachAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm changes of school?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await UpdateProfileCoachAsync();
+            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+        }
+    }
+
+    [Parameter]
+    public int selectedCoachID { get; set; }
+
+    private string? _dialogHeader;
+    private string? _firstnameValue;
+    private string? _lastnameValue;
+    private int? _selectedSchoolRegionIDValue;
+    private bool _editCoachButtonDisabled =>
+    string.IsNullOrEmpty(_firstnameValue) ||
+    string.IsNullOrEmpty(_lastnameValue) ||
+    !_selectedSchoolRegionIDValue.HasValue;
+
+    private List<ProfilesDTO.ProfileCoaches>? _profileCoaches;
+    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
+
+    public class ProfilesDTO
+    {
+        public class ProfileCoaches
+        {
+            public int ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public int? SchoolRegionID { get; set; }
+        }
+    }
+
+    public class SchoolDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetProfileCoachOnDialogOpenAsync(selectedCoachID);
+        await GetSchoolRegionsOnDialogOpenAsync();
+
+        StateHasChanged();
+    }
+
+    private async Task GetProfileCoachOnDialogOpenAsync(int profileCoachID)
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Profiles/Coach?id={profileCoachID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _profileCoaches = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfileCoaches>>(responseStream, options);
+
+            if (_profileCoaches != null)
+            {
+                var selectedCoach = _profileCoaches.First();
+                // Title
+                _dialogHeader = $"Update: {selectedCoach.FirstName} {selectedCoach.LastName}";
+
+                // Data
+                _selectedSchoolRegionIDValue = selectedCoach.SchoolRegionID;
+                _firstnameValue = selectedCoach.FirstName;
+                _lastnameValue = selectedCoach.LastName;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+
+    private async Task GetSchoolRegionsOnDialogOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateProfileCoachAsync()
+    {
+        try
+        {
+            if (selectedCoachID == 0) return;
+
+            var updatedStream = new ProfilesDTO.ProfileCoaches
+                {
+                    ID = selectedCoachID,
+                    FirstName = _firstnameValue,
+                    LastName = _lastnameValue,
+                    SchoolRegionID = _selectedSchoolRegionIDValue
+                };
+
+            string url = $"{apiService.Palaro2026API}/Profiles/Coach/{selectedCoachID}";
+            var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await httpClient.PutAsync(url, content);
+            response.EnsureSuccessStatusCode();
+
+            Snackbar.Add("Coach details updated successfully.", Severity.Success);
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error updating coach: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteProfileCoachAsync()
+    {
+        try
+        {
+            if (selectedCoachID == 0) return;
+
+            string url = $"{apiService.Palaro2026API}/Profiles/Coach/{selectedCoachID}";
+
+            HttpResponseMessage response = await httpClient.DeleteAsync(url);
+            response.EnsureSuccessStatusCode();
+
+            Snackbar.Add("Coach deleted successfully.", Severity.Success);
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error deleting coach: {ex.Message}", Severity.Error);
+        }
+    }
+}
