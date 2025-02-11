@@ -366,9 +366,9 @@ namespace Server.Palaro2026.Controller
            new ProfilesDTO.ProfilePlayerSports
            {
                ID = profilePlayerSports.ID,
-               ProfilePlayerID = profilePlayerSports.ID,
-               ProfilePlayerSportCoachID = profilePlayerSports.ID,
-               SportSubcategoryID = profilePlayerSports.ID,
+               ProfilePlayerID = profilePlayerSports.ProfilePlayerID,
+               ProfilePlayerSportCoachID = profilePlayerSports.ProfilePlayerSportCoachID,
+               SportSubcategoryID = profilePlayerSports.SportSubcategoryID,
            };
 
         [HttpGet("Player/Sports")]
