@@ -35,6 +35,7 @@ namespace Server.Palaro2026.Controller
         {
             var query = _context.Sports.AsQueryable();
 
+
             if (id.HasValue)
                 query = query.Where(x => x.ID == id.Value);
 
@@ -52,6 +53,7 @@ namespace Server.Palaro2026.Controller
                 .AsNoTracking()
                 .ToListAsync();
         }
+
 
         [HttpPut("{id}")]
         public async Task<IActionResult> PutSports(int id, SportsDTO.Sports sports)

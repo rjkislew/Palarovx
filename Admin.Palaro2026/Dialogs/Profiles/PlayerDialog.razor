@@ -14,26 +14,22 @@
             <MudText Typo="Typo.h6">@_dialogHeader</MudText>
             <MudDivider Class="mb-5" />
             <MudGrid Spacing="2">
-                <MudItem xs="12">
-                    <MudText Typo="Typo.h6">Player</MudText>
-                    <MudDivider />
-                </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSchoolDivisionIDValue = null)">
+                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => {_selectedSchoolDivisionIDValue = null; _selectedSchoolLevelIDValue = null; _selectedSchoolIDValue = null;})" T="int?" SelectedValuesChanged="GetSchoolDivisionsAsync">
                         <MudVirtualize Items="_schoolRegions" Context="region">
                             <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null" OnClearButtonClick="@(() => _selectedSchoolLevelIDValue = null)">
+                <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null" OnClearButtonClick="@(() => {_selectedSchoolLevelIDValue = null; _selectedSchoolIDValue = null;})">
                         <MudVirtualize Items="_schoolDivisions" Context="division">
                             <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolDivisionIDValue == null" OnClearButtonClick="@(() => _selectedSchoolIDValue = null)">
+                    <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolDivisionIDValue == null" OnClearButtonClick="@(() => _selectedSchoolIDValue = null)" T="int?" SelectedValuesChanged="GetSchoolsAsync">
                         <MudVirtualize Items="_schoolLevels" Context="level">
                             <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
                         </MudVirtualize>
@@ -51,10 +47,6 @@
                 </MudItem>
                 <MudItem xs="12" md="6">
                     <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolIDValue == null" />
-                </MudItem>
-                <MudItem xs="12">
-                    <MudText Typo="Typo.h6">Sport</MudText>
-                    <MudDivider />
                 </MudItem>
                 <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Category" ShrinkLabel Variant="Variant.Outlined" Clearable>
@@ -128,32 +120,22 @@
     public int selectedPlayerID { get; set; }
 
     private List<ProfilesDTO.ProfilePlayers>? _profilePlayers;
-    private List<ProfilesDTO.ProfilePlayerSports>? _profilePlayerSports;
-    private List<ProfilesDTO.ProfilePlayerSportCoaches>? _profilePlayerSportCoaches;
-
     private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
     private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
     private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
     private List<SchoolsDTO.Schools>? _schools;
-
     private List<SportsDTO.SportCategories>? _sportCategories;
     private List<SportsDTO.Sports>? _sports;
-    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
-    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
 
     private string? _dialogHeader;
     private int? _selectedSchoolRegionIDValue;
     private int? _selectedSchoolDivisionIDValue;
     private int? _selectedSchoolLevelIDValue;
     private int? _selectedSchoolIDValue;
-    private int? _selectedPlayerProfileSportsIDValue;
     private string? _firstnameValue;
     private string? _lastnameValue;
-
     private int? _selectedSportCategoryIDValue;
     private int? _selectedSportIDValue;
-    private int? _selectedSportSubCategoryIDValue;
-    private int? _selectedSportGenderIDValue;
 
     private bool _editPlayerButtonDisabled =>
     string.IsNullOrEmpty(_firstnameValue) ||
@@ -170,21 +152,7 @@
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
             public int? SchoolID { get; set; }
-        }
-
-        public class ProfilePlayerSports
-        {
-            public int ID { get; set; }
-            public int ProfilePlayerID { get; set; }
-            public int? SportSubcategoryID { get; set; }
-            public List<ProfilePlayerSportCoaches>? ProfilePlayerSportCoachesList { get; set; }
-        }
-
-        public class ProfilePlayerSportCoaches
-        {
-            public int ID { get; set; }
-            public int? ProfileCoachID { get; set; }
-            public int? ProfilePlayerSportID { get; set; }
+            public int? SportID { get; set; }
         }
     }
 
@@ -234,33 +202,16 @@
             public string? Description { get; set; }
             public int? SportCategoryID { get; set; }
         }
-
-        public class SportSubcategories
-        {
-            public int ID { get; set; }
-            public string? Subcategory { get; set; }
-            public int? SportID { get; set; }
-            public int? SportGenderCategoryID { get; set; }
-            public int? SchoolLevelID { get; set; }
-        }
-
-        public class SportGenderCategories
-        {
-            public int ID { get; set; }
-            public string? Gender { get; set; }
-        }
     }
 
 
     protected override async Task OnInitializedAsync()
     {
         await GetProfilePlayerOnDialogOpenAsync(selectedPlayerID);
-        await GetProfilePlayerSportsOnDialogOpenAsync(selectedPlayerID);
-
-        await GetSportCategoryOnDialogOpenAsync();
+        await GetSchoolDivisionOnDialogOpenAsync();
+        await GetSchoolOnDialogOpenAsync();
         await GetSportOnDialogOpenAsync();
-        await GetSportSubcategoryOnDialogOpenAsync();
-        await GetSportGenderCategoryOnDialogOpenAsync();
+        StateHasChanged();
     }
 
     // Player
@@ -288,10 +239,9 @@
                 _firstnameValue = selectedCoach.FirstName;
                 _lastnameValue = selectedCoach.LastName;
                 _selectedSchoolIDValue = selectedCoach.SchoolID;
+                _selectedSportIDValue = selectedCoach.SportID;
             }
 
-            await GetSchoolOnDialogOpenAsync();
-
             StateHasChanged();
         }
         catch (HttpRequestException ex)
@@ -300,107 +250,20 @@
         }
     }
 
-    private async Task GetProfilePlayerSportsOnDialogOpenAsync()
+    // School
+
+    private async Task GetSchooRegionOnDialogOpenAsync()
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/Coaches?profilePlayerID={_selectedPlayerProfileSportsIDValue}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _profilePlayerSports = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayerSports>>(responseStream, options);
-
-            if (_profilePlayerSports != null)
-            {
-                var profilePlayerSports = _profilePlayerSports.First();
-
-                _selectedPlayerProfileSportsIDValue = profilePlayerSports.ID;
-            }
-
-            await GetSchoolOnDialogOpenAsync();
-
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetProfilePlayerSportsOnDialogOpenAsync(int profilePlayerID)
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports?profilePlayerID={profilePlayerID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _profilePlayerSports = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayerSports>>(responseStream, options);
-
-            await GetSchoolOnDialogOpenAsync();
-
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSchoolOnDialogOpenAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools";
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schools = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.Schools>>(responseStream, options);
-
-            if (_schools != null)
-            {
-                var school = _schools.First();
-
-                _selectedSchoolDivisionIDValue = school.SchoolDivisionID;
-                _selectedSchoolLevelIDValue = school.SchoolLevelsID;
-            }
-
-
-            await GetSchoolDivisionOnDialogOpenAsync();
-            await GetSchoolLevelOnDialogOpenAsync();
-
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSchoolLevelOnDialogOpenAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Levels?id={_selectedSchoolLevelIDValue}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolLevels>>(responseStream, options);
-
-            StateHasChanged();
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
@@ -440,19 +303,100 @@
         }
     }
 
-    private async Task GetSchooRegionOnDialogOpenAsync()
+    private async Task GetSchoolDivisionsAsync()
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions?id={_selectedSchoolRegionIDValue}";
+            string url = $"{apiService.Palaro2026API}/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
+            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDivisions>>(responseStream, options);
 
+            StateHasChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolLevelsOnDialogOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Levels";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolLevels>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools?schoolDivisionID={_selectedSchoolDivisionIDValue}&schoolLevelsID={_selectedSchoolLevelIDValue}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schools = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.Schools>>(responseStream, options);
+
+            if (_schools != null)
+            {
+                var school = _schools.First();
+
+                _selectedSchoolDivisionIDValue = school.SchoolDivisionID;
+                _selectedSchoolLevelIDValue = school.SchoolLevelsID;
+            }
+
+            StateHasChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+    
+    private async Task GetSchoolOnDialogOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools?id={_selectedSchoolIDValue}&schoolLevelsID={_selectedSchoolLevelIDValue}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schools = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.Schools>>(responseStream, options);
+
+            if (_schools != null)
+            {
+                var school = _schools.First();
+
+                _selectedSchoolDivisionIDValue = school.SchoolDivisionID;
+                _selectedSchoolLevelIDValue = school.SchoolLevelsID;
+            }
+
+            await GetSchoolLevelsOnDialogOpenAsync();
             StateHasChanged();
         }
         catch (HttpRequestException ex)
@@ -468,7 +412,7 @@
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Sports/Categories";
+            string url = $"{apiService.Palaro2026API}/Sports/Categories?sportID={_selectedSportIDValue}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
@@ -499,6 +443,13 @@
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             _sports = await JsonSerializer.DeserializeAsync<List<SportsDTO.Sports>>(responseStream, options);
 
+            if (_sports != null)
+            {
+                var sport = _sports.First();
+
+                _selectedSportCategoryIDValue = sport.SportCategoryID;
+            }
+            await GetSportCategoryOnDialogOpenAsync();
             StateHasChanged();
         }
         catch (HttpRequestException ex)
@@ -508,49 +459,7 @@
         }
     }
 
-    private async Task GetSportSubcategoryOnDialogOpenAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Sports/Subcategories";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sportSubcategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportSubcategories>>(responseStream, options);
-
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSportGenderCategoryOnDialogOpenAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Sports/GenderCategories";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sportGenderCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportGenderCategories>>(responseStream, options);
-
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
+    // Update Delete
 
     private async Task UpdateProfileCoachAsync()
     {
@@ -563,22 +472,23 @@
                     ID = selectedPlayerID,
                     FirstName = _firstnameValue,
                     LastName = _lastnameValue,
-                    SchoolID = _selectedSchoolIDValue
+                    SchoolID = _selectedSchoolIDValue,
+                    SportID = _selectedSportIDValue
                 };
 
-            string url = $"{apiService.Palaro2026API}/Profiles/Players/{selectedPlayerID}";
+            string url = $"{apiService.Palaro2026API}/Profiles/Player/{selectedPlayerID}";
             var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
 
             HttpResponseMessage response = await httpClient.PutAsync(url, content);
             response.EnsureSuccessStatusCode();
 
-            Snackbar.Add("School details updated successfully.", Severity.Success);
+            Snackbar.Add("Player details updated successfully.", Severity.Success);
 
             MudDialog?.Close(DialogResult.Ok(true));
         }
         catch (HttpRequestException ex)
         {
-            Snackbar.Add($"Error updating school: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error updating player: {ex.Message}", Severity.Error);
         }
     }
 
@@ -588,18 +498,18 @@
         {
             if (selectedPlayerID == 0) return;
 
-            string url = $"{apiService.Palaro2026API}/Profiles/Players/{selectedPlayerID}";
+            string url = $"{apiService.Palaro2026API}/Profiles/Player/{selectedPlayerID}";
 
             HttpResponseMessage response = await httpClient.DeleteAsync(url);
             response.EnsureSuccessStatusCode();
 
-            Snackbar.Add("School deleted successfully.", Severity.Success);
+            Snackbar.Add("Player deleted successfully.", Severity.Success);
 
             MudDialog?.Close(DialogResult.Ok(true));
         }
         catch (HttpRequestException ex)
         {
-            Snackbar.Add($"Error deleting school: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error deleting player: {ex.Message}", Severity.Error);
         }
     }
 }

@@ -1,0 +1,299 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        @if (_profilePlayers != null)
+        {
+            <MudText Typo="Typo.h6">@_dialogHeader</MudText>
+            <MudDivider Class="mb-5" />
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_selectedGenderCategoryIDValue" Margin="Margin.Dense" Label="Gender Category" ShrinkLabel TextChanged="GetSportSubcategoryOnDialogOpenAsync" Variant="Variant.Outlined" Clearable>
+                        <MudVirtualize Items="_sportGenderCategories" Context="gender">
+                            <MudSelectItem T="int?" Value="gender.ID">@gender.Gender</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense" Label="Sport Subcategory" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                        <MudVirtualize Items="_sportSubcategories" Context="subCategory">
+                            <MudSelectItem T="int?" Value="subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+            <MudDivider Class="mt-10 mb-2" />
+            <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteProfileCoachAsync">Delete</MudButton>
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateProfileCoachAsync" Disabled="_editPlayerButtonDisabled">Update</MudButton>
+                </MudStack>
+            </MudStack>
+        }
+        else
+        {
+            <MudText Typo="Typo.h6">Loading Coach Profile Settings</MudText>
+            <MudProgressLinear Indeterminate="true" />
+        }
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task ConfirmDeleteProfileCoachAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm deletion of school?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await DeleteProfileCoachAsync();
+            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+        }
+    }
+
+    private async Task ConfirmUpdateProfileCoachAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+                message: "Do you confirm changes of school?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await UpdateProfileCoachAsync();
+            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+        }
+    }
+
+    [Parameter]
+    public int selectedPlayerID { get; set; }
+    [Parameter]
+    public int? selectedSportID { get; set; }
+    [Parameter]
+    public int? selectedSchoolLevelID { get; set; }
+
+    private List<ProfilesDTO.ProfilePlayers>? _profilePlayers;
+    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
+    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+
+    private string? _dialogHeader;
+    private string? _firstnameValue;
+    private string? _lastnameValue;
+    private int? _selectedSportIDValue;
+    private int? _selectedGenderCategoryIDValue;
+    private int? _selectedSchoolLevelIDValue;
+    private int? _selectedSportSubcategoryIDValue;
+
+    private bool _editPlayerButtonDisabled =>
+    string.IsNullOrEmpty(_firstnameValue) ||
+    string.IsNullOrEmpty(_lastnameValue);
+
+
+    public class ProfilesDTO
+    {
+        public class ProfilePlayers
+        {
+            public int ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public int? SchoolID { get; set; }
+            public int? SportID { get; set; }
+        }
+
+        public class ProfilePlayerSports
+        {
+            public int ID { get; set; }
+            public int ProfilePlayerID { get; set; }
+            public int? ProfilePlayerSportCoachID { get; set; }
+            public int? SportSubcategoryID { get; set; }
+        }
+
+        public class ProfilePlayerSportCoaches
+        {
+            public int ID { get; set; }
+            public int? ProfileCoachID { get; set; }
+            public int? ProfilePlayerSportID { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetProfilePlayerOnDialogOpenAsync(selectedPlayerID);
+        await GetSportGenderCategoriesOnDialogOpenAsync();
+    }
+
+    // Player
+
+    private async Task GetProfilePlayerOnDialogOpenAsync(int? profilePlayerID)
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Profiles/Player?id={profilePlayerID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _profilePlayers = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayers>>(responseStream, options);
+
+            if (_profilePlayers != null)
+            {
+                var selectedCoach = _profilePlayers.First();
+                // Title
+                _dialogHeader = $"Update Sport Event of {selectedCoach.FirstName} {selectedCoach.LastName}";
+
+                // Data
+                _firstnameValue = selectedCoach.FirstName;
+                _lastnameValue = selectedCoach.LastName;
+            }
+
+            StateHasChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSportGenderCategoriesOnDialogOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Sports/GenderCategories ";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _sportGenderCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportGenderCategories>>(responseStream, options);
+
+            StateHasChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSportSubcategoryOnDialogOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Sports/Subcategories?sportID={selectedSportID}&schoolLevelID={selectedSchoolLevelID}&sportGenderCategoryID={_selectedGenderCategoryIDValue}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _sportSubcategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportSubcategories>>(responseStream, options);
+
+            StateHasChanged();
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Update Delete
+
+    private async Task UpdateProfileCoachAsync()
+    {
+        try
+        {
+            if (selectedPlayerID == 0) return;
+
+            var updatedStream = new ProfilesDTO.ProfilePlayers
+                {
+                    ID = selectedPlayerID,
+                    FirstName = _firstnameValue,
+                    LastName = _lastnameValue,
+                    SportID = _selectedSportIDValue
+                };
+
+            string url = $"{apiService.Palaro2026API}/Profiles/Player/{selectedPlayerID}";
+            var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await httpClient.PutAsync(url, content);
+            response.EnsureSuccessStatusCode();
+
+            Snackbar.Add("Player details updated successfully.", Severity.Success);
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error updating player: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteProfileCoachAsync()
+    {
+        try
+        {
+            if (selectedPlayerID == 0) return;
+
+            string url = $"{apiService.Palaro2026API}/Profiles/Player/{selectedPlayerID}";
+
+            HttpResponseMessage response = await httpClient.DeleteAsync(url);
+            response.EnsureSuccessStatusCode();
+
+            Snackbar.Add("Player deleted successfully.", Severity.Success);
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error deleting player: {ex.Message}", Severity.Error);
+        }
+    }
+}

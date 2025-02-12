@@ -487,13 +487,21 @@ namespace Server.Palaro2026.Controller
 
         [HttpGet("Levels")]
         public async Task<ActionResult<IEnumerable<SchoolsDTO.SchoolLevels>>> GetSchoolLevels(
-        [FromQuery] int? id = null,
+        [FromQuery] string? id = null,
         [FromQuery] string? level = null)
         {
             var query = _context.SchoolLevels.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                var idList = id.Split(',')
+                               .Select(s => int.TryParse(s, out int val) ? val : (int?)null)
+                               .Where(val => val.HasValue)
+                               .Select(val => val!.Value)
+                               .ToList();
 
-            if (id.HasValue)
-                query = query.Where(x => x.ID == id.Value);
+                if (idList.Any())
+                    query = query.Where(x => idList.Contains(x.ID));
+            }
 
             if (!string.IsNullOrEmpty(level))
                 query = query.Where(x => x.Level.Contains(level));

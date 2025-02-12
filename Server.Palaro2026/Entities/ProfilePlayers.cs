@@ -15,7 +15,11 @@ public partial class ProfilePlayers
 
     public int? SchoolID { get; set; }
 
+    public int? SportID { get; set; }
+
     public virtual ICollection<ProfilePlayerSports> ProfilePlayerSports { get; set; } = new List<ProfilePlayerSports>();
 
     public virtual Schools? School { get; set; }
+
+    public virtual Sports? Sport { get; set; }
 }

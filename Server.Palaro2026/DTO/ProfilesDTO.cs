@@ -29,17 +29,19 @@ public class ProfilesDTO
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
             public string? School { get; set; }
+            public int? SchoolLevelID { get; set; }
             public string? Level { get; set; }
             public string? Division { get; set; }
             public string? Region { get; set; }
             public string? Abbreviation { get; set; }
+            public string? Category { get; set; }
+            public int? SportID { get; set; }
+            public string? Sport { get; set; }
             public List<ProfilePlayerSports>? ProfilePlayerSportsList { get; set; }
         }
 
         public class ProfilePlayerSports
         {
-            public string? Category { get; set; }
-            public string? Sport { get; set; }
             public string? Subcategory { get; set; }
             public string? Gender { get; set; }
             public List<ProfilePlayerSportCoaches>? ProfilePlayerSportCoachesList { get; set; }
@@ -58,6 +60,7 @@ public class ProfilesDTO
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public int? SchoolID { get; set; }
+        public int? SportID { get; set; }
     }
 
     public class ProfilePlayerSports

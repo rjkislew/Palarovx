@@ -14,14 +14,14 @@
             <MudText Typo="Typo.h6">@_dialogHeader</MudText>
             <MudDivider Class="mb-5" />
             <MudGrid Spacing="2">
-                <MudItem xs="12">
-                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="OnRegionClear" TextChanged="GetSchoolDivisionsAsync">
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSchoolDivisionIDValue = null)" TextChanged="GetSchoolDivisionsAsync">
                         <MudVirtualize Items="_schoolRegions" Context="region">
                             <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12">
+                <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null">
                         <MudVirtualize Items="_schoolDivisions" Context="division">
                             <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
@@ -106,12 +106,12 @@
     _selectedSchoolLevelIDValue == null ||
     string.IsNullOrEmpty(_schoolValue);
 
-    private List<SchoolDTO.Schools>? _school;
-    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
-    private List<SchoolDTO.SchoolDivisions>? _schoolDivisions;
-    private List<SchoolDTO.SchoolLevels>? _schoolLevels;
+    private List<SchoolsDTO.Schools>? _school;
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+    private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
 
-    public class SchoolDTO
+    public class SchoolsDTO
     {
         public class Schools
         {
@@ -151,6 +151,7 @@
 
         StateHasChanged();
     }
+
     private async Task GetSchoolsOnDialogOpenAsync(int schoolID)
     {
         try
@@ -162,7 +163,7 @@
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _school = await JsonSerializer.DeserializeAsync<List<SchoolDTO.Schools>>(responseStream, options);
+            _school = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.Schools>>(responseStream, options);
 
             if (_school != null)
             {
@@ -196,7 +197,7 @@
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
@@ -216,7 +217,7 @@
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolDivisions>>(responseStream, options);
+            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDivisions>>(responseStream, options);
 
             if (_schoolDivisions != null && _schoolDivisions.Any())
             {
@@ -245,18 +246,13 @@
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolDivisions>>(responseStream, options);
+            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDivisions>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
             // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
-    }
-
-    private void OnRegionClear()
-    {
-        _selectedSchoolDivisionIDValue = null;
     }
 
     private async Task GetSchoolLevelsOnDialogOpenAsync()
@@ -270,7 +266,7 @@
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolLevels>>(responseStream, options);
+            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolLevels>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
@@ -285,7 +281,7 @@
         {
             if (selectedSchoolID == 0) return;
 
-            var updatedStream = new SchoolDTO.Schools
+            var updatedStream = new SchoolsDTO.Schools
                 {
                     ID = selectedSchoolID,
                     School = _schoolValue,

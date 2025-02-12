@@ -158,9 +158,6 @@ public partial class Palaro2026Context : DbContext
 
         modelBuilder.Entity<ProfilePlayerSports>(entity =>
         {
-            entity.Property(e => e.ID).ValueGeneratedNever();
-            entity.Property(e => e.ProfilePlayerID).ValueGeneratedOnAdd();
-
             entity.HasOne(d => d.ProfilePlayer).WithMany(p => p.ProfilePlayerSports)
                 .HasForeignKey(d => d.ProfilePlayerID)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -168,7 +165,7 @@ public partial class Palaro2026Context : DbContext
 
             entity.HasOne(d => d.ProfilePlayerSportCoach).WithMany(p => p.ProfilePlayerSports)
                 .HasForeignKey(d => d.ProfilePlayerSportCoachID)
-                .HasConstraintName("FK_ProfilePlayerSports_ProfilePlayerCoaches");
+                .HasConstraintName("FK_ProfilePlayerSports_ProfilePlayerSportCoaches");
 
             entity.HasOne(d => d.SportSubcategory).WithMany(p => p.ProfilePlayerSports)
                 .HasForeignKey(d => d.SportSubcategoryID)
@@ -189,6 +186,10 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.School).WithMany(p => p.ProfilePlayers)
                 .HasForeignKey(d => d.SchoolID)
                 .HasConstraintName("FK__PlayerProfiles_Schools");
+
+            entity.HasOne(d => d.Sport).WithMany(p => p.ProfilePlayers)
+                .HasForeignKey(d => d.SportID)
+                .HasConstraintName("FK_ProfilePlayers_Sports");
         });
 
         modelBuilder.Entity<SchoolBilletingQuarters>(entity =>

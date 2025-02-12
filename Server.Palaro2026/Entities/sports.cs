@@ -15,6 +15,8 @@ public partial class Sports
 
     public int? SportCategoryID { get; set; }
 
+    public virtual ICollection<ProfilePlayers> ProfilePlayers { get; set; } = new List<ProfilePlayers>();
+
     public virtual SportCategories? SportCategory { get; set; }
 
     public virtual ICollection<SportSubcategories> SportSubcategories { get; set; } = new List<SportSubcategories>();

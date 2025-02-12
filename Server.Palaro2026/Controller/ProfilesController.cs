@@ -184,6 +184,8 @@ namespace Server.Palaro2026.Controller
                             .ThenInclude(sr => sr.SchoolRegion)
                     .Include(p => p.School)
                         .ThenInclude(sl => sl.SchoolLevels)
+                    .Include(s => s.Sport)
+                        .ThenInclude(sc => sc.SportCategory)    
                     .Include(p => p.ProfilePlayerSports)
                         .ThenInclude(ppsc => ppsc.ProfilePlayerSportCoach)
                             .ThenInclude(pc => pc.ProfileCoach)
@@ -203,16 +205,18 @@ namespace Server.Palaro2026.Controller
                     FirstName = player.FirstName,
                     LastName = player.LastName,
                     School = player.School?.School,
+                    SchoolLevelID = player.School?.SchoolLevels?.ID,
                     Level = player.School?.SchoolLevels?.Level,
                     Division = player.School?.SchoolDivision?.Division,
                     Region = player.School?.SchoolDivision?.SchoolRegion?.Region,
                     Abbreviation = player.School?.SchoolDivision?.SchoolRegion?.Abbreviation,
+                    Category = player.Sport?.SportCategory?.Category,
+                    SportID = player.SportID,
+                    Sport = player.Sport?.Sport,
                     ProfilePlayerSportsList = player.ProfilePlayerSports
-                    .GroupBy(s => new {s.SportSubcategory?.Sport?.SportCategory?.Category, s.SportSubcategory?.Sport?.Sport, s.SportSubcategory?.Subcategory, s.SportSubcategory?.SportGenderCategory?.Gender })
+                    .GroupBy(s => new {s.SportSubcategory?.Subcategory, s.SportSubcategory?.SportGenderCategory?.Gender })
                     .Select(sport => new ProfilesDTO.ProfilePlayersDetails.ProfilePlayerSports
                     {
-                        Category = sport.Key.Category,
-                        Sport = sport.Key.Sport,
                         Subcategory = sport.Key.Subcategory,
                         Gender = sport.Key.Gender,
                         ProfilePlayerSportCoachesList = sport
@@ -233,8 +237,6 @@ namespace Server.Palaro2026.Controller
             }
         }
 
-
-
         // Profile Players
         private static ProfilesDTO.ProfilePlayers ProfilePlayersDTOMapper(ProfilePlayers profilePlayers) =>
            new ProfilesDTO.ProfilePlayers
@@ -243,6 +245,7 @@ namespace Server.Palaro2026.Controller
                FirstName = profilePlayers.FirstName,
                LastName = profilePlayers.LastName,
                SchoolID = profilePlayers.SchoolID,
+               SportID = profilePlayers.SportID,
            };
 
         [HttpGet("Player")]
@@ -250,7 +253,8 @@ namespace Server.Palaro2026.Controller
         [FromQuery] int? ID = null,
         [FromQuery] string? firstName = null,
         [FromQuery] string? lastName = null,
-        [FromQuery] int? schoolID = null)
+        [FromQuery] int? schoolID = null,
+        [FromQuery] int? sportID = null)
         {
             var query = _context.ProfilePlayers.AsQueryable();
 
@@ -265,6 +269,9 @@ namespace Server.Palaro2026.Controller
 
             if (schoolID.HasValue)
                 query = query.Where(x => x.SchoolID == schoolID.Value);
+
+            if (sportID.HasValue)
+                query = query.Where(x => x.SportID == sportID.Value);
 
 
             return await query
@@ -290,6 +297,7 @@ namespace Server.Palaro2026.Controller
             existingPlayerProfile.FirstName = profilePlayers.FirstName;
             existingPlayerProfile.LastName = profilePlayers.LastName;
             existingPlayerProfile.SchoolID = profilePlayers.SchoolID;
+            existingPlayerProfile.SportID = profilePlayers.SportID;
 
             try
             {
@@ -316,6 +324,7 @@ namespace Server.Palaro2026.Controller
                 FirstName = profilePlayers.FirstName,
                 LastName = profilePlayers.LastName,
                 SchoolID = profilePlayers.SchoolID,
+                SportID = profilePlayers.SportID,
             };
 
             _context.ProfilePlayers.Add(profilePlayersDTO);
