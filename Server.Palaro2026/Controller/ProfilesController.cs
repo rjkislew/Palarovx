@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Server.Palaro2026.Context;
@@ -217,7 +212,7 @@ namespace Server.Palaro2026.Controller
                     SportID = player.SportID,
                     Sport = player.Sport?.Sport,
                     ProfilePlayerSportsList = player.ProfilePlayerSports
-                        .GroupBy(s => new { s.ID ,s.SportSubcategory?.Subcategory, s.SportSubcategory?.SportGenderCategory?.Gender })
+                        .GroupBy(s => new { s.ID, s.SportSubcategory?.Subcategory, s.SportSubcategory?.SportGenderCategory?.Gender })
                         .Select(sport => new ProfilesDTO.ProfilePlayersDetails.ProfilePlayerSports
                         {
                             ProfilePlayerSportID = sport.Key.ID,
