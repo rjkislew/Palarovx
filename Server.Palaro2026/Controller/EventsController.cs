@@ -42,12 +42,12 @@ namespace Server.Palaro2026.Controller
             {
                 var query = _context.Events
                     .Include(e => e.SportSubcategory)
-                        .ThenInclude(ssc => ssc.SportGenderCategory)
+                        .ThenInclude(ssc => ssc!.SportGenderCategory)
                     .Include(e => e.SportSubcategory)
-                        .ThenInclude(ssc => ssc.Sport)
-                            .ThenInclude(s => s.SportCategory)
+                        .ThenInclude(ssc => ssc!.Sport)
+                            .ThenInclude(s => s!.SportCategory)
                     .Include(e => e.SportSubcategory)
-                        .ThenInclude(ssc => ssc.SchoolLevel)
+                        .ThenInclude(ssc => ssc!.SchoolLevel)
                     .Include(e => e.EventVenues)
                     .Include(e => e.Stream)
                     .Include(e => e.EventVersus)
@@ -58,37 +58,37 @@ namespace Server.Palaro2026.Controller
                 // Apply filters
                 if (!string.IsNullOrEmpty(region))
                 {
-                    query = query.Where(e => e.EventVersus.Any(ev => ev.SchoolRegion.Region == region));
+                    query = query.Where(e => e.EventVersus.Any(ev => ev.SchoolRegion!.Region == region));
                 }
 
                 if (!string.IsNullOrEmpty(category))
                 {
-                    query = query.Where(e => e.SportSubcategory.Sport.SportCategory.Category == category);
+                    query = query.Where(e => e.SportSubcategory!.Sport!.SportCategory!.Category == category);
                 }
 
                 if (!string.IsNullOrEmpty(sport))
                 {
-                    query = query.Where(e => e.SportSubcategory.Sport.Sport == sport);
+                    query = query.Where(e => e.SportSubcategory!.Sport!.Sport == sport);
                 }
 
                 if (!string.IsNullOrEmpty(subcategory))
                 {
-                    query = query.Where(e => e.SportSubcategory.Subcategory == subcategory);
+                    query = query.Where(e => e.SportSubcategory!.Subcategory == subcategory);
                 }
 
                 if (!string.IsNullOrEmpty(gender))
                 {
-                    query = query.Where(e => e.SportSubcategory.SportGenderCategory.Gender == gender);
+                    query = query.Where(e => e.SportSubcategory!.SportGenderCategory!.Gender == gender);
                 }
 
                 if (!string.IsNullOrEmpty(level))
                 {
-                    query = query.Where(e => e.SportSubcategory.SchoolLevel.Level == level);
+                    query = query.Where(e => e.SportSubcategory!.SchoolLevel!.Level == level);
                 }
 
                 if (!string.IsNullOrEmpty(venue))
                 {
-                    query = query.Where(e => e.EventVenues.Venue == venue);
+                    query = query.Where(e => e!.EventVenues!.Venue! == venue);
                 }
 
                 // Filter by StartDate and EndDate range
@@ -377,7 +377,7 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == ID.Value);
 
             if (!string.IsNullOrEmpty(facebookLink))
-                query = query.Where(x => x.FacebookLink.Contains(facebookLink));
+                query = query.Where(x => x.FacebookLink!.Contains(facebookLink));
 
             return await query
                 .Select(x => EventNewsDTOMapper(x))
@@ -493,10 +493,10 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == ID.Value);
 
             if (!string.IsNullOrEmpty(streamService))
-                query = query.Where(x => x.StreamService.Contains(streamService));
+                query = query.Where(x => x.StreamService!.Contains(streamService));
 
             if (!string.IsNullOrEmpty(streamURL))
-                query = query.Where(x => x.StreamURL.Contains(streamURL));
+                query = query.Where(x => x.StreamURL!.Contains(streamURL));
 
             return await query
                 .Select(x => EventStreamsDTOMapper(x))
@@ -616,10 +616,10 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == ID.Value);
 
             if (!string.IsNullOrEmpty(address))
-                query = query.Where(x => x.Address.Contains(address));
+                query = query.Where(x => x.Address!.Contains(address));
 
             if (!string.IsNullOrEmpty(venue))
-                query = query.Where(x => x.Venue.Contains(venue));
+                query = query.Where(x => x.Venue!.Contains(venue));
 
             if (latitude.HasValue)
                 query = query.Where(x => x.Latitude == latitude.Value);

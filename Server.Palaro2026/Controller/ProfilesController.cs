@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ using Server.Palaro2026.Entities;
 
 namespace Server.Palaro2026.Controller
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class ProfilesController : ControllerBase
@@ -73,10 +75,10 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == ID.Value);
 
             if (!string.IsNullOrEmpty(firstName))
-                query = query.Where(x => x.FirstName.Contains(firstName));
+                query = query.Where(x => x.FirstName!.Contains(firstName));
 
             if (!string.IsNullOrEmpty(lastName))
-                query = query.Where(x => x.LastName.Contains(lastName));
+                query = query.Where(x => x.LastName!.Contains(lastName));
 
             if (schoolRegionID.HasValue)
                 query = query.Where(x => x.SchoolRegionID == schoolRegionID.Value);
@@ -180,19 +182,19 @@ namespace Server.Palaro2026.Controller
             {
                 var profilePlayers = await _context.ProfilePlayers
                     .Include(p => p.School)
-                        .ThenInclude(sd => sd.SchoolDivision)
-                            .ThenInclude(sr => sr.SchoolRegion)
+                        .ThenInclude(sd => sd!.SchoolDivision)
+                            .ThenInclude(sr => sr!.SchoolRegion)
                     .Include(p => p.School)
-                        .ThenInclude(sl => sl.SchoolLevels) // Assuming it's a collection
+                        .ThenInclude(sl => sl!.SchoolLevels) // Assuming it's a collection
                     .Include(p => p.Sport)
-                        .ThenInclude(sc => sc.SportCategory)
+                        .ThenInclude(sc => sc!.SportCategory)
                     .Include(p => p.ProfilePlayerSports)
                         .ThenInclude(ppsc => ppsc.SportSubcategory)
-                            .ThenInclude(ssc => ssc.Sport)
-                                .ThenInclude(sc => sc.SportCategory)
+                            .ThenInclude(ssc => ssc!.Sport)
+                                .ThenInclude(sc => sc!.SportCategory)
                     .Include(p => p.ProfilePlayerSports)
                         .ThenInclude(ppsc => ppsc.SportSubcategory)
-                            .ThenInclude(sg => sg.SportGenderCategory)
+                            .ThenInclude(sg => sg!.SportGenderCategory)
                     .Include(p => p.ProfilePlayerSports)
                         .ThenInclude(ppc => ppc.ProfilePlayerSportCoaches)
                             .ThenInclude(pc => pc.ProfileCoach)
@@ -226,8 +228,8 @@ namespace Server.Palaro2026.Controller
                                 .Where(pc => pc.ProfileCoach != null) // Ensure non-null coaches
                                 .Select(pc => new ProfilesDTO.ProfilePlayersDetails.ProfilePlayerSportCoaches
                                 {
-                                    CoachFirstName = pc.ProfileCoach.FirstName,
-                                    CoachLastName = pc.ProfileCoach.LastName
+                                    CoachFirstName = pc.ProfileCoach!.FirstName,
+                                    CoachLastName = pc.ProfileCoach!.LastName
                                 }).ToList()
                         }).ToList()
                 }).ToList();
@@ -266,10 +268,10 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == ID.Value);
 
             if (!string.IsNullOrEmpty(firstName))
-                query = query.Where(x => x.FirstName.Contains(firstName));
+                query = query.Where(x => x.FirstName!.Contains(firstName));
 
             if (!string.IsNullOrEmpty(lastName))
-                query = query.Where(x => x.LastName.Contains(lastName));
+                query = query.Where(x => x.LastName!.Contains(lastName));
 
             if (schoolID.HasValue)
                 query = query.Where(x => x.SchoolID == schoolID.Value);

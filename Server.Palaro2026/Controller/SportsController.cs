@@ -48,10 +48,10 @@ namespace Server.Palaro2026.Controller
             }
 
             if (!string.IsNullOrEmpty(sport))
-                query = query.Where(x => x.Sport.Contains(sport));
+                query = query.Where(x => x.Sport!.Contains(sport));
 
             if (!string.IsNullOrEmpty(description))
-                query = query.Where(x => x.Description.Contains(description));
+                query = query.Where(x => x.Description!.Contains(description));
 
             if (sportCategoryID.HasValue)
                 query = query.Where(x => x.SportCategoryID == sportCategoryID.Value);
@@ -170,7 +170,7 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == id.Value);
 
             if (!string.IsNullOrEmpty(category))
-                query = query.Where(x => x.Category.Contains(category));
+                query = query.Where(x => x.Category!.Contains(category));
 
             return await query
                 .Select(x => SportCategoriesDTOMapper(x))
@@ -281,7 +281,7 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == id.Value);
 
             if (!string.IsNullOrEmpty(gender))
-                query = query.Where(x => x.Gender.Contains(gender));
+                query = query.Where(x => x.Gender!.Contains(gender));
 
             return await query
                 .Select(x => SportGenderCategoriesDTOMapper(x))
@@ -398,7 +398,7 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == ID.Value);
 
             if (!string.IsNullOrEmpty(subcategory))
-                query = query.Where(x => x.Subcategory.Contains(subcategory));
+                query = query.Where(x => x.Subcategory!.Contains(subcategory));
 
             if (sportID.HasValue)
                 query = query.Where(x => x.SportID == sportID.Value);

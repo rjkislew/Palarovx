@@ -47,7 +47,7 @@ namespace Server.Palaro2026.Controller
         public async Task<ActionResult<Users>> PostUsers(UsersDTO.UserRegistration users)
         {
             // Hash the password
-            var hashedPassword = HashPassword(users.PasswordHash);
+            var hashedPassword = HashPassword(users.PasswordHash!);
 
             // Generate username in lowercase
             string username = $"{users.FirstName}.{users.LastName}".ToLower();
@@ -104,7 +104,8 @@ namespace Server.Palaro2026.Controller
             var jwtSettings = _configuration.GetSection("JwtSettings");
 
             // Make sure the key is at least 256 bits (32 bytes)
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]));
+            var keyString = jwtSettings["Key"] ?? throw new ArgumentNullException("JWT Key is missing in configuration.");
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var claims = new List<Claim>
@@ -116,7 +117,7 @@ namespace Server.Palaro2026.Controller
                 new Claim("Role", user.Role ?? string.Empty) // Handle potential null Role
             };
 
-            int expiresInMinutes = int.Parse(jwtSettings["ExpiresInMinutes"]);
+            int expiresInMinutes = int.Parse(jwtSettings["ExpiresInMinutes"] ?? "60"); // Default to 60 minutes
 
             var token = new JwtSecurityToken(
                 issuer: jwtSettings["Issuer"],
@@ -145,7 +146,7 @@ namespace Server.Palaro2026.Controller
                     .Include(u => u.Role)
                     .FirstOrDefaultAsync(u => u.Username == loginRequest.Username);
 
-                if (user == null || !VerifyPassword(loginRequest.Password, user.PasswordHash))
+                if (user == null || !VerifyPassword(loginRequest.Password, user.PasswordHash!))
                 {
                     return Unauthorized(new { message = "Invalid email address or password." });
                 }
@@ -166,7 +167,7 @@ namespace Server.Palaro2026.Controller
                 {
                     token = token,
                     id = user.ID,
-                    role = user.Role.Role
+                    role = user.Role?.Role
                 });
             }
             catch (Exception ex)

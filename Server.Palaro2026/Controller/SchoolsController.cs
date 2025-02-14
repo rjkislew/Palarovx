@@ -76,7 +76,7 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == id.Value);
 
             if (!string.IsNullOrEmpty(school))
-                query = query.Where(x => x.School.Contains(school));
+                query = query.Where(x => x.School!.Contains(school));
 
             if (schoolDivisionID.HasValue)
                 query = query.Where(x => x.SchoolDivisionID == schoolDivisionID.Value);
@@ -248,10 +248,10 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.SchoolRegionID == schoolRegionID.Value);
 
             if (!string.IsNullOrEmpty(billetingQuarter))
-                query = query.Where(x => x.BilletingQuarter.Contains(billetingQuarter));
+                query = query.Where(x => x.BilletingQuarter!.Contains(billetingQuarter));
 
             if (!string.IsNullOrEmpty(address))
-                query = query.Where(x => x.Address.Contains(address));
+                query = query.Where(x => x.Address!.Contains(address));
 
             if (latitude.HasValue)
                 query = query.Where(x => x.Latitude == latitude.Value);
@@ -260,10 +260,10 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.Longitude == longitude.Value);
 
             if (!string.IsNullOrEmpty(contactPerson))
-                query = query.Where(x => x.ContactPerson.Contains(contactPerson));
+                query = query.Where(x => x.ContactPerson!.Contains(contactPerson));
 
             if (!string.IsNullOrEmpty(contactPersonNumber))
-                query = query.Where(x => x.ContactPersonNumber.Contains(contactPersonNumber));
+                query = query.Where(x => x.ContactPersonNumber!.Contains(contactPersonNumber));
 
             return await query
                 .Select(x => SchoolBilletingQuartersDTOMapper(x))
@@ -378,7 +378,7 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == id.Value);
 
             if (!string.IsNullOrEmpty(division))
-                query = query.Where(x => x.Division.Contains(division));
+                query = query.Where(x => x.Division!.Contains(division));
 
             if (schoolRegionID.HasValue)
                 query = query.Where(x => x.SchoolRegionID == schoolRegionID.Value);
@@ -496,7 +496,7 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == id.Value);
 
             if (!string.IsNullOrEmpty(level))
-                query = query.Where(x => x.Level.Contains(level));
+                query = query.Where(x => x.Level!.Contains(level));
 
             return await query
                 .Select(x => SchoolLevelsDTOMapper(x))
@@ -612,10 +612,10 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == id.Value);
 
             if (!string.IsNullOrEmpty(region))
-                query = query.Where(x => x.Region.Contains(region));
+                query = query.Where(x => x.Region!.Contains(region));
 
             if (!string.IsNullOrEmpty(abbreviation))
-                query = query.Where(x => x.Abbreviation.Contains(abbreviation));
+                query = query.Where(x => x.Abbreviation!.Contains(abbreviation));
 
             return await query
                 .Select(x => SchoolRegionsDTOMapper(x))
