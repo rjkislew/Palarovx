@@ -154,18 +154,17 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.ProfileCoach).WithMany(p => p.ProfilePlayerSportCoaches)
                 .HasForeignKey(d => d.ProfileCoachID)
                 .HasConstraintName("FK_ProfilePlayerCoaches_ProfileCoaches");
+
+            entity.HasOne(d => d.ProfilePlayerSport).WithMany(p => p.ProfilePlayerSportCoaches)
+                .HasForeignKey(d => d.ProfilePlayerSportID)
+                .HasConstraintName("FK_ProfilePlayerSportCoaches_ProfilePlayerSports");
         });
 
         modelBuilder.Entity<ProfilePlayerSports>(entity =>
         {
             entity.HasOne(d => d.ProfilePlayer).WithMany(p => p.ProfilePlayerSports)
                 .HasForeignKey(d => d.ProfilePlayerID)
-                .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_ProfilePlayerSports_ProfilePlayers");
-
-            entity.HasOne(d => d.ProfilePlayerSportCoach).WithMany(p => p.ProfilePlayerSports)
-                .HasForeignKey(d => d.ProfilePlayerSportCoachID)
-                .HasConstraintName("FK_ProfilePlayerSports_ProfilePlayerSportCoaches");
 
             entity.HasOne(d => d.SportSubcategory).WithMany(p => p.ProfilePlayerSports)
                 .HasForeignKey(d => d.SportSubcategoryID)

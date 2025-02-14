@@ -183,19 +183,19 @@ namespace Server.Palaro2026.Controller
                         .ThenInclude(sd => sd.SchoolDivision)
                             .ThenInclude(sr => sr.SchoolRegion)
                     .Include(p => p.School)
-                        .ThenInclude(sl => sl.SchoolLevels)
-                    .Include(s => s.Sport)
-                        .ThenInclude(sc => sc.SportCategory)    
-                    .Include(p => p.ProfilePlayerSports)
-                        .ThenInclude(ppsc => ppsc.ProfilePlayerSportCoach)
-                            .ThenInclude(pc => pc.ProfileCoach)
+                        .ThenInclude(sl => sl.SchoolLevels) // Assuming it's a collection
+                    .Include(p => p.Sport)
+                        .ThenInclude(sc => sc.SportCategory)
                     .Include(p => p.ProfilePlayerSports)
                         .ThenInclude(ppsc => ppsc.SportSubcategory)
-                            .ThenInclude(s => s.Sport)
+                            .ThenInclude(ssc => ssc.Sport)
                                 .ThenInclude(sc => sc.SportCategory)
                     .Include(p => p.ProfilePlayerSports)
                         .ThenInclude(ppsc => ppsc.SportSubcategory)
                             .ThenInclude(sg => sg.SportGenderCategory)
+                    .Include(p => p.ProfilePlayerSports)
+                        .ThenInclude(ppc => ppc.ProfilePlayerSportCoaches)
+                            .ThenInclude(pc => pc.ProfileCoach)
                     .ToListAsync();
 
                 // Map the database entities to DTOs
@@ -208,25 +208,28 @@ namespace Server.Palaro2026.Controller
                     SchoolLevelID = player.School?.SchoolLevels?.ID,
                     Level = player.School?.SchoolLevels?.Level,
                     Division = player.School?.SchoolDivision?.Division,
+                    RegionID = player.School?.SchoolDivision?.SchoolRegion?.ID,
                     Region = player.School?.SchoolDivision?.SchoolRegion?.Region,
                     Abbreviation = player.School?.SchoolDivision?.SchoolRegion?.Abbreviation,
                     Category = player.Sport?.SportCategory?.Category,
                     SportID = player.SportID,
                     Sport = player.Sport?.Sport,
                     ProfilePlayerSportsList = player.ProfilePlayerSports
-                    .GroupBy(s => new {s.SportSubcategory?.Subcategory, s.SportSubcategory?.SportGenderCategory?.Gender })
-                    .Select(sport => new ProfilesDTO.ProfilePlayersDetails.ProfilePlayerSports
-                    {
-                        Subcategory = sport.Key.Subcategory,
-                        Gender = sport.Key.Gender,
-                        ProfilePlayerSportCoachesList = sport
-                        .GroupBy(c => new {c.ProfilePlayerSportCoach?.ProfileCoach?.FirstName, c.ProfilePlayerSportCoach?.ProfileCoach?.LastName })
-                        .Select(coach => new ProfilesDTO.ProfilePlayersDetails.ProfilePlayerSportCoaches
+                        .GroupBy(s => new { s.ID ,s.SportSubcategory?.Subcategory, s.SportSubcategory?.SportGenderCategory?.Gender })
+                        .Select(sport => new ProfilesDTO.ProfilePlayersDetails.ProfilePlayerSports
                         {
-                            CoachFirstName = coach.Key.FirstName,
-                            CoachLastName = coach.Key.LastName
+                            ProfilePlayerSportID = sport.Key.ID,
+                            Subcategory = sport.Key.Subcategory,
+                            Gender = sport.Key.Gender,
+                            ProfilePlayerSportCoachesList = sport
+                                .SelectMany(sportEntry => sportEntry.ProfilePlayerSportCoaches) // Fix: Iterate through collection
+                                .Where(pc => pc.ProfileCoach != null) // Ensure non-null coaches
+                                .Select(pc => new ProfilesDTO.ProfilePlayersDetails.ProfilePlayerSportCoaches
+                                {
+                                    CoachFirstName = pc.ProfileCoach.FirstName,
+                                    CoachLastName = pc.ProfileCoach.LastName
+                                }).ToList()
                         }).ToList()
-                    }).ToList()
                 }).ToList();
 
                 return Ok(mappedProfilePlayers);
@@ -236,6 +239,7 @@ namespace Server.Palaro2026.Controller
                 return StatusCode(500, "Internal server error. Please try again later.");
             }
         }
+
 
         // Profile Players
         private static ProfilesDTO.ProfilePlayers ProfilePlayersDTOMapper(ProfilePlayers profilePlayers) =>
@@ -376,7 +380,6 @@ namespace Server.Palaro2026.Controller
            {
                ID = profilePlayerSports.ID,
                ProfilePlayerID = profilePlayerSports.ProfilePlayerID,
-               ProfilePlayerSportCoachID = profilePlayerSports.ProfilePlayerSportCoachID,
                SportSubcategoryID = profilePlayerSports.SportSubcategoryID,
            };
 
@@ -384,7 +387,6 @@ namespace Server.Palaro2026.Controller
         public async Task<ActionResult<IEnumerable<ProfilesDTO.ProfilePlayerSports>>> GetProfilePlayerSports(
         [FromQuery] int? ID = null,
         [FromQuery] int? profilePlayerID = null,
-        [FromQuery] int? profilePlayerSportCoachID = null,
         [FromQuery] int? sportSubcategoryID = null)
         {
             var query = _context.ProfilePlayerSports.AsQueryable();
@@ -394,9 +396,6 @@ namespace Server.Palaro2026.Controller
 
             if (profilePlayerID.HasValue)
                 query = query.Where(x => x.ProfilePlayerID == profilePlayerID.Value);
-
-            if (profilePlayerSportCoachID.HasValue)
-                query = query.Where(x => x.ProfilePlayerSportCoachID == profilePlayerSportCoachID.Value);
 
             if (sportSubcategoryID.HasValue)
                 query = query.Where(x => x.SportSubcategoryID == sportSubcategoryID.Value);
@@ -422,7 +421,6 @@ namespace Server.Palaro2026.Controller
             }
 
             existingProfilePlayerSport.ProfilePlayerID = profilePlayerSports.ProfilePlayerID;
-            existingProfilePlayerSport.ProfilePlayerSportCoachID = profilePlayerSports.ProfilePlayerSportCoachID;
             existingProfilePlayerSport.SportSubcategoryID = profilePlayerSports.SportSubcategoryID;
 
             try
@@ -447,9 +445,8 @@ namespace Server.Palaro2026.Controller
             var profilePlayerSportsDTO = new ProfilePlayerSports
             {
                 ID = profilePlayerSports.ID,
-                ProfilePlayerID = profilePlayerSports.ID,
-                ProfilePlayerSportCoachID = profilePlayerSports.ID,
-                SportSubcategoryID = profilePlayerSports.ID,
+                ProfilePlayerID = profilePlayerSports.ProfilePlayerID,
+                SportSubcategoryID = profilePlayerSports.SportSubcategoryID,
             };
 
             _context.ProfilePlayerSports.Add(profilePlayerSportsDTO);
@@ -561,20 +558,25 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpPost("Player/Sports/Coaches")]
-        public async Task<ActionResult<ProfilePlayerSportCoaches>> ProfilePlayerSportCoaches(ProfilesDTO.ProfilePlayerSportCoaches profilePlayerSportCoaches)
+        public async Task<ActionResult> AddProfilePlayerSportCoaches([FromBody] List<ProfilesDTO.ProfilePlayerSportCoaches> coaches)
         {
-            var profilePlayerSportCoachesDTO = new ProfilePlayerSportCoaches
+            if (coaches == null || !coaches.Any())
             {
-                ID = profilePlayerSportCoaches.ID,
-                ProfileCoachID = profilePlayerSportCoaches.ProfileCoachID,
-                ProfilePlayerSportID = profilePlayerSportCoaches.ProfilePlayerSportID
-            };
+                return BadRequest("No coaches provided.");
+            }
 
-            _context.ProfilePlayerSportCoaches.Add(profilePlayerSportCoachesDTO);
+            var profilePlayerSportCoachesList = coaches.Select(coach => new ProfilePlayerSportCoaches
+            {
+                ProfileCoachID = coach.ProfileCoachID,
+                ProfilePlayerSportID = coach.ProfilePlayerSportID
+            }).ToList();
+
+            _context.ProfilePlayerSportCoaches.AddRange(profilePlayerSportCoachesList);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetProfilePlayerCoaches", new { id = profilePlayerSportCoaches.ID }, ProfilePlayerSportCoachesDTOMapper(profilePlayerSportCoachesDTO));
+            return Ok(new { Message = $"{coaches.Count} coaches added successfully." });
         }
+
 
         [HttpDelete("Player/Sports/Coaches/{id}")]
         public async Task<IActionResult> DeleteProfilePlayerSportCoaches(int id)
@@ -590,6 +592,25 @@ namespace Server.Palaro2026.Controller
 
             return NoContent();
         }
+
+        [HttpDelete("Player/Sports/Coaches/ByPlayerSport/{playerSportID}")]
+        public async Task<IActionResult> DeleteByProfilePlayerSportID(int playerSportID)
+        {
+            var recordsToDelete = _context.ProfilePlayerSportCoaches
+                .Where(p => p.ProfilePlayerSportID == playerSportID)
+                .ToList();
+
+            if (!recordsToDelete.Any())
+            {
+                return NotFound(new { Message = "No records found for the given PlayerSportID." });
+            }
+
+            _context.ProfilePlayerSportCoaches.RemoveRange(recordsToDelete);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = $"{recordsToDelete.Count} records deleted successfully." });
+        }
+
 
         private bool ProfilePlayerSportCoachesExists(int id)
         {

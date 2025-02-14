@@ -43,11 +43,20 @@
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="12" md="6">
-                            <MudSelect @bind-Value="_selectedSchoolIDValue" Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolLevelIDValue == null" OnClearButtonClick="@(() => { _firstnameValue = null; _lastnameValue = null; })">
-                                <MudVirtualize Items="_schools" Context="school">
-                                    <MudSelectItem T="int?" Value="school.ID">@school.School</MudSelectItem>
-                                </MudVirtualize>
-                            </MudSelect>
+                            @if (_schools != null && _schools.Any() || _selectedSchoolLevelIDValue == null || _selectedSchoolDivisionIDValue == null)
+                            {
+                                <MudSelect @bind-Value="_selectedSchoolIDValue" Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolLevelIDValue == null" OnClearButtonClick="@(() => { _firstnameValue = null; _lastnameValue = null; })">
+                                    <MudVirtualize Items="_schools" Context="school">
+                                        <MudSelectItem T="int?" Value="school.ID">@school.School</MudSelectItem>
+                                    </MudVirtualize>
+                                </MudSelect>
+                            }
+                            else
+                            {
+                                <MudField Label="School" Margin="Margin.Dense" Variant="Variant.Outlined">
+                                    <MudText Typo="Typo.caption">No School representing on this division and level</MudText>
+                                </MudField>
+                            }
                         </MudItem>
                         <MudItem xs="12" md="6">
                             <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
@@ -56,7 +65,7 @@
                             <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
                         </MudItem>
                         <MudItem xs="12" md="6">
-                            <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Sport Category" ShrinkLabel Variant="Variant.Outlined" TextChanged="GetSportSubcategoriesAsync" Clearable OnClearButtonClick="@(() => _selectedSportIDValue = null)">
+                            <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Sport Category" ShrinkLabel Variant="Variant.Outlined" TextChanged="GetSportSubcategoriesAsync" Clearable Disabled="_selectedSchoolDivisionIDValue == null" OnClearButtonClick="@(() => _selectedSportIDValue = null)">
                                 <MudVirtualize Items="_sportCategories" Context="sportCategory">
                                     <MudSelectItem T="int?" Value="sportCategory.ID">@sportCategory.Category</MudSelectItem>
                                 </MudVirtualize>
@@ -73,7 +82,7 @@
                             <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
                                 <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
                                 <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
-                                Disabled="_addStreamDisabled" OnClick="ConfirmPostEventVenuesAsync">Add</MudButton>
+                                           Disabled="_addStreamDisabled" OnClick="ConfirmPostEventVenuesAsync">Add</MudButton>
                             </MudStack>
                         </MudItem>
                     </MudGrid>
@@ -87,16 +96,16 @@
                     <MudText Typo="Typo.h6">List of Players</MudText>
                     <MudSpacer />
                     <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
-                    Adornment="Adornment.Start"
-                    AdornmentIcon="@Icons.Material.Filled.Search"
-                    IconSize="Size.Medium" />
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium" />
                 </ToolBarContent>
                 <ColGroup>
                     <MudHidden Breakpoint="Breakpoint.Xs">
-                        <col style="width: 30%" />
-                        <col style="width: 25%" />
+                        <col style="width: 15%" />
                         <col style="width: 20%" />
-                        <col style="width: 20%" />
+                        <col style="width: 15%" />
+                        <col style="width: 45%" />
                         <col style="width: 5%" />
                     </MudHidden>
                 </ColGroup>
@@ -151,65 +160,69 @@
                             </MudElement>
                         </MudText>
                     </MudTd>
-                    <MudTd DataLabel="Sport Event and Coach/es">
-                        @if (player.ProfilePlayerSportsList?.Count() > 1)
-                        {
-                            <MudStack>
+                    <MudTd DataLabel="Sport Event">
+                        <MudGrid>
+                            @if (player.ProfilePlayerSportsList?.Count() > 0)
+                            {
                                 <MudVirtualize Items="player.ProfilePlayerSportsList" Context="sport">
-                                    @* Sport Event *@
-                                    <MudStack Spacing="0">
+                                    <MudItem xs="12" md="6">
+                                        <MudPaper Outlined Class="pa-3" Style="background-color: transparent">
+                                            @* Sport Event *@
+                                            <MudStack Spacing="1">
 
-                                        @* Subcategory *@
-                                        <MudText Typo="Typo.body2">
-                                            @sport.Subcategory
-                                        </MudText>
+                                                <MudStack Row Justify="Justify.SpaceBetween">
+                                                    @* Subcategory *@
+                                                    <MudText Typo="Typo.body2">
+                                                        @sport.Subcategory
+                                                    </MudText>
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => OpenPlayerSportEventEditDialog(player.ID, player.SportID, player.SchoolLevelID, sport.ProfilePlayerSportID, player.RegionID)" />
 
-                                        @* Gender *@
-                                        <MudStack Spacing="0">
-                                            @if (sport.Gender == "Male")
-                                        {
-                                            <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
-                                                <MudText Typo="Typo.caption">Male</MudText>
-                                                <MudIcon Icon="@Icons.Material.Filled.Male" Color="Color.Info" Size="Size.Small" />
-                                            </MudStack>
-                                        }
-                                        else if (sport.Gender == "Female")
-                                        {
-                                            <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
-                                                <MudText Typo="Typo.caption">Female</MudText>
-                                                <MudIcon Icon="@Icons.Material.Filled.Female" Color="Color.Error" Size="Size.Small" />
-                                            </MudStack>
-                                        }
-                                        else
-                                        {
-                                            <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
-                                                <MudStack Row Spacing="0">
-                                                    <MudText Typo="Typo.caption">Mixed</MudText>
-                                                    <MudIcon Icon="@Icons.Material.Filled.Male" Color="Color.Info" Size="Size.Small" />
-                                                    <MudIcon Icon="@Icons.Material.Filled.Female" Color="Color.Error" Size="Size.Small" />
                                                 </MudStack>
-                                            </MudStack>
-                                        }
-                                    </MudStack>
 
-                                    @* Coach *@
-                                    <MudStack Spacing="0">
-                                        @if (sport.ProfilePlayerSportCoachesList?.Count > 1)
-                                        {
-                                            <MudText Typo="Typo.caption">
-                                                Coaches:
-                                            </MudText>
-                                        }
-                                        else
-                                        {
-                                            <MudText Typo="Typo.caption">
-                                                Coach:
-                                            </MudText>
-                                        }
-                                        @if (sport.ProfilePlayerSportCoachesList?.Count > 0)
-                                        {
-                                            <MudStack Row>
-                                                <MudDivider Vertical="true" FlexItem="true" Class="ml-2" />
+                                                @* Gender *@
+                                                <MudStack Spacing="0">
+                                                    @if (sport.Gender == "Male")
+                                                {
+                                                    <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                                        <MudText Typo="Typo.caption">Male</MudText>
+                                                        <MudIcon Icon="@Icons.Material.Filled.Male" Color="Color.Info" Size="Size.Small" />
+                                                    </MudStack>
+                                                }
+                                                else if (sport.Gender == "Female")
+                                                {
+                                                    <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                                        <MudText Typo="Typo.caption">Female</MudText>
+                                                        <MudIcon Icon="@Icons.Material.Filled.Female" Color="Color.Error" Size="Size.Small" />
+                                                    </MudStack>
+                                                }
+                                                else
+                                                {
+                                                    <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                                        <MudStack Row Spacing="0">
+                                                            <MudText Typo="Typo.caption">Mixed</MudText>
+                                                            <MudIcon Icon="@Icons.Material.Filled.Male" Color="Color.Info" Size="Size.Small" />
+                                                            <MudIcon Icon="@Icons.Material.Filled.Female" Color="Color.Error" Size="Size.Small" />
+                                                        </MudStack>
+                                                    </MudStack>
+                                                }
+                                            </MudStack>
+                                            <MudDivider />
+
+                                            @* Coach *@
+                                            <MudStack Spacing="1">
+                                                @if (sport.ProfilePlayerSportCoachesList?.Count > 1)
+                                                {
+                                                    <MudText Typo="Typo.caption">
+                                                        Coaches:
+                                                    </MudText>
+                                                }
+                                                else if (sport.ProfilePlayerSportCoachesList?.Count == 1)
+                                                {
+                                                    <MudText Typo="Typo.caption">
+                                                        Coach:
+                                                    </MudText>
+                                                }
+
                                                 <MudStack Spacing="0">
                                                     <MudVirtualize Items="sport.ProfilePlayerSportCoachesList" Context="coach">
                                                         <MudText Typo="Typo.caption">
@@ -217,28 +230,23 @@
                                                         </MudText>
                                                     </MudVirtualize>
                                                 </MudStack>
-                                            </MudStack>
-                                            <MudButton Size="Size.Small" Style="text-transform: none">Edit sport event</MudButton>
-                                        }
-                                        else
-                                        {
-                                            <MudButton Size="Size.Small" Style="text-transform: none">Add Coach/es</MudButton>
-                                        }
-                                    </MudStack>
 
-                                    @if (sport.ProfilePlayerSportCoachesList?.Count > 1)
-                                    {
-                                        <MudDivider Class="mt-4" />
-                                    }
-                                </MudStack>
+                                            </MudStack>
+                                        </MudStack>
+                                    </MudPaper>
+                                </MudItem>
                             </MudVirtualize>
-                            <MudButton Size="Size.Small" Style="text-transform: none">Edit sport event</MudButton>
-                        </MudStack>
-                        }
-                        else
-                        {
-                            <MudButton Size="Size.Small" Style="text-transform: none" OnClick="() => OpenPlayerSportEventDialog(player.ID, player.SportID, player.SchoolLevelID)">Add sport event</MudButton>
-                        }
+                                <MudItem xs="12">
+                                    <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" Style="text-transform: none" OnClick="() => OpenPlayerSportEventAddDialog(player.ID, player.SportID, player.SchoolLevelID, player.RegionID)">Add sport event</MudButton>
+                                </MudItem>
+                            }
+                            else
+                            {
+                                <MudItem xs="12">
+                                    <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" Style="text-transform: none" OnClick="() => OpenPlayerSportEventAddDialog(player.ID, player.SportID, player.SchoolLevelID, player.RegionID)">Add sport event</MudButton>
+                                </MudItem>
+                            }
+                        </MudGrid>
 
                     </MudTd>
                     <MudTd DataLabel="Settings" Style="text-align: center">
@@ -343,6 +351,7 @@
                 public int? SchoolLevelID { get; set; }
                 public string? Level { get; set; }
                 public string? Division { get; set; }
+                public int? RegionID { get; set; }
                 public string? Region { get; set; }
                 public string? Abbreviation { get; set; }
                 public string? Category { get; set; }
@@ -353,6 +362,7 @@
 
             public class ProfilePlayerSports
             {
+                public int ProfilePlayerSportID { get; set; }
                 public string? Gender { get; set; }
                 public string? Subcategory { get; set; }
                 public List<ProfilePlayerSportCoaches>? ProfilePlayerSportCoachesList { get; set; }
@@ -469,17 +479,41 @@
         }
     }
 
-    private async Task OpenPlayerSportEventDialog(int selectedID, int? selectedSportID, int? selectedSchoolLevelID)
+    private async Task OpenPlayerSportEventAddDialog(int selectedID, int? selectedSportID, int? selectedSchoolLevelID, int? selectedRegionID)
     {
-        var parameter = new DialogParameters<PlayerSportEventDialog>
+        var parameter = new DialogParameters<PlayerSportAddEventDialog>
         {
             {x => x.selectedPlayerID, selectedID},
             {x => x.selectedSportID, selectedSportID},
             {x => x.selectedSchoolLevelID, selectedSchoolLevelID},
+            {x => x.selectedRegionID, selectedRegionID},
         };
         var options = new DialogOptions { NoHeader = true, CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
 
-        var dialog = await DialogService.ShowAsync<PlayerSportEventDialog>("Player Sport Event Settings", parameter, options);
+        var dialog = await DialogService.ShowAsync<PlayerSportAddEventDialog>("Player Sport Add Event Settings", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result.Canceled)
+        {
+            await GetPlayersProfileAsync();
+        }
+    }
+
+    private async Task OpenPlayerSportEventEditDialog(int selectedID, int? selectedSportID, int? selectedSchoolLevelID, int selectedPlayerSportID, int? selectedRegionID)
+    {
+        var parameter = new DialogParameters<PlayerSportEditEventDialog>
+        {
+            {x => x.selectedPlayerID, selectedID},
+            {x => x.selectedSportID, selectedSportID},
+            {x => x.selectedSchoolLevelID, selectedSchoolLevelID},
+            {x => x.selectedPlayerSportsID, selectedPlayerSportID},
+            {x => x.selectedRegionID, selectedRegionID},
+        };
+        var options = new DialogOptions { NoHeader = true, CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<PlayerSportEditEventDialog>("Player Sport Edit Event Settings", parameter, options);
 
         var result = await dialog.Result;
 
@@ -671,7 +705,6 @@
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
-
 
     private async Task PostEventVenueAsync()
     {

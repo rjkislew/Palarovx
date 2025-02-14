@@ -9,11 +9,11 @@ public partial class ProfilePlayerSportCoaches
 {
     public int ID { get; set; }
 
-    public int? ProfileCoachID { get; set; }
-
     public int? ProfilePlayerSportID { get; set; }
+
+    public int? ProfileCoachID { get; set; }
 
     public virtual ProfileCoaches? ProfileCoach { get; set; }
 
-    public virtual ICollection<ProfilePlayerSports> ProfilePlayerSports { get; set; } = new List<ProfilePlayerSports>();
+    public virtual ProfilePlayerSports? ProfilePlayerSport { get; set; }
 }

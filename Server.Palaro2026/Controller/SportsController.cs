@@ -28,16 +28,24 @@ namespace Server.Palaro2026.Controller
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<SportsDTO.Sports>>> GetSports(
-        [FromQuery] int? id = null,
+        [FromQuery] string? id = null,
         [FromQuery] string? sport = null,
         [FromQuery] string? description = null,
         [FromQuery] int? sportCategoryID = null)
         {
             var query = _context.Sports.AsQueryable();
 
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                var idList = id.Split(',')
+                               .Select(s => int.TryParse(s, out int val) ? val : (int?)null)
+                               .Where(val => val.HasValue)
+                               .Select(val => val!.Value)
+                               .ToList();
 
-            if (id.HasValue)
-                query = query.Where(x => x.ID == id.Value);
+                if (idList.Any())
+                    query = query.Where(x => idList.Contains(x.ID));
+            }
 
             if (!string.IsNullOrEmpty(sport))
                 query = query.Where(x => x.Sport.Contains(sport));

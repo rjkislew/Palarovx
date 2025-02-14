@@ -9,15 +9,13 @@ public partial class ProfilePlayerSports
 {
     public int ID { get; set; }
 
-    public int ProfilePlayerID { get; set; }
-
-    public int? ProfilePlayerSportCoachID { get; set; }
+    public int? ProfilePlayerID { get; set; }
 
     public int? SportSubcategoryID { get; set; }
 
-    public virtual ProfilePlayers ProfilePlayer { get; set; } = null!;
+    public virtual ProfilePlayers? ProfilePlayer { get; set; }
 
-    public virtual ProfilePlayerSportCoaches? ProfilePlayerSportCoach { get; set; }
+    public virtual ICollection<ProfilePlayerSportCoaches> ProfilePlayerSportCoaches { get; set; } = new List<ProfilePlayerSportCoaches>();
 
     public virtual SportSubcategories? SportSubcategory { get; set; }
 }
