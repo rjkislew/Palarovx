@@ -22,20 +22,24 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
-
-        [HttpGet("List")]
+        [HttpGet("TallyClerkList")]
         public async Task<ActionResult<IEnumerable<UsersDTO.UserList>>> GetUsersNameList()
         {
             var users = await _context.Users
-                .Select(u => new UsersDTO.UserList
-                {
-                    ID = u.ID,
-                    Name = $"{u.FirstName} {u.LastName}"
-                })
+                .Include(r => r.Role)
+                .Where(user => user.Role != null && user.Role.Role == "Tally Clerk")
                 .AsNoTracking()
                 .ToListAsync();
 
-            return Ok(users);
+            var mappedUsers = users.Select(user => new UsersDTO.UserList
+            {
+                ID = user.ID,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Role = user.Role?.Role
+            }).ToList();
+
+            return Ok(mappedUsers);
         }
 
         private static UsersDTO.Users UsersDTOMapper(Users users) =>

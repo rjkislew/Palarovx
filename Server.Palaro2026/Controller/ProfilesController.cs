@@ -7,7 +7,6 @@ using Server.Palaro2026.Entities;
 
 namespace Server.Palaro2026.Controller
 {
-    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class ProfilesController : ControllerBase

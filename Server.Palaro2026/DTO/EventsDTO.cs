@@ -12,17 +12,17 @@ public class EventsDTO
             public List<EventVersus>? EventVersusList { get; set; }
 
             //public int? SportSubcategoryID { get; set; }
-                public string? Category { get; set; }
-                public string? Sport { get; set; }
-                public string? Subcategory { get; set; }
-                public string? Gender { get; set; }
-                public string? Level { get; set; }
+            public string? Category { get; set; }
+            public string? Sport { get; set; }
+            public string? Subcategory { get; set; }
+            public string? Gender { get; set; }
+            public string? Level { get; set; }
             //
 
             // public int? EventVenuesID { get; set; }
-                public string? Venue { get; set; }
-                public decimal? Latitude { get; set; }
-                public decimal? Longitude { get; set; }
+            public string? Venue { get; set; }
+            public decimal? Latitude { get; set; }
+            public decimal? Longitude { get; set; }
             //
 
             public DateTime? Date { get; set; }
@@ -31,8 +31,8 @@ public class EventsDTO
 
 
             // public int? StreamID { get; set; }
-                public string? StreamService { get; set; }
-                public string? StreamURL { get; set; }
+            public string? StreamService { get; set; }
+            public string? StreamURL { get; set; }
             //
 
             public bool? IsFinished { get; set; }
@@ -41,16 +41,16 @@ public class EventsDTO
             public bool? Deleted { get; set; }
 
             //public string? UserID { get; set; }
-                public string? FirstName { get; set; }
-                public string? LastName { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
         }
 
         public class EventVersus
         {
             public int? Score { get; set; }
             // public int? SchoolRegionID { get; set; }
-                public string? Region { get; set; }
-                public string? Abbreviation { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
             //
 
             public DateTime? RecentUpdateAt { get; set; }
@@ -65,7 +65,7 @@ public class EventsDTO
         public DateTime? Date { get; set; }
         public TimeSpan? Time { get; set; }
         public bool? OnStream { get; set; }
-        public int? StreamID { get; set; }
+        public int? EventStreamID { get; set; }
         public bool? IsFinished { get; set; }
         public byte[]? Attachement { get; set; }
         public bool? Archived { get; set; }
@@ -79,11 +79,39 @@ public class EventsDTO
         public string? FacebookLink { get; set; }
     }
 
-    public class EventStreams
+    public class EventStreamServicesDetails
+    {
+        public class EventStreamServices
+        {
+            public int ID { get; set; }
+            public string? StreamService { get; set; }
+            public List<EventStreams>? EventStreamsList { get; set; }
+        }
+
+        public class EventStreams
+        {
+            public int StreamID { get; set; }
+            public string? StreamTitle { get; set; }
+            public string? StreamURL { get; set; }
+            public DateTime? StreamDate { get; set; }
+
+        }
+    }
+
+    public class EventStreamServices
     {
         public int ID { get; set; }
         public string? StreamService { get; set; }
+    }
+
+    public class EventStreams
+    {
+        public int ID { get; set; }
+        public int? EventStreamServiceID { get; set; }
+        public string? StreamTitle { get; set; }
         public string? StreamURL { get; set; }
+        public DateTime? StreamDate { get; set; }
+
     }
 
     public class EventVenues

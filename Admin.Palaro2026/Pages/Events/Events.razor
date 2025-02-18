@@ -1,11 +1,255 @@
 ﻿@page "/events"
 
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject APIService apiService
 @inject HttpClient httpClient
 
-<MudButton>
-</MudButton>
+
+<MudGrid Spacing="0">
+    <MudItem xs="12">
+        <MudText Typo="Typo.h4">Events</MudText>
+        <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
+    </MudItem>
+    @if (_eventDetails != null && _eventDetails.Any())
+    {
+        <MudItem xs="12">
+            <MudStack Row Spacing="0">
+                <MudButton Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddEventDialog">Add Event</MudButton>
+                <MudDivider Vertical="true" FlexItem="true" />
+                <MudButton Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetEventsAsync">Refresh Table</MudButton>
+            </MudStack>
+        </MudItem>
+        <MudItem xs="12">
+            <MudTable Outlined Items="_eventDetails" Striped Context="eventDetail" Filter="FilterFunc" Elevation="0">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">List of Events</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium" />
+                </ToolBarContent>
+                <ColGroup>
+                    <MudHidden Breakpoint="Breakpoint.Xs">
+                        <col style="width: 20%" />
+                        <col style="width: 20%" />
+                        <col style="width: 15%" />
+                        <col style="width: 15%" />
+                        <col style="width: 15%" />
+                        <col style="width: 10%" />
+                        <col style="width: 5%" />
+                    </MudHidden>
+                </ColGroup>
+                <HeaderContent>
+                    <MudTh>Event</MudTh>
+                    <MudTh>Opposing Teams</MudTh>
+                    <MudTh>Venue</MudTh>
+                    <MudTh>Schedule</MudTh>
+                    <MudTh>Stream Service</MudTh>
+                    <MudTh>Tally Clerk</MudTh>
+                    <MudTh>Settings</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd Datalabel="Event">
+                        <MudStack Spacing="0">
+                            <MudText>@eventDetail.Category</MudText>
+                            <MudStack Row Spacing="1">
+                                <MudText Typo="Typo.caption">@eventDetail.Sport
+                                    <MudElement>
+                                        <MudText Typo="Typo.caption">[@eventDetail.Subcategory]</MudText>
+                                    </MudElement>
+                                </MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.caption">@eventDetail.Level</MudText>
+                            <MudText Typo="Typo.caption">@eventDetail.Gender</MudText>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd Datalabel="Opposing Teams">
+                        @if (eventDetail.EventVersusList?.Count() > 0)
+                        {
+                            <MudStack Row Wrap="Wrap.Wrap" Spacing="0">
+                                <MudVirtualize Items="@eventDetail.EventVersusList" Context="teams">
+                                    <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">@teams.Abbreviation</MudChip>
+                                </MudVirtualize>
+                            </MudStack>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2">Teams are to be assigned.</MudText>
+                        }
+                    </MudTd>
+                    <MudTd Datalabel="Venue">
+                        <MudLink Underline="Underline.Hover" Href="@($"https://www.google.com/maps/?q={eventDetail.Latitude},{eventDetail.Longitude}")" Target="_blank">
+                            <MudStack Row AlignItems="AlignItems.Center">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2">
+                                        @eventDetail.Venue
+                                    </MudText>
+                                    <MudText Typo="Typo.caption">
+                                        Lat: @eventDetail.Latitude
+                                    </MudText>
+                                    <MudText Typo="Typo.caption">
+                                        Long: @eventDetail.Longitude
+                                    </MudText>
+                                </MudStack>
+                                <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" />
+                            </MudStack>
+                        </MudLink>
+                    </MudTd>
+                    <MudTd Datalabel="Schedule">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.caption">@(eventDetail.Date?.ToString("dddd - MMMM d") ?? "No Date")</MudText>
+                            <MudText Typo="Typo.caption">@(eventDetail.Time.HasValue ? DateTime.Today.Add(eventDetail.Time.Value).ToString("hh:mm tt") : "No Time")</MudText>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd Datalabel="Stream Service">
+                        @if (eventDetail.OnStream == true)
+                        {
+                            <MudLink Underline="Underline.Hover" Href="@($"{@eventDetail.StreamURL}")" Target="_blank">
+                                <MudStack Row AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.body2">
+                                        @eventDetail.StreamService
+                                    </MudText>
+                                    <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" />
+                                </MudStack>
+                            </MudLink>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2">No Stream Service Available</MudText>
+                        }
+                    </MudTd>
+                    <MudTd Datalabel="Tally Clerk">
+                        @eventDetail.FirstName @eventDetail.LastName
+                    </MudTd>
+                    <MudTd DataLabel="Settings" Style="text-align: center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1"></MudIconButton>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.caption">No matching records found.</MudText>
+                </NoRecordsContent>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        </MudItem>
+    }
+    else
+    {
+        <MudItem xs="12">
+            <MudProgressLinear Indeterminate="true" />
+        </MudItem>
+    }
+</MudGrid>
 
 @code {
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    private List<EventsDTO.EventDetails.Event>? _eventDetails;
+
+    private string _searchString = "";
+
+    private bool FilterFunc(EventsDTO.EventDetails.Event streams)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return streams.Category!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            streams.Sport!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            streams.Subcategory!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            streams.Gender!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            streams.Level!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            streams.StreamService!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            streams.Venue!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            streams.StreamService!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            streams.FirstName!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            streams.LastName!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task OpenAddEventDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddEventDialog>("Add Event", options);
+
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await GetEventsAsync();
+        }
+    }
+
+    private List<BreadcrumbItem> _items =
+    [
+        new("Home", href: "./"),
+    new("Events", href: null, disabled: true)
+    ];
+
+    public class EventsDTO
+    {
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public List<EventVersus>? EventVersusList { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public bool? IsFinished { get; set; }
+                public byte[]? Attachement { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+            public class EventVersus
+            {
+                public int? Score { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetEventsAsync();
+    }
+
+    private async Task GetEventsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/Details";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventDetails = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
 }

@@ -49,7 +49,9 @@ namespace Server.Palaro2026.Controller
                     .Include(e => e.SportSubcategory)
                         .ThenInclude(ssc => ssc!.SchoolLevel)
                     .Include(e => e.EventVenues)
-                    .Include(e => e.Stream)
+                    .Include(e => e.EventStream)
+                    .Include(e => e.EventStream)
+                        .ThenInclude(e => e.EventStreamService)
                     .Include(e => e.EventVersus)
                         .ThenInclude(ev => ev.SchoolRegion)
                     .Include(u => u.User)
@@ -159,8 +161,8 @@ namespace Server.Palaro2026.Controller
                     Date = eventEntity.Date,
                     Time = eventEntity.Time,
                     OnStream = eventEntity.OnStream ?? false,
-                    StreamService = eventEntity.Stream?.StreamService,
-                    StreamURL = eventEntity.Stream?.StreamURL,
+                    StreamService = eventEntity.EventStream?.EventStreamService?.StreamService,
+                    StreamURL = eventEntity.EventStream?.StreamURL,
                     IsFinished = eventEntity.IsFinished,
                     Attachement = eventEntity.Attachement,
                     Archived = eventEntity.Archived,
@@ -186,7 +188,7 @@ namespace Server.Palaro2026.Controller
                Date = events.Date,
                Time = events.Time,
                OnStream = events.OnStream,
-               StreamID = events.StreamID,
+               EventStreamID = events.EventStreamID,
                IsFinished = events.IsFinished,
                Attachement = events.Attachement,
                Archived = events.Archived,
@@ -229,7 +231,7 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.OnStream == onStream.Value);
 
             if (streamID.HasValue)
-                query = query.Where(x => x.StreamID == streamID.Value);
+                query = query.Where(x => x.EventStreamID == streamID.Value);
 
             if (isFinished.HasValue)
                 query = query.Where(x => x.IsFinished == isFinished.Value);
@@ -268,7 +270,7 @@ namespace Server.Palaro2026.Controller
             existingEvent.Date = events.Date;
             existingEvent.Time = events.Time;
             existingEvent.OnStream = events.OnStream;
-            existingEvent.StreamID = events.StreamID;
+            existingEvent.EventStreamID = events.EventStreamID;
             existingEvent.IsFinished = events.IsFinished;
             existingEvent.Attachement = events.Attachement;
             existingEvent.Archived = events.Archived;
@@ -305,7 +307,7 @@ namespace Server.Palaro2026.Controller
                 Date = events.Date,
                 Time = events.Time,
                 OnStream = events.OnStream,
-                StreamID = events.StreamID,
+                EventStreamID = events.EventStreamID,
                 IsFinished = events.IsFinished,
                 Attachement = events.Attachement,
                 Archived = events.Archived,
@@ -472,28 +474,183 @@ namespace Server.Palaro2026.Controller
 
 
 
-        // Event Streams
-        private static EventsDTO.EventStreams EventStreamsDTOMapper(EventStreams eventStreams) =>
-           new EventsDTO.EventStreams
-           {
-               ID = eventStreams.ID,
-               StreamService = eventStreams.StreamService,
-               StreamURL = eventStreams.StreamURL
-           };
+        // Event Stream Services
 
-        [HttpGet("Streams")]
-        public async Task<ActionResult<IEnumerable<EventsDTO.EventStreams>>> GetEventStreams(
-        [FromQuery] int? ID = null,
-        [FromQuery] string? streamService = null,
-        [FromQuery] string? streamURL = null)
+        [HttpGet("StreamServices/Details")]
+        public async Task<ActionResult<List<EventsDTO.EventStreamServicesDetails.EventStreamServices>>> GetEventStreamServicesDetails()
         {
-            var query = _context.EventStreams.AsQueryable();
+            try
+            {
+                var eventStreamServices = await _context.EventStreamServices
+                    .Include(es => es.EventStreams)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                var mappedEventStreamServices = eventStreamServices.Select(streamService => new EventsDTO.EventStreamServicesDetails.EventStreamServices
+                {
+                    ID = streamService.ID,
+                    StreamService = streamService.StreamService,
+                    EventStreamsList = streamService.EventStreams.Select(stream => new EventsDTO.EventStreamServicesDetails.EventStreams
+                    {
+                        StreamID = stream.ID,
+                        StreamTitle = stream.StreamTitle,
+                        StreamURL = stream.StreamURL,
+                        StreamDate = stream.StreamDate
+                    }).ToList()
+                }).ToList();
+
+                return Ok(mappedEventStreamServices);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Internal server error. Please try again later.");
+            }
+        }
+
+
+        private static EventsDTO.EventStreamServices EventStreamServicesDTOMapper(EventStreamServices eventStreamServices) =>
+            new EventsDTO.EventStreamServices
+            {
+                ID = eventStreamServices.ID,
+                StreamService = eventStreamServices.StreamService
+            };
+
+        [HttpGet("StreamServices")]
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventStreamServices>>> GetEventStreamServices(
+            [FromQuery] int? ID = null,
+            [FromQuery] string? streamService = null)
+        {
+            var query = _context.EventStreamServices.AsQueryable();
 
             if (ID.HasValue)
                 query = query.Where(x => x.ID == ID.Value);
 
             if (!string.IsNullOrEmpty(streamService))
                 query = query.Where(x => x.StreamService!.Contains(streamService));
+
+            return await query
+                .Select(x => EventStreamServicesDTOMapper(x))
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        [HttpPut("StreamServices/{id}")]
+        public async Task<IActionResult> PutEventStreamService(int id, EventsDTO.EventStreamServices eventStreamServiceDto)
+        {
+            if (id != eventStreamServiceDto.ID)
+            {
+                return BadRequest();
+            }
+
+            var existingStreamService = await _context.EventStreamServices.FindAsync(id);
+            if (existingStreamService == null)
+            {
+                return NotFound();
+            }
+
+            existingStreamService.StreamService = eventStreamServiceDto.StreamService;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventStreamServiceExists(id))
+                {
+                    return NotFound();
+                }
+                throw;
+            }
+
+            return NoContent();
+        }
+
+        [HttpPost("StreamServices")]
+        public async Task<ActionResult<EventStreamServices>> PostEventStreamService(EventsDTO.EventStreamServices eventStreamServiceDto)
+        {
+            var eventStreamServiceEntity = new EventStreamServices
+            {
+                ID = eventStreamServiceDto.ID,
+                StreamService = eventStreamServiceDto.StreamService
+            };
+
+            _context.EventStreamServices.Add(eventStreamServiceEntity);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventStreamServiceExists(eventStreamServiceDto.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEventStreamServices", new { id = eventStreamServiceDto.ID }, EventStreamServicesDTOMapper(eventStreamServiceEntity));
+        }
+
+        [HttpDelete("StreamServices/{id}")]
+        public async Task<IActionResult> DeleteEventStreamService(int id)
+        {
+            var eventStreamService = await _context.EventStreamServices.FindAsync(id);
+            if (eventStreamService == null)
+            {
+                return NotFound();
+            }
+
+            _context.EventStreamServices.Remove(eventStreamService);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        private bool EventStreamServiceExists(int id)
+        {
+            return _context.EventStreamServices.Any(e => e.ID == id);
+        }
+
+
+
+
+
+        // Event Streams
+        private static EventsDTO.EventStreams EventStreamsDTOMapper(EventStreams eventStreams) =>
+        new EventsDTO.EventStreams
+        {
+            ID = eventStreams.ID,
+            EventStreamServiceID = eventStreams.EventStreamServiceID,
+            StreamTitle = eventStreams.StreamTitle,
+            StreamDate = eventStreams.StreamDate,
+            StreamURL = eventStreams.StreamURL
+        };
+
+        [HttpGet("StreamService/Streams")]
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventStreams>>> GetEventStreams(
+            [FromQuery] int? ID = null,
+            [FromQuery] int? eventStreamServiceID = null,
+            [FromQuery] string? streamTitle = null,
+            [FromQuery] DateTime? streamDate = null,
+            [FromQuery] string? streamURL = null)
+        {
+            var query = _context.EventStreams.AsQueryable();
+
+            if (ID.HasValue)
+                query = query.Where(x => x.ID == ID.Value);
+
+            if (eventStreamServiceID.HasValue)
+                query = query.Where(x => x.EventStreamServiceID == eventStreamServiceID.Value);
+
+            if (!string.IsNullOrEmpty(streamTitle))
+                query = query.Where(x => x.StreamTitle!.Contains(streamTitle));
+
+            if (streamDate.HasValue)
+                query = query.Where(x => x.StreamDate == streamDate.Value);
 
             if (!string.IsNullOrEmpty(streamURL))
                 query = query.Where(x => x.StreamURL!.Contains(streamURL));
@@ -504,7 +661,7 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Streams/{id}")]
+        [HttpPut("StreamService/Streams/{id}")]
         public async Task<IActionResult> PutEventStreams(int id, EventsDTO.EventStreams eventStreamsDto)
         {
             if (id != eventStreamsDto.ID)
@@ -518,7 +675,9 @@ namespace Server.Palaro2026.Controller
                 return NotFound();
             }
 
-            existingEventStream.StreamService = eventStreamsDto.StreamService;
+            existingEventStream.EventStreamServiceID = eventStreamsDto.EventStreamServiceID;
+            existingEventStream.StreamTitle = eventStreamsDto.StreamTitle;
+            existingEventStream.StreamDate = eventStreamsDto.StreamDate;
             existingEventStream.StreamURL = eventStreamsDto.StreamURL;
 
             try
@@ -537,17 +696,19 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Streams")]
+        [HttpPost("StreamService/Streams")]
         public async Task<ActionResult<EventStreams>> PostEventStreams(EventsDTO.EventStreams eventStreams)
         {
-            var eventStreamsDTO = new EventStreams
+            var eventStreamsEntity = new EventStreams
             {
                 ID = eventStreams.ID,
-                StreamService = eventStreams.StreamService,
+                EventStreamServiceID = eventStreams.EventStreamServiceID,
+                StreamTitle = eventStreams.StreamTitle,
+                StreamDate = eventStreams.StreamDate,
                 StreamURL = eventStreams.StreamURL
             };
 
-            _context.EventStreams.Add(eventStreamsDTO);
+            _context.EventStreams.Add(eventStreamsEntity);
             try
             {
                 await _context.SaveChangesAsync();
@@ -564,10 +725,10 @@ namespace Server.Palaro2026.Controller
                 }
             }
 
-            return CreatedAtAction("GetEventStreams", new { id = eventStreams.ID }, EventStreamsDTOMapper(eventStreamsDTO));
+            return CreatedAtAction("GetEventStreams", new { id = eventStreams.ID }, EventStreamsDTOMapper(eventStreamsEntity));
         }
 
-        [HttpDelete("Streams/{id}")]
+        [HttpDelete("StreamService/Streams/{id}")]
         public async Task<IActionResult> DeleteEventStreams(int id)
         {
             var eventStreams = await _context.EventStreams.FindAsync(id);
@@ -586,6 +747,7 @@ namespace Server.Palaro2026.Controller
         {
             return _context.EventStreams.Any(e => e.ID == id);
         }
+
 
 
 

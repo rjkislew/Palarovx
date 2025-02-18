@@ -9,42 +9,20 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudGrid>
+<MudGrid Spacing="0">
     <MudItem xs="12">
         <MudText Typo="Typo.h4">Event Venues</MudText>
         <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
     </MudItem>
     @if (_eventVenues != null && _eventVenues.Any())
     {
-        <MudItem xs="12" sm="6">
-            <MudButton OnClick="OnExpandAddEventVenueButtonClick" Style="text-transform: none" Variant="Variant.Filled" DropShadow="false">@(_expandedAddEventVenue ? "Close" : "Add Event Venue")</MudButton>
-            <MudCollapse Expanded="_expandedAddEventVenue" Class="pt-5">
-                <MudPaper Outlined Class="pa-5">
-                    <MudGrid Spacing="2">
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_addressValue" Immediate Margin="Margin.Dense" Label="Address" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_venueValue" Immediate Margin="Margin.Dense" Label="Venue" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField T="decimal?" @bind-Value="_latitudeValue" Immediate Mask="@(new PatternMask("0.000000"))" Margin="Margin.Dense" Label="Latitude" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField T="decimal?" @bind-Value="_longitudeValue" Immediate Mask="@(new PatternMask("000.000000"))" Margin="Margin.Dense" Label="Longitude" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
-                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
-                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
-                                           Disabled="_addStreamDisabled" OnClick="ConfirmPostEventVenuesAsync">Add</MudButton>
-                            </MudStack>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-            </MudCollapse>
+        <MudItem xs="12">
+            <MudStack Row Spacing="0">
+                <MudButton Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddVenueDialog">Add Venue</MudButton>
+                <MudDivider Vertical="true" FlexItem="true" />
+                <MudButton Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetEventVenuesAsync">Refresh Table</MudButton>
+            </MudStack>
         </MudItem>
-        <MudFlexBreak />
         <MudItem xs="12">
             <MudTable Outlined Items="_eventVenues" Striped Virtualize="true" Filter="FilterFunc" Elevation="0" Hover>
                 <ToolBarContent>
@@ -96,7 +74,7 @@
                         </MudLink>
                     </MudTd>
                     <MudTd DataLabel="Settings" Style="text-align: center">
-                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenVenueDialog(venue.ID)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditVenueDialog(venue.ID)" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent>
@@ -193,19 +171,32 @@
         }
     }
 
-    private async Task OpenVenueDialog(int selectedID)
+    private async Task OpenEditVenueDialog(int selectedID)
     {
-        var parameter = new DialogParameters<VenueDialog>
+        var parameter = new DialogParameters<EditVenueDialog>
         {
             {x => x.selectedVenueID, selectedID}
         };
         var options = new DialogOptions { NoHeader = true, CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
 
-        var dialog = await DialogService.ShowAsync<VenueDialog>("Venue Settings", parameter, options);
+        var dialog = await DialogService.ShowAsync<EditVenueDialog>("Edit Venue Settings", parameter, options);
 
         var result = await dialog.Result;
 
-        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetEventVenuesAsync();
+        }
+    }
+
+    private async Task OpenAddVenueDialog()
+    {
+        var options = new DialogOptions {CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddVenueDialog>("Add Venue Settings", options);
+
+        var result = await dialog.Result;
+
         if (!result!.Canceled)
         {
             await GetEventVenuesAsync();

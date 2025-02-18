@@ -1,0 +1,551 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="2">
+            <MudItem xs="12">
+                <MudText>Sport Event</MudText>
+                <MudDivider />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Category" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => {_selectedSportIDValue = null; _selectedSchoolLevelIDValue = null; _selectedSportGenderCategoryIDValue = null; _selectedSportSubcategoryIDValue = null;})" T="int?" SelectedValuesChanged="GetSportsAsync">
+                    <MudVirtualize Items="_sportCategories" Context="category">
+                        <MudSelectItem T="int?" Value="category.ID">@category.Category</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport" ShrinkLabel Variant="Variant.Outlined" Disabled="_selectedSportCategoryIDValue == null" Clearable>
+                    <MudVirtualize Items="_sports" Context="sport">
+                        <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Disabled="_selectedSportIDValue == null" Clearable>
+                    <MudVirtualize Items="_schoolLevels" Context="schoolLevel">
+                        <MudSelectItem T="int?" Value="schoolLevel.ID">@schoolLevel.Level</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect @bind-Value="_selectedSportGenderCategoryIDValue" Margin="Margin.Dense" Label="Gender" ShrinkLabel Variant="Variant.Outlined" Clearable T="int?" Disabled="_selectedSchoolLevelIDValue == null" SelectedValuesChanged="GetSportSubCategoriesAsync">
+                    <MudVirtualize Items="_sportGenderCategories" Context="gender">
+                        <MudSelectItem T="int?" Value="gender.ID">@gender.Gender</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense" Label="Subcategory" ShrinkLabel Variant="Variant.Outlined" Disabled="_selectedSportCategoryIDValue == null || _selectedSportIDValue == null || _selectedSchoolLevelIDValue == null || _selectedSportGenderCategoryIDValue == null" Clearable>
+                    <MudVirtualize Items="_sportSubcategories" Context="subCategory">
+                        <MudSelectItem T="int?" Value="subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" Class="mt-5">
+                <MudText>Event Schedule and Venue</MudText>
+                <MudDivider />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect @bind-Value="_selectedEventVenueIDValue" Margin="Margin.Dense" Label="Venue" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                    <MudVirtualize Items="_eventVenues" Context="venue">
+                        <MudSelectItem T="int?" Value="venue.ID">@venue.Venue, @venue.Address</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudDatePicker Variant="Variant.Outlined" Margin="Margin.Dense" Label="Date" Editable="true" @bind-Date="_selectedDateValue" Placeholder="Select Date" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudTimePicker Variant="Variant.Outlined" Margin="Margin.Dense" Label="Time" AmPm="true" @bind-Time="_selectedTimeValue" />
+            </MudItem>
+            <MudItem xs="12" Class="mt-5">
+                <MudText>Streaming Service</MudText>
+                <MudDivider />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="5">
+                <MudStack Row AlignItems="AlignItems.Center">
+                    <MudCheckBox @bind-Value="_isOnStream" Size="Size.Small" T="bool?" Color="@Color.Secondary">On Stream</MudCheckBox>
+                    <MudSelect @bind-Value="_selectedEventStreamServiceIDValue" Margin="Margin.Dense" Disabled="_isOnStream == false" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable T="int?" SelectedValuesChanged="GetStreamsAsync">
+                        <MudVirtualize Items="_eventStreamServices" Context="streamService">
+                            <MudSelectItem T="int?" Value="streamService.ID">@streamService.StreamService</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudStack>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect @bind-Value="_selectedEventStreamIDValue" Margin="Margin.Dense" Disabled="_selectedEventStreamServiceIDValue == null" Label="Stream" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                    <MudVirtualize Items="_eventStreams" Context="stream">
+                        <MudSelectItem T="int?" Value="stream.ID">@stream.StreamTitle</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" Class="mt-5">
+                <MudText>Designate</MudText>
+                <MudDivider />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect @bind-Value="_selectedUserIDValue" Margin="Margin.Dense" Label="Tally Clerk" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                    <MudVirtualize Items="_userLists" Context="user">
+                        <MudSelectItem T="string" Value="user.ID">@user.FirstName @user.LastName</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12">
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+            <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+            <MudStack Row Justify="Justify.SpaceBetween">
+                <MudButton Style="text-transform: none" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
+                <MudButton Style="text-transform: none" DropShadow="false"
+                           Disabled="_addStreamDisabled" OnClick="ConfirmPostEventVenuesAsync">Add</MudButton>
+            </MudStack>
+        </MudStack>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    private List<SportsDTO.SportCategories>? _sportCategories;
+    private List<SportsDTO.Sports>? _sports;
+    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
+    private List<EventsDTO.EventVenues>? _eventVenues;
+    private List<EventsDTO.EventStreamServices>? _eventStreamServices;
+    private List<EventsDTO.EventStreams>? _eventStreams;
+    private List<UsersDTO.UserList>? _userLists;
+
+    private int? _selectedSportCategoryIDValue;
+    private int? _selectedSportIDValue;
+    private int? _selectedSportGenderCategoryIDValue;
+    private int? _selectedSchoolLevelIDValue;
+    private int? _selectedSportSubcategoryIDValue;
+    private int? _selectedEventVenueIDValue;
+    private int? _selectedEventStreamServiceIDValue;
+    private int? _selectedEventStreamIDValue;
+    private DateTime? _selectedDateValue = DateTime.Today;
+    private TimeSpan? _selectedTimeValue = DateTime.Now.TimeOfDay;
+    private string? _selectedUserIDValue;
+    private bool? _isOnStream = false;
+
+    private bool _addStreamDisabled =>
+    !_selectedSportCategoryIDValue.HasValue ||
+    !_selectedSportIDValue.HasValue ||
+    !_selectedSportGenderCategoryIDValue.HasValue ||
+    !_selectedSchoolLevelIDValue.HasValue ||
+    !_selectedSportSubcategoryIDValue.HasValue ||
+    !_selectedEventVenueIDValue.HasValue ||
+    !_selectedEventStreamServiceIDValue.HasValue ||
+    !_selectedDateValue.HasValue ||
+    !_selectedTimeValue.HasValue ||
+    string.IsNullOrEmpty(_selectedUserIDValue) ||
+    !_isOnStream.HasValue;
+
+    private void ClearFields()
+    {
+        _selectedSportCategoryIDValue = null;
+        _selectedSportIDValue = null;
+        _selectedSportCategoryIDValue = null;
+        _selectedSportIDValue = null;
+        _selectedSportGenderCategoryIDValue = null;
+        _selectedSchoolLevelIDValue = null;
+        _selectedSportSubcategoryIDValue = null;
+        _selectedEventVenueIDValue = null;
+        _selectedEventStreamServiceIDValue = null;
+        _selectedEventStreamIDValue = null;
+        _selectedDateValue = null;
+        _selectedTimeValue = null;
+        _selectedUserIDValue = null;
+        _isOnStream = false;
+    }
+
+    private async Task ConfirmPostEventVenuesAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of Event?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await PostEventAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    public class EventsDTO
+    {
+        public class Events
+        {
+            public string ID { get; set; } = null!;
+            public int? SportSubcategoryID { get; set; }
+            public int? EventVenuesID { get; set; }
+            public DateTime? Date { get; set; }
+            public TimeSpan? Time { get; set; }
+            public bool? OnStream { get; set; }
+            public int? EventStreamID { get; set; }
+            public bool? IsFinished { get; set; }
+            public byte[]? Attachement { get; set; }
+            public bool? Archived { get; set; }
+            public bool? Deleted { get; set; }
+            public string? UserID { get; set; }
+        }
+
+        public class EventStreamServices
+        {
+            public int ID { get; set; }
+            public string? StreamService { get; set; }
+        }
+
+        public class EventStreams
+        {
+            public int ID { get; set; }
+            public int? EventStreamServiceID { get; set; }
+            public string? StreamTitle { get; set; }
+            public string? StreamURL { get; set; }
+            public DateTime? StreamDate { get; set; }
+        }
+
+        public class EventVenues
+        {
+            public int ID { get; set; }
+            public string? Address { get; set; }
+            public string? Venue { get; set; }
+            public decimal? Latitude { get; set; }
+            public decimal? Longitude { get; set; }
+        }
+
+        public class EventVersus
+        {
+            public int ID { get; set; }
+            public int? Score { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? EventID { get; set; }
+            public DateTime? RecentUpdateAt { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class SportCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+        }
+
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class Schools
+        {
+            public int ID { get; set; }
+            public string? School { get; set; }
+            public int? SchoolDivisionID { get; set; }
+            public int? SchoolLevelsID { get; set; }
+        }
+
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+
+        public class SchoolDivisions
+        {
+            public int ID { get; set; }
+            public string? Division { get; set; }
+            public int? SchoolRegionID { get; set; }
+        }
+
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+    }
+
+    public class UsersDTO
+    {
+        public class UserList
+        {
+            public string ID { get; set; } = null!;
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? Role { get; set; }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSportCategoriesAsync();
+        await GetGenderCategoriesAsync();
+        await GetSchoolLevelsAsync();
+        await GetEventVenuesAsync();
+        await GetStreamServicesAsync();
+        await GetUsersAsync();
+    }
+
+    private async Task GetSportCategoriesAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Sports/Categories";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _sportCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportCategories>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSportsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Sports?sportCategoryID={_selectedSportCategoryIDValue}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _sports = await JsonSerializer.DeserializeAsync<List<SportsDTO.Sports>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetGenderCategoriesAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Sports/GenderCategories";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _sportGenderCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportGenderCategories>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Levels";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolLevels>>(responseStream, options);
+
+            await GetSportSubCategoriesAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSportSubCategoriesAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Sports/Subcategories?sportID={_selectedSportIDValue}&schoolLevelID={_selectedSchoolLevelIDValue}&sportGenderCategoryID={_selectedSportGenderCategoryIDValue}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _sportSubcategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportSubcategories>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetEventVenuesAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/Venues";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventVenues = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVenues>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetStreamServicesAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/StreamServices";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventStreamServices = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventStreamServices>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetStreamsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/StreamService/Streams";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventStreams = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventStreams>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetUsersAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Users/TallyClerkList";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _userLists = await JsonSerializer.DeserializeAsync<List<UsersDTO.UserList>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private static readonly Random random = new();
+
+    private static string GenerateRandomString(int length)
+    {
+        const string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+        return new string(Enumerable.Range(0, length)
+            .Select(_ => chars[random.Next(chars.Length)])
+            .ToArray());
+    }
+
+    private async Task PostEventAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events";
+
+            var eventStream = new EventsDTO.Events
+                {
+                    ID = GenerateRandomString(20),
+                    SportSubcategoryID = _selectedSportSubcategoryIDValue,
+                    EventVenuesID = _selectedEventVenueIDValue,
+                    Date = _selectedDateValue,
+                    Time = _selectedTimeValue,
+                    OnStream = _isOnStream,
+                    EventStreamID = _selectedEventStreamIDValue,
+                    IsFinished = false,
+                    Attachement = null,
+                    Archived = false,
+                    Deleted = false,
+                    UserID = _selectedUserIDValue
+
+                };
+
+            var jsonContent = JsonSerializer.Serialize(eventStream);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            ClearFields();
+
+            Snackbar.Add("Event stream added successfully.", Severity.Success);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error posting data: {ex.Message}");
+        }
+    }
+}

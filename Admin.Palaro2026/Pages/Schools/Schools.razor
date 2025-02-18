@@ -9,54 +9,20 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudGrid>
+<MudGrid Spacing="0">
     <MudItem xs="12">
         <MudText Typo="Typo.h4">Schools</MudText>
         <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
     </MudItem>
     @if (_schoolDetails != null && _schoolDetails.Any())
     {
-        <MudItem xs="12" sm="6">
-            <MudButton OnClick="OnExpandAddStreamServiceButtonClick" Style="text-transform: none" Variant="Variant.Filled" DropShadow="false">@(_expandedAddStreamService ? "Close" : "Add School")</MudButton>
-            <MudCollapse Expanded="_expandedAddStreamService" Class="pt-5">
-                <MudPaper Outlined Class="pa-5">
-                    <MudGrid Spacing="2">
-                        <MudItem xs="12" md="7">
-                            <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSchoolDivisionIDValue = null)" TextChanged="GetSchoolDivisionsAsync">
-                                <MudVirtualize Items="_schoolRegions" Context="region">
-                                    <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
-                                </MudVirtualize>
-                            </MudSelect>
-                        </MudItem>
-                        <MudItem xs="12" md="5">
-                            <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null">
-                                <MudVirtualize Items="_schoolDivisions" Context="division">
-                                    <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
-                                </MudVirtualize>
-                            </MudSelect>
-                        </MudItem>
-                        <MudItem xs="12" md="4">
-                            <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable>
-                                <MudVirtualize Items="_schoolLevels" Context="level">
-                                    <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
-                                </MudVirtualize>
-                            </MudSelect>
-                        </MudItem>
-                        <MudItem xs="12" md="8">
-                            <MudTextField @bind-Value="_schoolValue" Immediate Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
-                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
-                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
-                                           Disabled="_addSchoolDisabled" OnClick="ConfirmPostSchoolAsync">Add</MudButton>
-                            </MudStack>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-            </MudCollapse>
+        <MudItem xs="12">
+            <MudStack Row Spacing="0">
+                <MudButton Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddSchoolDialog">Add School</MudButton>
+                <MudDivider Vertical="true" FlexItem="true" />
+                <MudButton Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetSchoolDetailsAsync">Refresh Table</MudButton>
+            </MudStack>
         </MudItem>
-        <MudFlexBreak />
         <MudItem xs="12">
             <MudTable Outlined Items="_schoolDetails" Context="school" Striped Virtualize="true" Filter="FilterFunc" Elevation="0">
                 <ToolBarContent>
@@ -105,7 +71,7 @@
                     <MudTd DataLabel="Division">@school.Division</MudTd>
                     <MudTd DataLabel="Region">@school.Region (@school.Abbreviation)</MudTd>
                     <MudTd DataLabel="Settings" Style="text-align: center">
-                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenSchoolDialog(school.ID)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditSchoolDialog(school.ID)" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent>
@@ -176,37 +142,34 @@
                schoolDetails.Region!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task ConfirmPostSchoolAsync()
+    private async Task OpenEditSchoolDialog(int selectedID)
     {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
-
-        bool? result = await DialogService.ShowMessageBox(
-            title: "Notice",
-            message: $"Do you confirm addition of {_schoolValue ?? "this venue"}?",
-            yesText: "Yes",
-            cancelText: "Cancel",
-            options: options);
-
-        if (result == true)
-        {
-            await PostSchoolAsync();
-            MudDialog?.Close(DialogResult.Ok(true));
-        }
-    }
-
-    private async Task OpenSchoolDialog(int selectedID)
-    {
-        var parameter = new DialogParameters<SchoolDialog>
+        var parameter = new DialogParameters<EditSchoolDialog>
         {
             {x => x.selectedSchoolID, selectedID}
         };
         var options = new DialogOptions { NoHeader = true, CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
 
-        var dialog = await DialogService.ShowAsync<SchoolDialog>($"School Settings", parameter, options);
+        var dialog = await DialogService.ShowAsync<EditSchoolDialog>("Edit School", parameter, options);
 
         var result = await dialog.Result;
 
         // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetSchoolDetailsAsync();
+        }
+    }
+    
+
+    private async Task OpenAddSchoolDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddSchoolDialog>("Add School", options);
+
+        var result = await dialog.Result;
+
         if (!result!.Canceled)
         {
             await GetSchoolDetailsAsync();
@@ -342,37 +305,6 @@
         {
             // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task PostSchoolAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools";
-
-            var eventStream = new SchoolsDTO.Schools
-                {
-                    SchoolDivisionID = _selectedSchoolDivisionIDValue,
-                    SchoolLevelsID = _selectedSchoolLevelIDValue,
-                    School = _schoolValue
-                };
-
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            ClearFields();
-
-            await GetSchoolDetailsAsync();
-
-            Snackbar.Add("Event venue added successfully.", Severity.Success);
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error posting data: {ex.Message}");
         }
     }
 }

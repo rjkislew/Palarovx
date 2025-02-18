@@ -1,0 +1,129 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_addressValue" Immediate Margin="Margin.Dense" Label="Address" ShrinkLabel Variant="Variant.Outlined" Clearable />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_venueValue" Immediate Margin="Margin.Dense" Label="Venue" ShrinkLabel Variant="Variant.Outlined" Clearable />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField T="decimal?" @bind-Value="_latitudeValue" Immediate Mask="@(new PatternMask("0.000000"))" Margin="Margin.Dense" Label="Latitude" ShrinkLabel Variant="Variant.Outlined" Clearable />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField T="decimal?" @bind-Value="_longitudeValue" Immediate Mask="@(new PatternMask("000.000000"))" Margin="Margin.Dense" Label="Longitude" ShrinkLabel Variant="Variant.Outlined" Clearable />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+            <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+            <MudStack Row Justify="Justify.SpaceBetween">
+                <MudButton Style="text-transform: none" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
+                <MudButton Style="text-transform: none" DropShadow="false"
+                           Disabled="_addStreamDisabled" OnClick="ConfirmPostEventVenuesAsync">Add</MudButton>
+            </MudStack>
+        </MudStack>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+    private List<EventsDTO.EventVenues>? _eventVenues;
+
+    private string? _addressValue;
+    private string? _venueValue;
+    private decimal? _latitudeValue;
+    private decimal? _longitudeValue;
+    private bool _addStreamDisabled =>
+    string.IsNullOrEmpty(_addressValue) ||
+    string.IsNullOrEmpty(_venueValue) ||
+    !_latitudeValue.HasValue ||
+    !_longitudeValue.HasValue;
+
+    private void ClearFields()
+    {
+        _addressValue = null;
+        _venueValue = null;
+        _latitudeValue = null;
+        _longitudeValue = null;
+    }
+
+    public class EventsDTO
+    {
+        public class EventVenues
+        {
+            public int ID { get; set; }
+            public string? Address { get; set; }
+            public string? Venue { get; set; }
+            public decimal? Latitude { get; set; }
+            public decimal? Longitude { get; set; }
+        }
+    }
+
+    private async Task ConfirmPostEventVenuesAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_venueValue ?? "this venue"}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await PostEventVenueAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task PostEventVenueAsync()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_venueValue) || !_latitudeValue.HasValue || !_longitudeValue.HasValue)
+            {
+                Console.WriteLine("Stream service and URL cannot be empty.");
+                return;
+            }
+
+            string url = $"{apiService.Palaro2026API}/Events/Venues";
+
+            var eventStream = new EventsDTO.EventVenues
+                {
+                    Address = _addressValue,
+                    Venue = _venueValue,
+                    Latitude = _latitudeValue,
+                    Longitude = _longitudeValue
+                };
+
+            var jsonContent = JsonSerializer.Serialize(eventStream);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            ClearFields();
+
+            Snackbar.Add("Event venue added successfully.", Severity.Success);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error posting data: {ex.Message}");
+        }
+    }
+}

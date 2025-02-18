@@ -9,45 +9,29 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudGrid>
+<MudGrid Spacing="0">
     <MudItem xs="12">
         <MudText Typo="Typo.h4">Stream Services</MudText>
         <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
     </MudItem>
-    @if (_eventStreams != null && _eventStreams.Any())
+    @if (_eventStreamServicesDetails != null && _eventStreamServicesDetails.Any())
     {
-        <MudItem xs="12" sm="6">
-            <MudButton OnClick="OnExpandAddStreamServiceButtonClick" Style="text-transform: none" Variant="Variant.Filled" DropShadow="false">@(_expandedAddStreamService ? "Close" : "Add Stream Service")</MudButton>
-            <MudCollapse Expanded="_expandedAddStreamService" Class="pt-5">
-                <MudPaper Outlined Class="pa-5">
-                    <MudGrid Spacing="2">
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_streamServiceValue" Immediate Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_streamURLValue" Immediate Margin="Margin.Dense" Label="URL" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
-                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
-                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
-                                Disabled="_addStreamDisabled" OnClick="ConfirmPostEventStreamsAsync">Add</MudButton>
-                            </MudStack>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-            </MudCollapse>
-        </MudItem>
-        <MudFlexBreak />
         <MudItem xs="12">
-            <MudTable Outlined Items="_eventStreams" Striped Context="stream" Filter="FilterFunc" Elevation="0">
+            <MudStack Row Spacing="0">
+                <MudButton Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddStreamServiceDialog">Add Stream Service</MudButton>
+                <MudDivider Vertical="true" FlexItem="true" />
+                <MudButton Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetEventStreamServicesAsync">Refresh Table</MudButton>
+            </MudStack>
+        </MudItem>
+        <MudItem xs="12">
+            <MudTable Outlined Items="_eventStreamServicesDetails" Striped Context="streamService" Filter="FilterFunc" Elevation="0">
                 <ToolBarContent>
                     <MudText Typo="Typo.h6">List of Stream Services</MudText>
                     <MudSpacer />
                     <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
-                    Adornment="Adornment.Start"
-                    AdornmentIcon="@Icons.Material.Filled.Search"
-                    IconSize="Size.Medium" />
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium" />
                 </ToolBarContent>
                 <ColGroup>
                     <MudHidden Breakpoint="Breakpoint.Xs">
@@ -58,23 +42,42 @@
                 </ColGroup>
                 <HeaderContent>
                     <MudTh>Stream Service</MudTh>
-                    <MudTh>Stream URL</MudTh>
+                    <MudTh>Stream</MudTh>
                     <MudTh>Settings</MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd Datalabel="Stream Service">@stream.StreamService</MudTd>
-                    <MudTd Datalabel="Stream URL">
-                        <MudLink Underline="Underline.Hover" Href="@($"{@stream.StreamURL}")" Target="_blank">
-                            <MudStack Row AlignItems="AlignItems.Center">
-                                <MudText Typo="Typo.body2">
-                                    @stream.StreamURL
-                                </MudText>
-                                <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" />
-                            </MudStack>
-                        </MudLink>
+                    <MudTd Datalabel="Stream Service">@streamService.StreamService</MudTd>
+                    <MudTd Datalabel="Stream">
+                        <MudGrid>
+                            <MudVirtualize Items="@streamService.EventStreamsList" Context="stream">
+                                <MudItem xs="12" md="6">
+                                    <MudPaper Outlined Class="pa-3" Style="background-color: transparent">
+                                        <MudStack Spacing="0">
+                                            <MudStack Row Justify="Justify.SpaceBetween">
+                                                <MudStack Row Spacing="2" AlignItems="AlignItems.End">
+                                                    <MudText>@stream.StreamTitle</MudText>
+                                                    <MudText Typo="Typo.caption">[@(stream.StreamDate?.ToString("MMMM d - dddd") ?? "No Date")]</MudText>
+                                                </MudStack>
+                                                <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small"/>
+                                            </MudStack>
+                                            <MudLink Underline="Underline.Hover" Href="@($"{@stream.StreamURL}")">
+                                                <MudStack Row Spacing="2" AlignItems="AlignItems.Center">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Link" Size="Size.Small"/>
+                                                    <MudText Typo="Typo.caption">@stream.StreamURL</MudText>
+                                                </MudStack>
+                                            </MudLink>
+                                        </MudStack>
+                                    </MudPaper>
+                                </MudItem>
+                            </MudVirtualize>
+
+                            <MudItem xs="12">
+                                <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" Style="text-transform: none" >Add stream</MudButton>
+                            </MudItem>
+                        </MudGrid>
                     </MudTd>
                     <MudTd DataLabel="Settings" Style="text-align: center">
-                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenStreamServiceDialog(stream.ID)"></MudIconButton>
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditStreamServiceDialog(streamService.ID)"></MudIconButton>
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent>
@@ -94,35 +97,14 @@
     }
 </MudGrid>
 
-
-
 @code {
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
-    private List<EventsDTO.EventStreams>? _eventStreams;
-
-    private string? _streamServiceValue;
-    private string? _streamURLValue;
-    private bool _addStreamDisabled =>
-    string.IsNullOrEmpty(_streamServiceValue) ||
-    string.IsNullOrEmpty(_streamURLValue);
+    private List<EventsDTO.EventStreamServicesDetails.EventStreamServices>? _eventStreamServicesDetails;
 
     private string _searchString = "";
 
-    bool _expandedAddStreamService = false;
-
-    private void OnExpandAddStreamServiceButtonClick()
-    {
-        _expandedAddStreamService = !_expandedAddStreamService;
-    }
-
-    private void ClearFields()
-    {
-        _streamServiceValue = null;
-        _streamURLValue = null;
-    }
-
-    private bool FilterFunc(EventsDTO.EventStreams streams)
+    private bool FilterFunc(EventsDTO.EventStreamServicesDetails.EventStreamServices streams)
     {
         if (string.IsNullOrWhiteSpace(_searchString))
             return true;
@@ -132,114 +114,88 @@
     private List<BreadcrumbItem> _items =
     [
         new("Home", href: "./"),
-    new("Events", href: "./events"),
-    new("Streams", href: null, disabled: true)
+        new("Events", href: "./events"),
+        new("Streams", href: null, disabled: true)
     ];
 
     public class EventsDTO
     {
-        public class EventStreams
+        public class EventStreamServicesDetails
         {
-            public int ID { get; set; }
-            public string? StreamService { get; set; }
-            public string? StreamURL { get; set; }
+            public class EventStreamServices
+            {
+                public int ID { get; set; }
+                public string? StreamService { get; set; }
+                public List<EventStreams>? EventStreamsList { get; set; }
+            }
+
+            public class EventStreams
+            {
+                public int StreamID { get; set; }
+                public string? StreamTitle { get; set; }
+                public string? StreamURL { get; set; }
+                public DateTime? StreamDate { get; set; }
+
+            }
         }
     }
 
-    private async Task ConfirmPostEventStreamsAsync()
+    private async Task OpenEditStreamServiceDialog(int selectedID)
     {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
-
-        bool? result = await DialogService.ShowMessageBox(
-            title: "Notice",
-            message: $"Do you confirm addition of {_streamServiceValue ?? "this stream"}?",
-            yesText: "Yes",
-            cancelText: "Cancel",
-            options: options);
-
-        if (result == true)
-        {
-            await PostEventStreamsAsync();
-            MudDialog?.Close(DialogResult.Ok(true));
-        }
-    }
-
-    private async Task OpenStreamServiceDialog(int selectedID)
-    {
-        var parameter = new DialogParameters<StreamServiceDialog>
+        var parameter = new DialogParameters<EditStreamServiceDialog>
         {
             {x => x.SelectedStreamID, selectedID}
         };
         var options = new DialogOptions { NoHeader = true, CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
 
-        var dialog = await DialogService.ShowAsync<StreamServiceDialog>("Stream Service", parameter, options);
+        var dialog = await DialogService.ShowAsync<EditStreamServiceDialog>("Edit Stream Service", parameter, options);
 
         var result = await dialog.Result;
 
         // Check if the dialog was closed with a positive result (e.g., "OK")
         if (!result!.Canceled)
         {
-            await GetEventStreamsAsync();
+            await GetEventStreamServicesAsync();
+        }
+    }
+
+    private async Task OpenAddStreamServiceDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddStreamServiceDialog>("Add Stream Service", options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetEventStreamServicesAsync();
         }
     }
 
     protected override async Task OnInitializedAsync()
     {
-        await GetEventStreamsAsync();
+        await GetEventStreamServicesAsync();
     }
 
-    private async Task GetEventStreamsAsync()
+    private async Task GetEventStreamServicesAsync()
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Events/Streams";
+            string url = $"{apiService.Palaro2026API}/Events/StreamServices/Details";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _eventStreams = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventStreams>>(responseStream, options);
+            _eventStreamServicesDetails = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventStreamServicesDetails.EventStreamServices>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
             // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task PostEventStreamsAsync()
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(_streamServiceValue) || string.IsNullOrWhiteSpace(_streamURLValue))
-            {
-                Console.WriteLine("Stream service and URL cannot be empty.");
-                return;
-            }
-
-            string url = $"{apiService.Palaro2026API}/Events/Streams";
-
-            var eventStream = new EventsDTO.EventStreams
-                {
-                    StreamService = _streamServiceValue,
-                    StreamURL = _streamURLValue
-                };
-
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            ClearFields();
-
-            await GetEventStreamsAsync();
-            Snackbar.Add("Event stream added successfully.", Severity.Success);
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error posting data: {ex.Message}");
         }
     }
 }

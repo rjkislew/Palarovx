@@ -10,56 +10,20 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudGrid>
-
+<MudGrid Spacing="0">
     <MudItem xs="12">
         <MudText Typo="Typo.h4">Billeting Quarters</MudText>
         <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
     </MudItem>
     @if (_schoolBilletingQuarterDetails != null && _schoolBilletingQuarterDetails.Any())
     {
-        <MudItem xs="12" sm="6">
-            <MudButton OnClick="OnExpandAddBilletingQuarterButtonClick" Style="text-transform: none" Variant="Variant.Filled" DropShadow="false">@(_expandedAddBilletingQuarter ? "Close" : "Add Quarter")</MudButton>
-            <MudCollapse Expanded="_expandedAddBilletingQuarter" Class="pt-5">
-                <MudPaper Outlined Class="pa-5">
-                    <MudGrid Spacing="2">
-                        <MudItem xs="12" md="7">
-                            <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable>
-                                <MudVirtualize Items="_schoolRegions" Context="region">
-                                    <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
-                                </MudVirtualize>
-                            </MudSelect>
-                        </MudItem>
-                        <MudItem xs="12" md="5">
-                            <MudTextField @bind-Value="_billetingQuarterValue" Immediate Margin="Margin.Dense" Label="Billeting Quarter" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudTextField @bind-Value="_addressValue" Immediate Margin="Margin.Dense" Label="Address" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField T="decimal?" @bind-Value="_latitudeValue" Immediate Margin="Margin.Dense" Mask="@(new PatternMask("0.000000"))" Label="Latitude" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField T="decimal?" @bind-Value="_longitudeValue" Immediate Margin="Margin.Dense" Mask="@(new PatternMask("000.000000"))" Label="Longitude" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_contactPersonValue" Immediate Margin="Margin.Dense" Label="Contact Person" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_contactPersonNumberValue" Immediate Margin="Margin.Dense" Mask="@(new PatternMask("0000 000 0000"))" Label="Contact Person Number" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
-                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
-                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
-                                           Disabled="_addBilletingQuarterDisabled" OnClick="ConfirmPostBilletingQuarterAsync">Add</MudButton>
-                            </MudStack>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-            </MudCollapse>
+        <MudItem xs="12">
+            <MudStack Row Spacing="0">
+                <MudButton Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddBilletingQuarterDialog">Add Billeting Quarter</MudButton>
+                <MudDivider Vertical="true" FlexItem="true" />
+                <MudButton Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetSchoolBilletingQuarterAsync">Refresh Table</MudButton>
+            </MudStack>
         </MudItem>
-        <MudFlexBreak />
         <MudItem xs="12">
             <MudTable Outlined Items="_schoolBilletingQuarterDetails" Context="billetingQuarter" Striped Virtualize="true" Filter="FilterFunc" Elevation="0">
                 <ToolBarContent>
@@ -125,7 +89,7 @@
                     </MudTd>
                     <MudTd DataLabel="Contact Person">@billetingQuarter.ContactPerson <br />@billetingQuarter.ContactPersonNumber</MudTd>
                     <MudTd DataLabel="Settings" Style="text-align: center">
-                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenSchoolDialog(billetingQuarter.ID)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditBilletingQuarterDialog(billetingQuarter.ID)" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent>
@@ -149,51 +113,15 @@
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
     private List<SchoolDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>? _schoolBilletingQuarterDetails;
-    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
-
-    private int? _selectedSchoolRegionIDValue;
-    private string? _billetingQuarterValue;
-    private string? _addressValue;
-    private decimal? _latitudeValue;
-    private decimal? _longitudeValue;
-    private string? _contactPersonValue;
-    private string? _contactPersonNumberValue;
-    private bool _addBilletingQuarterDisabled =>
-    !_selectedSchoolRegionIDValue.HasValue ||
-    string.IsNullOrEmpty(_billetingQuarterValue) ||
-    string.IsNullOrEmpty(_addressValue) ||
-    !_latitudeValue.HasValue ||
-    !_longitudeValue.HasValue ||
-    string.IsNullOrEmpty(_contactPersonValue) ||
-    string.IsNullOrEmpty(_contactPersonNumberValue);
-
 
     private List<BreadcrumbItem> _items =
     [
         new("Home", href: "./"),
-    new("Schools", href: "./schools"),
-    new("Billeting Quarters", href: null, disabled: true)
+        new("Schools", href: "./schools"),
+        new("Billeting Quarters", href: null, disabled: true)
     ];
 
     private string _searchString = "";
-
-    bool _expandedAddBilletingQuarter = false;
-
-    private void OnExpandAddBilletingQuarterButtonClick()
-    {
-        _expandedAddBilletingQuarter = !_expandedAddBilletingQuarter;
-    }
-
-    private void ClearFields()
-    {
-        _selectedSchoolRegionIDValue = null;
-        _billetingQuarterValue = null;
-        _addressValue = null;
-        _latitudeValue = null;
-        _longitudeValue = null;
-        _contactPersonValue = null;
-        _contactPersonNumberValue = null;
-    }
 
     private bool FilterFunc(SchoolDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters schoolBilletingQuarters)
     {
@@ -207,33 +135,29 @@
                schoolBilletingQuarters.ContactPerson!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task ConfirmPostBilletingQuarterAsync()
+    private async Task OpenAddBilletingQuarterDialog()
     {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
 
-        bool? result = await DialogService.ShowMessageBox(
-            title: "Notice",
-            message: $"Do you confirm addition of {_billetingQuarterValue ?? "this quarter"}?",
-            yesText: "Yes",
-            cancelText: "Cancel",
-            options: options);
+        var dialog = await DialogService.ShowAsync<AddBilletingQuarterDialog>("Add Billeting Quarter", options);
 
-        if (result == true)
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
         {
-            //await PostSchoolAsync();
-            MudDialog?.Close(DialogResult.Ok(true));
+            await GetSchoolBilletingQuarterAsync();
         }
     }
 
-    private async Task OpenSchoolDialog(int selectedID)
+    private async Task OpenEditBilletingQuarterDialog(int selectedID)
     {
-        var parameter = new DialogParameters<BilletingQuarterDialog>
+        var parameter = new DialogParameters<EditBilletingQuarterDialog>
         {
             {x => x.selectedBilletingQuarterID, selectedID}
         };
-        var options = new DialogOptions { NoHeader = true, CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
 
-        var dialog = await DialogService.ShowAsync<BilletingQuarterDialog>($"Billeting Quarter Settings", parameter, options);
+        var dialog = await DialogService.ShowAsync<EditBilletingQuarterDialog>("Edit Billeting Quarter", parameter, options);
 
         var result = await dialog.Result;
 
@@ -261,31 +185,11 @@
                 public string? ContactPersonNumber { get; set; }
             }
         }
-
-        public class SchoolBilletingQuarters
-        {
-            public int ID { get; set; }
-            public int? SchoolRegionID { get; set; }
-            public string? BilletingQuarter { get; set; }
-            public string? Address { get; set; }
-            public decimal? Latitude { get; set; }
-            public decimal? Longitude { get; set; }
-            public string? ContactPerson { get; set; }
-            public string? ContactPersonNumber { get; set; }
-        }
-
-        public class SchoolRegions
-        {
-            public int ID { get; set; }
-            public string? Region { get; set; }
-            public string? Abbreviation { get; set; }
-        }
     }
 
     protected override async Task OnInitializedAsync()
     {
         await GetSchoolBilletingQuarterAsync();
-        await GetSchoolRegionsAsync();
     }
 
     private async Task GetSchoolBilletingQuarterAsync()
@@ -305,61 +209,6 @@
         {
             // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSchoolRegionsAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task PostBilletingQuarterAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/BilletingQuarters";
-
-            var eventStream = new SchoolDTO.SchoolBilletingQuarters
-                {
-                    SchoolRegionID = _selectedSchoolRegionIDValue,
-                    BilletingQuarter = _billetingQuarterValue,
-                    Address = _addressValue,
-                    Latitude = _latitudeValue,
-                    Longitude = _longitudeValue,
-                    ContactPerson = _contactPersonValue,
-                    ContactPersonNumber = _contactPersonNumberValue,
-
-                };
-
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode(); //Ensure a successful response
-
-            ClearFields();
-
-            await GetSchoolBilletingQuarterAsync();
-            Snackbar.Add("Event venue added successfully.", Severity.Success);
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error posting data: {ex.Message}");
         }
     }
 }

@@ -1,0 +1,150 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_streamServiceValue" Immediate Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_streamURLValue" Immediate Margin="Margin.Dense" Label="URL" ShrinkLabel Variant="Variant.Outlined" Clearable />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+            <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+            <MudStack Row Justify="Justify.SpaceBetween">
+                <MudButton Style="text-transform: none" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
+                <MudButton Style="text-transform: none" DropShadow="false"
+                           Disabled="_addStreamDisabled" OnClick="ConfirmPostEventStreamsAsync">Add</MudButton>
+            </MudStack>
+        </MudStack>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+    private List<EventsDTO.EventStreamServicesDetails.EventStreamServices>? _eventStreamServicesDetails;
+
+    private string? _streamServiceValue;
+    private string? _streamURLValue;
+    private bool _addStreamDisabled =>
+    string.IsNullOrEmpty(_streamServiceValue) ||
+    string.IsNullOrEmpty(_streamURLValue);
+
+    private string _searchString = "";
+
+    bool _expandedAddStreamService = false;
+
+    private void ClearFields()
+    {
+        _streamServiceValue = null;
+        _streamURLValue = null;
+    }
+
+    private bool FilterFunc(EventsDTO.EventStreamServicesDetails.EventStreamServices streams)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return streams.StreamService!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private List<BreadcrumbItem> _items =
+    [
+        new("Home", href: "./"),
+        new("Events", href: "./events"),
+        new("Streams", href: null, disabled: true)
+    ];
+
+    public class EventsDTO
+    {
+        public class EventStreamServicesDetails
+        {
+            public class EventStreamServices
+            {
+                public int ID { get; set; }
+                public string? StreamService { get; set; }
+                public List<EventStreams>? EventStreamsList { get; set; }
+            }
+
+            public class EventStreams
+            {
+                public int StreamID { get; set; }
+                public string? StreamTitle { get; set; }
+                public string? StreamURL { get; set; }
+                public DateTime? StreamDate { get; set; }
+
+            }
+        }
+
+        public class EventStreamServices
+        {
+            public int ID { get; set; }
+            public string? StreamService { get; set; }
+        }
+
+        public class EventStreams
+        {
+            public int ID { get; set; }
+            public int? EventStreamServiceID { get; set; }
+            public string? StreamTitle { get; set; }
+            public string? StreamURL { get; set; }
+            public DateTime? StreamDate { get; set; }
+
+        }
+    }
+
+    private async Task ConfirmPostEventStreamsAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_streamServiceValue ?? "this stream"}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await PostEventStreamServiceAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task PostEventStreamServiceAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/StreamService";
+
+            var eventStream = new EventsDTO.EventStreamServices
+                {
+                    StreamService = _streamServiceValue
+                };
+
+            var jsonContent = JsonSerializer.Serialize(eventStream);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            Snackbar.Add("Event stream added successfully.", Severity.Success);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error posting data: {ex.Message}");
+        }
+    }
+}
