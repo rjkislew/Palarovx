@@ -9,44 +9,21 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudGrid>
+<MudGrid Spacing="0">
     <MudItem xs="12">
         <MudText Typo="Typo.h4">Coaches</MudText>
         <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
     </MudItem>
     @if (_profileCoachesDetails != null && _profileCoachesDetails.Any())
     {
-        <MudItem xs="12" sm="6">
-            <MudButton OnClick="OnExpandAddEventVenueButtonClick" Style="text-transform: none" Variant="Variant.Filled" DropShadow="false">@(_expandedAddEventVenue ? "Close" : "Add Coach")</MudButton>
-            <MudCollapse Expanded="_expandedAddEventVenue" Class="pt-5">
-                <MudPaper Outlined Class="pa-5">
-                    <MudGrid Spacing="2">
-                        <MudItem xs="12">
-                            <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable>
-                                <MudVirtualize Items="_schoolRegions" Context="region">
-                                    <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
-                                </MudVirtualize>
-                            </MudSelect>
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
-                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
-                                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
-                                           Disabled="_addStreamDisabled" OnClick="ConfirmPostEventVenuesAsync">Add</MudButton>
-                            </MudStack>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-            </MudCollapse>
+        <MudItem xs="12">
+            <MudStack Row Spacing="0" Justify="Justify.FlexEnd">
+                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddCoachDialog">Add School</MudButton>
+                <MudDivider Vertical="true" FlexItem="true" />
+                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetCoachesAsync">Refresh Table</MudButton>
+            </MudStack>
         </MudItem>
-        <MudFlexBreak />
-        <MudItem xs="12" md="7">
+        <MudItem xs="12">
             <MudTable Outlined Items="_profileCoachesDetails" Striped Virtualize="true" Filter="FilterFunc" Elevation="0" Hover>
                 <ToolBarContent>
                     <MudText Typo="Typo.h6">List of Coaches</MudText>
@@ -58,9 +35,8 @@
                 </ToolBarContent>
                 <ColGroup>
                     <MudHidden Breakpoint="Breakpoint.Xs">
-                        <col style="width: 35%" />
-                        <col style="width: 35%" />
-                        <col style="width: 35%;" />
+                        <col style="width: 50%" />
+                        <col style="width: 45%" />
                         <col style="width: 5%;" />
                     </MudHidden>
                 </ColGroup>
@@ -83,7 +59,7 @@
                         @coach.Region (@coach.Abbreviation)
                     </MudTd>
                     <MudTd DataLabel="Settings" Style="text-align: center">
-                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenVenueDialog(coach.ID)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditCoachDialog(coach.ID)" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent>
@@ -107,31 +83,8 @@
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
     private List<ProfilesDTO.ProfileCoachesDetails>? _profileCoachesDetails;
-    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
-
-    private string? _firstnameValue;
-    private string? _lastnameValue;
-    private int? _selectedSchoolRegionIDValue;
-    private bool _addStreamDisabled =>
-    string.IsNullOrEmpty(_firstnameValue) ||
-    string.IsNullOrEmpty(_lastnameValue) ||
-    !_selectedSchoolRegionIDValue.HasValue;
 
     private string _searchString = "";
-
-    bool _expandedAddEventVenue = false;
-
-    private void OnExpandAddEventVenueButtonClick()
-    {
-        _expandedAddEventVenue = !_expandedAddEventVenue;
-    }
-
-    private void ClearFields()
-    {
-        _firstnameValue = null;
-        _lastnameValue = null;
-        _selectedSchoolRegionIDValue = null;
-    }
 
     private bool FilterFunc(ProfilesDTO.ProfileCoachesDetails profileCoachesDetails)
     {
@@ -160,70 +113,48 @@
             public string? Region { get; set; }
             public string? Abbreviation { get; set; }
         }
-
-        public class ProfileCoaches
-        {
-            public int ID { get; set; }
-            public string? FirstName { get; set; }
-            public string? LastName { get; set; }
-            public int? SchoolRegionID { get; set; }
-        }
     }
 
-    public class SchoolsDTO
+    private async Task OpenEditCoachDialog(int selectedID)
     {
-        public class SchoolRegions
-        {
-            public int ID { get; set; }
-            public string? Region { get; set; }
-            public string? Abbreviation { get; set; }
-        }
-    }
-
-    private async Task ConfirmPostEventVenuesAsync()
-    {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
-
-        bool? result = await DialogService.ShowMessageBox(
-            title: "Notice",
-            message: $"Do you confirm addition of {_lastnameValue ?? "this venue"}?",
-            yesText: "Yes",
-            cancelText: "Cancel",
-            options: options);
-
-        if (result == true)
-        {
-            await PostEventVenueAsync();
-            MudDialog?.Close(DialogResult.Ok(true));
-        }
-    }
-
-    private async Task OpenVenueDialog(int selectedID)
-    {
-        var parameter = new DialogParameters<CoachDialog>
+        var parameter = new DialogParameters<EditCoachDialog>
         {
             {x => x.selectedCoachID, selectedID}
         };
-        var options = new DialogOptions { NoHeader = true, CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
 
-        var dialog = await DialogService.ShowAsync<CoachDialog>("Coach Settings", parameter, options);
+        var dialog = await DialogService.ShowAsync<EditCoachDialog>("Edit Coach", parameter, options);
 
         var result = await dialog.Result;
 
         // Check if the dialog was closed with a positive result (e.g., "OK")
         if (!result!.Canceled)
         {
-            await GetEventVenuesAsync();
+            await GetCoachesAsync();
+        }
+    }
+
+    private async Task OpenAddCoachDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddCoachDialog>("Add Coach", options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetCoachesAsync();
         }
     }
 
     protected override async Task OnInitializedAsync()
     {
-        await GetEventVenuesAsync();
-        await GetSchoolRegionsAsync();
+        await GetCoachesAsync();
     }
 
-    private async Task GetEventVenuesAsync()
+    private async Task GetCoachesAsync()
     {
         try
         {
@@ -240,62 +171,6 @@
         {
             // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSchoolRegionsAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task PostEventVenueAsync()
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(_lastnameValue) || !_selectedSchoolRegionIDValue.HasValue)
-            {
-                Console.WriteLine("Stream service and URL cannot be empty.");
-                return;
-            }
-
-            string url = $"{apiService.Palaro2026API}/Profiles/Coach";
-
-            var eventStream = new ProfilesDTO.ProfileCoaches
-                {
-                    FirstName = _firstnameValue,
-                    LastName = _lastnameValue,
-                    SchoolRegionID = _selectedSchoolRegionIDValue,
-                };
-
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            ClearFields();
-
-            await GetEventVenuesAsync();
-            Snackbar.Add("Event venue added successfully.", Severity.Success);
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error posting data: {ex.Message}");
         }
     }
 }

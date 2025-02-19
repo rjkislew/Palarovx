@@ -30,35 +30,32 @@
             <MudStack Row Justify="Justify.SpaceBetween">
                 <MudButton Style="text-transform: none" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
                 <MudButton Style="text-transform: none" DropShadow="false"
-                           Disabled="_addStreamDisabled" OnClick="ConfirmPostEventVenuesAsync">Add</MudButton>
+                           Disabled="_addVenueDisabled" OnClick="ConfirmAddEventVenuesAsync">Add</MudButton>
             </MudStack>
         </MudStack>
     </DialogActions>
 </MudDialog>
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
     private List<EventsDTO.EventVenues>? _eventVenues;
 
+    // Variables
     private string? _addressValue;
     private string? _venueValue;
     private decimal? _latitudeValue;
     private decimal? _longitudeValue;
-    private bool _addStreamDisabled =>
+
+    // Disable addition button if values are empty
+    private bool _addVenueDisabled =>
     string.IsNullOrEmpty(_addressValue) ||
     string.IsNullOrEmpty(_venueValue) ||
     !_latitudeValue.HasValue ||
     !_longitudeValue.HasValue;
 
-    private void ClearFields()
-    {
-        _addressValue = null;
-        _venueValue = null;
-        _latitudeValue = null;
-        _longitudeValue = null;
-    }
-
+    // DTOs
     public class EventsDTO
     {
         public class EventVenues
@@ -71,7 +68,16 @@
         }
     }
 
-    private async Task ConfirmPostEventVenuesAsync()
+    // Dialog Actions
+    private void ClearFields()
+    {
+        _addressValue = null;
+        _venueValue = null;
+        _latitudeValue = null;
+        _longitudeValue = null;
+    }
+
+    private async Task ConfirmAddEventVenuesAsync()
     {
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
 
@@ -84,14 +90,15 @@
 
         if (result == true)
         {
-            await PostEventVenueAsync();
+            await AddEventVenueAsync();
             MudDialog?.Close(DialogResult.Ok(true));
         }
     }
 
     private void Cancel() => MudDialog?.Cancel();
 
-    private async Task PostEventVenueAsync()
+    // Add event venue
+    private async Task AddEventVenueAsync()
     {
         try
         {
@@ -123,7 +130,7 @@
         }
         catch (HttpRequestException ex)
         {
-            Console.WriteLine($"Error posting data: {ex.Message}");
+            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
         }
     }
 }

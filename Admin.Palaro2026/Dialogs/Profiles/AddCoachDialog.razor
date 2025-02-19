@@ -1,0 +1,181 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+@if (_isLoaded != null)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                        <MudVirtualize Items="_schoolRegions" Context="region">
+                            <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
+                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
+                           Disabled="_addCoachDisabled" OnClick="ConfirmCoachProfileAsync">Add</MudButton>
+            </MudStack>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
+
+@code {
+    // Requirement for Dialog to work
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    // JSON storage
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+
+    // Variables
+    private string? _firstnameValue;
+    private string? _lastnameValue;
+    private int? _selectedSchoolRegionIDValue;
+
+    // Disable addition button if values are empty
+    private bool _addCoachDisabled =>
+    string.IsNullOrEmpty(_firstnameValue) ||
+    string.IsNullOrEmpty(_lastnameValue) ||
+    !_selectedSchoolRegionIDValue.HasValue;
+
+    // Load dialog if true
+    private bool? _isLoaded = false;
+
+    // DTOs
+    public class ProfilesDTO
+    {
+        public class ProfileCoaches
+        {
+            public int ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public int? SchoolRegionID { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSchoolRegionsAsync();
+
+        if (_schoolRegions?.Any() == true)
+        {
+            _isLoaded = true;
+        }
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Dialog Actions
+    private void ClearFields()
+    {
+        _firstnameValue = null;
+        _lastnameValue = null;
+        _selectedSchoolRegionIDValue = null;
+    }
+
+    private async Task ConfirmCoachProfileAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_lastnameValue ?? "this venue"}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await AddCoachProfileAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    // Add Coach profile
+    private async Task AddCoachProfileAsync()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_lastnameValue) || !_selectedSchoolRegionIDValue.HasValue)
+            {
+                Console.WriteLine("Stream service and URL cannot be empty.");
+                return;
+            }
+
+            string url = $"{apiService.Palaro2026API}/Profiles/Coach";
+
+            var eventStream = new ProfilesDTO.ProfileCoaches
+                {
+                    FirstName = _firstnameValue,
+                    LastName = _lastnameValue,
+                    SchoolRegionID = _selectedSchoolRegionIDValue,
+                };
+
+            var jsonContent = JsonSerializer.Serialize(eventStream);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            Snackbar.Add("Event venue added successfully.", Severity.Success);
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error posting data: {ex.Message}", Severity.Error);
+        }
+    }
+}

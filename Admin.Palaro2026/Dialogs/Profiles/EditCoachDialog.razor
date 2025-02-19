@@ -7,13 +7,22 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudDialog>
-    <DialogContent>
-        @if (_profileCoaches != null)
-        {
-            <MudText Typo="Typo.h6">@_dialogHeader</MudText>
-            <MudDivider Class="mb-5" />
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudStack Row>
+                <MudIcon Size="Size.Small" Icon="@Icons.Material.Filled.Edit" />
+                <MudText Typo="Typo.body2">@_dialogHeader</MudText>
+            </MudStack>
+            <MudDivider Class="mt-2 mb-5" />
             <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
                 <MudItem xs="12">
                     <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable>
                         <MudVirtualize Items="_schoolRegions" Context="region">
@@ -21,14 +30,9 @@
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" md="6">
-                    <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                </MudItem>
-                <MudItem xs="12" md="6">
-                    <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                </MudItem>
             </MudGrid>
-            <MudDivider Class="mt-10 mb-2" />
+        </DialogContent>
+        <DialogActions>
             <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
                 <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteProfileCoachAsync">Delete</MudButton>
                 <MudStack Row Justify="Justify.SpaceBetween">
@@ -36,19 +40,133 @@
                     <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateProfileCoachAsync" Disabled="_editCoachButtonDisabled">Update</MudButton>
                 </MudStack>
             </MudStack>
-        }
-        else
-        {
-            <MudText Typo="Typo.h6">Loading Coach Profile Settings</MudText>
-            <MudProgressLinear Indeterminate="true" />
-        }
-    </DialogContent>
-</MudDialog>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
+    // Passed data from page
+    [Parameter]
+    public int selectedCoachID { get; set; }
+
+    // JSON storage
+    private List<ProfilesDTO.ProfileCoaches>? _profileCoaches;
+    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
+
+    // Variables
+    private string? _dialogHeader;
+    private string? _firstnameValue;
+    private string? _lastnameValue;
+    private int? _selectedSchoolRegionIDValue;
+
+    // Disable addition button if values are empty
+    private bool _editCoachButtonDisabled =>
+    string.IsNullOrEmpty(_firstnameValue) ||
+    string.IsNullOrEmpty(_lastnameValue) ||
+    !_selectedSchoolRegionIDValue.HasValue;
+
+    // Load dialog if true
+    private bool? _isLoaded = false;
+
+    // DTOs
+    public class ProfilesDTO
+    {
+        public class ProfileCoaches
+        {
+            public int ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public int? SchoolRegionID { get; set; }
+        }
+    }
+
+    public class SchoolDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetProfileCoachOnDialogOpenAsync(selectedCoachID);
+        await GetSchoolRegionsOnDialogOpenAsync();
+
+        if (_profileCoaches?.Any() == true
+        && _schoolRegions?.Any() == true)
+        {
+            _isLoaded = true;
+        }
+    }
+
+    private async Task GetProfileCoachOnDialogOpenAsync(int profileCoachID)
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Profiles/Coach?id={profileCoachID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _profileCoaches = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfileCoaches>>(responseStream, options);
+
+            if (_profileCoaches != null)
+            {
+                var selectedCoach = _profileCoaches.First();
+                // Title
+                _dialogHeader = $"{selectedCoach.FirstName} {selectedCoach.LastName}";
+
+                // Data
+                _selectedSchoolRegionIDValue = selectedCoach.SchoolRegionID;
+                _firstnameValue = selectedCoach.FirstName;
+                _lastnameValue = selectedCoach.LastName;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolRegionsOnDialogOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
 
     private async Task ConfirmDeleteProfileCoachAsync()
@@ -81,102 +199,7 @@
         }
     }
 
-    [Parameter]
-    public int selectedCoachID { get; set; }
-
-    private string? _dialogHeader;
-    private string? _firstnameValue;
-    private string? _lastnameValue;
-    private int? _selectedSchoolRegionIDValue;
-    private bool _editCoachButtonDisabled =>
-    string.IsNullOrEmpty(_firstnameValue) ||
-    string.IsNullOrEmpty(_lastnameValue) ||
-    !_selectedSchoolRegionIDValue.HasValue;
-
-    private List<ProfilesDTO.ProfileCoaches>? _profileCoaches;
-    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
-
-    public class ProfilesDTO
-    {
-        public class ProfileCoaches
-        {
-            public int ID { get; set; }
-            public string? FirstName { get; set; }
-            public string? LastName { get; set; }
-            public int? SchoolRegionID { get; set; }
-        }
-    }
-
-    public class SchoolDTO
-    {
-        public class SchoolRegions
-        {
-            public int ID { get; set; }
-            public string? Region { get; set; }
-            public string? Abbreviation { get; set; }
-        }
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await GetProfileCoachOnDialogOpenAsync(selectedCoachID);
-        await GetSchoolRegionsOnDialogOpenAsync();
-
-        StateHasChanged();
-    }
-
-    private async Task GetProfileCoachOnDialogOpenAsync(int profileCoachID)
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Profiles/Coach?id={profileCoachID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _profileCoaches = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfileCoaches>>(responseStream, options);
-
-            if (_profileCoaches != null)
-            {
-                var selectedCoach = _profileCoaches.First();
-                // Title
-                _dialogHeader = $"Update: {selectedCoach.FirstName} {selectedCoach.LastName}";
-
-                // Data
-                _selectedSchoolRegionIDValue = selectedCoach.SchoolRegionID;
-                _firstnameValue = selectedCoach.FirstName;
-                _lastnameValue = selectedCoach.LastName;
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-
-    private async Task GetSchoolRegionsOnDialogOpenAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
+    // Update Coach profile
     private async Task UpdateProfileCoachAsync()
     {
         try
@@ -207,6 +230,7 @@
         }
     }
 
+    // Delete Coach profile
     private async Task DeleteProfileCoachAsync()
     {
         try

@@ -24,47 +24,28 @@
             <MudStack Row Justify="Justify.SpaceBetween">
                 <MudButton Style="text-transform: none" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
                 <MudButton Style="text-transform: none" DropShadow="false"
-                           Disabled="_addStreamDisabled" OnClick="ConfirmPostEventStreamsAsync">Add</MudButton>
+                           Disabled="_addStreamDisabled" OnClick="ConfirmAddEventStreamsAsync">Add</MudButton>
             </MudStack>
         </MudStack>
     </DialogActions>
 </MudDialog>
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
     private List<EventsDTO.EventStreamServicesDetails.EventStreamServices>? _eventStreamServicesDetails;
 
+    // Variables
     private string? _streamServiceValue;
     private string? _streamURLValue;
+
+    // Disable addition button if values are empty
     private bool _addStreamDisabled =>
     string.IsNullOrEmpty(_streamServiceValue) ||
     string.IsNullOrEmpty(_streamURLValue);
 
-    private string _searchString = "";
-
-    bool _expandedAddStreamService = false;
-
-    private void ClearFields()
-    {
-        _streamServiceValue = null;
-        _streamURLValue = null;
-    }
-
-    private bool FilterFunc(EventsDTO.EventStreamServicesDetails.EventStreamServices streams)
-    {
-        if (string.IsNullOrWhiteSpace(_searchString))
-            return true;
-        return streams.StreamService!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private List<BreadcrumbItem> _items =
-    [
-        new("Home", href: "./"),
-        new("Events", href: "./events"),
-        new("Streams", href: null, disabled: true)
-    ];
-
+    // DTOs
     public class EventsDTO
     {
         public class EventStreamServicesDetails
@@ -103,27 +84,35 @@
         }
     }
 
-    private async Task ConfirmPostEventStreamsAsync()
+    // Dialog actions
+    private void ClearFields()
+    {
+        _streamServiceValue = null;
+        _streamURLValue = null;
+    }
+
+    private async Task ConfirmAddEventStreamsAsync()
     {
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
 
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: $"Do you confirm addition of {_streamServiceValue ?? "this stream"}?",
+            message: $"Do you confirm addition of {_streamServiceValue ?? "this stream service"}?",
             yesText: "Yes",
             cancelText: "Cancel",
             options: options);
 
         if (result == true)
         {
-            await PostEventStreamServiceAsync();
+            await AddEventStreamServiceAsync();
             MudDialog?.Close(DialogResult.Ok(true));
         }
     }
 
     private void Cancel() => MudDialog?.Cancel();
 
-    private async Task PostEventStreamServiceAsync()
+    // Add event stream service
+    private async Task AddEventStreamServiceAsync()
     {
         try
         {
@@ -144,7 +133,7 @@
         }
         catch (HttpRequestException ex)
         {
-            Console.WriteLine($"Error posting data: {ex.Message}");
+            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
         }
     }
 }

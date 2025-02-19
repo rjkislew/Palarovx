@@ -7,12 +7,15 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudDialog>
-    <DialogContent>
-        @if (_eventVenue != null)
-        {
-            <MudText Typo="Typo.h6">@_dialogHeader</MudText>
-            <MudDivider Class="mb-5" />
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudStack Row>
+                <MudIcon Size="Size.Small" Icon="@Icons.Material.Filled.Edit" />
+                <MudText Typo="Typo.body2">@_dialogHeader</MudText>
+            </MudStack>
+            <MudDivider Class="mt-2 mb-5" />
             <MudGrid Spacing="2">
                 <MudItem xs="12" md="6">
                     <MudTextField @bind-Value="_venueValue" Immediate Margin="Margin.Dense" Label="Venue" ShrinkLabel Variant="Variant.Outlined" Clearable />
@@ -27,27 +30,111 @@
                     <MudTextField T="decimal?" @bind-Value="_longitudeValue" Immediate Margin="Margin.Dense" Mask="@(new PatternMask("000.000000"))" Label="Longitude" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
             </MudGrid>
-            <MudDivider Class="mt-10 mb-2" />
+        </DialogContent>
+        <DialogActions>
             <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
                 <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteVenueAsync">Delete</MudButton>
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
-                    <MudButton Style="text-transform: none" Color="Color.Success" DropShadow="false" OnClick="ConfirmUpdateVenueAsync" Disabled="_editVenueButtonDisabled">Update</MudButton>
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateVenueAsync" Disabled="_editVenueButtonDisabled">Update</MudButton>
                 </MudStack>
             </MudStack>
-        }
-        else
-        {
-            <MudText Typo="Typo.h6">Loading Event Venue Settings</MudText>
-            <MudProgressLinear Indeterminate="true" />
-        }
-    </DialogContent>
-</MudDialog>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
+    // Passed data from page
+    [Parameter]
+    public int selectedVenueID { get; set; }
+
+    // JSON storage
+    private List<EventsDTO.EventVenues>? _eventVenue;
+
+    // Variables
+    private string? _dialogHeader;
+    private string? _addressValue;
+    private string? _venueValue;
+    private decimal? _latitudeValue;
+    private decimal? _longitudeValue;
+    private bool _editVenueButtonDisabled =>
+    string.IsNullOrEmpty(_addressValue) ||
+    string.IsNullOrEmpty(_venueValue) ||
+    _latitudeValue == null ||
+    _longitudeValue == null;
+
+    // Load dialog if true
+    private bool? _isLoaded = false;
+
+    // DTOs
+    public class EventsDTO
+    {
+        public class EventVenues
+        {
+            public int ID { get; set; }
+            public string? Address { get; set; }
+            public string? Venue { get; set; }
+            public decimal? Latitude { get; set; }
+            public decimal? Longitude { get; set; }
+        }
+    }
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetVenuesAsync(selectedVenueID);
+
+        if (_eventVenue?.Any() == true)
+        {
+            _isLoaded = true;
+        }
+    }
+
+    private async Task GetVenuesAsync(int? ID)
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/Venues?id={ID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventVenue = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVenues>>(responseStream, options);
+
+            if (_eventVenue != null)
+            {
+                var selectedEventVenue = _eventVenue.First();
+                // Title
+                _dialogHeader = $"{selectedEventVenue.Venue}, {selectedEventVenue.Address}";
+
+                // Data
+                _addressValue = selectedEventVenue.Address;
+                _venueValue = selectedEventVenue.Venue;
+                _latitudeValue = selectedEventVenue.Latitude;
+                _longitudeValue = selectedEventVenue.Longitude;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
 
     private async Task ConfirmDeleteVenueAsync()
@@ -80,72 +167,7 @@
         }
     }
 
-    [Parameter]
-    public int selectedVenueID { get; set; }
-
-    private string? _dialogHeader;
-    private string? _addressValue;
-    private string? _venueValue;
-    private decimal? _latitudeValue;
-    private decimal? _longitudeValue;
-    private bool _editVenueButtonDisabled =>
-    string.IsNullOrEmpty(_addressValue) ||
-    string.IsNullOrEmpty(_venueValue) ||
-    _latitudeValue == null ||
-    _longitudeValue == null;
-
-    private List<EventsDTO.EventVenues>? _eventVenue;
-
-    public class EventsDTO
-    {
-        public class EventVenues
-        {
-            public int ID { get; set; }
-            public string? Address { get; set; }
-            public string? Venue { get; set; }
-            public decimal? Latitude { get; set; }
-            public decimal? Longitude { get; set; }
-        }
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await GetVenuesAsync(selectedVenueID);
-    }
-
-    private async Task GetVenuesAsync(int? ID)
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Events/Venues?id={ID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _eventVenue = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVenues>>(responseStream, options);
-
-            if (_eventVenue != null)
-            {
-                var selectedEventVenue = _eventVenue.First();
-                // Title
-                _dialogHeader = $"Update: {selectedEventVenue.Venue} - ({selectedEventVenue.Address})";
-
-                // Data
-                _addressValue = selectedEventVenue.Address;
-                _venueValue = selectedEventVenue.Venue;
-                _latitudeValue = selectedEventVenue.Latitude;
-                _longitudeValue = selectedEventVenue.Longitude;
-
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
+    // Update Venue
     private async Task UpdateVenueAsync()
     {
         try
@@ -177,6 +199,7 @@
         }
     }
 
+    // Delete Venu
     private async Task DeleteVenueAsync()
     {
         try

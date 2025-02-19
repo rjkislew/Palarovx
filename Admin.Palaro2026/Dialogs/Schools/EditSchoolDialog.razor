@@ -7,39 +7,45 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudDialog>
-    <DialogContent>
-        @if (_school != null)
-        {
-            <MudText Typo="Typo.h6">@_dialogHeader</MudText>
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudStack Row>
+                <MudIcon Size="Size.Small" Icon="@Icons.Material.Filled.Edit" />
+                <MudText Typo="Typo.body2">@_dialogHeader</MudText>
+            </MudStack>
             <MudDivider Class="mb-5" />
             <MudGrid Spacing="2">
-                <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSchoolDivisionIDValue = null)" TextChanged="GetSchoolDivisionsAsync">
+                <MudItem xs="12" md="7">
+                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel
+                               Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSchoolDivisionIDValue = null)"
+                               T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSchoolDivisionIDValue = null; await GetSchoolDivisionsAsync(); }))">
                         <MudVirtualize Items="_schoolRegions" Context="region">
                             <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" md="6">
+                <MudItem xs="12" md="5">
                     <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null">
                         <MudVirtualize Items="_schoolDivisions" Context="division">
                             <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12">
+                <MudItem xs="12" md="4">
                     <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable>
                         <MudVirtualize Items="_schoolLevels" Context="level">
                             <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12">
+                <MudItem xs="12" md="8">
                     <MudTextField @bind-Value="_schoolValue" Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
             </MudGrid>
-            <MudDivider Class="mt-10 mb-2" />
+        </DialogContent>
+        <DialogActions>
             <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
                 <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteSchoolAsync">Delete</MudButton>
                 <MudStack Row Justify="Justify.SpaceBetween">
@@ -47,70 +53,51 @@
                     <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateSchoolAsync" Disabled="_editSchoolButtonDisabled">Update</MudButton>
                 </MudStack>
             </MudStack>
-        }
-        else
-        {
-            <MudText Typo="Typo.h6">Loading School Settings</MudText>
-            <MudProgressLinear Indeterminate="true" />
-        }
-    </DialogContent>
-</MudDialog>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
-    private void Cancel() => MudDialog?.Cancel();
-
-    private async Task ConfirmDeleteSchoolAsync()
-    {
-        bool? result = await DialogService.ShowMessageBox(
-            title: "Notice",
-            message: "Do you confirm deletion of school?",
-            yesText: "Yes",
-            cancelText: "Cancel");
-
-        if (result == true)
-        {
-            await DeleteSchoolAsync();
-            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
-        }
-    }
-
-    private async Task ConfirmUpdateSchoolAsync()
-    {
-        bool? result = await DialogService.ShowMessageBox(
-            title: "Notice",
-            message: "Do you confirm changes of school?",
-            yesText: "Yes",
-            cancelText: "Cancel");
-
-        if (result == true)
-        {
-            await UpdateSchoolAsync();
-            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
-        }
-    }
-
+    // Passed data from page
     [Parameter]
     public int selectedSchoolID { get; set; }
 
+    // JSON storage
+    private List<SchoolsDTO.Schools>? _school;
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+    private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+
+    // Variables
     private string? _dialogHeader;
     private int? _selectedSchoolRegionIDValue;
     private int? _selectedSchoolDivisionIDValue;
     private string? _schoolValue;
     private int? _selectedSchoolLevelIDValue;
     private bool _editSchoolButtonDisabled =>
+
+    // Disable addition button if values are empty
     _selectedSchoolRegionIDValue == null ||
     _selectedSchoolDivisionIDValue == null ||
     _selectedSchoolLevelIDValue == null ||
     string.IsNullOrEmpty(_schoolValue);
 
-    private List<SchoolsDTO.Schools>? _school;
-    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
-    private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
-    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    // Load dialog if true
+    private bool? _isLoaded = false;
 
+    // DTOs
     public class SchoolsDTO
     {
         public class Schools
@@ -143,13 +130,12 @@
         }
     }
 
+    // Initialization
     protected override async Task OnInitializedAsync()
     {
         await GetSchoolsOnDialogOpenAsync(selectedSchoolID);
-        await GetSchoolDivisionsOnDialogOpenAsync();
-        await GetSchoolLevelsOnDialogOpenAsync();
 
-        StateHasChanged();
+        _isLoaded = true;
     }
 
     private async Task GetSchoolsOnDialogOpenAsync(int schoolID)
@@ -169,22 +155,22 @@
             {
                 var selectedSchool = _school.First();
                 // Title
-                _dialogHeader = $"Update: {selectedSchool.School}";
+                _dialogHeader = $"{selectedSchool.School}";
 
                 // Data
+                _selectedSchoolLevelIDValue = selectedSchool.SchoolLevelsID;
                 _selectedSchoolDivisionIDValue = selectedSchool.SchoolDivisionID;
                 _schoolValue = selectedSchool.School;
-                _selectedSchoolLevelIDValue = selectedSchool.SchoolLevelsID;
             }
 
-            StateHasChanged();
+            await GetSchoolLevelsOnDialogOpenAsync();
+            await GetSchoolDivisionsOnDialogOpenAsync();
         }
         catch (HttpRequestException ex)
         {
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
-
 
     private async Task GetSchoolRegionsOnDialogOpenAsync()
     {
@@ -198,6 +184,8 @@
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
+
+            await GetSchoolDivisionsAsync();
         }
         catch (HttpRequestException ex)
         {
@@ -275,6 +263,40 @@
         }
     }
 
+    // Dialog Actions
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task ConfirmDeleteSchoolAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm deletion of school?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await DeleteSchoolAsync();
+            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+        }
+    }
+
+    private async Task ConfirmUpdateSchoolAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm changes of school?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await UpdateSchoolAsync();
+            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+        }
+    }
+
+    // Update School
     private async Task UpdateSchoolAsync()
     {
         try
@@ -305,6 +327,7 @@
         }
     }
 
+    // Delete School
     private async Task DeleteSchoolAsync()
     {
         try

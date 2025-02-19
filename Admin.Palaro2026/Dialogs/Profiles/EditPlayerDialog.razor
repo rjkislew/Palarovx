@@ -7,12 +7,15 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudDialog>
-    <DialogContent>
-        @if (_profilePlayers != null)
-        {
-            <MudText Typo="Typo.h6">@_dialogHeader</MudText>
-            <MudDivider Class="mb-5" />
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudStack Row>
+                <MudIcon Size="Size.Small" Icon="@Icons.Material.Filled.Edit" />
+                <MudText Typo="Typo.body2">@_dialogHeader</MudText>
+            </MudStack>
+            <MudDivider Class="mt-2 mb-5" />
             <MudGrid Spacing="2">
                 <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => {_selectedSchoolDivisionIDValue = null; _selectedSchoolLevelIDValue = null; _selectedSchoolIDValue = null;})" T="int?" SelectedValuesChanged="GetSchoolDivisionsAsync">
@@ -22,7 +25,7 @@
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null" OnClearButtonClick="@(() => {_selectedSchoolLevelIDValue = null; _selectedSchoolIDValue = null;})">
+                    <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null" OnClearButtonClick="@(() => {_selectedSchoolLevelIDValue = null; _selectedSchoolIDValue = null;})">
                         <MudVirtualize Items="_schoolDivisions" Context="division">
                             <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
                         </MudVirtualize>
@@ -36,20 +39,20 @@
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolIDValue" Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolLevelIDValue == null" >
+                    <MudSelect @bind-Value="_selectedSchoolIDValue" Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolLevelIDValue == null">
                         <MudVirtualize Items="_schools" Context="school">
                             <MudSelectItem T="int?" Value="school.ID">@school.School</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable  />
+                    <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable  />
+                    <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Category" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetSportsOnDialogOpenAsync">
+                    <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Category" ShrinkLabel Variant="Variant.Outlined" Clearable T="int?" SelectedValuesChanged="GetSportsOnDialogOpenAsync">
                         <MudVirtualize Items="_sportCategories" Context="sportCategory">
                             <MudSelectItem T="int?" Value="sportCategory.ID">@sportCategory.Category</MudSelectItem>
                         </MudVirtualize>
@@ -64,6 +67,8 @@
                 </MudItem>
             </MudGrid>
             <MudDivider Class="mt-10 mb-2" />
+        </DialogContent>
+        <DialogActions>
             <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
                 <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteProfileCoachAsync">Delete</MudButton>
                 <MudStack Row Justify="Justify.SpaceBetween">
@@ -71,54 +76,28 @@
                     <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateProfileCoachAsync" Disabled="_editPlayerButtonDisabled">Update</MudButton>
                 </MudStack>
             </MudStack>
-        }
-        else
-        {
-            <MudText Typo="Typo.h6">Loading Coach Profile Settings</MudText>
-            <MudProgressLinear Indeterminate="true" />
-        }
-    </DialogContent>
-</MudDialog>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
-    private void Cancel() => MudDialog?.Cancel();
-
-    private async Task ConfirmDeleteProfileCoachAsync()
-    {
-        bool? result = await DialogService.ShowMessageBox(
-            title: "Notice",
-            message: "Do you confirm deletion of school?",
-            yesText: "Yes",
-            cancelText: "Cancel");
-
-        if (result == true)
-        {
-            await DeleteProfileCoachAsync();
-            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
-        }
-    }
-
-    private async Task ConfirmUpdateProfileCoachAsync()
-    {
-        bool? result = await DialogService.ShowMessageBox(
-            title: "Notice",
-            message: "Do you confirm changes of school?",
-            yesText: "Yes",
-            cancelText: "Cancel");
-
-        if (result == true)
-        {
-            await UpdateProfileCoachAsync();
-            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
-        }
-    }
-
+    // Passed data from page
     [Parameter]
     public int selectedPlayerID { get; set; }
 
+    // JSON storage
     private List<ProfilesDTO.ProfilePlayers>? _profilePlayers;
     private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
     private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
@@ -127,6 +106,7 @@
     private List<SportsDTO.SportCategories>? _sportCategories;
     private List<SportsDTO.Sports>? _sports;
 
+    // Variables
     private string? _dialogHeader;
     private int? _selectedSchoolRegionIDValue;
     private int? _selectedSchoolDivisionIDValue;
@@ -137,13 +117,17 @@
     private int? _selectedSportCategoryIDValue;
     private int? _selectedSportIDValue;
 
+    // Disable addition button if values are empty
     private bool _editPlayerButtonDisabled =>
     string.IsNullOrEmpty(_firstnameValue) ||
     string.IsNullOrEmpty(_lastnameValue) ||
     !_selectedSchoolRegionIDValue.HasValue ||
     !_selectedSchoolIDValue.HasValue;
 
+    // Load dialog if true
+    private bool? _isLoaded = false;
 
+    // DTOs
     public class ProfilesDTO
     {
         public class ProfilePlayers
@@ -204,17 +188,24 @@
         }
     }
 
-
+    // Initialization
     protected override async Task OnInitializedAsync()
     {
         await GetProfilePlayerOnDialogOpenAsync(selectedPlayerID);
         await GetSchoolDivisionOnDialogOpenAsync();
         await GetSchoolOnDialogOpenAsync();
         await GetSportsOnDialogOpenAsync();
+
+        if (_profilePlayers?.Any() == true
+        && _schoolDivisions?.Any() == true
+        && _schools?.Any() == true
+        && _sports?.Any() == true)
+        {
+            _isLoaded = true;
+        }
+
         StateHasChanged();
     }
-
-    // Player
 
     private async Task GetProfilePlayerOnDialogOpenAsync(int profilePlayerID)
     {
@@ -233,7 +224,7 @@
             {
                 var selectedCoach = _profilePlayers.First();
                 // Title
-                _dialogHeader = $"Update: {selectedCoach.FirstName} {selectedCoach.LastName}";
+                _dialogHeader = $"{selectedCoach.FirstName} {selectedCoach.LastName}";
 
                 // Data
                 _firstnameValue = selectedCoach.FirstName;
@@ -249,8 +240,6 @@
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
-
-    // School
 
     private async Task GetSchooRegionOnDialogOpenAsync()
     {
@@ -366,7 +355,7 @@
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
-    
+
     private async Task GetSchoolOnDialogOpenAsync()
     {
         try
@@ -397,8 +386,6 @@
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
-
-    // Sports
 
     private async Task GetSportCategoryOnDialogOpenAsync()
     {
@@ -441,8 +428,8 @@
 
                 _selectedSportCategoryIDValue = sport.SportCategoryID;
             }
+
             await GetSportCategoryOnDialogOpenAsync();
-            StateHasChanged();
         }
         catch (HttpRequestException ex)
         {
@@ -451,8 +438,40 @@
         }
     }
 
-    // Update Delete
+    // Dialog Actions
+    private void Cancel() => MudDialog?.Cancel();
 
+    private async Task ConfirmDeleteProfileCoachAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm deletion of school?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await DeleteProfileCoachAsync();
+            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+        }
+    }
+
+    private async Task ConfirmUpdateProfileCoachAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm changes of school?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await UpdateProfileCoachAsync();
+            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+        }
+    }
+
+    // Update Player profile
     private async Task UpdateProfileCoachAsync()
     {
         try
@@ -484,6 +503,7 @@
         }
     }
 
+    // Delete Player profile
     private async Task DeleteProfileCoachAsync()
     {
         try

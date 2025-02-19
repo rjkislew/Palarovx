@@ -7,35 +7,122 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudDialog>
-    <DialogContent>
-        @if (_eventStream != null)
-        {
-            <MudText Typo="Typo.h6">@_dialogHeader</MudText>
-            <MudDivider Class="mb-5" />
-            <MudTextField @bind-Value="_streamServiceValue" Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-            <MudTextField @bind-Value="_streamURLValue" Margin="Margin.Dense" Label="URL" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
-            <MudDivider Class="mt-10 mb-2" />
+@if (_isLoaded != null)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudStack Row>
+                <MudIcon Size="Size.Small" Icon="@Icons.Material.Filled.Edit" />
+                <MudText Typo="Typo.body2">@_dialogHeader</MudText>
+            </MudStack>
+            <MudDivider Class="mt-2 mb-5" />
+            <MudGrid Spacing="0">
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_streamServiceValue" Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_streamURLValue" Margin="Margin.Dense" Label="URL" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
             <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
                 <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteStreamAsync">Delete</MudButton>
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
-                    <MudButton Style="text-transform: none" Color="Color.Success" DropShadow="false" OnClick="ConfirmUpdateStreamAsync">Update</MudButton>
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateStreamAsync">Update</MudButton>
                 </MudStack>
             </MudStack>
-        }
-        else
-        {
-            <MudText Typo="Typo.h6">Loading Event Stream Settings</MudText>
-            <MudProgressLinear Indeterminate="true" />
-        }
-    </DialogContent>
-</MudDialog>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
+    // Passed data from page
+    [Parameter]
+    public int SelectedStreamID { get; set; }
+
+    // JSON storage
+    private List<EventsDTO.EventStreams>? _eventStream;
+
+    // Variables
+    private string? _dialogHeader;
+    private string? _streamServiceValue;
+    private string? _streamURLValue;
+
+    // Disable addition button if values are empty
+    private bool _editVenueButtonDisabled =>
+    string.IsNullOrEmpty(_streamServiceValue) ||
+    string.IsNullOrEmpty(_streamURLValue);
+
+    // Load dialog if true
+    private bool? _isLoaded = false;
+
+    // DTOs
+    public class EventsDTO
+    {
+        public class EventStreams
+        {
+            public int ID { get; set; }
+            public string? StreamService { get; set; }
+            public string? StreamURL { get; set; }
+        }
+    }
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetEventStreamsAsync();
+
+        if (_eventStream?.Any() == true)
+        {
+            _isLoaded = true;
+        }
+    }
+
+    private async Task GetEventStreamsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/StreamServices?id={SelectedStreamID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventStream = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventStreams>>(responseStream, options);
+
+            if (_eventStream != null)
+            {
+                var selectedEventStream = _eventStream.First();
+                // Title
+                _dialogHeader = selectedEventStream.StreamService;
+
+                // Content
+                _streamServiceValue = selectedEventStream.StreamService;
+                _streamURLValue = selectedEventStream.StreamURL;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
 
     private async Task ConfirmDeleteStreamAsync()
@@ -79,62 +166,7 @@
         }
     }
 
-    [Parameter]
-    public int SelectedStreamID { get; set; }
-
-    private string? _dialogHeader;
-    private string? _streamServiceValue;
-    private string? _streamURLValue;
-    private bool _editVenueButtonDisabled =>
-    string.IsNullOrEmpty(_streamServiceValue) ||
-    string.IsNullOrEmpty(_streamURLValue);
-
-    private List<EventsDTO.EventStreams>? _eventStream;
-    public class EventsDTO
-    {
-        public class EventStreams
-        {
-            public int ID { get; set; }
-            public string? StreamService { get; set; }
-            public string? StreamURL { get; set; }
-        }
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await GetEventStreamsAsync();
-    }
-
-    private async Task GetEventStreamsAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Events/StreamServices?id={SelectedStreamID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _eventStream = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventStreams>>(responseStream, options);
-
-            if (_eventStream != null)
-            {
-                var selectedEventStream = _eventStream.First();
-                // Title
-                _dialogHeader = $"Update: {selectedEventStream.StreamService}";
-
-                // Content
-                _streamServiceValue = selectedEventStream.StreamService;
-                _streamURLValue = selectedEventStream.StreamURL;
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
+    // Update Stream
     private async Task UpdateStreamAsync()
     {
         try
@@ -164,6 +196,7 @@
         }
     }
 
+    // Delete Stream
     private async Task DeleteStreamAsync()
     {
         try

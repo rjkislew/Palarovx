@@ -7,10 +7,15 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudDialog>
-    <DialogContent>
-        @if (_schoolBilletingQuarter != null)
-        {
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudStack Row>
+                <MudIcon Size="Size.Small" Icon="@Icons.Material.Filled.Edit" />
+                <MudText Typo="Typo.body2">@_dialogHeader</MudText>
+            </MudStack>
+            <MudDivider Class="mb-5" />
             <MudGrid Spacing="2">
                 <MudItem xs="12">
                     <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable>
@@ -38,27 +43,154 @@
                     <MudTextField @bind-Value="_contactPersonNumberValue" Immediate Margin="Margin.Dense" Mask="@(new PatternMask("0000 000 0000"))" Label="Contact Person Number" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
             </MudGrid>
-        }
-        else
-        {
-            <MudProgressLinear Indeterminate="true" />
-        }
-    </DialogContent>
-    <DialogActions>
-        <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
-            <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteBilletingQuarterAsync">Delete</MudButton>
-            <MudStack Row Justify="Justify.SpaceBetween">
-                <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
-                <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateBilletingQuartersAsync" Disabled="_editBilletingQuarterDisabled">Update</MudButton>
+        </DialogContent>
+        <DialogActions>
+            <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteBilletingQuarterAsync">Delete</MudButton>
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateBilletingQuartersAsync" Disabled="_editBilletingQuarterDisabled">Update</MudButton>
+                </MudStack>
             </MudStack>
-        </MudStack>
-    </DialogActions>
-</MudDialog>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
+    // Passed data from page
+    [Parameter]
+    public int selectedBilletingQuarterID { get; set; }
+
+    // JSON storage
+    private List<SchoolDTO.SchoolBilletingQuarters>? _schoolBilletingQuarter;
+    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
+
+    // Variables
+    private string? _dialogHeader;
+    private int? _selectedSchoolRegionIDValue;
+    private string? _billetingQuarterValue;
+    private string? _addressValue;
+    private decimal? _latitudeValue;
+    private decimal? _longitudeValue;
+    private string? _contactPersonValue;
+    private string? _contactPersonNumberValue;
+
+    // Disable addition button if values are empty
+    private bool _editBilletingQuarterDisabled =>
+    !_selectedSchoolRegionIDValue.HasValue ||
+    string.IsNullOrEmpty(_billetingQuarterValue) ||
+    string.IsNullOrEmpty(_addressValue) ||
+    !_latitudeValue.HasValue ||
+    !_longitudeValue.HasValue ||
+    string.IsNullOrEmpty(_contactPersonValue) ||
+    string.IsNullOrEmpty(_contactPersonNumberValue);
+
+    // Load dialog if true
+    private bool? _isLoaded = false;
+
+    // DTOs
+    public class SchoolDTO
+    {
+        public class SchoolBilletingQuarters
+        {
+            public int ID { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? BilletingQuarter { get; set; }
+            public string? Address { get; set; }
+            public decimal? Latitude { get; set; }
+            public decimal? Longitude { get; set; }
+            public string? ContactPerson { get; set; }
+            public string? ContactPersonNumber { get; set; }
+        }
+
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetBilletingQuarterOnDialogOpenAsync(selectedBilletingQuarterID);
+        await GetSchoolRegionsOnDialogOpenAsync();
+
+        if (_schoolBilletingQuarter?.Any() == true 
+        && _schoolRegions?.Any() == true)
+        {
+            _isLoaded = true;
+        }
+    }
+
+    private async Task GetBilletingQuarterOnDialogOpenAsync(int ID)
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/BilletingQuarters?id={ID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolBilletingQuarter = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolBilletingQuarters>>(responseStream, options);
+
+            if (_schoolBilletingQuarter != null)
+            {
+                var selectedBilletingQuarter = _schoolBilletingQuarter.First();
+
+                _dialogHeader = $"{selectedBilletingQuarter.BilletingQuarter}";
+                _selectedSchoolRegionIDValue = selectedBilletingQuarter.SchoolRegionID;
+                _billetingQuarterValue = selectedBilletingQuarter.BilletingQuarter;
+                _addressValue = selectedBilletingQuarter.Address;
+                _latitudeValue = selectedBilletingQuarter.Latitude;
+                _longitudeValue = selectedBilletingQuarter.Longitude;
+                _contactPersonValue = selectedBilletingQuarter.ContactPerson;
+                _contactPersonNumberValue = selectedBilletingQuarter.ContactPersonNumber;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolRegionsOnDialogOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
 
     private async Task ConfirmDeleteBilletingQuarterAsync()
@@ -91,112 +223,7 @@
         }
     }
 
-    [Parameter]
-    public int selectedBilletingQuarterID { get; set; }
-
-    private int? _selectedSchoolRegionIDValue;
-    private string? _billetingQuarterValue;
-    private string? _addressValue;
-    private decimal? _latitudeValue;
-    private decimal? _longitudeValue;
-    private string? _contactPersonValue;
-    private string? _contactPersonNumberValue;
-    private bool _editBilletingQuarterDisabled =>
-    !_selectedSchoolRegionIDValue.HasValue ||
-    string.IsNullOrEmpty(_billetingQuarterValue) ||
-    string.IsNullOrEmpty(_addressValue) ||
-    !_latitudeValue.HasValue ||
-    !_longitudeValue.HasValue ||
-    string.IsNullOrEmpty(_contactPersonValue) ||
-    string.IsNullOrEmpty(_contactPersonNumberValue);
-
-    private List<SchoolDTO.SchoolBilletingQuarters>? _schoolBilletingQuarter;
-    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
-
-    public class SchoolDTO
-    {
-        public class SchoolBilletingQuarters
-        {
-            public int ID { get; set; }
-            public int? SchoolRegionID { get; set; }
-            public string? BilletingQuarter { get; set; }
-            public string? Address { get; set; }
-            public decimal? Latitude { get; set; }
-            public decimal? Longitude { get; set; }
-            public string? ContactPerson { get; set; }
-            public string? ContactPersonNumber { get; set; }
-        }
-
-        public class SchoolRegions
-        {
-            public int ID { get; set; }
-            public string? Region { get; set; }
-            public string? Abbreviation { get; set; }
-        }
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await GetBilletingQuarterOnDialogOpenAsync(selectedBilletingQuarterID);
-        await GetSchoolRegionsOnDialogOpenAsync();
-    }
-
-    private async Task GetBilletingQuarterOnDialogOpenAsync(int ID)
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/BilletingQuarters?id={ID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolBilletingQuarter = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolBilletingQuarters>>(responseStream, options);
-
-            if (_schoolBilletingQuarter != null)
-            {
-                var selectedBilletingQuarter = _schoolBilletingQuarter.First();
-                _selectedSchoolRegionIDValue = selectedBilletingQuarter.SchoolRegionID;
-                _billetingQuarterValue = selectedBilletingQuarter.BilletingQuarter;
-                _addressValue = selectedBilletingQuarter.Address;
-                _latitudeValue = selectedBilletingQuarter.Latitude;
-                _longitudeValue = selectedBilletingQuarter.Longitude;
-                _contactPersonValue = selectedBilletingQuarter.ContactPerson;
-                _contactPersonNumberValue = selectedBilletingQuarter.ContactPersonNumber;
-            }
-
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSchoolRegionsOnDialogOpenAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
-
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
+    // Update billeting quarter
     private async Task UpdateBilletingQuarterAsync()
     {
         try
@@ -229,6 +256,7 @@
         }
     }
 
+    // Delete billeting quarter
     private async Task DeleteBilletingQuarterAsync()
     {
         try
