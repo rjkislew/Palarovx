@@ -17,8 +17,10 @@
             </MudStack>
             <MudDivider Class="mb-5" />
             <MudGrid Spacing="2">
-                <MudItem xs="12" md="4">
-                    <MudSelect @bind-Value="_selectedGenderCategoryIDValue" Margin="Margin.Dense" Label="Gender Category" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSportSubcategoryIDValue = null)">
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_selectedGenderCategoryIDValue" Margin="Margin.Dense" Label="Gender Category"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSportSubcategoryIDValue = null)"
+                               T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSportSubcategoryIDValue = null; await GetSportSubcategoryAsync(); }))">
                         <MudVirtualize Items="_sportGenderCategories" Context="gender">
                             <MudSelectItem T="int?" Value="gender.ID">@gender.Gender</MudSelectItem>
                         </MudVirtualize>
@@ -28,16 +30,16 @@
                     var message = (_sportSubcategories?.Any() != true) ? "No subcategory available for this gender." : null;
                     var disabled = (_sportSubcategories?.Any() != true) ? true : false;
                 }
-                <MudItem xs="12" md="8">
+                <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense" HelperText="@($"{message}")" Label="Sport Subcategory" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedGenderCategoryIDValue == null || disabled">
                         <MudVirtualize Items="_sportSubcategories" Context="subCategory">
-                            <MudSelectItem T="int?" Value="subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                            <MudSelectItem T="int?" Value="subCategory.ID">@(subCategory.Subcategory ?? "No Subcategory")</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12">
                     <MudSelect @bind-SelectedValues="_selectedCoachIDs" ToStringFunc="@(id => _profileCoaches?.FirstOrDefault(c => c.ID == id) is { } coach ? $"{coach.FirstName} {coach.LastName}" : string.Empty)"
-                    T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Coach" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                               T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Coach" ShrinkLabel Variant="Variant.Outlined" Clearable>
                         <MudVirtualize Items="_profileCoaches" Context="coach">
                             <MudSelectItem T="int?" Value="coach.ID">@coach.FirstName @coach.LastName</MudSelectItem>
                         </MudVirtualize>
@@ -374,7 +376,7 @@ else
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-                message: "Do you confirm changes of school?",
+                message: $"Do you confirm update of sport event for {_firstnameValue} {_lastnameValue}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
@@ -390,7 +392,7 @@ else
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: "Do you confirm deletion of school?",
+            message: $"Do you confirm deletion of sport event for {_firstnameValue} {_lastnameValue}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
@@ -398,6 +400,7 @@ else
         {
             await DeletePlayerSportCoachByPlayerSportIDAsync();
             await DeleteProfilePlayerSportEventAsync();
+
             MudDialog?.Close(DialogResult.Ok(true));
         }
     }
@@ -478,6 +481,22 @@ else
     }
 
     // Delete Sport event and sport event coach by sport event ID
+    private async Task DeletePlayerSportCoachByPlayerSportIDAsync()
+    {
+        try
+        {
+            if (selectedPlayerSportsID == 0) return;
+
+            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/Coaches/ByPlayerSport/{selectedPlayerSportsID}";
+
+            HttpResponseMessage response = await httpClient.DeleteAsync(url);
+            response.EnsureSuccessStatusCode();
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error deleting player sport coach: {ex.Message}", Severity.Error);
+        }
+    }
 
     private async Task DeleteProfilePlayerSportEventAsync()
     {
@@ -495,23 +514,6 @@ else
         catch (HttpRequestException ex)
         {
             Snackbar.Add($"Error deleting player sport event: {ex.Message}", Severity.Error);
-        }
-    }
-
-    private async Task DeletePlayerSportCoachByPlayerSportIDAsync()
-    {
-        try
-        {
-            if (selectedPlayerSportsID == 0) return;
-
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/Coaches/ByPlayerSport/{selectedPlayerSportsID}";
-
-            HttpResponseMessage response = await httpClient.DeleteAsync(url);
-            response.EnsureSuccessStatusCode(); ;
-        }
-        catch (HttpRequestException ex)
-        {
-            Snackbar.Add($"Error deleting player sport coach: {ex.Message}", Severity.Error);
         }
     }
 }

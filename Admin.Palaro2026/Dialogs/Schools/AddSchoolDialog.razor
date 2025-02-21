@@ -10,30 +10,33 @@
 <MudDialog>
     <DialogContent>
         <MudGrid Spacing="2">
-            <MudItem xs="12" md="7">
-                <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel
+            <MudItem xs="12" md="6">
+                <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region/Agency" ShrinkLabel
                            Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSchoolDivisionIDValue = null)"
-                           T="int?" SelectedValuesChanged="GetSchoolDivisionsAsync">
+                           T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSchoolDivisionIDValue = null; await GetSchoolDivisionsAsync(); }))">
                     <MudVirtualize Items="_schoolRegions" Context="region">
                         <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
                     </MudVirtualize>
                 </MudSelect>
             </MudItem>
-            <MudItem xs="12" md="5">
-                <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null">
+            <MudItem xs="12" md="6">
+                <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division"
+                           HelperText="@(_selectedSchoolRegionIDValue != null && !(_schoolDivisions?.Any() ?? false) ? "No divisions for this office/agency." : null)"
+                           ShrinkLabel Variant="Variant.Outlined" Clearable
+                           Disabled="@(_selectedSchoolRegionIDValue == null || !(_schoolDivisions?.Any() ?? false))">
                     <MudVirtualize Items="_schoolDivisions" Context="division">
                         <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
                     </MudVirtualize>
                 </MudSelect>
             </MudItem>
-            <MudItem xs="12" md="4">
+            <MudItem xs="12" md="6">
                 <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable>
                     <MudVirtualize Items="_schoolLevels" Context="level">
                         <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
                     </MudVirtualize>
                 </MudSelect>
             </MudItem>
-            <MudItem xs="12" md="8">
+            <MudItem xs="12" md="6">
                 <MudTextField @bind-Value="_schoolValue" Immediate Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable />
             </MudItem>
         </MudGrid>
@@ -42,53 +45,36 @@
         <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
             <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
             <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
-                       Disabled="_addSchoolDisabled" OnClick="ConfirmPostSchoolAsync">Add</MudButton>
+                       Disabled="_addSchoolDisabled" OnClick="ConfirmAddSchoolAsync">Add</MudButton>
         </MudStack>
     </DialogActions>
 </MudDialog>
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
+
+    // JSON storage
     private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
     private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
     private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
 
+    // Variables
     private int? _selectedSchoolRegionIDValue;
     private int? _selectedSchoolDivisionIDValue;
     private string? _schoolValue;
     private int? _selectedSchoolLevelIDValue;
+
+
+    // Disable addition button if values are empty
     private bool _addSchoolDisabled =>
     _selectedSchoolRegionIDValue == null ||
     _selectedSchoolDivisionIDValue == null ||
     _selectedSchoolLevelIDValue == null ||
     string.IsNullOrEmpty(_schoolValue);
 
-    private void ClearFields()
-    {
-        _selectedSchoolRegionIDValue = null;
-        _selectedSchoolDivisionIDValue = null;
-        _selectedSchoolLevelIDValue = null;
-        _schoolValue = null;
-    }
-
-    private async Task ConfirmPostSchoolAsync()
-    {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
-
-        bool? result = await DialogService.ShowMessageBox(
-            title: "Notice",
-            message: $"Do you confirm addition of {_schoolValue ?? "this venue"}?",
-            yesText: "Yes",
-            cancelText: "Cancel",
-            options: options);
-
-        if (result == true)
-        {
-            await PostSchoolAsync();
-            MudDialog?.Close(DialogResult.Ok(true));
-        }
-    }
+    // DTOs
     public class SchoolsDTO
     {
         public class Schools
@@ -121,6 +107,8 @@
         }
     }
 
+
+    // Initialization
     protected override async Task OnInitializedAsync()
     {
         await GetSchoolRegionsAsync();
@@ -187,7 +175,37 @@
         }
     }
 
-    private async Task PostSchoolAsync()
+
+
+    // Dialog Actions
+    private void ClearFields()
+    {
+        _selectedSchoolRegionIDValue = null;
+        _selectedSchoolDivisionIDValue = null;
+        _selectedSchoolLevelIDValue = null;
+        _schoolValue = null;
+    }
+
+    private async Task ConfirmAddSchoolAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_schoolValue}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await AddSchoolAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    // Add school
+    private async Task AddSchoolAsync()
     {
         try
         {
@@ -204,15 +222,13 @@
             var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
             HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            httpResponse.EnsureSuccessStatusCode();
 
-            ClearFields();
-
-            Snackbar.Add("Event venue added successfully.", Severity.Success);
+            Snackbar.Add("School added successfully.", Severity.Success);
         }
         catch (HttpRequestException ex)
         {
-            Console.WriteLine($"Error posting data: {ex.Message}");
+            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
         }
     }
 }

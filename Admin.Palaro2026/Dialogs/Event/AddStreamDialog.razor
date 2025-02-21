@@ -9,9 +9,12 @@
 
 <MudDialog>
     <DialogContent>
-        <MudGrid>
+        <MudGrid Spacing="0">
             <MudItem xs="12">
-                <MudTextField @bind-Value="_streamServiceValue" Immediate Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                <MudTextField @bind-Value="_streamTitleValue" Immediate Margin="Margin.Dense" Label="Stream Title" ShrinkLabel Variant="Variant.Outlined" Clearable />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_streamURLValue" Immediate Margin="Margin.Dense" Label="Stream URl" ShrinkLabel Variant="Variant.Outlined" Clearable />
             </MudItem>
         </MudGrid>
     </DialogContent>
@@ -21,7 +24,7 @@
             <MudStack Row Justify="Justify.SpaceBetween">
                 <MudButton Style="text-transform: none" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
                 <MudButton Style="text-transform: none" DropShadow="false"
-                           Disabled="_addStreamDisabled" OnClick="ConfirmAddEventStreamsAsync">Add</MudButton>
+                Disabled="_addStreamDisabled" OnClick="ConfirmAddEventStreamsAsync">Add</MudButton>
             </MudStack>
         </MudStack>
     </DialogActions>
@@ -32,27 +35,37 @@
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
+    // Passed data from page
+    [Parameter]
+    public int SelectedStreamID { get; set; }
+
     // Variables
-    private string? _streamServiceValue;
+    private string? _streamTitleValue;
+    private string? _streamURLValue;
 
     // Disable addition button if values are empty
     private bool _addStreamDisabled =>
-    string.IsNullOrEmpty(_streamServiceValue);
+    string.IsNullOrEmpty(_streamTitleValue) ||
+    string.IsNullOrEmpty(_streamURLValue);
 
     // DTOs
     public class EventsDTO
     {
-        public class EventStreamServices
+        public class EventStreams
         {
             public int ID { get; set; }
-            public string? StreamService { get; set; }
+            public int? EventStreamServiceID { get; set; }
+            public string? StreamTitle { get; set; }
+            public string? StreamURL { get; set; }
+            public DateTime? StreamDate { get; set; }
         }
     }
 
     // Dialog actions
     private void ClearFields()
     {
-        _streamServiceValue = null;
+        _streamTitleValue = null;
+        _streamURLValue = null;
     }
 
     private async Task ConfirmAddEventStreamsAsync()
@@ -61,14 +74,14 @@
 
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: $"Do you confirm addition of {_streamServiceValue}?",
+            message: $"Do you confirm addition of {_streamTitleValue}?",
             yesText: "Yes",
             cancelText: "Cancel",
             options: options);
 
         if (result == true)
         {
-            await AddEventStreamServiceAsync();
+            await AddEventStreamAsync();
             MudDialog?.Close(DialogResult.Ok(true));
         }
     }
@@ -76,15 +89,18 @@
     private void Cancel() => MudDialog?.Cancel();
 
     // Add event stream service
-    private async Task AddEventStreamServiceAsync()
+    private async Task AddEventStreamAsync()
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Events/StreamService";
+            string url = $"{apiService.Palaro2026API}/Events/StreamService/Streams";
 
-            var eventStream = new EventsDTO.EventStreamServices
+            var eventStream = new EventsDTO.EventStreams
                 {
-                    StreamService = _streamServiceValue
+                    EventStreamServiceID = SelectedStreamID,
+                    StreamTitle = _streamTitleValue,
+                    StreamURL = _streamURLValue,
+                    StreamDate = DateTime.Now
                 };
 
             var jsonContent = JsonSerializer.Serialize(eventStream);
@@ -93,11 +109,11 @@
             HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
-            Snackbar.Add($"Event stream service {_streamServiceValue} added successfully.", Severity.Success);
+            Snackbar.Add($"Event stream {_streamTitleValue} added successfully.", Severity.Success);
         }
         catch (HttpRequestException ex)
         {
-            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error adding stream: {ex.Message}", Severity.Error);
         }
     }
 }

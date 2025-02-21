@@ -9,7 +9,7 @@ public class EventsDTO
         public class Event
         {
             public string ID { get; set; } = null!;
-            public List<EventVersus>? EventVersusList { get; set; }
+            public List<EventVersusTeams>? EventVersusList { get; set; }
 
             //public int? SportSubcategoryID { get; set; }
             public string? Category { get; set; }
@@ -45,15 +45,26 @@ public class EventsDTO
             public string? LastName { get; set; }
         }
 
-        public class EventVersus
+        public class EventVersusTeams
         {
-            public int? Score { get; set; }
+            public int ID { get; set; }
+            public string? Score { get; set; }
             // public int? SchoolRegionID { get; set; }
-            public string? Region { get; set; }
-            public string? Abbreviation { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
             //
 
+            public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
             public DateTime? RecentUpdateAt { get; set; }
+        }
+
+        public class EventVersusTeamPlayers
+        {
+            public int ID { get; set; }
+            public int? EventVersusID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? School { get; set; }
         }
     }
 
@@ -123,12 +134,19 @@ public class EventsDTO
         public decimal? Longitude { get; set; }
     }
 
-    public class EventVersus
+    public class EventVersusTeams
     {
         public int ID { get; set; }
-        public int? Score { get; set; }
-        public int? SchoolRegionID { get; set; }
         public string? EventID { get; set; }
+        public int? SchoolRegionID { get; set; }
+        public string? Score { get; set; }
         public DateTime? RecentUpdateAt { get; set; }
+    }
+
+    public class EventVersusTeamPlayers
+    {
+        public int ID { get; set; }
+        public int? EventVersusID { get; set; }
+        public int? ProfilePlayerID { get; set; }
     }
 }

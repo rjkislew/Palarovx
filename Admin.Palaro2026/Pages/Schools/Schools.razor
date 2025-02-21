@@ -92,46 +92,43 @@
 </MudGrid>
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // JSON storage
     private List<SchoolsDTO.SchoolDetails.Schools>? _schoolDetails;
-    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
-    private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
-    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
-
-    private int? _selectedSchoolRegionIDValue;
-    private int? _selectedSchoolDivisionIDValue;
-    private string? _schoolValue;
-    private int? _selectedSchoolLevelIDValue;
-    private bool _addSchoolDisabled =>
-    _selectedSchoolRegionIDValue == null ||
-    _selectedSchoolDivisionIDValue == null ||
-    _selectedSchoolLevelIDValue == null ||
-    string.IsNullOrEmpty(_schoolValue);
 
 
+    // Breadcrumbs
     private List<BreadcrumbItem> _items =
     [
         new("Home", href: "./"),
-    new("Schools", href: null, disabled: true)
+        new("Schools", href: null, disabled: true)
     ];
 
+
+    // DTOs
+    public class SchoolsDTO
+    {
+        public class SchoolDetails
+        {
+            public class Schools
+            {
+                public int ID { get; set; }
+                public string? School { get; set; }
+                public string? Level { get; set; }
+                public string? Division { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+            }
+        }
+    }
+
+
+    // Methods
     private string _searchString = "";
-
-    bool _expandedAddStreamService = false;
-
-    private void OnExpandAddStreamServiceButtonClick()
-    {
-        _expandedAddStreamService = !_expandedAddStreamService;
-    }
-
-    private void ClearFields()
-    {
-        _selectedSchoolRegionIDValue = null;
-        _selectedSchoolDivisionIDValue = null;
-        _selectedSchoolLevelIDValue = null;
-        _schoolValue = null;
-    }
 
     private bool FilterFunc(SchoolsDTO.SchoolDetails.Schools schoolDetails)
     {
@@ -142,6 +139,8 @@
                schoolDetails.Region!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
     }
 
+
+    // Dialogs
     private async Task OpenEditSchoolDialog(int selectedID)
     {
         var parameter = new DialogParameters<EditSchoolDialog>
@@ -175,56 +174,11 @@
         }
     }
 
-    public class SchoolsDTO
-    {
-        public class SchoolDetails
-        {
-            public class Schools
-            {
-                public int ID { get; set; }
-                public string? School { get; set; }
-                public string? Level { get; set; }
-                public string? Division { get; set; }
-                public string? Region { get; set; }
-                public string? Abbreviation { get; set; }
-            }
-        }
 
-        public class Schools
-        {
-            public int ID { get; set; }
-            public string? School { get; set; }
-            public int? SchoolDivisionID { get; set; }
-            public int? SchoolLevelsID { get; set; }
-        }
-
-        public class SchoolRegions
-        {
-            public int ID { get; set; }
-            public string? Region { get; set; }
-            public string? Abbreviation { get; set; }
-        }
-
-        public class SchoolDivisions
-        {
-            public int ID { get; set; }
-            public string? Division { get; set; }
-            public int? SchoolRegionID { get; set; }
-            public virtual SchoolRegions? SchoolRegion { get; set; }
-        }
-
-        public class SchoolLevels
-        {
-            public int ID { get; set; }
-            public string? Level { get; set; }
-        }
-    }
-
+    // Initialization
     protected override async Task OnInitializedAsync()
     {
         await GetSchoolDetailsAsync();
-        await GetSchoolRegionsAsync();
-        await GetSchoolLevelsAsync();
     }
 
     private async Task GetSchoolDetailsAsync()
@@ -239,66 +193,6 @@
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             _schoolDetails = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDetails.Schools>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSchoolRegionsAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSchoolDivisionsAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDivisions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSchoolLevelsAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Levels";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolLevels>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {

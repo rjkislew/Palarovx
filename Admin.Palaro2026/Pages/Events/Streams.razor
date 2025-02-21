@@ -35,8 +35,8 @@
                 </ToolBarContent>
                 <ColGroup>
                     <MudHidden Breakpoint="Breakpoint.Xs">
-                        <col style="width: 35%" />
-                        <col style="width: 60%" />
+                        <col style="width: 20%" />
+                        <col style="width: 75%" />
                         <col style="width: 5%;" />
                     </MudHidden>
                 </ColGroup>
@@ -50,29 +50,30 @@
                     <MudTd Datalabel="Stream">
                         <MudGrid>
                             <MudVirtualize Items="@streamService.EventStreamsList" Context="stream">
-                                <MudItem xs="12" md="6">
-                                    <MudPaper Outlined Class="pa-3" Style="background-color: transparent">
-                                        <MudStack Spacing="0">
+                                <MudItem xs="12" md="3">
+                                    <MudPaper Outlined Class="pa-3" Style="background-color: transparent" Height="100%">
+                                        <MudStack Spacing="1">
                                             <MudStack Row Justify="Justify.SpaceBetween">
-                                                <MudStack Row Spacing="2" AlignItems="AlignItems.End">
-                                                    <MudText>@stream.StreamTitle</MudText>
-                                                    <MudText Typo="Typo.caption">[@(stream.StreamDate?.ToString("MMMM d - dddd") ?? "No Date")]</MudText>
-                                                </MudStack>
-                                                <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small"/>
+                                                <MudText>@stream.StreamTitle</MudText>
+                                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => OpenEditStreamDialog(stream.StreamID, streamService.ID)" />
                                             </MudStack>
-                                            <MudLink Underline="Underline.Hover" Href="@($"{@stream.StreamURL}")">
-                                                <MudStack Row Spacing="2" AlignItems="AlignItems.Center">
-                                                    <MudIcon Icon="@Icons.Material.Filled.Link" Size="Size.Small"/>
+                                            <MudStack Row Spacing="2" AlignItems="AlignItems.Start">
+                                                <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" />
+                                                <MudText Typo="Typo.caption">@(stream.StreamDate?.ToString("MMMM d - hh:mm tt") ?? "No Date")</MudText>
+                                            </MudStack>
+                                            <MudStack Row Spacing="2" AlignItems="AlignItems.Start">
+                                                <MudIcon Icon="@Icons.Material.Filled.Link" Size="Size.Small" />
+                                                <MudLink Underline="Underline.Hover" Href="@($"{@stream.StreamURL}")">
                                                     <MudText Typo="Typo.caption">@stream.StreamURL</MudText>
-                                                </MudStack>
-                                            </MudLink>
+                                                </MudLink>
+                                            </MudStack>
                                         </MudStack>
                                     </MudPaper>
                                 </MudItem>
                             </MudVirtualize>
 
                             <MudItem xs="12">
-                                <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" Style="text-transform: none" >Add stream</MudButton>
+                                <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" Style="text-transform: none" OnClick="() => OpenAddStreamDialog(streamService.ID)">Add stream</MudButton>
                             </MudItem>
                         </MudGrid>
                     </MudTd>
@@ -98,26 +99,42 @@
 </MudGrid>
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // JSON storage
     private List<EventsDTO.EventStreamServicesDetails.EventStreamServices>? _eventStreamServicesDetails;
 
+
+    // Methods
     private string _searchString = "";
 
     private bool FilterFunc(EventsDTO.EventStreamServicesDetails.EventStreamServices streams)
     {
         if (string.IsNullOrWhiteSpace(_searchString))
             return true;
-        return streams.StreamService!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+
+        bool matchesStreamService = streams.StreamService?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false;
+
+        bool matchesEventStream = streams.EventStreamsList?
+            .Any(es => es.StreamTitle?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ?? false;
+
+        return matchesStreamService || matchesEventStream;
     }
 
+
+    // Breadcrumbs
     private List<BreadcrumbItem> _items =
     [
         new("Home", href: "./"),
-        new("Events", href: "./events"),
-        new("Streams", href: null, disabled: true)
+    new("Events", href: "./events"),
+    new("Streams", href: null, disabled: true)
     ];
 
+
+    // DTOs
     public class EventsDTO
     {
         public class EventStreamServicesDetails
@@ -139,6 +156,9 @@
             }
         }
     }
+
+
+    // Dialogs
 
     private async Task OpenEditStreamServiceDialog(int selectedID)
     {
@@ -173,6 +193,48 @@
             await GetEventStreamServicesAsync();
         }
     }
+
+    private async Task OpenAddStreamDialog(int selectedID)
+    {
+        var parameter = new DialogParameters<AddStreamDialog>
+        {
+            {x => x.SelectedStreamID, selectedID}
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddStreamDialog>("Add Stream", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetEventStreamServicesAsync();
+        }
+    }
+
+    private async Task OpenEditStreamDialog(int selectedID, int selectedStreamServiceID)
+    {
+        var parameter = new DialogParameters<EditStreamDialog>
+        {
+            {x => x.SelectedStreamID, selectedID},
+            {x => x.SelectedStreamServiceID, selectedStreamServiceID}
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<EditStreamDialog>("Edit Stream", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetEventStreamServicesAsync();
+        }
+    }
+
+
+    // Initialization
 
     protected override async Task OnInitializedAsync()
     {

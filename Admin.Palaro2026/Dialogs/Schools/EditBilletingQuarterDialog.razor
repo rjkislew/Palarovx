@@ -17,14 +17,14 @@
             </MudStack>
             <MudDivider Class="mb-5" />
             <MudGrid Spacing="2">
-                <MudItem xs="12">
+                <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable>
                         <MudVirtualize Items="_schoolRegions" Context="region">
                             <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12">
+                <MudItem xs="12" md="6">
                     <MudTextField @bind-Value="_billetingQuarterValue" Immediate Margin="Margin.Dense" Label="Billeting Quarter" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
                 <MudItem xs="12">
@@ -69,13 +69,16 @@ else
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
+
     // Passed data from page
     [Parameter]
     public int selectedBilletingQuarterID { get; set; }
 
+
     // JSON storage
     private List<SchoolDTO.SchoolBilletingQuarters>? _schoolBilletingQuarter;
     private List<SchoolDTO.SchoolRegions>? _schoolRegions;
+
 
     // Variables
     private string? _dialogHeader;
@@ -87,6 +90,7 @@ else
     private string? _contactPersonValue;
     private string? _contactPersonNumberValue;
 
+
     // Disable addition button if values are empty
     private bool _editBilletingQuarterDisabled =>
     !_selectedSchoolRegionIDValue.HasValue ||
@@ -97,8 +101,10 @@ else
     string.IsNullOrEmpty(_contactPersonValue) ||
     string.IsNullOrEmpty(_contactPersonNumberValue);
 
+
     // Load dialog if true
     private bool? _isLoaded = false;
+
 
     // DTOs
     public class SchoolDTO
@@ -122,6 +128,7 @@ else
             public string? Abbreviation { get; set; }
         }
     }
+
 
     // Initialization
     protected override async Task OnInitializedAsync()
@@ -190,6 +197,7 @@ else
         }
     }
 
+
     // Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
 
@@ -197,14 +205,15 @@ else
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: "Do you confirm deletion of billeting quarter?",
+            message: $"Do you confirm deletion of {_dialogHeader}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
         if (result == true)
         {
             await DeleteBilletingQuarterAsync();
-            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+
+            MudDialog?.Close(DialogResult.Ok(true));
         }
     }
 
@@ -212,14 +221,15 @@ else
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: "Do you confirm changes of billeting quarter?",
+            message: $"Do you confirm changes for {_dialogHeader}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
         if (result == true)
         {
             await UpdateBilletingQuarterAsync();
-            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+
+            MudDialog?.Close(DialogResult.Ok(true)); 
         }
     }
 
@@ -237,7 +247,7 @@ else
                     Latitude = _latitudeValue,
                     Longitude = _longitudeValue,
                     ContactPerson = _contactPersonValue,
-                    ContactPersonNumber = _contactPersonNumberValue,
+                    ContactPersonNumber = _contactPersonNumberValue?.Replace(" ", "")
                 };
 
             string url = $"{apiService.Palaro2026API}/Schools/BilletingQuarters/{selectedBilletingQuarterID}";
@@ -246,13 +256,11 @@ else
             HttpResponseMessage response = await httpClient.PutAsync(url, content);
             response.EnsureSuccessStatusCode();
 
-            Snackbar.Add("School details updated successfully.", Severity.Success);
-
-            MudDialog?.Close(DialogResult.Ok(true));
+            Snackbar.Add("Billeting quarter details updated successfully.", Severity.Success);
         }
         catch (HttpRequestException ex)
         {
-            Snackbar.Add($"Error updating school: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error updating billeting quarter: {ex.Message}", Severity.Error);
         }
     }
 
@@ -268,13 +276,11 @@ else
             HttpResponseMessage response = await httpClient.DeleteAsync(url);
             response.EnsureSuccessStatusCode();
 
-            Snackbar.Add("School deleted successfully.", Severity.Success);
-
-            MudDialog?.Close(DialogResult.Ok(true));
+            Snackbar.Add("Billeting quarter deleted successfully.", Severity.Success);
         }
         catch (HttpRequestException ex)
         {
-            Snackbar.Add($"Error deleting school: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error deleting billeting quarter: {ex.Message}", Severity.Error);
         }
     }
 }

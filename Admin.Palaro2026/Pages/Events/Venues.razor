@@ -95,45 +95,16 @@
 </MudGrid>
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // JSON storage
     private List<EventsDTO.EventVenues>? _eventVenues;
 
-    private string? _addressValue;
-    private string? _venueValue;
-    private decimal? _latitudeValue;
-    private decimal? _longitudeValue;
-    private bool _addStreamDisabled =>
-    string.IsNullOrEmpty(_addressValue) ||
-    string.IsNullOrEmpty(_venueValue) ||
-    !_latitudeValue.HasValue ||
-    !_longitudeValue.HasValue;
 
-    private string _searchString = "";
-
-    bool _expandedAddEventVenue = false;
-
-    private void OnExpandAddEventVenueButtonClick()
-    {
-        _expandedAddEventVenue = !_expandedAddEventVenue;
-    }
-
-    private void ClearFields()
-    {
-        _addressValue = null;
-        _venueValue = null;
-        _latitudeValue = null;
-        _longitudeValue = null;
-    }
-
-    private bool FilterFunc(EventsDTO.EventVenues venue)
-    {
-        if (string.IsNullOrWhiteSpace(_searchString))
-            return true;
-        return venue.Address!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-               venue.Venue!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
-    }
-
+    // Breadcrumbs
     private List<BreadcrumbItem> _items =
     [
         new("Home", href: "./"),
@@ -141,6 +112,8 @@
     new("Venues", href: null, disabled: true)
     ];
 
+
+    // DTOs
     public class EventsDTO
     {
         public class EventVenues
@@ -153,24 +126,20 @@
         }
     }
 
-    private async Task ConfirmPostEventVenuesAsync()
+
+    // Methods
+    private string _searchString = "";
+
+    private bool FilterFunc(EventsDTO.EventVenues venue)
     {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
-
-        bool? result = await DialogService.ShowMessageBox(
-            title: "Notice",
-            message: $"Do you confirm addition of {_venueValue ?? "this venue"}?",
-            yesText: "Yes",
-            cancelText: "Cancel",
-            options: options);
-
-        if (result == true)
-        {
-            await PostEventVenueAsync();
-            MudDialog?.Close(DialogResult.Ok(true));
-        }
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return venue.Address!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               venue.Venue!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
     }
 
+
+    // Dialogs
     private async Task OpenEditVenueDialog(int selectedID)
     {
         var parameter = new DialogParameters<EditVenueDialog>
@@ -203,6 +172,8 @@
         }
     }
 
+
+    // Initialization
     protected override async Task OnInitializedAsync()
     {
         await GetEventVenuesAsync();
@@ -225,43 +196,6 @@
         {
             // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task PostEventVenueAsync()
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(_venueValue) || !_latitudeValue.HasValue || !_longitudeValue.HasValue)
-            {
-                Console.WriteLine("Stream service and URL cannot be empty.");
-                return;
-            }
-
-            string url = $"{apiService.Palaro2026API}/Events/Venues";
-
-            var eventStream = new EventsDTO.EventVenues
-                {
-                    Address = _addressValue,
-                    Venue = _venueValue,
-                    Latitude = _latitudeValue,
-                    Longitude = _longitudeValue
-                };
-
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            ClearFields();
-
-            await GetEventVenuesAsync();
-            Snackbar.Add("Event venue added successfully.", Severity.Success);
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error posting data: {ex.Message}");
         }
     }
 }

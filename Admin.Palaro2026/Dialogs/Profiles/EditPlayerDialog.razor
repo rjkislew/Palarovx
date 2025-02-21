@@ -18,28 +18,38 @@
             <MudDivider Class="mt-2 mb-5" />
             <MudGrid Spacing="2">
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => {_selectedSchoolDivisionIDValue = null; _selectedSchoolLevelIDValue = null; _selectedSchoolIDValue = null;})" T="int?" SelectedValuesChanged="GetSchoolDivisionsAsync">
+                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable
+                               TextChanged="@(() => _selectedSchoolDivisionIDValue = null)"
+                               T="int?" SelectedValuesChanged="GetSchoolDivisionsAsync">
                         <MudVirtualize Items="_schoolRegions" Context="region">
                             <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null" OnClearButtonClick="@(() => {_selectedSchoolLevelIDValue = null; _selectedSchoolIDValue = null;})">
+                    <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null"
+                               TextChanged="@(() => _selectedSchoolLevelIDValue = null)">
                         <MudVirtualize Items="_schoolDivisions" Context="division">
                             <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolDivisionIDValue == null" OnClearButtonClick="@(() => _selectedSchoolIDValue = null)" T="int?" SelectedValuesChanged="GetSchoolsAsync">
+                    <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolDivisionIDValue == null"
+                               TextChanged="@(() => {_selectedSchoolIDValue = null; _selectedSportIDValue = null;})"
+                               T="int?" SelectedValuesChanged="GetSchoolsAsync">
                         <MudVirtualize Items="_schoolLevels" Context="level">
                             <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolIDValue" Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolLevelIDValue == null">
+                    <MudSelect @bind-Value="_selectedSchoolIDValue" Margin="Margin.Dense" Label="School"
+                               HelperText="@((_schools?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSchoolDivisionIDValue != null && _selectedSchoolRegionIDValue != null) ? "No school representing for the selected region, division, and level." : null)"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="@( _schools?.Any() != true || _selectedSchoolLevelIDValue == null || _selectedSchoolDivisionIDValue == null || _selectedSchoolRegionIDValue == null)">
                         <MudVirtualize Items="_schools" Context="school">
                             <MudSelectItem T="int?" Value="school.ID">@school.School</MudSelectItem>
                         </MudVirtualize>
@@ -52,21 +62,24 @@
                     <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Category" ShrinkLabel Variant="Variant.Outlined" Clearable T="int?" SelectedValuesChanged="GetSportsOnDialogOpenAsync">
+                    <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Sport Category" ShrinkLabel Clearable Disabled="_selectedSchoolDivisionIDValue == null"
+                               Variant="Variant.Outlined" TextChanged="@(() => _selectedSportIDValue = null)"
+                               T="int?" SelectedValuesChanged="GetSportsInSubcategoriesAsync">
                         <MudVirtualize Items="_sportCategories" Context="sportCategory">
                             <MudSelectItem T="int?" Value="sportCategory.ID">@sportCategory.Category</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                    <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport" ShrinkLabel Variant="Variant.Outlined" Clearable
+                               Disabled="@( _sports?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSportCategoryIDValue != null)"
+                               HelperText="@((_sports?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSportCategoryIDValue != null) ? "No sports for that school level or sport category" : null)">
                         <MudVirtualize Items="_sports" Context="sport">
                             <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
             </MudGrid>
-            <MudDivider Class="mt-10 mb-2" />
         </DialogContent>
         <DialogActions>
             <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
@@ -116,6 +129,7 @@ else
     private string? _lastnameValue;
     private int? _selectedSportCategoryIDValue;
     private int? _selectedSportIDValue;
+    private int[]? _sportIDs;
 
     // Disable addition button if values are empty
     private bool _editPlayerButtonDisabled =>
@@ -186,25 +200,39 @@ else
             public string? Description { get; set; }
             public int? SportCategoryID { get; set; }
         }
+
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+        }
     }
 
     // Initialization
     protected override async Task OnInitializedAsync()
     {
         await GetProfilePlayerOnDialogOpenAsync(selectedPlayerID);
-        await GetSchoolDivisionOnDialogOpenAsync();
-        await GetSchoolOnDialogOpenAsync();
-        await GetSportsOnDialogOpenAsync();
+
+        await GetSchoolRegionsAsync();
+        await GetSchoolDivisionsAsync();
+        await GetSchoolLevelsAsync();
+        await GetSchoolsAsync();
+        await GetSportCategoriesAsync();
+        await GetSportsAsync();
 
         if (_profilePlayers?.Any() == true
+        && _schoolRegions?.Any() == true
         && _schoolDivisions?.Any() == true
+        && _schoolLevels?.Any() == true
         && _schools?.Any() == true
+        && _sportCategories?.Any() == true
         && _sports?.Any() == true)
         {
             _isLoaded = true;
         }
-
-        StateHasChanged();
     }
 
     private async Task GetProfilePlayerOnDialogOpenAsync(int profilePlayerID)
@@ -233,7 +261,8 @@ else
                 _selectedSportIDValue = selectedCoach.SportID;
             }
 
-            StateHasChanged();
+            await GetSchoolOpenAsync();
+            await GetSportCategoryOpenAsync();
         }
         catch (HttpRequestException ex)
         {
@@ -241,14 +270,102 @@ else
         }
     }
 
-    private async Task GetSchooRegionOnDialogOpenAsync()
+    // Load after GetProfilePlayerOnDialogOpenAsync
+    private async Task GetSchoolOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools?id={_selectedSchoolIDValue}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var schools = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.Schools>>(responseStream, options);
+
+            if (schools != null)
+            {
+                var school = schools.First();
+
+                _selectedSchoolLevelIDValue = school.SchoolLevelsID;
+                _selectedSchoolDivisionIDValue = school.SchoolDivisionID;
+            }
+
+            await GetSchoolDivisionOnOpenAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Load after GetSchoolOpenAsync
+    private async Task GetSchoolDivisionOnOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Divisions?id={_selectedSchoolDivisionIDValue}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var divisions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDivisions>>(responseStream, options);
+
+            if (divisions != null)
+            {
+                var division = divisions.First();
+
+                _selectedSchoolRegionIDValue = division.SchoolRegionID;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Load after GetProfilePlayerOnDialogOpenAsync
+    private async Task GetSportCategoryOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Sports?id={_selectedSportIDValue}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var sports = await JsonSerializer.DeserializeAsync<List<SportsDTO.Sports>>(responseStream, options);
+
+            if (sports != null)
+            {
+                var sport = sports.First();
+
+                _selectedSportCategoryIDValue = sport.SportCategoryID;
+            }
+
+            await GetSportCategoriesAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+
+    // Load Content and store JSON use for event also
+    private async Task GetSchoolRegionsAsync()
     {
         try
         {
             string url = $"{apiService.Palaro2026API}/Schools/Regions";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            httpResponse.EnsureSuccessStatusCode();
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -256,38 +373,6 @@ else
         }
         catch (HttpRequestException ex)
         {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSchoolDivisionOnDialogOpenAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Divisions?id={_selectedSchoolDivisionIDValue}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDivisions>>(responseStream, options);
-
-            if (_schoolDivisions != null)
-            {
-                var schoolDivision = _schoolDivisions.First();
-
-                _selectedSchoolRegionIDValue = schoolDivision.SchoolRegionID;
-            }
-
-            await GetSchooRegionOnDialogOpenAsync();
-
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
@@ -299,29 +384,26 @@ else
             string url = $"{apiService.Palaro2026API}/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            httpResponse.EnsureSuccessStatusCode();
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDivisions>>(responseStream, options);
-
-            StateHasChanged();
         }
         catch (HttpRequestException ex)
         {
-            // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
 
-    private async Task GetSchoolLevelsOnDialogOpenAsync()
+    private async Task GetSchoolLevelsAsync()
     {
         try
         {
             string url = $"{apiService.Palaro2026API}/Schools/Levels";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            httpResponse.EnsureSuccessStatusCode();
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -329,7 +411,27 @@ else
         }
         catch (HttpRequestException ex)
         {
-            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSportCategoriesAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Sports/Categories?";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _sportCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportCategories>>(responseStream, options);
+
+            await GetSportsAsync();
+        }
+        catch (HttpRequestException ex)
+        {
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
@@ -346,74 +448,56 @@ else
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             _schools = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.Schools>>(responseStream, options);
-
-            StateHasChanged();
         }
         catch (HttpRequestException ex)
         {
             // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
+
+        if (_selectedSportCategoryIDValue != null)
+        {
+            await GetSportsInSubcategoriesAsync();
+        }
     }
 
-    private async Task GetSchoolOnDialogOpenAsync()
+    // Load after GetSchoolsAsync to get available sports in that sub category
+    private async Task GetSportsInSubcategoriesAsync()
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Schools?id={_selectedSchoolIDValue}&schoolLevelsID={_selectedSchoolLevelIDValue}";
+            string url = $"{apiService.Palaro2026API}/Sports/Subcategories?schoolLevelID={_selectedSchoolLevelIDValue}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schools = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.Schools>>(responseStream, options);
+            var subcategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportSubcategories>>(responseStream, options);
 
-            if (_schools != null)
+            if (subcategories != null)
             {
-                var school = _schools.First();
-
-                _selectedSchoolDivisionIDValue = school.SchoolDivisionID;
-                _selectedSchoolLevelIDValue = school.SchoolLevelsID;
+                _sportIDs = subcategories.Select(s => s.SportID ?? 0).Distinct().ToArray(); // Store unique SportIDs in array
             }
 
-            await GetSchoolLevelsOnDialogOpenAsync();
-            StateHasChanged();
+            await GetSportsAsync();
         }
         catch (HttpRequestException ex)
         {
-            // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
 
-    private async Task GetSportCategoryOnDialogOpenAsync()
+    // Load after GetSportsInSubcategoriesAsync
+    private async Task GetSportsAsync()
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Sports/Categories?sportID={_selectedSportIDValue}";
+            if (_sportIDs == null || !_sportIDs.Any())
+                return; // Exit if there are no IDs
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sportCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportCategories>>(responseStream, options);
-
-            StateHasChanged();
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSportsOnDialogOpenAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Sports";
+            string idsQuery = string.Join(",", _sportIDs); // Convert array to comma-separated string
+            string url = $"{apiService.Palaro2026API}/Sports?id={idsQuery}&sportCategoryID={_selectedSportCategoryIDValue}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
@@ -421,22 +505,13 @@ else
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             _sports = await JsonSerializer.DeserializeAsync<List<SportsDTO.Sports>>(responseStream, options);
-
-            if (_sports != null)
-            {
-                var sport = _sports.First();
-
-                _selectedSportCategoryIDValue = sport.SportCategoryID;
-            }
-
-            await GetSportCategoryOnDialogOpenAsync();
         }
         catch (HttpRequestException ex)
         {
-            // Handle exception, log, or display an error message
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
+
 
     // Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
@@ -467,6 +542,7 @@ else
         if (result == true)
         {
             await UpdateProfileCoachAsync();
+
             MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
         }
     }

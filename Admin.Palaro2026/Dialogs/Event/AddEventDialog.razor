@@ -22,8 +22,8 @@
                 <MudItem xs="12" sm="6" md="4">
                     <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Category"
                                ShrinkLabel Variant="Variant.Outlined" Clearable
-                               T="int?" SelectedValuesChanged="GetSportsAsync"
-                               TextChanged="@(() => _selectedSportIDValue = null)">
+                               TextChanged="@(() => _selectedSportIDValue = null)"
+                               T="int?" SelectedValuesChanged="GetSportsAsync">
                         <MudVirtualize Items="_sportCategories" Context="category">
                             <MudSelectItem T="int?" Value="category.ID">@category.Category</MudSelectItem>
                         </MudVirtualize>
@@ -31,9 +31,8 @@
                 </MudItem>
                 <MudItem xs="12" sm="6" md="4">
                     <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport"
-                               ShrinkLabel Variant="Variant.Outlined" Clearable
-                               Disabled="_selectedSportCategoryIDValue == null"
-                               TextChanged="@(() => _selectedSchoolLevelIDValue = null)">
+                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSportCategoryIDValue == null"
+                               TextChanged="@(() => _selectedSchoolLevelIDValue = null)" T="int?">
                         <MudVirtualize Items="_sports" Context="sport">
                             <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
                         </MudVirtualize>
@@ -41,9 +40,8 @@
                 </MudItem>
                 <MudItem xs="12" sm="6" md="4">
                     <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level"
-                               ShrinkLabel Variant="Variant.Outlined" Clearable
-                               Disabled="_selectedSportIDValue == null"
-                               TextChanged="@(() => _selectedSportGenderCategoryIDValue = null)">
+                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSportIDValue == null"
+                               TextChanged="@(() => _selectedSportGenderCategoryIDValue = null)" T="int?">
                         <MudVirtualize Items="_schoolLevels" Context="schoolLevel">
                             <MudSelectItem T="int?" Value="schoolLevel.ID">@schoolLevel.Level</MudSelectItem>
                         </MudVirtualize>
@@ -51,30 +49,68 @@
                 </MudItem>
                 <MudItem xs="12" sm="6" md="4">
                     <MudSelect @bind-Value="_selectedSportGenderCategoryIDValue" Margin="Margin.Dense" Label="Gender"
-                               ShrinkLabel Variant="Variant.Outlined" Clearable T="int?"
-                               Disabled="_selectedSchoolLevelIDValue == null"
-                               SelectedValuesChanged="GetSportSubCategoriesAsync"
-                               TextChanged="@(() => _selectedSportSubcategoryIDValue = null)">
+                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolLevelIDValue == null"
+                               TextChanged="@(() => _selectedSportSubcategoryIDValue = null)" T="int?"
+                               T="int?" SelectedValuesChanged="GetSportSubCategoriesAsync">
                         <MudVirtualize Items="_sportGenderCategories" Context="gender">
                             <MudSelectItem T="int?" Value="gender.ID">@gender.Gender</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-
-                @{
-                    var message = (_sportSubcategories?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSportGenderCategoryIDValue != null) ? "No subcategory available for this gender or school level." : null;
-                    var disabled = (_sportSubcategories?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSportGenderCategoryIDValue != null) ? true : false;
-                }
                 <MudItem xs="12" sm="6" md="4">
-                    <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense" Label="Subcategory" HelperText="@message"
-                               ShrinkLabel Variant="Variant.Outlined"
-                               Disabled="_selectedSportCategoryIDValue == null || _selectedSportIDValue == null || _selectedSchoolLevelIDValue == null || _selectedSportGenderCategoryIDValue == null || disabled"
-                               Clearable>
+                    <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense" Label="Subcategory"
+                               HelperText="@((_sportSubcategories?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSportGenderCategoryIDValue != null) ? "No subcategory available for this gender or school level." : null)"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable
+                               Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelIDValue == null || _selectedSportGenderCategoryIDValue == null)">
                         <MudVirtualize Items="_sportSubcategories" Context="subCategory">
-                            <MudSelectItem T="int?" Value="subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                            <MudSelectItem T="int?" Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
+
+                <!-- Teams -->
+                <MudItem xs="12" Class="mt-5">
+                    <MudText>Opposing Teams</MudText>
+                    <MudDivider />
+                </MudItem>
+
+                @foreach (var index in Enumerable.Range(0, selectedRegions.Count))
+                {
+                    <MudItem xs="10">
+                        <MudSelect @bind-Value="selectedRegions[index]" Margin="Margin.Dense" Label="Region" Variant="Variant.Outlined">
+                            <MudVirtualize Items="_schoolRegions" Context="region">
+                                <MudSelectItem T="int?" Value="@region.ID">
+                                    @region.Region (@region.Abbreviation)
+                                </MudSelectItem>
+                            </MudVirtualize>
+                        </MudSelect>
+                    </MudItem>
+
+                    @if (index > 0)
+                    {
+                        <MudItem xs="2">
+                            <MudStack Class="d-flex flex-column align-center justify-center mud-width-full py-3">
+                                <MudButton OnClick="() => RemoveTeam(index)" Style="text-transform: none" Size="Size.Small" Color="Color.Error">Remove</MudButton>
+                            </MudStack>
+                        </MudItem>
+                    }
+
+                    @if (index < selectedRegions.Count - 1) // Only show "Versus" if it's not the last item
+                    {
+                        <MudItem xs="10">
+                            <MudStack AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.caption">Versus</MudText>
+                            </MudStack>
+                        </MudItem>
+                    }
+                }
+
+                <MudItem xs="12">
+                    <MudStack>
+                        <MudButton FullWidth OnClick="AddTeam" Style="text-transform: none" Size="Size.Small">Add Region</MudButton>
+                    </MudStack>
+                </MudItem>
+
 
                 <!-- Schedule and Venue -->
                 <MudItem xs="12" Class="mt-5">
@@ -105,32 +141,31 @@
                 <!-- Stream -->
                 <MudItem xs="12" md="2">
                     <MudCheckBox Value="_isOnStream" Size="Size.Small" T="bool?" Color="@Color.Secondary"
-                                 ValueChanged="@(value => { _isOnStream = value; _selectedSportSubcategoryIDValue = null;})">
+                                 ValueChanged="@(value => { _isOnStream = value; _selectedEventStreamServiceIDValue = null;})">
                         On Stream
                     </MudCheckBox>
                 </MudItem>
                 <MudItem xs="12" sm="6" md="5">
                     <MudSelect @bind-Value="_selectedEventStreamServiceIDValue" Margin="Margin.Dense" Disabled="_isOnStream == false"
                                Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable T="int?"
-                               SelectedValuesChanged="GetStreamsAsync"
-                               TextChanged="@(() => _selectedEventStreamIDValue = null)">
+                               TextChanged="@(() => _selectedEventStreamIDValue = null)"
+                               SelectedValuesChanged="GetStreamsAsync">
                         <MudVirtualize Items="_eventStreamServices" Context="streamService">
                             <MudSelectItem T="int?" Value="streamService.ID">@streamService.StreamService</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                @{
-                    var streamMessage = (_eventStreams?.Any() != true && _selectedEventStreamServiceIDValue != null) ? "No stream available for this streaming service." : null;
-                    var streamDisabled = (_eventStreams?.Any() != true && _selectedEventStreamServiceIDValue != null) ? true : false;
-                }
                 <MudItem xs="12" sm="6" md="5">
-                    <MudSelect @bind-Value="_selectedEventStreamIDValue" Margin="Margin.Dense" HelperText="@streamMessage"
-                               Disabled="_selectedEventStreamServiceIDValue == null || streamDisabled" Label="Stream" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                    <MudSelect @bind-Value="_selectedEventStreamIDValue" Margin="Margin.Dense"
+                               HelperText="@((_eventStreams?.Any() != true && _selectedEventStreamServiceIDValue != null) ? "No stream available for this streaming service." : null)"
+                               Disabled="@(_selectedEventStreamServiceIDValue == null || (_eventStreams?.Any() != true && _selectedEventStreamServiceIDValue != null))"
+                               Label="Stream" ShrinkLabel Variant="Variant.Outlined" Clearable>
                         <MudVirtualize Items="_eventStreams" Context="stream">
-                            <MudSelectItem T="int?" Value="stream.ID">@stream.StreamTitle</MudSelectItem>
+                            <MudSelectItem T="int?" Value="@stream.ID">@stream.StreamTitle</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
+
 
                 <!-- Clerk Designate -->
                 <MudItem xs="12" Class="mt-5">
@@ -181,6 +216,7 @@ else
     private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
     private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
     private List<SportsDTO.SportSubcategories>? _sportSubcategories;
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
     private List<EventsDTO.EventVenues>? _eventVenues;
     private List<EventsDTO.EventStreamServices>? _eventStreamServices;
     private List<EventsDTO.EventStreams>? _eventStreams;
@@ -199,6 +235,21 @@ else
     private TimeSpan? _selectedTimeValue;
     private string? _selectedUserIDValue;
     private bool? _isOnStream = false;
+    private List<int?> selectedRegions { get; set; } = new() { null };
+
+    private void AddTeam()
+    {
+        selectedRegions.Add(null);
+    }
+
+    private void RemoveTeam(int index)
+    {
+        if (index >= 0 && index < selectedRegions.Count)
+        {
+            selectedRegions.RemoveAt(index);
+        }
+    }
+
 
     // Disable addition button if values are empty
     private bool _addEventDisabled =>
@@ -358,6 +409,7 @@ else
         await GetSportCategoriesAsync();
         await GetGenderCategoriesAsync();
         await GetSchoolLevelsAsync();
+        await GetSchoolRegionsAsync();
         await GetEventVenuesAsync();
         await GetStreamServicesAsync();
         await GetUsersAsync();
@@ -365,6 +417,7 @@ else
         if (_sportCategories?.Any() == true
          && _sportGenderCategories?.Any() == true
          && _schoolLevels?.Any() == true
+         && _schoolRegions?.Any() == true
          && _eventVenues?.Any() == true
          && _eventStreamServices?.Any() == true
          && _userLists?.Any() == true)
@@ -463,6 +516,25 @@ else
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             _sportSubcategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportSubcategories>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {

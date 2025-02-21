@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Server.Palaro2026.Entities;
 
-public partial class EventVersus
+public partial class EventVersusTeams
 {
     public int ID { get; set; }
 

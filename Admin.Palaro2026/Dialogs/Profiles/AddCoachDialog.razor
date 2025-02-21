@@ -7,16 +7,16 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-@if (_isLoaded != null)
+@if (_isLoaded == true)
 {
     <MudDialog>
         <DialogContent>
             <MudGrid Spacing="2">
                 <MudItem xs="12" md="6">
-                    <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                    <MudTextField T="string" @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                    <MudTextField T="string" @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
                 <MudItem xs="12">
                     <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable>
@@ -47,6 +47,7 @@ else
 
 @code {
     // Requirement for Dialog to work
+    [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
     // JSON storage
@@ -133,7 +134,7 @@ else
 
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: $"Do you confirm addition of {_lastnameValue ?? "this venue"}?",
+            message: $"Do you confirm addition of {_firstnameValue} {_lastnameValue} as coach?",
             yesText: "Yes",
             cancelText: "Cancel",
             options: options);
@@ -141,6 +142,7 @@ else
         if (result == true)
         {
             await AddCoachProfileAsync();
+
             MudDialog?.Close(DialogResult.Ok(true));
         }
     }
@@ -150,12 +152,6 @@ else
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(_lastnameValue) || !_selectedSchoolRegionIDValue.HasValue)
-            {
-                Console.WriteLine("Stream service and URL cannot be empty.");
-                return;
-            }
-
             string url = $"{apiService.Palaro2026API}/Profiles/Coach";
 
             var eventStream = new ProfilesDTO.ProfileCoaches
@@ -171,11 +167,11 @@ else
             HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
-            Snackbar.Add("Event venue added successfully.", Severity.Success);
+            Snackbar.Add($"{_firstnameValue} {_lastnameValue} as coach has been added successfully.", Severity.Success);
         }
         catch (HttpRequestException ex)
         {
-            Snackbar.Add($"Error posting data: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
         }
     }
 }

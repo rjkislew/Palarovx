@@ -17,7 +17,7 @@
             </MudStack>
             <MudDivider Class="mb-5" />
             <MudGrid Spacing="2">
-                <MudItem xs="12" md="7">
+                <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel
                                Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSchoolDivisionIDValue = null)"
                                T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSchoolDivisionIDValue = null; await GetSchoolDivisionsAsync(); }))">
@@ -26,21 +26,24 @@
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" md="5">
-                    <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null">
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division"
+                               HelperText="@(_selectedSchoolRegionIDValue != null && !(_schoolDivisions?.Any() ?? false) ? "No divisions for this office/agency." : null)"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable
+                               Disabled="@(_selectedSchoolRegionIDValue == null || !(_schoolDivisions?.Any() ?? false))">
                         <MudVirtualize Items="_schoolDivisions" Context="division">
                             <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" md="4">
+                <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable>
                         <MudVirtualize Items="_schoolLevels" Context="level">
                             <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" md="8">
+                <MudItem xs="12" md="6">
                     <MudTextField @bind-Value="_schoolValue" Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
             </MudGrid>
@@ -70,15 +73,18 @@ else
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
+
     // Passed data from page
     [Parameter]
     public int selectedSchoolID { get; set; }
+
 
     // JSON storage
     private List<SchoolsDTO.Schools>? _school;
     private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
     private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
     private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+
 
     // Variables
     private string? _dialogHeader;
@@ -88,14 +94,17 @@ else
     private int? _selectedSchoolLevelIDValue;
     private bool _editSchoolButtonDisabled =>
 
+
     // Disable addition button if values are empty
     _selectedSchoolRegionIDValue == null ||
     _selectedSchoolDivisionIDValue == null ||
     _selectedSchoolLevelIDValue == null ||
     string.IsNullOrEmpty(_schoolValue);
 
+
     // Load dialog if true
     private bool? _isLoaded = false;
+
 
     // DTOs
     public class SchoolsDTO
@@ -130,12 +139,16 @@ else
         }
     }
 
+
     // Initialization
     protected override async Task OnInitializedAsync()
     {
         await GetSchoolsOnDialogOpenAsync(selectedSchoolID);
 
-        _isLoaded = true;
+        if (_school?.Any() == true)
+        {
+            _isLoaded = true;
+        }
     }
 
     private async Task GetSchoolsOnDialogOpenAsync(int schoolID)
@@ -172,20 +185,19 @@ else
         }
     }
 
-    private async Task GetSchoolRegionsOnDialogOpenAsync()
+    // Load after GetSchoolsOnDialogOpenAsync
+    private async Task GetSchoolLevelsOnDialogOpenAsync()
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+            string url = $"{apiService.Palaro2026API}/Schools/Levels";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
-
-            await GetSchoolDivisionsAsync();
+            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolLevels>>(responseStream, options);
         }
         catch (HttpRequestException ex)
         {
@@ -223,6 +235,29 @@ else
         }
     }
 
+    private async Task GetSchoolRegionsOnDialogOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
+
+            await GetSchoolDivisionsAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Load after GetSchoolRegionsOnDialogOpenAsync
     private async Task GetSchoolDivisionsAsync()
     {
         try
@@ -243,25 +278,6 @@ else
         }
     }
 
-    private async Task GetSchoolLevelsOnDialogOpenAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Levels";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolLevels>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
 
     // Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
@@ -270,14 +286,15 @@ else
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: "Do you confirm deletion of school?",
+            message: $"Do you confirm deletion of {_schoolValue}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
         if (result == true)
         {
             await DeleteSchoolAsync();
-            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+
+            MudDialog?.Close(DialogResult.Ok(true));
         }
     }
 
@@ -285,16 +302,18 @@ else
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: "Do you confirm changes of school?",
+            message: $"Do you confirm changes of {_schoolValue}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
         if (result == true)
         {
             await UpdateSchoolAsync();
-            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+
+            MudDialog?.Close(DialogResult.Ok(true));
         }
     }
+
 
     // Update School
     private async Task UpdateSchoolAsync()
@@ -318,8 +337,6 @@ else
             response.EnsureSuccessStatusCode();
 
             Snackbar.Add("School details updated successfully.", Severity.Success);
-
-            MudDialog?.Close(DialogResult.Ok(true));
         }
         catch (HttpRequestException ex)
         {
@@ -340,8 +357,6 @@ else
             response.EnsureSuccessStatusCode();
 
             Snackbar.Add("School deleted successfully.", Severity.Success);
-
-            MudDialog?.Close(DialogResult.Ok(true));
         }
         catch (HttpRequestException ex)
         {

@@ -33,7 +33,7 @@ public partial class Events
 
     public virtual EventVenues? EventVenues { get; set; }
 
-    public virtual ICollection<EventVersus> EventVersus { get; set; } = new List<EventVersus>();
+    public virtual ICollection<EventVersusTeams> EventVersusTeams { get; set; } = new List<EventVersusTeams>();
 
     public virtual SportSubcategories? SportSubcategory { get; set; }
 

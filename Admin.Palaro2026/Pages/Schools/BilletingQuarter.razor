@@ -3,8 +3,6 @@
 
 @using System.Net.Http
 @using System.Text.Json
-@using System.Threading.Tasks
-@using System.Text
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject APIService apiService
@@ -87,7 +85,7 @@
                             </MudStack>
                         </MudLink>
                     </MudTd>
-                    <MudTd DataLabel="Contact Person">@billetingQuarter.ContactPerson <br />@billetingQuarter.ContactPersonNumber</MudTd>
+                    <MudTd DataLabel="Contact Person">@billetingQuarter.ContactPerson <br />@billetingQuarter.ContactPersonNumber?.ToString().Insert(4, " ").Insert(8, " ")</MudTd>
                     <MudTd DataLabel="Settings" Style="text-align: center">
                         <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditBilletingQuarterDialog(billetingQuarter.ID)" />
                     </MudTd>
@@ -110,10 +108,16 @@
 </MudGrid>
 
 @code {
+    // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // JSON storage
     private List<SchoolDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>? _schoolBilletingQuarterDetails;
 
+
+    // Breadcrumbs
     private List<BreadcrumbItem> _items =
     [
         new("Home", href: "./"),
@@ -121,53 +125,8 @@
         new("Billeting Quarters", href: null, disabled: true)
     ];
 
-    private string _searchString = "";
 
-    private bool FilterFunc(SchoolDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters schoolBilletingQuarters)
-    {
-        if (string.IsNullOrWhiteSpace(_searchString))
-            return true;
-        return
-               schoolBilletingQuarters.Region!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-               schoolBilletingQuarters.BilletingQuarter!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-               schoolBilletingQuarters.Address!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-               schoolBilletingQuarters.Abbreviation!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-               schoolBilletingQuarters.ContactPerson!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private async Task OpenAddBilletingQuarterDialog()
-    {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
-
-        var dialog = await DialogService.ShowAsync<AddBilletingQuarterDialog>("Add Billeting Quarter", options);
-
-        var result = await dialog.Result;
-
-        if (!result!.Canceled)
-        {
-            await GetSchoolBilletingQuarterAsync();
-        }
-    }
-
-    private async Task OpenEditBilletingQuarterDialog(int selectedID)
-    {
-        var parameter = new DialogParameters<EditBilletingQuarterDialog>
-        {
-            {x => x.selectedBilletingQuarterID, selectedID}
-        };
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
-
-        var dialog = await DialogService.ShowAsync<EditBilletingQuarterDialog>("Edit Billeting Quarter", parameter, options);
-
-        var result = await dialog.Result;
-
-        // Check if the dialog was closed with a positive result (e.g., "OK")
-        if (!result!.Canceled)
-        {
-            await GetSchoolBilletingQuarterAsync();
-        }
-    }
-
+    // DTOs
     public class SchoolDTO
     {
         public class SchoolBillingQuarterDetails
@@ -187,6 +146,59 @@
         }
     }
 
+
+    // Methods
+    private string _searchString = "";
+
+    private bool FilterFunc(SchoolDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters schoolBilletingQuarters)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return
+               schoolBilletingQuarters.Region!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               schoolBilletingQuarters.BilletingQuarter!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               schoolBilletingQuarters.Address!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               schoolBilletingQuarters.Abbreviation!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               schoolBilletingQuarters.ContactPerson!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+
+
+    // Dialogs
+    private async Task OpenAddBilletingQuarterDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddBilletingQuarterDialog>("Add Billeting Quarter", options);
+
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await GetSchoolBilletingQuarterAsync();
+        }
+    }
+
+    private async Task OpenEditBilletingQuarterDialog(int selectedID)
+    {
+        var parameter = new DialogParameters<EditBilletingQuarterDialog>
+        {
+            {x => x.selectedBilletingQuarterID, selectedID}
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<EditBilletingQuarterDialog>("Edit Billeting Quarter", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetSchoolBilletingQuarterAsync();
+        }
+    }
+
+
+    // Initialization
     protected override async Task OnInitializedAsync()
     {
         await GetSchoolBilletingQuarterAsync();

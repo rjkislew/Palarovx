@@ -20,9 +20,6 @@
                 <MudItem xs="12">
                     <MudTextField @bind-Value="_streamServiceValue" Margin="Margin.Dense" Label="Stream Service" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
-                <MudItem xs="12">
-                    <MudTextField @bind-Value="_streamURLValue" Margin="Margin.Dense" Label="URL" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                </MudItem>
             </MudGrid>
         </DialogContent>
         <DialogActions>
@@ -60,12 +57,10 @@ else
     // Variables
     private string? _dialogHeader;
     private string? _streamServiceValue;
-    private string? _streamURLValue;
 
     // Disable addition button if values are empty
     private bool _editVenueButtonDisabled =>
-    string.IsNullOrEmpty(_streamServiceValue) ||
-    string.IsNullOrEmpty(_streamURLValue);
+    string.IsNullOrEmpty(_streamServiceValue);
 
     // Load dialog if true
     private bool? _isLoaded = false;
@@ -77,7 +72,6 @@ else
         {
             public int ID { get; set; }
             public string? StreamService { get; set; }
-            public string? StreamURL { get; set; }
         }
     }
 
@@ -113,7 +107,6 @@ else
 
                 // Content
                 _streamServiceValue = selectedEventStream.StreamService;
-                _streamURLValue = selectedEventStream.StreamURL;
             }
         }
         catch (HttpRequestException ex)
@@ -134,7 +127,7 @@ else
             };
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: "Do you confirm deletion of stream service?",
+            message: $"Do you confirm deletion of {_dialogHeader}?",
             yesText: "Yes",
             cancelText: "Cancel",
             options: options);
@@ -155,14 +148,16 @@ else
             };
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: "Do you confirm changes of stream service?",
+            message: $"Do you confirm changes of {_dialogHeader}?",
             yesText: "Yes",
+            cancelText: "Cancel",
             options: options);
 
         if (result == true)
         {
             await UpdateStreamAsync();
-            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+
+            MudDialog?.Close(DialogResult.Ok(true));
         }
     }
 
@@ -176,19 +171,16 @@ else
             var updatedStream = new EventsDTO.EventStreams
                 {
                     ID = SelectedStreamID,
-                    StreamService = _streamServiceValue,
-                    StreamURL = _streamURLValue
+                    StreamService = _streamServiceValue
                 };
 
-            string url = $"{apiService.Palaro2026API}/Events/StreamServices /{SelectedStreamID}";
+            string url = $"{apiService.Palaro2026API}/Events/StreamServices/{SelectedStreamID}";
             var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
 
             HttpResponseMessage response = await httpClient.PutAsync(url, content);
             response.EnsureSuccessStatusCode();
 
-            Snackbar.Add("Stream updated successfully.", Severity.Success);
-
-            MudDialog?.Close(DialogResult.Ok(true));
+            Snackbar.Add("Stream service updated successfully.", Severity.Success);
         }
         catch (HttpRequestException ex)
         {
@@ -208,7 +200,7 @@ else
             HttpResponseMessage response = await httpClient.DeleteAsync(url);
             response.EnsureSuccessStatusCode();
 
-            Snackbar.Add("Stream deleted successfully.", Severity.Success);
+            Snackbar.Add("Stream service deleted successfully.", Severity.Success);
 
             MudDialog?.Close(DialogResult.Ok(true));
         }

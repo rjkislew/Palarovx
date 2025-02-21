@@ -11,7 +11,7 @@ public partial class SchoolRegions
 
     public string? Abbreviation { get; set; }
 
-    public virtual ICollection<EventVersus> EventVersus { get; set; } = new List<EventVersus>();
+    public virtual ICollection<EventVersusTeams> EventVersusTeams { get; set; } = new List<EventVersusTeams>();
 
     public virtual ICollection<ProfileCoaches> ProfileCoaches { get; set; } = new List<ProfileCoaches>();
 
