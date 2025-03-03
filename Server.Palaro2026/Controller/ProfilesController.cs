@@ -169,6 +169,56 @@ namespace Server.Palaro2026.Controller
         }
 
 
+        [HttpGet("Player/Events")]
+        public async Task<ActionResult<List<ProfilesDTO.ProfilePlayerEvent>>> GetProfilePlayerEvent(
+        [FromQuery] int? regionID,
+        [FromQuery] int? subCategoryID)
+        {
+            try
+            {
+                var query = _context.ProfilePlayers
+                    .Include(p => p.School)
+                        .ThenInclude(sd => sd!.SchoolDivision)
+                            .ThenInclude(sr => sr!.SchoolRegion)
+                    .Include(p => p.ProfilePlayerSports)
+                        .ThenInclude(ppsc => ppsc.SportSubcategory)
+                    .AsQueryable();
+
+                // Apply filters if provided
+                if (regionID.HasValue)
+                {
+                    query = query.Where(p => p.School!.SchoolDivision!.SchoolRegion!.ID == regionID.Value);
+                }
+
+                if (subCategoryID.HasValue)
+                {
+                    query = query.Where(p => p.ProfilePlayerSports
+                        .Any(ppsc => ppsc.SportSubcategory!.ID == subCategoryID.Value));
+                }
+
+                var profilePlayers = await query.ToListAsync();
+
+                // Map the database entities to DTOs
+                var mappedProfilePlayers = profilePlayers.Select(player => new ProfilesDTO.ProfilePlayerEvent
+                {
+                    ID = player.ID,
+                    FirstName = player.FirstName,
+                    LastName = player.LastName,
+                    RegionID = player.School?.SchoolDivision?.SchoolRegion?.ID,
+                    SubCategoryID = player.ProfilePlayerSports.FirstOrDefault()?.SportSubcategory?.ID ?? 0
+                }).ToList();
+
+                return Ok(mappedProfilePlayers);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Internal server error. Please try again later.");
+            }
+        }
+
+
+
+
         [HttpGet("Player/Details")]
         public async Task<ActionResult<List<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>>> GetProfilePlayerDetails()
         {

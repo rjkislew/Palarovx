@@ -43,6 +43,7 @@ namespace Server.Palaro2026.Controller
                     .Include(e => e.SportSubcategory)
                         .ThenInclude(ssc => ssc!.SchoolLevel)
                     .Include(e => e.EventVenues)
+                    .Include(e => e.EventStage)
                     .Include(e => e.EventStream)
                     .Include(e => e.EventStream)
                         .ThenInclude(e => e!.EventStreamService)
@@ -123,15 +124,11 @@ namespace Server.Palaro2026.Controller
                 // Execute query
                 var eventEntities = await query.AsNoTracking().ToListAsync();
 
-                if (!eventEntities.Any())
-                {
-                    return NotFound("No events found matching the criteria.");
-                }
-
                 // Map to DTO
                 var eventDTO = eventEntities.Select(eventEntity => new EventsDTO.EventDetails.Event
                 {
                     ID = eventEntity.ID,
+                    EventStage = eventEntity.EventStage?.Stage,
                     EventVersusList = eventEntity.EventVersusTeams?
                     .GroupBy(ev => new
                     {
@@ -162,6 +159,7 @@ namespace Server.Palaro2026.Controller
 
                     Category = eventEntity.SportSubcategory?.Sport?.SportCategory?.Category,
                     Sport = eventEntity.SportSubcategory?.Sport?.Sport,
+                    SubCategoryID = eventEntity.SportSubcategory?.ID,
                     Subcategory = eventEntity.SportSubcategory?.Subcategory,
                     Gender = eventEntity.SportSubcategory?.SportGenderCategory?.Gender,
                     Level = eventEntity.SportSubcategory?.SchoolLevel?.Level,
@@ -194,6 +192,7 @@ namespace Server.Palaro2026.Controller
            new EventsDTO.Events
            {
                ID = events.ID,
+               EventStageID = events.EventStageID,
                SportSubcategoryID = events.SportSubcategoryID,
                EventVenuesID = events.EventVenuesID,
                Date = events.Date,
@@ -210,6 +209,7 @@ namespace Server.Palaro2026.Controller
         [HttpGet]
         public async Task<ActionResult<IEnumerable<EventsDTO.Events>>> GetEvents(
         [FromQuery] string? ID = null,
+        [FromQuery] int? eventStageID = null,
         [FromQuery] int? sportSubcategoryID = null,
         [FromQuery] int? eventVenuesID = null,
         [FromQuery] DateTime? date = null,
@@ -225,6 +225,9 @@ namespace Server.Palaro2026.Controller
 
             if (!string.IsNullOrEmpty(ID))
                 query = query.Where(x => x.ID == ID);
+
+            if (eventStageID.HasValue)
+                query = query.Where(x => x.EventStageID == eventStageID.Value);
 
             if (sportSubcategoryID.HasValue)
                 query = query.Where(x => x.SportSubcategoryID == sportSubcategoryID.Value);
@@ -276,6 +279,7 @@ namespace Server.Palaro2026.Controller
                 return NotFound();
             }
 
+            existingEvent.EventStageID = events.EventStageID;
             existingEvent.SportSubcategoryID = events.SportSubcategoryID;
             existingEvent.EventVenuesID = events.EventVenuesID;
             existingEvent.Date = events.Date;
@@ -313,6 +317,7 @@ namespace Server.Palaro2026.Controller
             var eventsDTO = new Events
             {
                 ID = events.ID,
+                EventStageID = events.EventStageID,
                 SportSubcategoryID = events.SportSubcategoryID,
                 EventVenuesID = events.EventVenuesID,
                 Date = events.Date,
@@ -364,6 +369,122 @@ namespace Server.Palaro2026.Controller
         private bool EventsExists(string id)
         {
             return _context.Events.Any(e => e.ID == id);
+        }
+
+
+
+
+
+        // Event Stage
+
+        private static EventsDTO.EventStages EventStagesDTOMapper(EventStages eventStages) =>
+           new EventsDTO.EventStages
+           {
+               ID = eventStages.ID,
+               Stage = eventStages.Stage,
+           };
+
+        [HttpGet("Stages")]
+        public async Task<ActionResult<IEnumerable<EventsDTO.EventStages>>> GetEventStages(
+        [FromQuery] int? ID = null,
+        [FromQuery] string? stage = null)
+        {
+            var query = _context.EventStages.AsQueryable();
+
+            if (ID.HasValue)
+                query = query.Where(x => x.ID == ID.Value);
+
+            if (!string.IsNullOrEmpty(stage))
+                query = query.Where(x => x.Stage!.Contains(stage));
+
+            return await query
+                .Select(x => EventStagesDTOMapper(x))
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        [HttpPut("Stages/{id}")]
+        public async Task<IActionResult> PutEventStages(int id, EventsDTO.EventStages eventStages)
+        {
+            if (id != eventStages.ID)
+            {
+                return BadRequest();
+            }
+
+            var existingEventStages = await _context.EventStages.FindAsync(id);
+            if (existingEventStages == null)
+            {
+                return NotFound();
+            }
+
+            existingEventStages.Stage = eventStages.Stage;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventStageExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+
+        [HttpPost("Stages")]
+        public async Task<ActionResult<EventStages>> PostEventStages(EventsDTO.EventStages eventStages)
+        {
+            var eventStagesDTO = new EventStages
+            {
+                ID = eventStages.ID,
+                Stage = eventStages.Stage,
+            };
+
+            _context.EventStages.Add(eventStagesDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventStageExists(eventStages.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEventStages", new { id = eventStages.ID }, EventStagesDTOMapper(eventStagesDTO));
+        }
+
+        [HttpDelete("Stages/{id}")]
+        public async Task<IActionResult> DeleteEventStages(int id)
+        {
+            var eventStages = await _context.EventStages.FindAsync(id);
+            if (eventStages == null)
+            {
+                return NotFound();
+            }
+
+            _context.EventStages.Remove(eventStages);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        private bool EventStageExists(int id)
+        {
+            return _context.EventStages.Any(e => e.ID == id);
         }
 
 
@@ -1028,7 +1149,7 @@ namespace Server.Palaro2026.Controller
                ProfilePlayerID = eventVersusTeamPlayers.ProfilePlayerID
            };
 
-        [HttpGet("VersusTeamPlayers")]
+        [HttpGet("VersusTeams/Players")]
         public async Task<ActionResult<IEnumerable<EventsDTO.EventVersusTeamPlayers>>> GetEventVersusTeamPlayers(
         [FromQuery] int? ID = null,
         [FromQuery] int? eventVersusID = null,
@@ -1051,7 +1172,7 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("VersusTeamPlayers/{id}")]
+        [HttpPut("VersusTeams/Players/{id}")]
         public async Task<IActionResult> PutEventVersusTeamPlayers(int id, EventsDTO.EventVersusTeamPlayers eventVersusTeamPlayers)
         {
             if (id != eventVersusTeamPlayers.ID)
@@ -1085,23 +1206,28 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("VersusTeamPlayers")]
-        public async Task<ActionResult<EventVersusTeamPlayers>> PostEventVersus(EventsDTO.EventVersusTeamPlayers eventVersusTeamPlayers)
+        [HttpPost("VersusTeams/Players")]
+        public async Task<ActionResult<EventVersusTeamPlayers>> PostEventVersusTeamsPlayers([FromBody] List<EventsDTO.EventVersusTeamPlayers> eventVersusTeamPlayers)
         {
-            var eventVersusTeamPlayersDTO = new EventVersusTeamPlayers
+            if (eventVersusTeamPlayers == null || !eventVersusTeamPlayers.Any())
             {
-                ID = eventVersusTeamPlayers.ID,
-                EventVersusID = eventVersusTeamPlayers.EventVersusID,
-                ProfilePlayerID = eventVersusTeamPlayers.ProfilePlayerID
-            };
+                return BadRequest("No coaches provided.");
+            }
 
-            _context.EventVersusTeamPlayers.Add(eventVersusTeamPlayersDTO);
+            var eventVersusTeamPlayersList = eventVersusTeamPlayers.Select(player => new EventVersusTeamPlayers
+            {
+                EventVersusID = player.EventVersusID,
+                ProfilePlayerID = player.ProfilePlayerID
+            }).ToList();
+
+            _context.EventVersusTeamPlayers.AddRange(eventVersusTeamPlayersList);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetEventVersusTeamPlayers", new { id = eventVersusTeamPlayers.ID }, EventVersusTeamPlayersDTOMapper(eventVersusTeamPlayersDTO));
+            return Ok(new { Message = $"{eventVersusTeamPlayers.Count} player added successfully." });
         }
 
-        [HttpDelete("VersusTeamPlayers/{id}")]
+
+        [HttpDelete("VersusTeams/Players/{id}")]
         public async Task<IActionResult> DeleteEventVersus(int id)
         {
             var eventVersusTeamPlayers = await _context.EventVersusTeamPlayers.FindAsync(id);
@@ -1114,6 +1240,24 @@ namespace Server.Palaro2026.Controller
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        [HttpDelete("VersusTeams/Players/ByEventVersusTeam/{eventVersusTeamID}")]
+        public async Task<IActionResult> DeleteByEventVersusTeamID(int eventVersusTeamID)
+        {
+            var recordsToDelete = _context.EventVersusTeamPlayers
+                .Where(p => p.EventVersusID == eventVersusTeamID)
+                .ToList();
+
+            if (!recordsToDelete.Any())
+            {
+                return NotFound(new { Message = "No records found for the given PlayerSportID." });
+            }
+
+            _context.EventVersusTeamPlayers.RemoveRange(recordsToDelete);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = $"{recordsToDelete.Count} records deleted successfully." });
         }
 
         private bool EventVersusTeamPlayersExists(int id)

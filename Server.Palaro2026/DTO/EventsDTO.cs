@@ -9,11 +9,13 @@ public class EventsDTO
         public class Event
         {
             public string ID { get; set; } = null!;
+            public string? EventStage { get; set; }
             public List<EventVersusTeams>? EventVersusList { get; set; }
 
             //public int? SportSubcategoryID { get; set; }
             public string? Category { get; set; }
             public string? Sport { get; set; }
+            public int? SubCategoryID { get; set; }
             public string? Subcategory { get; set; }
             public string? Gender { get; set; }
             public string? Level { get; set; }
@@ -50,8 +52,8 @@ public class EventsDTO
             public int ID { get; set; }
             public string? Score { get; set; }
             // public int? SchoolRegionID { get; set; }
-                public string? Region { get; set; }
-                public string? Abbreviation { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
             //
 
             public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
@@ -71,6 +73,7 @@ public class EventsDTO
     public class Events
     {
         public string ID { get; set; } = null!;
+        public int? EventStageID { get; set; }
         public int? SportSubcategoryID { get; set; }
         public int? EventVenuesID { get; set; }
         public DateTime? Date { get; set; }
@@ -88,6 +91,12 @@ public class EventsDTO
     {
         public int ID { get; set; }
         public string? FacebookLink { get; set; }
+    }
+
+    public class EventStages
+    {
+        public int ID { get; set; }
+        public string? Stage { get; set; }
     }
 
     public class EventStreamServicesDetails

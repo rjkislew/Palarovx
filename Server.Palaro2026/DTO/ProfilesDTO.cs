@@ -21,6 +21,15 @@ public class ProfilesDTO
         public int? SchoolRegionID { get; set; }
     }
 
+    public class ProfilePlayerEvent
+    {
+        public int ID { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public int? RegionID { get; set; }
+        public int? SubCategoryID { get; set; }
+    }
+
     public class ProfilePlayersDetails
     {
         public class ProfilePlayers

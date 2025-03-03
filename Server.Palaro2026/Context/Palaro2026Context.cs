@@ -14,6 +14,8 @@ public partial class Palaro2026Context : DbContext
 
     public virtual DbSet<EventNews> EventNews { get; set; }
 
+    public virtual DbSet<EventStages> EventStages { get; set; }
+
     public virtual DbSet<EventStreamServices> EventStreamServices { get; set; }
 
     public virtual DbSet<EventStreams> EventStreams { get; set; }
@@ -65,6 +67,15 @@ public partial class Palaro2026Context : DbContext
             entity.HasKey(e => e.ID).HasName("PK__News__3214EC27B5C04219");
 
             entity.Property(e => e.FacebookLink).IsUnicode(false);
+        });
+
+        modelBuilder.Entity<EventStages>(entity =>
+        {
+            entity.HasKey(e => e.ID).HasName("PK_EventStage");
+
+            entity.Property(e => e.Stage)
+                .HasMaxLength(50)
+                .IsUnicode(false);
         });
 
         modelBuilder.Entity<EventStreamServices>(entity =>
@@ -149,6 +160,10 @@ public partial class Palaro2026Context : DbContext
             entity.Property(e => e.UserID)
                 .HasMaxLength(20)
                 .IsUnicode(false);
+
+            entity.HasOne(d => d.EventStage).WithMany(p => p.Events)
+                .HasForeignKey(d => d.EventStageID)
+                .HasConstraintName("FK_Events_EventStages");
 
             entity.HasOne(d => d.EventStream).WithMany(p => p.Events)
                 .HasForeignKey(d => d.EventStreamID)

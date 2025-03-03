@@ -7,6 +7,8 @@ public partial class Events
 {
     public string ID { get; set; } = null!;
 
+    public int? EventStageID { get; set; }
+
     public int? SportSubcategoryID { get; set; }
 
     public int? EventVenuesID { get; set; }
@@ -28,6 +30,8 @@ public partial class Events
     public bool? Deleted { get; set; }
 
     public string? UserID { get; set; }
+
+    public virtual EventStages? EventStage { get; set; }
 
     public virtual EventStreams? EventStream { get; set; }
 

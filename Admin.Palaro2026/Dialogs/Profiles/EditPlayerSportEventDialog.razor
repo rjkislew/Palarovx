@@ -38,7 +38,7 @@
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12">
-                    <MudSelect @bind-SelectedValues="_selectedCoachIDs" ToStringFunc="@(id => _profileCoaches?.FirstOrDefault(c => c.ID == id) is { } coach ? $"{coach.FirstName} {coach.LastName}" : string.Empty)"
+                    <MudSelect @bind-SelectedValues="_selectedCoachIDValues" ToStringFunc="@(id => _profileCoaches?.FirstOrDefault(c => c.ID == id) is { } coach ? $"{coach.FirstName} {coach.LastName}" : string.Empty)"
                                T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Coach" ShrinkLabel Variant="Variant.Outlined" Clearable>
                         <MudVirtualize Items="_profileCoaches" Context="coach">
                             <MudSelectItem T="int?" Value="coach.ID">@coach.FirstName @coach.LastName</MudSelectItem>
@@ -87,8 +87,8 @@ else
     // JSON storage
     private List<ProfilesDTO.ProfilePlayers>? _profilePlayers;
     private List<ProfilesDTO.ProfileCoaches>? _profileCoaches;
-    private List<ProfilesDTO.ProfilePlayerSportCoaches>? _profilePlayerSportCoaches;
     private List<ProfilesDTO.ProfilePlayerSports>? _profilePlayerSports;
+    private List<ProfilesDTO.ProfilePlayerSportCoaches>? _profilePlayerSportCoaches;
     private List<SportsDTO.SportSubcategories>? _sportSubcategories;
     private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
 
@@ -98,9 +98,9 @@ else
     private string? _lastnameValue;
     private int? _selectedGenderCategoryIDValue;
     private int? _selectedSportSubcategoryIDValue;
-    private int? _selectedProfileSportIDValue;
-    private IEnumerable<int>? _selectedPlayerSportsCoachID;
-    private IEnumerable<int?>? _selectedCoachIDs;
+    private int? _selectedProfilePlayerSportIDValue;
+    private int? _selectedProfilePlayerSportsCoachIDValue;
+    private IEnumerable<int?>? _selectedCoachIDValues;
 
     // Disable addition button if values are empty
     private bool _editPlayerSporEventButtonDisabled =>
@@ -237,7 +237,7 @@ else
             {
                 var profilePlayerSport = _profilePlayerSports.First();
 
-                _selectedProfileSportIDValue = profilePlayerSport.ID;
+                _selectedProfilePlayerSportIDValue = profilePlayerSport.ID;
                 _selectedSportSubcategoryIDValue = profilePlayerSport.SportSubcategoryID;
             }
 
@@ -272,7 +272,7 @@ else
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/Coaches?profilePlayerSportID={_selectedProfileSportIDValue}";
+            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/Coaches?profilePlayerSportID={_selectedProfilePlayerSportIDValue}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode();
@@ -283,8 +283,9 @@ else
 
             if (_profilePlayerSportCoaches != null)
             {
-                _selectedPlayerSportsCoachID = _profilePlayerSportCoaches.Select(c => c.ID).ToList();
-                _selectedCoachIDs = _profilePlayerSportCoaches.Select(c => c.ProfileCoachID).ToList();
+                var profilePlayerSportCoach = _profilePlayerSportCoaches.First();
+                _selectedProfilePlayerSportsCoachIDValue = profilePlayerSportCoach.ID;
+                _selectedCoachIDValues = _profilePlayerSportCoaches.Select(c => c.ProfileCoachID).ToList();
             }
         }
         catch (HttpRequestException ex)
@@ -398,7 +399,7 @@ else
 
         if (result == true)
         {
-            await DeletePlayerSportCoachByPlayerSportIDAsync();
+            await DeleteProfilePlayerSportCoachByPlayerSportIDAsync();
             await DeleteProfilePlayerSportEventAsync();
 
             MudDialog?.Close(DialogResult.Ok(true));
@@ -426,22 +427,22 @@ else
             HttpResponseMessage response = await httpClient.PutAsync(url, content);
             response.EnsureSuccessStatusCode();
 
-            if (_selectedCoachIDs?.Any() != true)
+            if (_selectedCoachIDValues?.Any() != true)
             {
                 // delete player sport coach first by player sport id
-                await DeletePlayerSportCoachByPlayerSportIDAsync();
+                await DeleteProfilePlayerSportCoachByPlayerSportIDAsync();
             }
 
-            if (_selectedCoachIDs?.Any() != false)
+            if (_selectedCoachIDValues?.Any() != false)
             {
                 // add new player sport coach
                 await PostPlayerSportCoachesAsync();
             }
 
-            if (_selectedCoachIDs?.Count() > 0)
+            if (_selectedCoachIDValues?.Count() > 0)
             {
                 // delete player sport coach first by player sport id
-                await DeletePlayerSportCoachByPlayerSportIDAsync();
+                await DeleteProfilePlayerSportCoachByPlayerSportIDAsync();
                 // add new player sport coach
                 await PostPlayerSportCoachesAsync();
             }
@@ -462,7 +463,7 @@ else
         {
             string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/Coaches";
 
-            var eventStream = _selectedCoachIDs?.Where(id => id.HasValue) // Ensure valid IDs
+            var eventStream = _selectedCoachIDValues?.Where(id => id.HasValue) // Ensure valid IDs
                 .Select(coachID => new ProfilesDTO.ProfilePlayerSportCoaches
                     {
                         ProfileCoachID = coachID!.Value,
@@ -481,7 +482,7 @@ else
     }
 
     // Delete Sport event and sport event coach by sport event ID
-    private async Task DeletePlayerSportCoachByPlayerSportIDAsync()
+    private async Task DeleteProfilePlayerSportCoachByPlayerSportIDAsync()
     {
         try
         {

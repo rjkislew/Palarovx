@@ -1,0 +1,302 @@
+﻿@inherits LayoutComponentBase
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+@inject ColorService ColorService
+@inject CookieService CookieService
+@inject NavigationManager Navigation
+@inject AuthenticationService AuthenticationService
+
+@* Required *@
+<MudThemeProvider Theme="PGASTheme" DefaultScrollbar="true" />
+<MudPopoverProvider />
+
+@* Needed for dialogs *@
+<MudDialogProvider />
+
+@* Needed for snackbars *@
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Fixed Gutters>
+        <!-- Menu Navigation on Mobile  -->
+        <MudHidden Breakpoint="Breakpoint.Xs" Invert>
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Primary" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+            <MudStack Row Spacing="0" AlignItems="AlignItems.Center" Justify="Justify.Center" Style="width: calc(100% - 48px)">
+                <MudImage Src="Media/Logo/Flat-Logo-with-2026.png" Height="50" />
+                <MudText Typo="Typo.h3" Color="Color.Primary">Palaro 2026</MudText>
+            </MudStack>
+        </MudHidden>
+
+        <!-- Navigation on Desktop -->
+        <MudHidden Breakpoint="Breakpoint.Xs">
+            <!-- Navigation Left -->
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <!-- Home -->
+                <MudLink Href="./" Underline="Underline.None"
+                         Class="@(currentActiveButton == "Home" ? "" : "")"
+                         OnClick="@(() => SetActiveButton("Home"))">
+                    <MudStack Row AlignItems="AlignItems.Center">
+                        <MudImage Src="Media/Logo/Flat-Logo-with-2026.png" Height="50" />
+                        <MudText Typo="Typo.h3" Color="Color.Primary">Palaro 2026</MudText>
+                    </MudStack>
+                </MudLink>
+
+                <!-- Navigation Links -->
+                <MudButton Href="./"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "Home" ? ColorService.SelectedColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "Home" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("Home"))">
+                    Home
+                </MudButton>
+                <MudButton Href="./sports"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "Sports" ? ColorService.SelectedColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "Sports" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("Sports"))">
+                    Sports
+                </MudButton>
+                <MudButton Href="./venues"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "Venues" ? ColorService.SelectedColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "Venues" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("Venues"))">
+                    Venues
+                </MudButton>
+                <MudButton Href="./schedules"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "Schedules" ? ColorService.SelectedColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "Schedules" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("Schedules"))">
+                    Schedules
+                </MudButton>
+                <MudButton Href="./tally"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "Tally" ? ColorService.SelectedColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "Tally" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("Tally"))">
+                    Tally
+                </MudButton>
+                <MudButton Href="./news"
+                           Ripple="false"
+                           Style="@($"text-transform:none; color: {(currentActiveButton == "News" ? ColorService.SelectedColor : Color.Default)}")"
+                           Class="@(currentActiveButton == "News" ? "active-button" : "")"
+                           @onclick="@(() => SetActiveButton("News"))">
+                    News
+                </MudButton>
+            </MudStack>
+
+            <MudSpacer />
+
+            <!-- Navigation Right -->
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudStack Row>
+                    <!-- Color Theme Toggle -->
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="0">
+                        <ColorSettings />
+                    </MudStack>
+
+                    <!-- Navigations -->
+                    <MudButton Href="./billeting-quarters"
+                               Ripple="false"
+                               Style="@($"text-transform:none; color: {(currentActiveButton == "Quarters" ? ColorService.SelectedColor : Color.Default)}")"
+                               Class="@(currentActiveButton == "Quarters" ? "active-button" : "")"
+                               @onclick="@(() => SetActiveButton("Quarters"))">
+                        Billeting Quarters
+                    </MudButton>
+
+                    <!-- External Links -->
+                    <MudButton Style="text-transform:none" Href="#">Tourism</MudButton>
+                    <MudButton Style="text-transform:none" Href="#">Accommodations</MudButton>
+                </MudStack>
+                @if (sessionID == null)
+                {
+                    <MudPaper>
+                        <MudButton OnClick="OpenLoginDialog"
+                                   Class="rounded-0"
+                                   Size="Size.Small"
+                                   Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   Style="text-transform:none">
+                            Login
+                        </MudButton>
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudPaper>
+                        <MudButton OnClick="OpenLogoutDialog"
+                                   Class="rounded-0"
+                                   Size="Size.Small"
+                                   Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   Style="text-transform:none">
+                            Account
+                        </MudButton>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudHidden>
+    </MudAppBar>
+    <!-- Navigation on Mobile  -->
+    <MudHidden Breakpoint="Breakpoint.Xs" Invert>
+        <MudDrawerContainer>
+            <MudDrawer @bind-Open="@_open" Elevation="0">
+                <MudDrawerHeader>
+                    <MudLink Href="./" Underline="Underline.None"
+                             Class="@(currentActiveButton == "Home" ? "" : "")"
+                             OnClick="@(() => SetActiveButton("Home"))">
+                        <MudStack Row AlignItems="AlignItems.Center">
+                            <MudImage Src="Media/Logo/Logo-with-2026.png" Style="width: 100%" />
+                        </MudStack>
+                    </MudLink>
+                </MudDrawerHeader>
+                <NavigationMenu />
+                <AdminNavigationMenu />
+            </MudDrawer>
+        </MudDrawerContainer>
+    </MudHidden>
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _open = false;
+    private string? sessionID;
+    private string currentActiveButton = "Home"; // Default active button
+    private string? mainColor;
+
+    private void ToggleDrawer() => _open = !_open;
+
+    private void SetActiveButton(string button) => currentActiveButton = button;
+
+    private void SetActiveButtonBasedOnUrl()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath;
+
+        if (uri.EndsWith("/"))
+            currentActiveButton = "Home";
+        else if (uri.EndsWith("/sports"))
+            currentActiveButton = "Sports";
+        else if (uri.EndsWith("/venues"))
+            currentActiveButton = "Venues";
+        else if (uri.EndsWith("/schedules"))
+            currentActiveButton = "Schedules";
+        else if (uri.EndsWith("/tally"))
+            currentActiveButton = "Tally";
+        else if (uri.EndsWith("/news"))
+            currentActiveButton = "News";
+        else if (uri.EndsWith("/billeting-quarters"))
+            currentActiveButton = "Quarters";
+        else
+            currentActiveButton = ""; // Default case if no match
+    }
+
+    private async Task UpdateSessionAsync()
+    {
+        sessionID = await CookieService.GetCookie("SessionToken");
+        StateHasChanged();
+    }
+
+    private void UpdateSession()
+    {
+        _ = UpdateSessionAsync();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize the ColorService and set mainColor
+        await ColorService.InitializeAsync();
+        mainColor = ColorService.SelectedColor;
+
+        // Update theme's primary color based on selected color
+        UpdateThemeColor();
+
+        CookieService.OnChange += UpdateSession;
+        await UpdateSessionAsync();
+
+        // Set the active button based on the current URL
+        SetActiveButtonBasedOnUrl();
+    }
+
+    protected override void OnInitialized()
+    {
+        // Subscribe to changes from UserService and ColorService to trigger StateHasChanged
+        ColorService.OnChange += UpdateThemeColor;
+        ColorService.OnChange += StateHasChanged;
+        CookieService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        // Unsubscribe from the event when the component is disposed
+        ColorService.OnChange -= UpdateThemeColor;
+        ColorService.OnChange -= StateHasChanged;
+        CookieService.OnChange -= StateHasChanged;
+    }
+
+    private void UpdateThemeColor()
+    {
+        // Update the primary color based on the selected color
+        mainColor = ColorService.SelectedColor;
+        PGASTheme.PaletteLight.Primary = mainColor;
+        StateHasChanged();
+    }
+
+    private Task OpenLoginDialog()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, NoHeader = true };
+        return DialogService.ShowAsync<Dialogs.UserLoginDialog>("", options);
+    }
+
+    private Task OpenLogoutDialog()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, NoHeader = true };
+        return DialogService.ShowAsync<Dialogs.UserControlDialog>("", options);
+    }
+
+    private MudTheme PGASTheme = new MudTheme()
+        {
+            Typography = new Typography()
+            {
+                Default = new Default()
+                {
+                    FontFamily = new[] { "Poppins" },
+                },
+                H1 = new H1()
+                {
+                    FontFamily = new[] { "Bebas" },
+                    FontSize = "110px",
+                    LetterSpacing = "1px",
+                    LineHeight = 1
+                },
+                H2 = new H2()
+                {
+                    FontFamily = new[] { "Bebas" },
+                    LetterSpacing = "2px"
+                },
+                H3 = new H3()
+                {
+                    FontFamily = new[] { "Bebas" },
+                    FontSize = "25px",
+                    LetterSpacing = "2px"
+                }
+            },
+            PaletteLight = new PaletteLight()
+            {
+                Primary = Colors.Blue.Default, // Temporary placeholder, updated in UpdateThemeColor
+                Secondary = Colors.Shades.White,
+                Tertiary = Colors.Gray.Darken4,
+                Background = Colors.Gray.Lighten4,
+                AppbarBackground = Colors.Shades.White,
+                DrawerBackground = Colors.Shades.White,
+            },
+            LayoutProperties = new LayoutProperties()
+            {
+                DrawerWidthLeft = "300px",
+            }
+        };
+}
+
+

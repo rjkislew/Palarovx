@@ -15,7 +15,7 @@
         <MudText Typo="Typo.h4">Events</MudText>
         <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
     </MudItem>
-    @if (_eventDetails != null && _eventDetails.Any())
+    @if (_errorLoading == false)
     {
         <MudItem xs="12">
             <MudStack Row Spacing="0" Justify="Justify.FlexEnd">
@@ -61,9 +61,11 @@
                 <RowTemplate>
                     <MudTd Datalabel="Event">
                         <MudStack Spacing="0">
+                            <MudText Typo="Typo.caption" Class="mb-2">[@eventDetail.EventStage]</MudText>
                             <MudText>@eventDetail.Category</MudText>
                             <MudStack Row Spacing="1">
                                 <MudText Typo="Typo.caption">
+
                                     @eventDetail.Sport
                                     <MudElement>
                                         <MudText Typo="Typo.caption">[@eventDetail.Subcategory]</MudText>
@@ -75,13 +77,15 @@
                         </MudStack>
                     </MudTd>
                     <MudTd Datalabel="Opposing Teams">
-                        @if (eventDetail.EventVersusList?.Count() > 0)
-                        {
-                            <MudStack Row Wrap="Wrap.Wrap" Spacing="0">
+                        <MudGrid>
+                            <MudItem xs="12">
                                 <MudVirtualize Items="@eventDetail.EventVersusList" Context="teams">
                                     <MudTooltip>
                                         <ChildContent>
-                                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">@teams.Abbreviation</MudChip>
+                                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Class="pa-0 pl-2">
+                                                @teams.Abbreviation
+                                                <MudIconButton class="ml-2" Icon="@Icons.Material.Filled.Settings" Size="Size.Small" OnClick="() => OpenEditEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID, teams.ID)" />
+                                            </MudChip>
                                         </ChildContent>
                                         <TooltipContent>
                                             <MudVirtualize Items="@teams.EventVersusTeamPlayersList" Context="players">
@@ -97,12 +101,11 @@
                                         </TooltipContent>
                                     </MudTooltip>
                                 </MudVirtualize>
-                            </MudStack>
-                        }
-                        else
-                        {
-                            <MudText Typo="Typo.body2">Teams are to be assigned.</MudText>
-                        }
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" FullWidth Style="text-transform: none" OnClick="() => OpenAddEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID)">Add Team Players</MudButton>
+                            </MudItem>
+                        </MudGrid>
                     </MudTd>
                     <MudTd Datalabel="Venue">
                         <MudLink Underline="Underline.Hover" Href="@($"https://www.google.com/maps/?q={eventDetail.Latitude},{eventDetail.Longitude}")" Target="_blank">
@@ -149,11 +152,11 @@
                         @eventDetail.FirstName @eventDetail.LastName
                     </MudTd>
                     <MudTd DataLabel="Settings" Style="text-align: center">
-                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1"></MudIconButton>
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditEventDialog(eventDetail.ID)" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent>
-                    <MudText Typo="Typo.caption">No matching records found.</MudText>
+                    <MudText Typo="Typo.caption">No records found.</MudText>
                 </NoRecordsContent>
                 <PagerContent>
                     <MudTablePager />
@@ -175,12 +178,14 @@
     private List<EventsDTO.EventDetails.Event>? _eventDetails;
 
     private string _searchString = "";
+    private bool _errorLoading;
 
     private bool FilterFunc(EventsDTO.EventDetails.Event streams)
     {
         if (string.IsNullOrWhiteSpace(_searchString))
             return true;
         return streams.Category!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            streams.EventStage!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
             streams.Sport!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
             streams.Subcategory!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
             streams.Gender!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
@@ -192,26 +197,14 @@
             streams.LastName!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task OpenAddEventDialog()
-    {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
-
-        var dialog = await DialogService.ShowAsync<AddEventDialog>("Add Event", options);
-
-        var result = await dialog.Result;
-
-        if (!result!.Canceled)
-        {
-            await GetEventsAsync();
-        }
-    }
-
     private List<BreadcrumbItem> _items =
     [
         new("Home", href: "./"),
     new("Events", href: null, disabled: true)
     ];
 
+
+    // DTOs
     public class EventsDTO
     {
         public class EventDetails
@@ -220,9 +213,11 @@
             public class Event
             {
                 public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
                 public List<EventVersusTeams>? EventVersusList { get; set; }
                 public string? Category { get; set; }
                 public string? Sport { get; set; }
+                public int? SubCategoryID { get; set; }
                 public string? Subcategory { get; set; }
                 public string? Gender { get; set; }
                 public string? Level { get; set; }
@@ -284,6 +279,82 @@
         catch (HttpRequestException ex)
         {
             Console.WriteLine($"Error fetching data: {ex.Message}");
+            _errorLoading = true;
+        }
+    }
+
+    // Dialog
+
+    private async Task OpenAddEventDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddEventDialog>("Add Event", options);
+
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await GetEventsAsync();
+        }
+    }
+
+    private async Task OpenEditEventDialog(string? selectedEventID)
+    {
+        var parameter = new DialogParameters<EditEventDialog>
+        {
+            {x => x.SelectedEventID, selectedEventID},
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<EditEventDialog>("Edit Event", parameter, options);
+
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await GetEventsAsync();
+        }
+    }
+
+    private async Task OpenAddEventTeamsDialog(string? selectedEventID, int? selectedSubSportID)
+    {
+        var parameter = new DialogParameters<AddEventTeamsDialog>
+        {
+            {x => x.SelectedEventID, selectedEventID},
+            {x => x.SelectedSubCategoryID, selectedSubSportID},
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddEventTeamsDialog>("Add Team for the Event", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetEventsAsync();
+        }
+    }
+
+    private async Task OpenEditEventTeamsDialog(string? selectedEventID, int? selectedSubSportID, int? selectedEventTeamsID)
+    {
+        var parameter = new DialogParameters<EditEventTeamsDialog>
+        {
+            {x => x.SelectedEventID, selectedEventID},
+            {x => x.SelectedSubCategoryID, selectedSubSportID},
+            {x => x.SelectedEventVersusTeamsID, selectedEventTeamsID},
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<EditEventTeamsDialog>("Add Team for the Event", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetEventsAsync();
         }
     }
 }

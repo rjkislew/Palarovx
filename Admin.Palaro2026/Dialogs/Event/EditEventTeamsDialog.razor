@@ -1,0 +1,384 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="0">
+            <MudItem xs="12">
+                <MudItem xs="12">
+                    <MudSelect @bind-Value="_selectedRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined"
+                    T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedPlayerIDValues = null; await GetPlayerAsync(); }))">
+                        <MudVirtualize Items="_schoolRegions" Context="region">
+                            <MudSelectItem T="int?" Value="@region.ID">
+                                @region.Region (@region.Abbreviation)
+                            </MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+                <MudSelect @bind-SelectedValues="_selectedPlayerIDValues" SelectAll="true" ToStringFunc="@(id => _profilePlayerEvents?.FirstOrDefault(c => c.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)"
+                T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Player" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedRegionIDValue == null">
+                    <MudVirtualize Items="_profilePlayerEvents" Context="player">
+                        <MudSelectItem T="int?" Value="player.ID">@player.FirstName @player.LastName</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+            <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteEventVersusTeamsAsync">Delete</MudButton>
+            <MudStack Row Justify="Justify.SpaceBetween">
+                <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+                <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateEventVersusTeamsAsync" Disabled="_addStreamDisabled">Update</MudButton>
+            </MudStack>
+        </MudStack>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // Passed data from page
+    [Parameter]
+    public string? SelectedEventID { get; set; }
+    [Parameter]
+    public int? SelectedSubCategoryID { get; set; }
+    [Parameter]
+    public int? SelectedEventVersusTeamsID { get; set; }
+
+
+    // JSON storage
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+    private List<ProfilesDTO.ProfilePlayerEvent>? _profilePlayerEvents;
+    private List<EventsDTO.EventVersusTeams>?  _eventVersusTeams;
+    private List<EventsDTO.EventVersusTeamPlayers>?  _eventVersusTeamPlayers;
+
+    // Variables
+    private int? _createdEventVersusTeamIDValue;
+    private string? _selectedEventID;
+    private int? _selectedRegionIDValue;
+    private int? _selectedEventVersusTeamsIDValue;
+    private int? _selectedEventVersusTeamPlayersIDValue;
+    private IEnumerable<int?>? _selectedPlayerIDValues;
+    private string? _scoreValue = "0";
+    private DateTime? _recentUpdateAt = DateTime.Now;
+
+    // Disable addition button if values are empty
+    private bool _addStreamDisabled =>
+    !_selectedRegionIDValue.HasValue;
+
+    // Load dialog if true
+    private bool? _isLoaded = false;
+
+    // DTOs
+    public class SchoolsDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    public class ProfilesDTO
+    {
+        public class ProfilePlayerEvent
+        {
+            public int ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public int? RegionID { get; set; }
+            public int? SubCategoryID { get; set; }
+        }
+    }
+
+    public class EventsDTO
+    {
+        public class EventVersusTeams
+        {
+            public int ID { get; set; }
+            public string? EventID { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? Score { get; set; }
+            public DateTime? RecentUpdateAt { get; set; }
+        }
+
+        public class EventVersusTeamPlayers
+        {
+            public int ID { get; set; }
+            public int? EventVersusID { get; set; }
+            public int? ProfilePlayerID { get; set; }
+        }
+    }
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetEventVersusTeamsAsync();
+        await GetEventVersusTeamPlayersAsync();
+        await GetSchoolRegionsAsync();
+        await GetPlayerAsync();
+
+        if (_schoolRegions?.Any() == true)
+        {
+            _isLoaded = true;
+        }
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetEventVersusTeamsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/VersusTeams?id={SelectedEventVersusTeamsID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventVersusTeams = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVersusTeams>>(responseStream, options);
+
+            if (_eventVersusTeams != null)
+            {
+                var eventVersusTeam = _eventVersusTeams.First();
+
+                _selectedEventVersusTeamsIDValue = eventVersusTeam.ID;
+                _selectedEventID = eventVersusTeam.EventID;
+                _selectedRegionIDValue = eventVersusTeam.SchoolRegionID;
+                _scoreValue = eventVersusTeam.Score;
+                _recentUpdateAt = eventVersusTeam.RecentUpdateAt;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetEventVersusTeamPlayersAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/Players?eventVersusID={SelectedEventVersusTeamsID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventVersusTeamPlayers = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVersusTeamPlayers>>(responseStream, options);
+
+            if (_eventVersusTeamPlayers != null)
+            {
+                var eventVersusTeam = _eventVersusTeamPlayers.First();
+                _selectedEventVersusTeamPlayersIDValue = eventVersusTeam.ID;
+                _selectedPlayerIDValues = _eventVersusTeamPlayers.Select(c => c.ProfilePlayerID).ToList();
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetPlayerAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Profiles/Player/Events?regionID={_selectedRegionIDValue}&subCategoryID={SelectedSubCategoryID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _profilePlayerEvents = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayerEvent>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Dialog actions// Dialog Actions
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task ConfirmUpdateEventVersusTeamsAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+                message: $"Do you confirm update of the selected team?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await UpdateEventVersusTeamsAsync();
+
+            MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
+        }
+    }
+
+    private async Task ConfirmDeleteEventVersusTeamsAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm deletion  of the selected team?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await DeleteEventVersusTeamPlayersByEventVersusTeamIDAsync();
+            await DeleteEventVersusTeamPlayersAsync();
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    // Update player sport event after deleting the sport event coach/es
+    // while aslo addding new sport event coach
+    private async Task UpdateEventVersusTeamsAsync()
+    {
+        try
+        {
+            if (SelectedEventVersusTeamsID == 0) return;
+
+            var updatedStream = new EventsDTO.EventVersusTeams
+                {
+                    EventID = SelectedEventID,
+                    SchoolRegionID = _selectedRegionIDValue,
+                    Score = _scoreValue,
+                    RecentUpdateAt = _recentUpdateAt,
+                };
+
+            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/{SelectedEventVersusTeamsID}";
+            var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await httpClient.PutAsync(url, content);
+            response.EnsureSuccessStatusCode();
+
+            if (_selectedPlayerIDValues?.Any() != true)
+            {
+                // delete player sport coach first by player sport id
+                await DeleteEventVersusTeamPlayersByEventVersusTeamIDAsync();
+            }
+
+            if (_selectedPlayerIDValues?.Any() != false)
+            {
+                // add new player sport coach
+                await PostEventVersusTeamPlayersAsync();
+            }
+
+            if (_selectedPlayerIDValues?.Count() > 0)
+            {
+                // delete player sport coach first by player sport id
+                await DeleteEventVersusTeamPlayersByEventVersusTeamIDAsync();
+                // add new player sport coach
+                await PostEventVersusTeamPlayersAsync();
+            }
+
+            Snackbar.Add("Player sport event updated successfully.", Severity.Success);
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error updating player sport event: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task PostEventVersusTeamPlayersAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/Players​";
+
+            var eventStream = _selectedPlayerIDValues?.Where(id => id.HasValue) // Ensure valid IDs
+                .Select(playerID => new EventsDTO.EventVersusTeamPlayers
+                    {
+                        ProfilePlayerID = playerID!.Value,
+                        EventVersusID = SelectedEventVersusTeamsID,
+                    }).ToList();
+
+            var jsonContent = JsonSerializer.Serialize(eventStream);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error posting data: {ex.Message}");
+        }
+    }
+
+    // Delete Sport event and sport event coach by sport event ID
+    private async Task DeleteEventVersusTeamPlayersByEventVersusTeamIDAsync()
+    {
+        try
+        {
+            if (SelectedEventVersusTeamsID == 0) return;
+
+            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/Players/ByEventVersusTeam/{SelectedEventVersusTeamsID}";
+
+            HttpResponseMessage response = await httpClient.DeleteAsync(url);
+            response.EnsureSuccessStatusCode();
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error deleting player sport coach: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteEventVersusTeamPlayersAsync()
+    {
+        try
+        {
+            if (SelectedEventVersusTeamsID == 0) return;
+
+            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/{SelectedEventVersusTeamsID}";
+
+            HttpResponseMessage response = await httpClient.DeleteAsync(url);
+            response.EnsureSuccessStatusCode();
+
+            Snackbar.Add("Player sport event deleted successfully.", Severity.Success);
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error deleting player sport event: {ex.Message}", Severity.Error);
+        }
+    }
+}

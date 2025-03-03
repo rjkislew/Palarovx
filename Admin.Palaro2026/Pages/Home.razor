@@ -3,6 +3,7 @@
 @using System.Net.Http
 @using System.Text.Json
 @using System.Threading.Tasks
+@inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
 
@@ -57,7 +58,7 @@
                         </MudSelect>
 
                         @* Date *@
-                        <MudDateRangePicker DateRange="@_dateRange" DateRangeChanged="OnDateRangeChanged"  Margin="Margin.Dense" Clearable Variant="Variant.Outlined" PlaceholderStart="Start Date" PlaceholderEnd="End Date" Label="Date" />
+                        <MudDateRangePicker DateRange="@_dateRange" DateRangeChanged="OnDateRangeChanged" Margin="Margin.Dense" Clearable Variant="Variant.Outlined" PlaceholderStart="Start Date" PlaceholderEnd="End Date" Label="Date" />
 
                         @* User *@
                         <MudSelect @bind-Value="_selectedUser" Margin="Margin.Dense" Label="Designated Person" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetEventsAsync">
@@ -143,10 +144,12 @@
 
                                     @* Level *@
                                     <MudText Typo="Typo.caption">@eventDetail.Level</MudText>
+
+                                    <MudText Typo="Typo.caption">@eventDetail.EventStage</MudText>
                                 </MudStack>
 
                                 @* Event Settings *@
-                                <MudIconButton Class="pa-1" Icon="@Icons.Material.Filled.Settings" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditEventDialog(eventDetail.ID)" />
                             </MudStack>
 
                             <MudDivider />
@@ -170,7 +173,7 @@
                                     <MudStack Row AlignItems="AlignItems.Center">
                                         <MudIcon Icon="@Icons.Material.Filled.Podcasts" Size="Size.Small" />
                                         <MudText Typo="Typo.caption">No stream available.</MudText>
-                                        <MudIconButton Class="pa-o" Icon="@Icons.Material.Filled.Error" Size="Size.Small" Disabled="true"/>
+                                        <MudIconButton Class="pa-o" Icon="@Icons.Material.Filled.Error" Size="Size.Small" Disabled="true" />
                                     </MudStack>
                                 }
                                 else
@@ -195,12 +198,29 @@
                                         </MudStack>
                                     </MudField>
                                 }
+                                else if (eventDetail.IsFinished == true && eventDetail.EventStage == "Championship")
+                                {
+                                    <MudField Label="Opposing Teams" Variant="Variant.Outlined" InnerPadding="false">
+                                        <MudStack Class="py-2" Row Wrap="Wrap.Wrap" Spacing="0">
+                                            @foreach (var (team, index) in eventDetail!.EventVersusList!.OrderByDescending(e => int.TryParse(e.Score, out var s) ? s : 0).Select((team, index) => (team, index)))
+                                            {
+                                                @if (index < 3)
+                                                {
+                                                    <MudChip Variant="Variant.Outlined" Size="Size.Small" T="string" Style="@($"border-color: {GetMedalColor(index)}")">
+                                                        <MudIcon Icon="@Icons.Material.Filled.WorkspacePremium" Class="mr-2" Style="@($"color: {GetMedalColor(index)}")" />
+                                                        @team.Abbreviation (@team.Score)
+                                                    </MudChip>
+                                                }
+                                            }
+                                        </MudStack>
+                                    </MudField>
+                                }
                                 else
                                 {
                                     <MudField Label="Opposing Teams" Variant="Variant.Outlined" InnerPadding="false">
                                         <MudStack Class="py-2" Row Wrap="Wrap.Wrap" Spacing="0">
                                             <MudVirtualize Items="eventDetail.EventVersusList" Context="teams">
-                                                <MudChip Variant="Variant.Outlined" Size="Size.Small" T="string">@teams.Abbreviation</MudChip>
+                                                <MudChip Variant="Variant.Outlined" Size="Size.Small" T="string">@teams.Abbreviation (@teams.Score)</MudChip>
                                             </MudVirtualize>
                                         </MudStack>
                                     </MudField>
@@ -219,6 +239,8 @@
 
 @code
 {
+    private IMudDialogInstance? MudDialog { get; set; }
+
     private List<EventsDTO.EventDetails.Event>? _eventDetails;
     private List<SportsDTO.SportCategories>? _sportCategories;
     private List<SportsDTO.Sports>? _sports;
@@ -229,13 +251,24 @@
     private List<UsersDTO.UserList>? _userLists;
     private List<SchoolDTO.SchoolRegions>? _schoolRegions;
 
-    private DateRange _dateRange = new DateRange();
+    private DateRange _dateRange = new DateRange(DateTime.Now.Date, DateTime.Now.Date);
     private DateTime? _startDate = DateTime.Now.Date;
-    private DateTime? _endDate;
+    private DateTime? _endDate = DateTime.Now.Date;
 
     private string? _selectedEventVenue;
     private bool? _isOnStream = null;
     private bool? _isFinished = false;
+
+    private string GetMedalColor(int index)
+    {
+        return index switch
+        {
+            0 => Colors.Amber.Accent4,   // First place (Gold)
+            1 => Colors.BlueGray.Lighten4, // Second place (Silver)
+            2 => Colors.DeepOrange.Lighten1, // Third place (Bronze)
+            _ => "transparent" // Default color for others
+        };
+    }
 
     private async void OnDateRangeChanged(DateRange range)
     {
@@ -262,7 +295,6 @@
         await GetEventsAsync();
         StateHasChanged();
     }
-
 
     private SelectedSportCategory? _selectedSportCategory;
     public class SelectedSportCategory
@@ -335,33 +367,64 @@
             public class Event
             {
                 public string ID { get; set; } = null!;
-                public List<EventVersus>? EventVersusList { get; set; }
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+
+                //public int? SportSubcategoryID { get; set; }
                 public string? Category { get; set; }
                 public string? Sport { get; set; }
+                public int? SubCategoryID { get; set; }
                 public string? Subcategory { get; set; }
                 public string? Gender { get; set; }
                 public string? Level { get; set; }
+                //
+
+                // public int? EventVenuesID { get; set; }
                 public string? Venue { get; set; }
                 public decimal? Latitude { get; set; }
                 public decimal? Longitude { get; set; }
+                //
+
                 public DateTime? Date { get; set; }
                 public TimeSpan? Time { get; set; }
                 public bool? OnStream { get; set; }
+
+
+                // public int? StreamID { get; set; }
                 public string? StreamService { get; set; }
                 public string? StreamURL { get; set; }
+                //
+
                 public bool? IsFinished { get; set; }
                 public byte[]? Attachement { get; set; }
                 public bool? Archived { get; set; }
                 public bool? Deleted { get; set; }
+
+                //public string? UserID { get; set; }
                 public string? FirstName { get; set; }
                 public string? LastName { get; set; }
             }
-            public class EventVersus
+
+            public class EventVersusTeams
             {
-                public int? Score { get; set; }
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                // public int? SchoolRegionID { get; set; }
                 public string? Region { get; set; }
                 public string? Abbreviation { get; set; }
+                //
+
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
                 public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
             }
         }
 
@@ -651,4 +714,48 @@
             Console.WriteLine($"Error fetching data: {ex.Message}");
         }
     }
+
+
+    // Dialog Action
+
+
+    private async Task OpenEditEventDialog(string? selectedEventID)
+    {
+        var parameter = new DialogParameters<EditEventDialog>
+        {
+            {x => x.SelectedEventID, selectedEventID},
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<EditEventDialog>("Edit Event", parameter, options);
+
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await GetEventsAsync();
+        }
+    }
+
+    private async Task OpenEditEventTeamsDialog(string? selectedEventID, int? selectedSubSportID, int? selectedEventTeamsID)
+    {
+        var parameter = new DialogParameters<EditEventTeamsDialog>
+        {
+            {x => x.SelectedEventID, selectedEventID},
+            {x => x.SelectedSubCategoryID, selectedSubSportID},
+            {x => x.SelectedEventVersusTeamsID, selectedEventTeamsID},
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<EditEventTeamsDialog>("Add Team for the Event", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetEventsAsync();
+        }
+    }
+
 }

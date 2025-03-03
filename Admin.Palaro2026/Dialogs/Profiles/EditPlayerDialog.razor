@@ -20,8 +20,7 @@
                 <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region"
                                ShrinkLabel Variant="Variant.Outlined" Clearable
-                               TextChanged="@(() => _selectedSchoolDivisionIDValue = null)"
-                               T="int?" SelectedValuesChanged="GetSchoolDivisionsAsync">
+                               T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSchoolDivisionIDValue = null; _selectedSchoolLevelIDValue = null; _selectedSchoolIDValue = null; await GetSchoolDivisionsAsync(); }))">
                         <MudVirtualize Items="_schoolRegions" Context="region">
                             <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
                         </MudVirtualize>
@@ -30,7 +29,7 @@
                 <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division"
                                ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null"
-                               TextChanged="@(() => _selectedSchoolLevelIDValue = null)">
+                               T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSchoolLevelIDValue = null; await GetSchoolDivisionsAsync(); }))">
                         <MudVirtualize Items="_schoolDivisions" Context="division">
                             <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
                         </MudVirtualize>
@@ -39,8 +38,7 @@
                 <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level"
                                ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolDivisionIDValue == null"
-                               TextChanged="@(() => {_selectedSchoolIDValue = null; _selectedSportIDValue = null;})"
-                               T="int?" SelectedValuesChanged="GetSchoolsAsync">
+                               T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSchoolIDValue = null; _selectedSportCategoryIDValue = null;  _selectedSportIDValue = null; await GetSchoolsAsync(); }))">
                         <MudVirtualize Items="_schoolLevels" Context="level">
                             <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
                         </MudVirtualize>
@@ -62,9 +60,9 @@
                     <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Sport Category" ShrinkLabel Clearable Disabled="_selectedSchoolDivisionIDValue == null"
-                               Variant="Variant.Outlined" TextChanged="@(() => _selectedSportIDValue = null)"
-                               T="int?" SelectedValuesChanged="GetSportsInSubcategoriesAsync">
+                    <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Sport Category" ShrinkLabel
+                               Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolDivisionIDValue == null"
+                               T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSportIDValue = null; await GetSportsInSubcategoriesAsync(); }))">
                         <MudVirtualize Items="_sportCategories" Context="sportCategory">
                             <MudSelectItem T="int?" Value="sportCategory.ID">@sportCategory.Category</MudSelectItem>
                         </MudVirtualize>
@@ -79,11 +77,12 @@
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
+
             </MudGrid>
         </DialogContent>
         <DialogActions>
             <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
-                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteProfileCoachAsync">Delete</MudButton>
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteProfilePlayerAsync">Delete</MudButton>
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
                     <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateProfileCoachAsync" Disabled="_editPlayerButtonDisabled">Update</MudButton>
@@ -130,6 +129,7 @@ else
     private int? _selectedSportCategoryIDValue;
     private int? _selectedSportIDValue;
     private int[]? _sportIDs;
+    private int[]? _playerSportsIDs;
 
     // Disable addition button if values are empty
     private bool _editPlayerButtonDisabled =>
@@ -151,6 +151,13 @@ else
             public string? LastName { get; set; }
             public int? SchoolID { get; set; }
             public int? SportID { get; set; }
+        }
+
+        public class ProfilePlayerSports
+        {
+            public int ID { get; set; }
+            public int? ProfilePlayerID { get; set; }
+            public int? SportSubcategoryID { get; set; }
         }
     }
 
@@ -222,6 +229,7 @@ else
         await GetSchoolsAsync();
         await GetSportCategoriesAsync();
         await GetSportsAsync();
+        await GetPlayerSportsAsync();
 
         if (_profilePlayers?.Any() == true
         && _schoolRegions?.Any() == true
@@ -461,6 +469,31 @@ else
         }
     }
 
+    private async Task GetPlayerSportsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports?profilePlayerID={selectedPlayerID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode();
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var profilePlayers = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayerSports>>(responseStream, options);
+            Console.WriteLine(profilePlayers);
+
+            if (profilePlayers != null)
+            {
+                _playerSportsIDs = profilePlayers.Select(s => s.ID).Distinct().ToArray(); // Store unique SportIDs in array
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
     // Load after GetSchoolsAsync to get available sports in that sub category
     private async Task GetSportsInSubcategoriesAsync()
     {
@@ -516,7 +549,7 @@ else
     // Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
 
-    private async Task ConfirmDeleteProfileCoachAsync()
+    private async Task ConfirmDeleteProfilePlayerAsync()
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
@@ -526,7 +559,9 @@ else
 
         if (result == true)
         {
-            await DeleteProfileCoachAsync();
+            await DeleteProfilePlayerSportCoachByPlayerSportIDAsync();
+            await DeleteProfilePlayerSportEventAsync();
+            await DeleteProfilePlayerAsync();
             MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
         }
     }
@@ -580,7 +615,7 @@ else
     }
 
     // Delete Player profile
-    private async Task DeleteProfileCoachAsync()
+    private async Task DeleteProfilePlayerAsync()
     {
         try
         {
@@ -598,6 +633,47 @@ else
         catch (HttpRequestException ex)
         {
             Snackbar.Add($"Error deleting player: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // Delete Sport event and sport event coach by sport event ID
+    private async Task DeleteProfilePlayerSportCoachByPlayerSportIDAsync()
+    {
+        try
+        {
+            if (_playerSportsIDs == null || _playerSportsIDs.Length == 0) return;
+
+            foreach (var playerSportID in _playerSportsIDs)
+            {
+                string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/Coaches/ByPlayerSport/{playerSportID}";
+
+                HttpResponseMessage response = await httpClient.DeleteAsync(url);
+                response.EnsureSuccessStatusCode();
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error deleting player sport coach: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteProfilePlayerSportEventAsync()
+    {
+        try
+        {
+            if (_playerSportsIDs == null || _playerSportsIDs.Length == 0) return;
+
+            foreach (var playerSportID in _playerSportsIDs)
+            {
+                string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/{playerSportID}";
+
+                HttpResponseMessage response = await httpClient.DeleteAsync(url);
+                response.EnsureSuccessStatusCode();
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error deleting player sport events: {ex.Message}", Severity.Error);
         }
     }
 }

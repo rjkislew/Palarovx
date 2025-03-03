@@ -1,0 +1,268 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="0">
+            <MudItem xs="12">
+                <MudItem xs="12">
+                    <MudSelect @bind-Value="_selectedRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined"
+                               T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedPlayerIDs = null; await GetPlayerAsync(); }))">
+                        <MudVirtualize Items="_schoolRegions" Context="region">
+                            <MudSelectItem T="int?" Value="@region.ID">
+                                @region.Region (@region.Abbreviation)
+                            </MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+                <MudSelect @bind-SelectedValues="_selectedPlayerIDs" SelectAll="true" ToStringFunc="@(id => _profilePlayerEvents?.FirstOrDefault(c => c.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)"
+                           T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Player" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedRegionIDValue == null">
+                    <MudVirtualize Items="_profilePlayerEvents" Context="player">
+                        <MudSelectItem T="int?" Value="player.ID">@player.FirstName @player.LastName</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+            <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+            <MudStack Row Justify="Justify.SpaceBetween">
+                <MudButton Style="text-transform: none" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
+                <MudButton Style="text-transform: none" DropShadow="false"
+                           Disabled="_addStreamDisabled" OnClick="ConfirmAddEventTeamVersusAsync">Add</MudButton>
+            </MudStack>
+        </MudStack>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+    private List<ProfilesDTO.ProfilePlayerEvent>? _profilePlayerEvents;
+
+    // Passed data from page
+    [Parameter]
+    public string? SelectedEventID { get; set; }
+    [Parameter]
+    public int? SelectedSubCategoryID { get; set; }
+
+    // Variables
+    private int? _createdEventVersusTeamIDValue;
+    private int? _selectedRegionIDValue;
+    private IEnumerable<int?>? _selectedPlayerIDs;
+    private string? _scoreValue = "0";
+    private DateTime _recentUpdateAt = DateTime.Now;
+
+    // Disable addition button if values are empty
+    private bool _addStreamDisabled =>
+    !_selectedRegionIDValue.HasValue;
+
+    // Load dialog if true
+    private bool? _isLoaded = false;
+
+    // DTOs
+    public class SchoolsDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    public class ProfilesDTO
+    {
+        public class ProfilePlayerEvent
+        {
+            public int ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public int? RegionID { get; set; }
+            public int? SubCategoryID { get; set; }
+        }
+    }
+
+    public class EventsDTO
+    {
+        public class EventVersusTeams
+        {
+            public int ID { get; set; }
+            public string? EventID { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? Score { get; set; }
+            public DateTime? RecentUpdateAt { get; set; }
+        }
+
+        public class EventVersusTeamPlayers
+        {
+            public int ID { get; set; }
+            public int? EventVersusID { get; set; }
+            public int? ProfilePlayerID { get; set; }
+        }
+    }
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSchoolRegionsAsync();
+
+        if (_schoolRegions?.Any() == true)
+        {
+            _isLoaded = true;
+        }
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetPlayerAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Profiles/Player/Events?regionID={_selectedRegionIDValue}&subCategoryID={SelectedSubCategoryID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _profilePlayerEvents = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayerEvent>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    // Dialog actions
+    private void ClearFields()
+    {
+        _selectedRegionIDValue = null;
+        _selectedPlayerIDs = null;
+    }
+
+    private async Task ConfirmAddEventTeamVersusAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await AddEventVersusTeamsAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+
+    // Add player sport event and coach/es on that event
+    private async Task AddEventVersusTeamsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/VersusTeams";
+
+            var eventVersusTeams = new EventsDTO.EventVersusTeams
+                {
+                    EventID = SelectedEventID,
+                    SchoolRegionID = _selectedRegionIDValue,
+                    Score = _scoreValue,
+                    RecentUpdateAt = _recentUpdateAt,
+                };
+
+            var jsonContent = JsonSerializer.Serialize(eventVersusTeams);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            httpResponse.EnsureSuccessStatusCode();
+
+            // Deserialize the response to get the newly created ID
+            string responseContent = await httpResponse.Content.ReadAsStringAsync();
+            var createdEventVersusTeams = JsonSerializer.Deserialize<EventsDTO.EventVersusTeams>(responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (createdEventVersusTeams != null)
+            {
+                _createdEventVersusTeamIDValue = createdEventVersusTeams.ID;
+            }
+
+            await AddEventVersusTeamPlayersAsync();
+
+            if (httpResponse.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Player sport event added successfully.", Severity.Success);
+                MudDialog?.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                string errorMessage = await httpResponse.Content.ReadAsStringAsync();
+                Snackbar.Add($"Failed to add sport event: {errorMessage}", Severity.Error);
+            }
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task AddEventVersusTeamPlayersAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/Players";
+
+            var eventStream = _selectedPlayerIDs?.Where(id => id.HasValue)
+                .Select(playerID => new EventsDTO.EventVersusTeamPlayers
+                    {
+                        ProfilePlayerID = playerID!.Value,
+                        EventVersusID = _createdEventVersusTeamIDValue,
+                    }).ToList();
+
+            var jsonContent = JsonSerializer.Serialize(eventStream);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
+        }
+    }
+}
