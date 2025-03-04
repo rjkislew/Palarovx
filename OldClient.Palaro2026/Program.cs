@@ -1,5 +1,5 @@
 using Blazored.LocalStorage;
-using Client.Palaro2026;
+using OldClient.Palaro2026;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor;

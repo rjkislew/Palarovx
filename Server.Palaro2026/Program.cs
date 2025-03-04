@@ -29,13 +29,14 @@ builder.Services.AddDbContext<Palaro2026Context>(options =>
 // Configure CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowAll", policy => 
         policy.WithOrigins(
             "https://localhost",
             "https://pgas.ph",
             "https://localhost:7061",
             "https://localhost:7170",
-            "https://localhost:7169"
+            "https://localhost:7169",
+            "https://localhost:7154"
         )
         .AllowAnyMethod()
         .AllowAnyHeader()
@@ -76,16 +77,25 @@ builder.Services.AddOpenApi("v1", options => { options.AddDocumentTransformer<Be
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+//if (app.Environment.IsDevelopment())
+//{
+//    app.MapScalarApiReference(options =>
+//    {
+//        options.Title = "Palaro 2026 API";
+//        options.ShowSidebar = true;
+//        options.HideModels = true;
+//    });
+//    app.MapOpenApi();
+//}
+
+app.MapScalarApiReference(options =>
 {
-    app.MapScalarApiReference(options =>
-    {
-        options.Title = "Palaro 2026 API";
-        options.ShowSidebar = true;
-        options.HideModels = true;
-    });
-    app.MapOpenApi();
-}
+    options.Title = "Palaro 2026 API - Development Stage";
+    options.ShowSidebar = true;
+    options.HideModels = true;
+});
+
+app.MapOpenApi();
 
 app.MapGet("/api/check", () => "Get Response");
 
