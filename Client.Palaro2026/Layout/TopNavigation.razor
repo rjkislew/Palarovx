@@ -1,8 +1,57 @@
-﻿<MudNavMenu Rounded >
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudNavMenu Rounded >
     <MudStack Row>
         <MudNavLink Ripple="false" Href="./" Match="NavLinkMatch.All">Home</MudNavLink>
-        <MudNavLink Ripple="false" Href="./events" Match="NavLinkMatch.All">Events</MudNavLink>
-        <MudNavLink Ripple="false" Href="./venues" Match="NavLinkMatch.All">Venues</MudNavLink>
-        <MudNavLink Ripple="false" Href="./billeting-quarters" Match="NavLinkMatch.All" Style="white-space: nowrap;">Billeting Quarters</MudNavLink>
+        @if (_hasEvents == true)
+        {
+            <MudNavLink Ripple="false" Href="./events" Match="NavLinkMatch.Prefix">Events</MudNavLink>
+        }
+        <MudNavLink Ripple="false" Href="./sports" Match="NavLinkMatch.Prefix">Sports</MudNavLink>
+        <MudNavLink Ripple="false" Href="./venues" Match="NavLinkMatch.Prefix">Venues</MudNavLink>
+        <MudNavLink Ripple="false" Href="./billeting-quarters" Match="NavLinkMatch.Prefix" Style="white-space: nowrap;">Billeting Quarters</MudNavLink>
     </MudStack>
 </MudNavMenu>
+
+@code
+{
+    private bool _hasEvents;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckIfEventsExistAsync();
+    }
+
+    private async Task CheckIfEventsExistAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events";
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+
+            if (httpResponse.IsSuccessStatusCode)
+            {
+                string content = await httpResponse.Content.ReadAsStringAsync();
+
+                // Using JsonDocument to check if it's a non-empty array
+                using JsonDocument doc = JsonDocument.Parse(content);
+                _hasEvents = doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0;
+            }
+            else
+            {
+                _hasEvents = false;
+            }
+        }
+        catch (Exception)
+        {
+            _hasEvents = false;
+        }
+    }
+}
+
+
