@@ -19,18 +19,20 @@ namespace Server.Palaro2026.Controller
 
         [HttpGet("Details")]
         public async Task<ActionResult<List<EventsDTO.EventDetails.Event>>> GetEventDetails(
-            [FromQuery] string? region = null,
-            [FromQuery] string? category = null,
-            [FromQuery] string? sport = null,
-            [FromQuery] string? subcategory = null,
-            [FromQuery] string? gender = null,
-            [FromQuery] string? level = null,
-            [FromQuery] string? venue = null,
-            [FromQuery] DateTime? startDate = null,
-            [FromQuery] DateTime? endDate = null,
-            [FromQuery] bool? onStream = null,
-            [FromQuery] bool? isFinished = null,
-            [FromQuery] string? userID = null)
+    [FromQuery] string? region = null,
+    [FromQuery] string? category = null,
+    [FromQuery] string? sport = null, // Comma-separated string
+    [FromQuery] string? subcategory = null,
+    [FromQuery] string? gender = null,
+    [FromQuery] string? level = null,
+    [FromQuery] string? venue = null,
+    [FromQuery] DateTime? startDate = null,
+    [FromQuery] DateTime? endDate = null,
+    [FromQuery] bool? onStream = null,
+    [FromQuery] bool? isFinished = null,
+    [FromQuery] string? eventStage = null, // Comma-separated string
+    [FromQuery] string? streamService = null, // Comma-separated string
+    [FromQuery] string? userID = null)
         {
             try
             {
@@ -45,7 +47,6 @@ namespace Server.Palaro2026.Controller
                     .Include(e => e.EventVenues)
                     .Include(e => e.EventStage)
                     .Include(e => e.EventStream)
-                    .Include(e => e.EventStream)
                         .ThenInclude(e => e!.EventStreamService)
                     .Include(e => e.EventVersusTeams)
                         .ThenInclude(ev => ev.SchoolRegion)
@@ -56,20 +57,38 @@ namespace Server.Palaro2026.Controller
                     .Include(u => u.User)
                     .AsQueryable();
 
+                // Helper function to split comma-separated values into a list
+                List<string> ParseCsv(string? input) =>
+                    string.IsNullOrWhiteSpace(input)
+                        ? new List<string>()
+                        : input.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList();
+
+                var sportList = ParseCsv(sport);
+                var eventStageList = ParseCsv(eventStage);
+                var streamServiceList = ParseCsv(streamService);
+                var regionList = ParseCsv(region);
+
                 // Apply filters
-                if (!string.IsNullOrEmpty(region))
+
+                if (eventStageList.Any())
                 {
-                    query = query.Where(e => e.EventVersusTeams.Any(ev => ev.SchoolRegion!.Region == region));
+                    query = query.Where(e => eventStageList.Contains(e.EventStage!.Stage!));
                 }
+
+                if (regionList.Any())
+                {
+                    query = query.Where(e => e.EventVersusTeams!.Any(ev => ev.SchoolRegion != null && regionList.Contains(ev.SchoolRegion.Region!)));
+                }
+
 
                 if (!string.IsNullOrEmpty(category))
                 {
                     query = query.Where(e => e.SportSubcategory!.Sport!.SportCategory!.Category == category);
                 }
 
-                if (!string.IsNullOrEmpty(sport))
+                if (sportList.Any())
                 {
-                    query = query.Where(e => e.SportSubcategory!.Sport!.Sport == sport);
+                    query = query.Where(e => sportList.Contains(e.SportSubcategory!.Sport!.Sport!));
                 }
 
                 if (!string.IsNullOrEmpty(subcategory))
@@ -90,6 +109,16 @@ namespace Server.Palaro2026.Controller
                 if (!string.IsNullOrEmpty(venue))
                 {
                     query = query.Where(e => e!.EventVenues!.Venue! == venue);
+                }
+
+                if (eventStageList.Any())
+                {
+                    query = query.Where(e => eventStageList.Contains(e.EventStage!.Stage!));
+                }
+
+                if (streamServiceList.Any())
+                {
+                    query = query.Where(e => streamServiceList.Contains(e.EventStream!.EventStreamService!.StreamService!));
                 }
 
                 // Filter by StartDate and EndDate range
@@ -170,6 +199,7 @@ namespace Server.Palaro2026.Controller
                     Time = eventEntity.Time,
                     OnStream = eventEntity.OnStream ?? false,
                     StreamService = eventEntity.EventStream?.EventStreamService?.StreamService,
+                    StreamTitle = eventEntity.EventStream?.StreamTitle,
                     StreamURL = eventEntity.EventStream?.StreamURL,
                     IsFinished = eventEntity.IsFinished,
                     Attachement = eventEntity.Attachement,
@@ -179,7 +209,6 @@ namespace Server.Palaro2026.Controller
                     LastName = eventEntity.User?.LastName,
                 }).ToList();
 
-
                 return Ok(eventDTO);
             }
             catch (Exception)
@@ -187,6 +216,7 @@ namespace Server.Palaro2026.Controller
                 return StatusCode(500, "Internal server error. Please try again later.");
             }
         }
+
 
         private static EventsDTO.Events EventsDTOMapper(Events events) =>
            new EventsDTO.Events

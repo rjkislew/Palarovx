@@ -1,0 +1,342 @@
+﻿@page "/streams"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudGrid>
+    <!-- Header -->
+    <MudItem xs="12">
+        <MudContainer Gutters="false" MaxWidth="MaxWidth.False">
+            <MudPaper Height="300px" Square Elevation="0" Class="mud-theme-primary">
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 100%">
+                    <MudText Typo="Typo.h1" HtmlTag="body1" Style="color: white">Live Streams</MudText>
+                </MudStack>
+            </MudPaper>
+        </MudContainer>
+    </MudItem>
+    <MudItem xs="12">
+        <MudContainer MaxWidth="MaxWidth.Large">
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudStack AlignItems="AlignItems.Start">
+                        <MudButton OnClick="OnExpandFilterCollapseClick" StartIcon="@(_expandedFilter ? @Icons.Material.Filled.FilterAltOff : @Icons.Material.Filled.FilterAlt)">Filter</MudButton>
+                        <MudCollapse Expanded="_expandedFilter">
+                            <MudStack Spacing="3">
+                                <MudStack Spacing="0">
+                                    <MudText>Regional Teams</MudText>
+                                    <MudChipSet T="string" SelectedValues="_selectedEventTeams" SelectionMode="SelectionMode.MultiSelection" CheckMark SelectedValuesChanged="UpdateSelectedEventTeams">
+                                        <MudVirtualize Items="_eventTeamsList" Context="team">
+                                            <MudChip Size="Size.Small" Variant="Variant.Outlined" Value="@team" />
+                                        </MudVirtualize>
+                                        @if (_selectedEventTeams != null && _selectedEventTeams.Any())
+                                        {
+                                            <MudChip OnClick="ClearSelectedEventTeams" Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small">
+                                                Clear Selection
+                                            </MudChip>
+                                        }
+                                    </MudChipSet>
+                                </MudStack>
+                                <MudStack Spacing="0">
+                                    <MudText>Sports</MudText>
+                                    <MudChipSet T="string" SelectedValues="_selectedSports" SelectionMode="SelectionMode.MultiSelection" CheckMark SelectedValuesChanged="UpdateSelectedSports">
+                                        <MudVirtualize Items="_sportList" Context="sport">
+                                            <MudChip Size="Size.Small" Variant="Variant.Outlined" Value="@sport" />
+                                        </MudVirtualize>
+                                        @if (_selectedSports != null && _selectedSports.Any())
+                                        {
+                                            <MudChip OnClick="ClearSelectedSports" Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small">
+                                                Clear Selection
+                                            </MudChip>
+                                        }
+                                    </MudChipSet>
+                                </MudStack>
+                                <MudStack Spacing="0">
+                                    <MudText>Event Stages</MudText>
+                                    <MudChipSet T="string" SelectedValues="_selectedEventStages" SelectionMode="SelectionMode.MultiSelection" CheckMark SelectedValuesChanged="UpdateSelectedEventStages">
+                                        <MudVirtualize Items="_eventStageList" Context="stage">
+                                            <MudChip Size="Size.Small" Variant="Variant.Outlined" Value="@stage" />
+                                        </MudVirtualize>
+                                        @if (_selectedEventStages != null && _selectedEventStages.Any())
+                                        {
+                                            <MudChip OnClick="ClearSelectedEventStages" Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small">
+                                                Clear Selection
+                                            </MudChip>
+                                        }
+                                    </MudChipSet>
+                                </MudStack>
+                                <MudStack Spacing="0">
+                                    <MudText>Stream Services</MudText>
+                                    <MudChipSet T="string" SelectedValues="_selectedStreamServices" SelectionMode="SelectionMode.MultiSelection" CheckMark SelectedValuesChanged="UpdateSelectedStreamServices">
+                                        <MudVirtualize Items="_streamServiceList" Context="streamService">
+                                            <MudChip Size="Size.Small" Variant="Variant.Outlined" Value="@streamService" />
+                                        </MudVirtualize>
+                                        @if (_selectedStreamServices != null && _selectedStreamServices.Any())
+                                        {
+                                            <MudChip OnClick="ClearSelectedStreamServices" Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small">
+                                                Clear Selection
+                                            </MudChip>
+                                        }
+                                    </MudChipSet>
+                                </MudStack>
+                            </MudStack>
+                        </MudCollapse>
+                    </MudStack>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudGrid>
+                        <MudVirtualize Items="_eventDetails" Context="eventDetail">
+                            <MudItem xs="6" md="4" lg="3">
+                                <MudLink Href="@eventDetail.StreamURL" Target="blank" Underline="Underline.None">
+                                    <MudPaper Outlined Class="p-2" Height="100%">
+                                        <MudStack Class="relative">
+                                            <MudChip Icon="@Icons.Material.Filled.FiberManualRecord" T="string" Variant="Variant.Filled" Color="Color.Error" Size="Size.Small" Class="absolute ml-3 mt-3">
+                                                Live
+                                            </MudChip>
+                                            <MudImage Src="@GetThumbnailUrl(eventDetail.StreamURL)"
+                                                      Style="width: 100%; height: auto"
+                                                      Class="rounded-t"
+                                                      ObjectFit="ObjectFit.Cover" />
+                                        </MudStack>
+                                        <MudStack Spacing="0" Class="pa-2">
+                                            <MudTooltip Text="@eventDetail.StreamTitle">
+                                                <MudText Typo="Typo.body1" Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                    @eventDetail.StreamTitle
+                                                </MudText>
+                                            </MudTooltip>
+                                            <MudText Typo="Typo.caption">@eventDetail.StreamService</MudText>
+                                        </MudStack>
+                                        <MudStack Row Wrap="Wrap.Wrap" Spacing="0" Class="pa-3">
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="m-1">@eventDetail.Sport</MudChip>
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="m-1">@eventDetail.Gender</MudChip>
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="m-1">@eventDetail.Level</MudChip>
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="m-1">@eventDetail.EventStage</MudChip>
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" Class="m-1">
+                                                <MudTooltip Text="@eventDetail.Subcategory">
+                                                    @eventDetail.Subcategory
+                                                </MudTooltip>
+                                            </MudChip>
+                                        </MudStack>
+                                    </MudPaper>
+                                </MudLink>
+                            </MudItem>
+                        </MudVirtualize>
+                    </MudGrid>
+                </MudItem>
+            </MudGrid>
+        </MudContainer>
+    </MudItem>
+</MudGrid>
+
+<FooterComponent />
+
+@code {
+    private List<EventsDTO.EventDetails.Event>? _eventDetails;
+    private string[]? _sportList;
+    private string[]? _eventStageList;
+    private string[]? _streamServiceList;
+    private string[]? _eventTeamsList;
+    bool _expandedFilter = false;
+
+    private string[]? _selectedSports;
+    private string[]? _selectedEventStages;
+    private string[]? _selectedStreamServices;
+    private string[]? _selectedEventTeams;
+
+    private void OnExpandFilterCollapseClick()
+    {
+        _expandedFilter = !_expandedFilter;
+    }
+
+
+    private async Task ClearSelectedEventTeams()
+    {
+        _selectedEventTeams = Array.Empty<string>();
+
+        await GetQueriedEventsAsync();
+    }
+    public async Task UpdateSelectedEventTeams(IReadOnlyCollection<string> values)
+    {
+        _selectedEventTeams = values.ToArray();
+        await GetQueriedEventsAsync();
+    }
+
+
+    private async Task ClearSelectedSports()
+    {
+        _selectedSports = Array.Empty<string>();
+
+        await GetQueriedEventsAsync();
+    }
+    public async Task UpdateSelectedSports(IReadOnlyCollection<string> values)
+    {
+        _selectedSports = values.ToArray();
+        await GetQueriedEventsAsync();
+    }
+
+
+    private async Task ClearSelectedEventStages()
+    {
+        _selectedEventStages = Array.Empty<string>();
+
+        await GetQueriedEventsAsync();
+    }
+    public async Task UpdateSelectedEventStages(IReadOnlyCollection<string> values)
+    {
+        _selectedEventStages = values.ToArray();
+        await GetQueriedEventsAsync();
+    }
+
+    private async Task ClearSelectedStreamServices()
+    {
+        _selectedStreamServices = Array.Empty<string>();
+
+        await GetQueriedEventsAsync();
+    }
+    public async Task UpdateSelectedStreamServices(IReadOnlyCollection<string> values)
+    {
+        _selectedStreamServices = values.ToArray();
+
+        await GetQueriedEventsAsync();
+    }
+
+    public class EventsDTO
+    {
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public string? StreamTitle { get; set; }
+                public bool? IsFinished { get; set; }
+                public byte[]? Attachement { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                // public int? SchoolRegionID { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                //
+
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
+    }
+
+    private string GetThumbnailUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
+
+        if (url.Contains("youtube.com/watch?v="))
+        {
+            var videoId = url.Split("v=")[1].Split('&')[0];
+            return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg"; // High-quality thumbnail
+        }
+
+        return "default-thumbnail.jpg"; // Provide a fallback thumbnail
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetEventsAsync();
+    }
+
+    private async Task GetEventsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/Details?onStream=true";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventDetails = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options);
+
+            _sportList = _eventDetails?.Select(e => e.Sport!).Where(sub => !string.IsNullOrWhiteSpace(sub)).Distinct().ToArray();
+            _eventStageList = _eventDetails?.Select(e => e.EventStage!).Where(sub => !string.IsNullOrWhiteSpace(sub)).Distinct().ToArray();
+            _streamServiceList = _eventDetails?.Select(e => e.StreamService!).Where(sub => !string.IsNullOrWhiteSpace(sub)).Distinct().ToArray();
+            _eventTeamsList = _eventDetails?.Where(e => e.EventVersusList != null).SelectMany(e => e.EventVersusList!).Select(t => t.Region!).Where(region => !string.IsNullOrWhiteSpace(region)).Distinct().ToArray();
+        }
+        catch (HttpRequestException)
+        {
+            _eventDetails = null;
+        }
+    }
+
+    private async Task GetQueriedEventsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/Details?onStream=true";
+
+            var queryParams = new List<string>();
+
+            if (_selectedEventTeams?.Any() == true)
+                queryParams.Add($"region={Uri.EscapeDataString(string.Join(",", _selectedEventTeams))}");
+
+            if (_selectedSports?.Any() == true)
+                queryParams.Add($"sport={Uri.EscapeDataString(string.Join(",", _selectedSports))}");
+
+            if (_selectedEventStages?.Any() == true)
+                queryParams.Add($"eventStage={Uri.EscapeDataString(string.Join(",", _selectedEventStages))}");
+
+            if (_selectedStreamServices?.Any() == true)
+                queryParams.Add($"streamService={Uri.EscapeDataString(string.Join(",", _selectedStreamServices))}");
+
+            if (queryParams.Any())
+            {
+                url += "&" + string.Join("&", queryParams);
+            }
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventDetails = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options);
+        }
+        catch (HttpRequestException)
+        {
+            _eventDetails = null;
+        }
+    }
+
+}
