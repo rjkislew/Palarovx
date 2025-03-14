@@ -19,6 +19,7 @@ namespace Server.Palaro2026.Controller
 
         [HttpGet("Details")]
         public async Task<ActionResult<List<EventsDTO.EventDetails.Event>>> GetEventDetails(
+    [FromQuery] string? id = null,
     [FromQuery] string? region = null,
     [FromQuery] string? category = null,
     [FromQuery] string? sport = null, // Comma-separated string
@@ -69,6 +70,11 @@ namespace Server.Palaro2026.Controller
                 var regionList = ParseCsv(region);
 
                 // Apply filters
+
+                if (!string.IsNullOrEmpty(id))
+                {
+                    query = query.Where(e => e.ID! == id);
+                }
 
                 if (eventStageList.Any())
                 {
