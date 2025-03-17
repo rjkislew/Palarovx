@@ -1,0 +1,64 @@
+﻿@page "/regional-teams"
+
+@using System.Text.Json
+@using System.Threading.Tasks
+@inject IJSRuntime JSRuntime
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    <MudGrid Justify="Justify.Center">
+        <MudVirtualize Items="_schoolRegions" Context="region">
+            <MudItem xs="6" sm="4" lg="3" xl="2">
+                <MudCard Style="height: 100%" Outlined>
+                    <MudStack Class="pa-3" Justify="Justify.SpaceBetween" Style="height: 100%">
+                        <MudImage Src="@($"media/regions/{region.Abbreviation}.png")" />
+                        <MudStack Spacing="0">
+                            <MudText Align="Align.Center" Style="font-weight: bold">@region.Abbreviation</MudText>
+                            <MudText Align="Align.Center" Typo="Typo.caption">@region.Region</MudText>
+                        </MudStack>
+                    </MudStack>
+                </MudCard>
+            </MudItem>
+        </MudVirtualize>
+    </MudGrid>
+</MudContainer>
+@code {
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+
+    public class SchoolsDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    // Initialization method to fetch data and update UI elements
+    protected override async Task OnInitializedAsync()
+    {
+        await GetRegionsAsync();
+    }
+
+    private async Task GetRegionsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+}

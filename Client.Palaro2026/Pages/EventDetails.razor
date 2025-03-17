@@ -7,14 +7,100 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 
-<MudContainer MaxWidth="MaxWidth.Large">
-    <MudText>@_eventDetails?.Sport</MudText>
-    <MudText>@_eventDetails?.Subcategory</MudText>
-    <MudText>@_eventDetails?.Category</MudText>
+<MudContainer MaxWidth="MaxWidth.False">
+    <MudGrid Justify="Justify.Center">
+        @if (_eventDetailLoaded == true)
+        {
+            if (_eventDetail?.OnStream == true)
+            {
+                <MudItem xs="8">
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudStack Class="rounded" Style="height: 80vh; display: flex; justify-content: center; align-items: center;">
+                                @if (!string.IsNullOrEmpty(ExtractYouTubeVideoId(_eventDetail?.StreamURL)))
+                                {
+                                    <iframe class="rounded" src="@($"https://www.youtube.com/embed/{ExtractYouTubeVideoId(_eventDetail?.StreamURL)}?autoplay=1&mute=1")"
+                                            frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
+                                    </iframe>
+                                }
+                                else
+                                {
+                                    <MudText>No stream available</MudText>
+                                }
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.caption" Class="mt-3 text-wrap" Style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal;">
+                                #@_eventDetail?.Sport?.Replace(" ", "") #@_eventDetail?.Gender?.Replace(" ", "") #@_eventDetail?.Level?.Replace(" ", "") #@_eventDetail?.EventStage?.Replace(" ", "") #@_eventDetail?.Subcategory?.Replace(" ", "")
+                                <MudVirtualize Items="@_eventDetail?.EventVersusList" Context="teams">
+                                    #@teams.Region?.Replace(" ", "")-@teams.Abbreviation?.Replace(" ", "")
+                                </MudVirtualize>
+                            </MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudItem>
+                <MudItem xs="4">
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudPaper Outlined Class="pa-3">
+                                <MudText Align="Align.Center" Style="font-size: 35px; font-weight: bold">LIVE SCORE</MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudVirtualize Items="@_eventDetail?.EventVersusList" Context="team">
+                            <MudItem xs="6">
+                                <MudPaper Outlined>
+                                    <MudStack AlignItems="AlignItems.Center" Class="pa-3">
+                                        <MudImage Src="@($"media/regions/{team.Abbreviation}.png")" Height="70" />
+                                        <MudText>@team.Region ( @team.Abbreviation )</MudText>
+                                        <MudText Style="font-family: 'Roboto Mono', monospace; font-size: 40px">
+                                            @team.Score
+                                        </MudText>
+                                    </MudStack>
+                                </MudPaper>
+                            </MudItem>
+                        </MudVirtualize>
+                    </MudGrid>
+                </MudItem>
+            }
+            else
+            {
+                <MudItem xs="12">
+                    <MudGrid Justify="Justify.Center">
+                        <MudItem xs="6">
+                            <MudPaper Outlined Class="pa-3">
+                                <MudText Align="Align.Center" Style="font-size: 35px; font-weight: bold">LIVE SCORE</MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudVirtualize Items="@_eventDetail?.EventVersusList" Context="team">
+                            <MudItem xs="6" md="4" lg="3">
+                                <MudPaper Outlined>
+                                    <MudStack AlignItems="AlignItems.Center" Class="pa-3">
+                                        <MudImage Src="@($"media/regions/{team.Abbreviation}.png")" Height="70" />
+                                        <MudText>@team.Region ( @team.Abbreviation )</MudText>
+                                        <MudText Style="font-family: 'Roboto Mono', monospace; font-size: 40px">
+                                            @team.Score
+                                        </MudText>
+                                    </MudStack>
+                                </MudPaper>
+                            </MudItem>
+                        </MudVirtualize>
+                    </MudGrid>
+                </MudItem>
+            }
+        }
+        else
+        {
+            <MudItem xs="12">
+                <MudProgressLinear Indeterminate=true />
+            </MudItem>
+        }
+    </MudGrid>
 </MudContainer>
-
+<FooterComponent />
 @code {
-    private EventsDTO.EventDetails.Event? _eventDetails;
+    private EventsDTO.EventDetails.Event? _eventDetail;
+    private bool _eventDetailLoaded = false;
 
     [Parameter]
     public string? ID { get; set; }
@@ -75,6 +161,30 @@
         }
     }
 
+    private string? ExtractYouTubeVideoId(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        try
+        {
+            var uri = new Uri(url);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var videoId = query["v"]; // Extracts video ID from ?v=
+
+            // Handles shortened or embedded URLs
+            if (string.IsNullOrEmpty(videoId) && uri.Segments.Length > 1)
+            {
+                videoId = uri.Segments.Last().TrimEnd('/');
+            }
+
+            return videoId;
+        }
+        catch
+        {
+            return null; // Return null if the URL is invalid
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -92,12 +202,17 @@
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _eventDetails = (await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options))?.FirstOrDefault();
+            _eventDetail = (await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options))?.FirstOrDefault();
+
+            if (_eventDetail != null)
+            {
+                _eventDetailLoaded = true;
+            }
 
         }
         catch (HttpRequestException)
         {
-            _eventDetails = null;
+            _eventDetailLoaded = false;
         }
     }
 }
