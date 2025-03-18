@@ -1,6 +1,4 @@
-﻿using System.Net.Mail;
-
-namespace Server.Palaro2026.DTO;
+﻿namespace Server.Palaro2026.DTO;
 
 public class EventsDTO
 {
@@ -38,13 +36,41 @@ public class EventsDTO
         {
             public int ID { get; set; }
             public string? Score { get; set; }
-            // public int? SchoolRegionID { get; set; }
             public string? Region { get; set; }
             public string? Abbreviation { get; set; }
-            //
-
             public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
             public DateTime? RecentUpdateAt { get; set; }
+        }
+
+        public class EventVersusTeamPlayers
+        {
+            public int ID { get; set; }
+            public int? EventVersusID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? School { get; set; }
+        }
+    }
+
+    public class EventTally
+    {
+        public class RegionalTally
+        {
+            public string ID { get; set; } = null!;
+            public string? EventStage { get; set; }
+            public List<EventVersusTeams>? EventVersusList { get; set; }
+            public string? Category { get; set; }
+            public string? Sport { get; set; }
+            public string? Subcategory { get; set; }
+            public string? Gender { get; set; }
+            public string? Level { get; set; }
+        }
+
+        public class EventVersusTeams
+        {
+            public int ID { get; set; }
+            public string? Score { get; set; }
+            public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
         }
 
         public class EventVersusTeamPlayers

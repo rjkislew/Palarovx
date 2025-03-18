@@ -17,7 +17,7 @@
                         <MudStack Spacing="0">
                             <MudText Typo="Typo.h2" Class="pl-2" HtmlTag="h1" Style="color: white; font-weight: bold">PALARONG PAMBANSA
                                 <MudElement>
-                                    <MudText Typo="Typo.h3" Style="color: white; font-weight: 200">Agusan del Sur | 2026</MudText>
+                                    <MudText Typo="Typo.h3" Class="mt-n3" Style="color: white; font-weight: 200">Agusan del Sur | 2026</MudText>
                                 </MudElement>
                             </MudText>
                             <MudStack Row AlignItems="AlignItems.Center">
@@ -267,23 +267,38 @@
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Sports";
+            var storedData = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "sportsData");
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            if (!string.IsNullOrEmpty(storedData) && storedData != "null")
+            {
+                Console.WriteLine($"📦 Raw JSON from localStorage..."); 
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sports = await JsonSerializer.DeserializeAsync<List<SportsDTO.Sports>>(responseStream, options);
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                _sports = JsonSerializer.Deserialize<List<SportsDTO.Sports>>(storedData, options);
+            }
 
-            // Shuffle the list to randomize order
+            else
+            {
+                Console.WriteLine("🌐 Fetching sports from API...");
+
+                string url = $"{apiService.Palaro2026API}/Sports";
+                HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+                httpResponse.EnsureSuccessStatusCode();
+
+                using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                _sports = await JsonSerializer.DeserializeAsync<List<SportsDTO.Sports>>(responseStream, options);
+
+                var jsonData = JsonSerializer.Serialize(_sports);
+                await JSRuntime.InvokeVoidAsync("localStorageHelper.set", "sportsData", jsonData);
+            }
+
             var random = new Random();
             _randomSports = _sports?.OrderBy(_ => random.Next()).ToList();
         }
         catch (HttpRequestException ex)
         {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
+            Console.WriteLine($"❌ Error fetching data: {ex.Message}");
         }
     }
 

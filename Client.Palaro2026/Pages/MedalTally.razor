@@ -1,0 +1,139 @@
+﻿@page "/medal-tally"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudContainer MaxWidth="MaxWidth.Medium">
+    <MudTable Items="_regionalMedalTallies" Hover="true" SortLabel="Sort by" Elevation="0" AllowUnsorted="false" Dense="true" Context="region" Breakpoint="Breakpoint.SmAndUp">
+        <ColGroup>
+            <col style="width: 50%" />
+            <col style="width: 10%" />
+            <col style="width: 10%" />
+            <col style="width: 10%" />
+            <col style="width: 10%" />
+            <col style="width: 10%" />
+        </ColGroup>
+        <HeaderContent>
+            <MudTh Style="text-indent: 25px">
+                <MudTableSortLabel SortBy="new Func<MedalTallyDTO.RegionalMedalTally, object>(x=>x.Region!)">Region</MudTableSortLabel>
+            </MudTh>
+            <MudTh Style="text-align:center">
+                <MudTableSortLabel InitialDirection="SortDirection.Descending" SortBy="new Func<MedalTallyDTO.RegionalMedalTally, object>(x=>x.Gold!)">
+                    Gold
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh Style="text-align:center">
+                <MudTableSortLabel SortBy="new Func<MedalTallyDTO.RegionalMedalTally, object>(x=>x.Silver!)">
+                    Silver
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh Style="text-align:center">
+                <MudTableSortLabel SortBy="new Func<MedalTallyDTO.RegionalMedalTally, object>(x=>x.Bronze!)">
+                    Bronze
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh Style="text-align:center">
+                <MudTableSortLabel SortBy="new Func<MedalTallyDTO.RegionalMedalTally, object>(x=>x.Total!)">
+                    Total
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Region">
+                <MudStack Row AlignItems="AlignItems.Center">
+                    <MudImage Height="50" Src="@($"media/regions/{region.Abbreviation}.png")" />
+                    <MudStack Spacing="0">
+                        <MudText Style="font-weight: bold">@region.Abbreviation</MudText>
+                        <MudText Typo="Typo.caption">@region.Region</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudTd>
+            <MudTd DataLabel="Gold" Style="text-align:center">
+                @if (region.Gold != 0)
+                {
+                    <MudAvatar Style="@($"background-color: {Colors.Amber.Accent4}")">
+                        <MudText Typo="Typo.body2">@region.Gold</MudText>
+                    </MudAvatar>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2">-</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Silver" Style="text-align:center">
+                @if (region.Silver != 0)
+                {
+                    <MudAvatar Style="@($"background-color: {Colors.BlueGray.Lighten4}")">
+                        <MudText Typo="Typo.body2">@region.Silver</MudText>
+                    </MudAvatar>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2">-</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Bronze" Style="text-align:center">
+                @if (region.Bronze != 0)
+                {
+                    <MudAvatar Style="@($"background-color: {Colors.DeepOrange.Lighten1}")">
+                        <MudText Typo="Typo.body2">@region.Bronze</MudText>
+                    </MudAvatar>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2">-</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Total" Style="text-align:center">@region.Total</MudTd>
+            <MudTd DataLabel=""><MudIconButton Icon="@Icons.Material.Filled.ArrowForward" /></MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudContainer>
+<FooterComponent />
+@code {
+    private List<MedalTallyDTO.RegionalMedalTally>? _regionalMedalTallies;
+
+    public class MedalTallyDTO
+    {
+        public class RegionalMedalTally
+        {
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public int? Gold { get; set; }
+            public int? Silver { get; set; }
+            public int? Bronze { get; set; }
+            public int? Total { get; set; }
+        }
+    }
+
+    // Initialization method to fetch data and update UI elements
+    protected override async Task OnInitializedAsync()
+    {
+        await GetMedalTallyByRegionAsync();
+    }
+
+    private async Task GetMedalTallyByRegionAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/MedalTally/ByRegion";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _regionalMedalTallies = await JsonSerializer.DeserializeAsync<List<MedalTallyDTO.RegionalMedalTally>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+}

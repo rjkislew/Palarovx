@@ -15,7 +15,7 @@ builder.Services.Configure<JsonOptions>(options =>
 {
     options.SerializerOptions.MaxDepth = 128;
 });
-
+builder.Services.AddSignalR();
 
 var connectionString = builder.Configuration.GetConnectionString("Palaro2026DB")
                        ?? throw new InvalidOperationException("Connection string is not configured properly.");
