@@ -1,6 +1,9 @@
 ﻿@inherits LayoutComponentBase
+@inject IJSRuntime JSRuntime
+@inject NavigationManager uriHelper
+
 @* Required *@
-<MudThemeProvider Theme="PalaroTheme" DefaultScrollbar="true" />
+<MudThemeProvider @ref="_mudThemeProvider" Theme="PalaroTheme" DefaultScrollbar="true" IsDarkMode="@(_isDarkMode ?? false)" />
 <MudPopoverProvider />
 
 @* Needed for dialogs *@
@@ -10,20 +13,50 @@
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="0">
-        <MudLink Href="./" Underline="Underline.None">
-            <MudStack Row AlignItems="AlignItems.Center">
-                <MudImage Height="50" Src="./media/logo/Flat Logo with 2026.png" />
-                <MudStack Spacing="0" AlignItems="AlignItems.Start" Justify="Justify.Center" Style="height: 100%" Class="mr-10">
-                    <MudText Typo="Typo.h5" Color="Color.Dark" Style="font-weight: bold" Class="mb-n2">PALARO 2026</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Dark">Agusan del Sur</MudText>
+    <MudHidden Breakpoint="Breakpoint.SmAndDown">
+        <MudAppBar Elevation="0">
+            <MudLink Href="./" Underline="Underline.None">
+                <MudStack Row AlignItems="AlignItems.Center">
+                    <MudImage Height="50" Src="./media/logo/Flat Logo with 2026.png" />
+                    <MudStack Spacing="0" AlignItems="AlignItems.Start" Justify="Justify.Center" Style="height: 100%" Class="mr-10">
+                        <MudText Typo="Typo.h5" Color="Color.Dark" Style="font-weight: bold" Class="mb-n2">PALARO 2026</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Dark">Agusan del Sur</MudText>
+                    </MudStack>
                 </MudStack>
+            </MudLink>
+            <NavigationMenu />
+            <MudSpacer /><MudIconButton OnClick="ToggleDarkMode" Icon="@GetThemeIcon()" />
+        </MudAppBar>
+    </MudHidden>
+    <MudHidden Breakpoint="Breakpoint.SmAndUp">
+        <MudAppBar Elevation="0" Gutters="false">
+            <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" OnClick="@ToggleDrawer" />
+                <MudImage Height="50" Src="./media/logo/Flat Logo with 2026.png" />
+                <MudIconButton Icon="@Icons.Material.Filled.ModeNight" />
             </MudStack>
-        </MudLink>
-        <MudHidden Breakpoint="Breakpoint.MdAndDown">
-            <TopNavigation />
-        </MudHidden>
-    </MudAppBar>
+        </MudAppBar>
+        <MudDrawer @bind-Open="@_open" >
+            <MudDrawerHeader Dense="true" Class="pa-1">
+                <MudStack Row Justify="Justify.FlexStart">
+                    <MudImage Height="50" Src="./media/logo/Flat Logo with 2026.png" />
+                    <MudStack Spacing="0" AlignItems="AlignItems.Start" Justify="Justify.Center" Style="height: 100%" Class="mr-10">
+                        <MudText Style="font-weight: bold; font-size: 20px" Class="mb-n2">PALARO 2026</MudText>
+                        <MudText Typo="Typo.caption">Agusan del Sur</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudDrawerHeader>
+            <MudDrawerContainer Class="mt-3">
+                <NavigationMenu />
+            </MudDrawerContainer>
+        </MudDrawer>
+    </MudHidden>
+    @if (_newVersionAvailable)
+    {
+        <button type="button" class="btn btn-danger shadow floating-update-button" onclick="window.location.reload()">
+            A new version of the application is available. Click here to upgrade.
+        </button>
+    }
     <MudMainContent>
         @Body
     </MudMainContent>
@@ -31,16 +64,97 @@
 
 @code
 {
+    private bool? _isDarkMode = null; // null = Auto, true = Night, false = Light
+    private MudThemeProvider? _mudThemeProvider;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _mudThemeProvider is not null)
+        {
+            try
+            {
+                await _mudThemeProvider.WatchSystemPreference(OnSystemPreferenceChanged);
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error in OnAfterRenderAsync: {ex.Message}");
+            }
+        }
+    }
+
+    private Task OnSystemPreferenceChanged(bool newValue)
+    {
+        _isDarkMode = newValue;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void ToggleDarkMode()
+    {
+        _isDarkMode = _isDarkMode switch
+        {
+            null => true,  // Auto -> Night
+            true => false, // Night -> Light
+            false => null  // Light -> Auto
+        };
+    }
+
+    private string GetThemeIcon()
+    {
+        return _isDarkMode switch
+        {
+            true => Icons.Material.Filled.ModeNight,
+            false => Icons.Material.Filled.LightMode,
+            _ => Icons.Material.Filled.AutoMode
+        };
+    }
+
     private MudTheme PalaroTheme = new MudTheme()
         {
             PaletteLight = new PaletteLight()
             {
                 Dark = Colors.Gray.Darken4,
-                Primary = Colors.Blue.Darken4,
-                Secondary = Colors.Yellow.Darken2,
-                Tertiary = Colors.Red.Darken4,
+                Primary = "1e4ca1",
+                Secondary = "ebb94d",
+                Tertiary = "ba3535",
                 AppbarBackground = Colors.Shades.White,
                 AppbarText = Colors.Shades.Black
             },
+            LayoutProperties = new LayoutProperties()
+            {
+                DrawerWidthLeft = "280px"
+            }
         };
+
+    private bool _newVersionAvailable = false;
+    private bool _open = false;
+
+    private void ToggleDrawer()
+    {
+        _open = !_open;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RegisterForUpdateAvailableNotification();
+    }
+
+    private async Task RegisterForUpdateAvailableNotification()
+    {
+        await JSRuntime.InvokeAsync<object>(
+            identifier: "registerForUpdateAvailableNotification",
+            DotNetObjectReference.Create(this),
+            nameof(OnUpdateAvailable));
+    }
+
+    [JSInvokable(nameof(OnUpdateAvailable))]
+    public Task OnUpdateAvailable()
+    {
+        _newVersionAvailable = true;
+
+        StateHasChanged();
+
+        return Task.CompletedTask;
+    }
 }
