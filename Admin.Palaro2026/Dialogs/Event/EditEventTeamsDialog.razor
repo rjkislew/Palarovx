@@ -9,22 +9,32 @@
 
 <MudDialog>
     <DialogContent>
-        <MudGrid Spacing="0">
+        <MudGrid Spacing="1">
             <MudItem xs="12">
-                <MudItem xs="12">
-                    <MudSelect @bind-Value="_selectedRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined"
-                    T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedPlayerIDValues = null; await GetPlayerAsync(); }))">
-                        <MudVirtualize Items="_schoolRegions" Context="region">
-                            <MudSelectItem T="int?" Value="@region.ID">
-                                @region.Region (@region.Abbreviation)
-                            </MudSelectItem>
-                        </MudVirtualize>
-                    </MudSelect>
-                </MudItem>
+                <MudSelect @bind-Value="_selectedRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined"
+                           T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedPlayerIDValues = null; await GetPlayerAsync(); }))">
+                    <MudVirtualize Items="_schoolRegions" Context="region">
+                        <MudSelectItem T="int?" Value="@region.ID">
+                            @region.Region (@region.Abbreviation)
+                        </MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12">
                 <MudSelect @bind-SelectedValues="_selectedPlayerIDValues" SelectAll="true" ToStringFunc="@(id => _profilePlayerEvents?.FirstOrDefault(c => c.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)"
-                T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Player" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedRegionIDValue == null">
+                           T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Player" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedRegionIDValue == null">
                     <MudVirtualize Items="_profilePlayerEvents" Context="player">
                         <MudSelectItem T="int?" Value="player.ID">@player.FirstName @player.LastName</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_scoreValue" Label="Score" ShrinkLabel Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect T="string" Margin="Margin.Dense" Label="Placement" @bind-Value="_rankValue" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                    <MudVirtualize Items="Placements" Context="placement">
+                        <MudSelectItem T="string" Value="@placement">@placement</MudSelectItem>
                     </MudVirtualize>
                 </MudSelect>
             </MudItem>
@@ -59,17 +69,19 @@
     // JSON storage
     private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
     private List<ProfilesDTO.ProfilePlayerEvent>? _profilePlayerEvents;
-    private List<EventsDTO.EventVersusTeams>?  _eventVersusTeams;
-    private List<EventsDTO.EventVersusTeamPlayers>?  _eventVersusTeamPlayers;
+    private List<EventsDTO.EventVersusTeams>? _eventVersusTeams;
+    private List<EventsDTO.EventVersusTeamPlayers>? _eventVersusTeamPlayers;
+
 
     // Variables
     private int? _createdEventVersusTeamIDValue;
     private string? _selectedEventID;
     private int? _selectedRegionIDValue;
-    private int? _selectedEventVersusTeamsIDValue;
+    private int _selectedEventVersusTeamsIDValue;
     private int? _selectedEventVersusTeamPlayersIDValue;
     private IEnumerable<int?>? _selectedPlayerIDValues;
     private string? _scoreValue = "0";
+    private string? _rankValue;
     private DateTime? _recentUpdateAt = DateTime.Now;
 
     // Disable addition button if values are empty
@@ -78,6 +90,16 @@
 
     // Load dialog if true
     private bool? _isLoaded = false;
+
+
+    private List<string> Placements = new()
+    {
+        "Champion",
+        "First Runner-Up",
+        "Second Runner-Up",
+        "Eliminated",
+    };
+
 
     // DTOs
     public class SchoolsDTO
@@ -110,6 +132,7 @@
             public string? EventID { get; set; }
             public int? SchoolRegionID { get; set; }
             public string? Score { get; set; }
+            public string? Rank { get; set; }
             public DateTime? RecentUpdateAt { get; set; }
         }
 
@@ -176,6 +199,7 @@
                 _selectedEventID = eventVersusTeam.EventID;
                 _selectedRegionIDValue = eventVersusTeam.SchoolRegionID;
                 _scoreValue = eventVersusTeam.Score;
+                _rankValue = eventVersusTeam.Rank;
                 _recentUpdateAt = eventVersusTeam.RecentUpdateAt;
             }
         }
@@ -280,8 +304,10 @@
             var updatedStream = new EventsDTO.EventVersusTeams
                 {
                     EventID = SelectedEventID,
+                    ID = _selectedEventVersusTeamsIDValue,
                     SchoolRegionID = _selectedRegionIDValue,
                     Score = _scoreValue,
+                    Rank = _rankValue,
                     RecentUpdateAt = _recentUpdateAt,
                 };
 
@@ -291,28 +317,18 @@
             HttpResponseMessage response = await httpClient.PutAsync(url, content);
             response.EnsureSuccessStatusCode();
 
-            if (_selectedPlayerIDValues?.Any() != true)
+            // If there are selected players, update them, otherwise delete all
+            if (_selectedPlayerIDValues?.Any() == true)
             {
-                // delete player sport coach first by player sport id
+                await DeleteEventVersusTeamPlayersByEventVersusTeamIDAsync();
+                await PostEventVersusTeamPlayersAsync();
+            }
+            else
+            {
                 await DeleteEventVersusTeamPlayersByEventVersusTeamIDAsync();
             }
 
-            if (_selectedPlayerIDValues?.Any() != false)
-            {
-                // add new player sport coach
-                await PostEventVersusTeamPlayersAsync();
-            }
-
-            if (_selectedPlayerIDValues?.Count() > 0)
-            {
-                // delete player sport coach first by player sport id
-                await DeleteEventVersusTeamPlayersByEventVersusTeamIDAsync();
-                // add new player sport coach
-                await PostEventVersusTeamPlayersAsync();
-            }
-
-            Snackbar.Add("Player sport event updated successfully.", Severity.Success);
-
+            Snackbar.Add("Selected team updated successfully.", Severity.Success);
             MudDialog?.Close(DialogResult.Ok(true));
         }
         catch (HttpRequestException ex)
@@ -321,29 +337,34 @@
         }
     }
 
+
     private async Task PostEventVersusTeamPlayersAsync()
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/Players​";
+            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/Players";
 
-            var eventStream = _selectedPlayerIDValues?.Where(id => id.HasValue) // Ensure valid IDs
+            var eventStream = _selectedPlayerIDValues?.Where(id => id.HasValue)
                 .Select(playerID => new EventsDTO.EventVersusTeamPlayers
                     {
                         ProfilePlayerID = playerID!.Value,
                         EventVersusID = SelectedEventVersusTeamsID,
                     }).ToList();
 
+            if (eventStream == null || !eventStream.Any()) return;
+
             var jsonContent = JsonSerializer.Serialize(eventStream);
             var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
             HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            httpResponse.EnsureSuccessStatusCode();
         }
         catch (HttpRequestException ex)
         {
-            Console.WriteLine($"Error posting data: {ex.Message}");
+            Snackbar.Add($"Error posting data: {ex.Message}", Severity.Error);
         }
     }
+
 
     // Delete Sport event and sport event coach by sport event ID
     private async Task DeleteEventVersusTeamPlayersByEventVersusTeamIDAsync()

@@ -61,9 +61,9 @@
                         <MudDateRangePicker DateRange="@_dateRange" DateRangeChanged="OnDateRangeChanged" Margin="Margin.Dense" Clearable Variant="Variant.Outlined" PlaceholderStart="Start Date" PlaceholderEnd="End Date" Label="Date" />
 
                         @* User *@
-                        <MudSelect @bind-Value="_selectedUser" Margin="Margin.Dense" Label="Designated Person" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetEventsAsync">
+                        <MudSelect @bind-Value="_selectedTallyClerk" Margin="Margin.Dense" Label="Designated Person" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetEventsAsync">
                             <MudVirtualize Items="_userLists" Context="user">
-                                <MudSelectItem Value="new SelectedUser { ID = user.ID, Name = user.Name }">@user.Name</MudSelectItem>
+                                <MudSelectItem Value="new SelectedUser { ID = user.ID}">@user.FirstName @user.LastName</MudSelectItem>
                             </MudVirtualize>
                         </MudSelect>
 
@@ -189,47 +189,47 @@
                             <MudDivider />
 
                             @* Teams *@
-                            <MudStack>
-                                @if (eventDetail.EventVersusList == null || !eventDetail.EventVersusList.Any())
-                                {
-                                    <MudField Label="Opposing Teams" Variant="Variant.Outlined" InnerPadding="false">
-                                        <MudStack Class="py-1" Row Wrap="Wrap.Wrap" Spacing="0">
-                                            <MudText Typo="Typo.caption">Opposing teams to be assigned.</MudText>
-                                        </MudStack>
-                                    </MudField>
-                                }
-                                else if (eventDetail.IsFinished == true && eventDetail.EventStage == "Championship")
-                                {
-                                    <MudField Label="Opposing Teams" Variant="Variant.Outlined" InnerPadding="false">
-                                        <MudStack Class="py-2" Row Wrap="Wrap.Wrap" Spacing="0">
-                                            @foreach (var (team, index) in eventDetail!.EventVersusList!.OrderByDescending(e => int.TryParse(e.Score, out var s) ? s : 0).Select((team, index) => (team, index)))
+                            <MudField Label="Opposing Teams" Variant="Variant.Outlined" InnerPadding="false">
+                                <MudStack Class="py-1" Row Wrap="Wrap.Wrap" Spacing="0">
+                                    @if (eventDetail.EventVersusList == null || !eventDetail.EventVersusList.Any())
+                                    {
+                                        <MudText Typo="Typo.caption">Opposing teams to be assigned.</MudText>
+                                    }
+                                    else if (eventDetail.IsFinished == true && eventDetail.EventStage == "Championship")
+                                    {
+                                        @foreach (var (team, index) in eventDetail!.EventVersusList!.OrderByDescending(e => int.TryParse(e.Score, out var s) ? s : 0).Select((team, index) => (team, index)))
+                                        {
+                                            @if (index < 3)
                                             {
-                                                @if (index < 3)
-                                                {
-                                                    <MudChip Variant="Variant.Outlined" Size="Size.Small" T="string" Style="@($"border-color: {GetMedalColor(index)}")">
-                                                        <MudIcon Icon="@Icons.Material.Filled.WorkspacePremium" Class="mr-2" Style="@($"color: {GetMedalColor(index)}")" />
-                                                        @team.Abbreviation (@team.Score)
-                                                    </MudChip>
-                                                }
+                                                <MudChip Variant="Variant.Outlined" Size="Size.Small" Class="pa-0 pl-2" T="string" Style="@($"border-color: {GetMedalColor(index)}")">
+                                                    <MudIcon Class="mr-2" Icon="@Icons.Material.Filled.WorkspacePremium" Style="@($"color: {GetMedalColor(index)}")" />
+                                                    @team.Abbreviation - [ @team.Score ]
+                                                    <MudIconButton Class="ml-2" Icon="@Icons.Material.Filled.Settings" Size="Size.Small" OnClick="() => OpenEditEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID, team.ID)" />
+                                                </MudChip>
                                             }
-                                        </MudStack>
-                                    </MudField>
-                                }
-                                else
-                                {
-                                    <MudField Label="Opposing Teams" Variant="Variant.Outlined" InnerPadding="false">
-                                        <MudStack Class="py-2" Row Wrap="Wrap.Wrap" Spacing="0">
-                                            <MudVirtualize Items="eventDetail.EventVersusList" Context="teams">
-                                                <MudChip Variant="Variant.Outlined" Size="Size.Small" T="string">@teams.Abbreviation (@teams.Score)</MudChip>
-                                            </MudVirtualize>
-                                        </MudStack>
-                                    </MudField>
-                                }
-                            </MudStack>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <MudVirtualize Items="eventDetail.EventVersusList" Context="team">
+                                            <MudChip Variant="Variant.Outlined" Size="Size.Small" Class="pa-0 pl-2" T="string">
+                                                @team.Abbreviation - [ @team.Score ]
+                                                <MudIconButton Class="ml-2" Icon="@Icons.Material.Filled.Settings" Size="Size.Small" OnClick="() => OpenEditEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID, team.ID)" />
+                                            </MudChip>
+                                        </MudVirtualize>
+                                    }
+                                </MudStack>
+                            </MudField>
                         </MudStack>
 
                         @* Designate *@
-                        <MudText Typo="Typo.caption">Tally Clerk: @eventDetail.FirstName @eventDetail.LastName</MudText>
+                        <MudText Typo="Typo.caption">Tally Clerk: @eventDetail.FirstName @eventDetail.LastName</MudText>@if (eventDetail.EventVersusList != null && eventDetail.EventVersusList.Any() && eventDetail.IsFinished != true && eventDetail.EventStage != "Championship")
+                        {
+                            <MudButton FullWidth Variant="Variant.Filled" Color="Color.Primary" DropShadow="false">
+                                Score Board
+                            </MudButton>
+                        }
+
                     </MudStack>
                 </MudPaper>
             </MudItem>
@@ -341,13 +341,15 @@
         public override string ToString() => Subcategory ?? string.Empty;
     }
 
-    private SelectedUser? _selectedUser;
+    private SelectedUser? _selectedTallyClerk;
     public class SelectedUser
     {
         public string ID { get; set; } = null!;
-        public string? Name { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? Role { get; set; }
 
-        public override string ToString() => Name ?? string.Empty;
+        public override string ToString() => FirstName ?? string.Empty;
     }
 
     private SelectedRegion? _selectedRegion;
@@ -497,7 +499,9 @@
         public class UserList
         {
             public string ID { get; set; } = null!;
-            public string? Name { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? Role { get; set; }
         }
     }
 
@@ -515,7 +519,7 @@
         await GetSportGenderCategoriesAsync();
         await GetSchoolLevelsAsync();
         await GetVenuesAsync();
-        await GetUserNameListAsync();
+        await GetTallyClerksAsync();
         await GetSchoolRegionsAsync();
     }
 
@@ -535,7 +539,7 @@
             $"&endDate={_endDate?.ToString("yyyy-MM-dd")}" +
             $"&onStream={_isOnStream}" +
             $"&isFinished={_isFinished}" +
-            $"&userID={_selectedUser?.ID}";
+            $"&userID={_selectedTallyClerk?.ID}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
@@ -675,11 +679,11 @@
         }
     }
 
-    private async Task GetUserNameListAsync()
+    private async Task GetTallyClerksAsync()
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Users/List";
+            string url = $"{apiService.Palaro2026API}/Users/TallyClerkList";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
@@ -747,7 +751,7 @@
         };
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
 
-        var dialog = await DialogService.ShowAsync<EditEventTeamsDialog>("Add Team for the Event", parameter, options);
+        var dialog = await DialogService.ShowAsync<EditEventTeamsDialog>("Edit Team for the Event", parameter, options);
 
         var result = await dialog.Result;
 

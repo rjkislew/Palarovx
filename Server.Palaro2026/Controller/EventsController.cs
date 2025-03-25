@@ -171,6 +171,7 @@ namespace Server.Palaro2026.Controller
                             ev.Score,
                             ev.SchoolRegion?.Region,
                             ev.SchoolRegion?.Abbreviation,
+                            ev.Rank,
                             ev.RecentUpdateAt
                         })
                         .Select(evGroup => new EventsDTO.EventDetails.EventVersusTeams
@@ -179,6 +180,7 @@ namespace Server.Palaro2026.Controller
                             Score = evGroup.Key.Score,
                             Region = evGroup.Key.Region,
                             Abbreviation = evGroup.Key.Abbreviation,
+                            Rank = evGroup.Key.Rank,
                             RecentUpdateAt = evGroup.Key.RecentUpdateAt,
                             EventVersusTeamPlayersList = evGroup
                                 .SelectMany(ev => ev.EventVersusTeamPlayers ?? new List<EventVersusTeamPlayers>())
@@ -1065,15 +1067,17 @@ namespace Server.Palaro2026.Controller
                Score = eventVersusTeams.Score,
                SchoolRegionID = eventVersusTeams.SchoolRegionID,
                EventID = eventVersusTeams.EventID,
+               Rank = eventVersusTeams.Rank,
                RecentUpdateAt = eventVersusTeams.RecentUpdateAt,
            };
 
         [HttpGet("VersusTeams")]
         public async Task<ActionResult<IEnumerable<EventsDTO.EventVersusTeams>>> GetEventVersusTeams(
         [FromQuery] int? ID = null,
-        [FromQuery] string? score = null,
         [FromQuery] int? schoolRegionID = null,
         [FromQuery] string? eventID = null,
+        [FromQuery] string? score = null,
+        [FromQuery] string? rank = null,
         [FromQuery] DateTime? recentUpdateAt = null)
         {
             var query = _context.EventVersusTeams.AsQueryable();
@@ -1116,6 +1120,7 @@ namespace Server.Palaro2026.Controller
             existingEventVersusTeams.Score = eventVersusTeams.Score;
             existingEventVersusTeams.SchoolRegionID = eventVersusTeams.SchoolRegionID;
             existingEventVersusTeams.EventID = eventVersusTeams.EventID;
+            existingEventVersusTeams.Rank = eventVersusTeams.Rank;
             existingEventVersusTeams.RecentUpdateAt = eventVersusTeams.RecentUpdateAt;
 
             try
@@ -1143,6 +1148,7 @@ namespace Server.Palaro2026.Controller
                 Score = eventVersusTeams.Score,
                 SchoolRegionID = eventVersusTeams.SchoolRegionID,
                 EventID = eventVersusTeams.EventID,
+                Rank = eventVersusTeams.Rank,
                 RecentUpdateAt = eventVersusTeams.RecentUpdateAt,
             };
 
