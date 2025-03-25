@@ -67,6 +67,12 @@
     private bool? _isDarkMode = null; // null = Auto, true = Night, false = Light
     private MudThemeProvider? _mudThemeProvider;
 
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadThemePreference();
+        await RegisterForUpdateAvailableNotification();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && _mudThemeProvider is not null)
@@ -83,21 +89,43 @@
         }
     }
 
-    private Task OnSystemPreferenceChanged(bool newValue)
+    private async Task LoadThemePreference()
     {
-        _isDarkMode = newValue;
-        StateHasChanged();
-        return Task.CompletedTask;
+        var storedValue = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "darkMode");
+        if (!string.IsNullOrEmpty(storedValue))
+        {
+            _isDarkMode = storedValue switch
+            {
+                "true" => true,
+                "false" => false,
+                _ => null
+            };
+            StateHasChanged();
+        }
     }
 
-    private void ToggleDarkMode()
+    private async Task SaveThemePreference()
+    {
+        var value = _isDarkMode?.ToString().ToLower() ?? "null";
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "darkMode", value);
+    }
+
+    private async Task OnSystemPreferenceChanged(bool newValue)
+    {
+        _isDarkMode = newValue;
+        await SaveThemePreference();
+        StateHasChanged();
+    }
+
+    private async Task ToggleDarkMode()
     {
         _isDarkMode = _isDarkMode switch
         {
-            null => true,  // Auto -> Night
-            true => false, // Night -> Light
-            false => null  // Light -> Auto
+            null => true,
+            true => false,
+            false => null
         };
+        await SaveThemePreference();
     }
 
     private string GetThemeIcon()
@@ -121,6 +149,18 @@
                 AppbarBackground = Colors.Shades.White,
                 AppbarText = Colors.Shades.Black
             },
+            PaletteDark = new PaletteDark()
+            {
+                Dark = Colors.Gray.Lighten3,
+                Primary = "1e4ca1",
+                Secondary = "ebb94d",
+                Tertiary = "ba3535",
+                Background = Colors.Gray.Darken4,
+                Surface = Colors.Gray.Darken3,
+                ActionDefault = Colors.Gray.Darken3,
+                AppbarBackground = Colors.Gray.Darken4,
+                AppbarText = Colors.Gray.Lighten3
+            },
             LayoutProperties = new LayoutProperties()
             {
                 DrawerWidthLeft = "280px"
@@ -135,11 +175,6 @@
         _open = !_open;
     }
 
-    protected override async Task OnInitializedAsync()
-    {
-        await RegisterForUpdateAvailableNotification();
-    }
-
     private async Task RegisterForUpdateAvailableNotification()
     {
         await JSRuntime.InvokeAsync<object>(
@@ -152,9 +187,7 @@
     public Task OnUpdateAvailable()
     {
         _newVersionAvailable = true;
-
         StateHasChanged();
-
         return Task.CompletedTask;
     }
 }
