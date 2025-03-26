@@ -7,7 +7,6 @@ using System.Text;
 using Server.Palaro2026;
 using Microsoft.AspNetCore.Http.Json;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
@@ -16,7 +15,7 @@ builder.Services.Configure<JsonOptions>(options =>
 {
     options.SerializerOptions.MaxDepth = 128;
 });
-
+builder.Services.AddSignalR();
 
 var connectionString = builder.Configuration.GetConnectionString("Palaro2026DB")
                        ?? throw new InvalidOperationException("Connection string is not configured properly.");
@@ -29,9 +28,8 @@ builder.Services.AddDbContext<Palaro2026Context>(options =>
 // Configure CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy => 
+    options.AddPolicy("AllowAll", policy =>
         policy.WithOrigins(
-            "https://localhost",
             "https://pgas.ph",
             "https://localhost:7061",
             "https://localhost:7170",
@@ -72,32 +70,37 @@ builder.Services.AddAuthentication(options =>
     options.IncludeErrorDetails = true;
 });
 
-
-builder.Services.AddOpenApi("v1", options => { options.AddDocumentTransformer<BearerSecuritySchemeTransformer>(); });
+builder.Services.AddOpenApi("v1", options => { options.AddDocumentTransformer<BearerSecuritySchemeTransformer>() ; });
 
 var app = builder.Build();
 
-//if (app.Environment.IsDevelopment())
-//{
-//    app.MapScalarApiReference(options =>
-//    {
-//        options.Title = "Palaro 2026 API";
-//        options.ShowSidebar = true;
-//        options.HideModels = true;
-//    });
-//    app.MapOpenApi();
-//}
+// Fallback for first-time execution (avoids null values)
+string GetHostAddress = "http://localhost";
 
+app.Use(async (context, next) =>
+{
+    // Get Host and PathBase dynamically
+    var hostAddress = $"{context.Request.Scheme}://{context.Request.Host}";
+    var pathBase = context.Request.PathBase.HasValue ? context.Request.PathBase.Value : "";
+
+    // Update Scalar API Server URL dynamically
+    GetHostAddress = $"{hostAddress}{pathBase}".TrimEnd('/');
+
+    await next();
+});
+
+// Dynamically get Host and PathBase
 app.MapScalarApiReference(options =>
 {
-    options.Title = "Palaro 2026 API - Development Stage";
+    options.Title = "Palaro 2026 API";
     options.ShowSidebar = true;
     options.HideModels = true;
+
+    // Host & PathBase will be dynamically determined at runtime
+    options.AddServer(GetHostAddress);
 });
 
 app.MapOpenApi();
-
-app.MapGet("/api/check", () => "Get Response");
 
 app.UseCors("AllowAll");
 

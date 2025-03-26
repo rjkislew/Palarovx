@@ -1,6 +1,4 @@
-﻿using Server.Palaro2026.Entities;
-
-namespace Server.Palaro2026.DTO;
+﻿namespace Server.Palaro2026.DTO;
 
 public class SportsDTO
 {

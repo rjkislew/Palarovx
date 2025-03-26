@@ -1,0 +1,278 @@
+﻿@page "/events/id={ID}"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudContainer MaxWidth="MaxWidth.False">
+    <MudGrid Justify="Justify.Center">
+        @if (_eventDetailLoaded == true)
+        {
+            if (_eventDetail?.OnStream == true)
+            {
+                <MudItem xs="8">
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudStack Class="rounded" Style="height: 80vh; display: flex; justify-content: center; align-items: center;">
+                                @if (!string.IsNullOrEmpty(ExtractYouTubeVideoId(_eventDetail?.StreamURL)))
+                                {
+                                    <iframe class="rounded" src="@($"https://www.youtube.com/embed/{ExtractYouTubeVideoId(_eventDetail?.StreamURL)}?autoplay=1&mute=1")"
+                                            frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
+                                    </iframe>
+                                }
+                                else
+                                {
+                                    <MudText>No stream available</MudText>
+                                }
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.caption" Class="mt-3 text-wrap" Style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal;">
+                                #@_eventDetail?.Sport?.Replace(" ", "") #@_eventDetail?.Gender?.Replace(" ", "") #@_eventDetail?.Level?.Replace(" ", "") #@_eventDetail?.EventStage?.Replace(" ", "") #@_eventDetail?.Subcategory?.Replace(" ", "")
+                                <MudVirtualize Items="@_eventDetail?.EventVersusList" Context="teams">
+                                    #@teams.Region?.Replace(" ", "")-@teams.Abbreviation?.Replace(" ", "")
+                                </MudVirtualize>
+                            </MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudItem>
+                <MudItem xs="4">
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudPaper Outlined Class="pa-3">
+                                <MudStack Spacing="0" Style="width: 100%" AlignItems="AlignItems.Center">
+                                    <MudText Style="font-size: 35px; font-weight: bold">Score</MudText>
+                                    <MudText Typo="Typo.caption">@_eventDetail?.EventStage</MudText>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                        @if (_eventDetail.EventStage == "Championship")
+                        {
+                            <MudVirtualize Items="@(_eventDetail?.EventVersusList?.OrderByDescending(e => int.TryParse(e.Score, out var score) ? score : int.MinValue).ToList())" Context="team">
+                                <MudItem xs="6">
+                                    <MudPaper Outlined Style="@($"border-color: {GetMedalColor((_eventDetail?.EventVersusList?.OrderByDescending(e => int.TryParse(e.Score, out var score) ? score : int.MinValue).ToList().IndexOf(team)) ?? -1)}")">
+                                        <MudStack AlignItems="AlignItems.Center" Class="pa-3 relative" Spacing="0">
+                                            <MudIcon Icon="@Icons.Material.Filled.WorkspacePremium" Size="Size.Large" Class="absolute align-self-start" Style="@($"color: {GetMedalColor((_eventDetail?.EventVersusList?.OrderByDescending(e => int.TryParse(e.Score, out var score) ? score : int.MinValue).ToList().IndexOf(team)) ?? -1)}")" />
+                                            <MudImage Src="@($"media/regions/{team.Abbreviation}.png")" Height="70" />
+                                            <MudText Style="font-weight: bold">@team.Abbreviation</MudText>
+                                            <MudText Typo="Typo.caption">@team.Region</MudText>
+                                            <MudText Style="font-family: 'Roboto Mono', monospace; font-size: 50px; font-weight: bold">
+                                                @team.Score
+                                            </MudText>
+                                        </MudStack>
+                                    </MudPaper>
+                                </MudItem>
+                            </MudVirtualize>
+                        }
+                        else
+                        {
+                            <MudVirtualize Items="@_eventDetail?.EventVersusList" Context="team">
+                                <MudItem xs="6">
+                                    <MudPaper Outlined>
+                                        <MudStack AlignItems="AlignItems.Center" Class="pa-3" Spacing="0">
+                                            <MudImage Src="@($"media/regions/{team.Abbreviation}.png")" Height="70" />
+                                            <MudText Style="font-weight: bold">@team.Region</MudText>
+                                            <MudText Typo="Typo.caption">@team.Abbreviation</MudText>
+                                            <MudText Style="font-family: 'Roboto Mono', monospace; font-size: 50px; font-weight: bold">
+                                                @team.Score
+                                            </MudText>
+                                        </MudStack>
+                                    </MudPaper>
+                                </MudItem>
+                            </MudVirtualize>
+                        }
+                    </MudGrid>
+                </MudItem>
+            }
+            else
+            {
+                <MudItem xs="12">
+                    <MudGrid Justify="Justify.Center">
+                        <MudItem xs="6">
+                            <MudPaper Outlined Class="pa-3">
+                                <MudStack Spacing="0" Style="width: 100%" AlignItems="AlignItems.Center">
+                                    <MudText Style="font-size: 35px; font-weight: bold">Score</MudText>
+                                    <MudText Typo="Typo.caption">@_eventDetail?.EventStage</MudText>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                        <MudFlexBreak />@if (_eventDetail.EventStage == "Championship")
+                        {
+                            <MudVirtualize Items="@(_eventDetail?.EventVersusList?.OrderByDescending(e => int.TryParse(e.Score, out var score) ? score : int.MinValue).ToList())" Context="team">
+                                <MudItem xs="6" md="4" lg="3">
+                                    <MudPaper Outlined Style="@($"border-color: {GetMedalColor((_eventDetail?.EventVersusList?.OrderByDescending(e => int.TryParse(e.Score, out var score) ? score : int.MinValue).ToList().IndexOf(team)) ?? -1)}")">
+                                        <MudStack AlignItems="AlignItems.Center" Class="pa-3 relative" Spacing="0">
+                                            <MudIcon Icon="@Icons.Material.Filled.WorkspacePremium" Size="Size.Large" Class="absolute align-self-start" Style="@($"color: {GetMedalColor((_eventDetail?.EventVersusList?.OrderByDescending(e => int.TryParse(e.Score, out var score) ? score : int.MinValue).ToList().IndexOf(team)) ?? -1)}")" />
+                                            <MudImage Src="@($"media/regions/{team.Abbreviation}.png")" Height="70" />
+                                            <MudText Style="font-weight: bold">@team.Abbreviation</MudText>
+                                            <MudText Typo="Typo.caption">@team.Region</MudText>
+                                            <MudText Style="font-family: 'Roboto Mono', monospace; font-size: 50px; font-weight: bold">
+                                                @team.Score
+                                            </MudText>
+                                        </MudStack>
+                                    </MudPaper>
+                                </MudItem>
+                            </MudVirtualize>
+                        }
+                        else
+                        {
+                            <MudVirtualize Items="@_eventDetail?.EventVersusList" Context="team">
+                                <MudItem xs="6">
+                                    <MudPaper Outlined>
+                                        <MudStack AlignItems="AlignItems.Center" Class="pa-3" Spacing="0">
+                                            <MudImage Src="@($"media/regions/{team.Abbreviation}.png")" Height="70" />
+                                            <MudText Style="font-weight: bold">@team.Region</MudText>
+                                            <MudText Typo="Typo.caption">@team.Abbreviation</MudText>
+                                            <MudText Style="font-family: 'Roboto Mono', monospace; font-size: 50px; font-weight: bold">
+                                                @team.Score
+                                            </MudText>
+                                        </MudStack>
+                                    </MudPaper>
+                                </MudItem>
+                            </MudVirtualize>
+                        }
+                    </MudGrid>
+                </MudItem>
+            }
+        }
+        else
+        {
+            <MudItem xs="12">
+                <MudProgressLinear Indeterminate=true />
+            </MudItem>
+        }
+    </MudGrid>
+</MudContainer>
+<FooterComponent />
+@code {
+    private EventsDTO.EventDetails.Event? _eventDetail;
+    private bool _eventDetailLoaded = false;
+
+    [Parameter]
+    public string? ID { get; set; }
+
+    public class EventsDTO
+    {
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public string? StreamTitle { get; set; }
+                public bool? IsFinished { get; set; }
+                public byte[]? Attachement { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                // public int? SchoolRegionID { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                //
+
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
+    }
+
+    private string? ExtractYouTubeVideoId(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        try
+        {
+            var uri = new Uri(url);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var videoId = query["v"]; // Extracts video ID from ?v=
+
+            // Handles shortened or embedded URLs
+            if (string.IsNullOrEmpty(videoId) && uri.Segments.Length > 1)
+            {
+                videoId = uri.Segments.Last().TrimEnd('/');
+            }
+
+            return videoId;
+        }
+        catch
+        {
+            return null; // Return null if the URL is invalid
+        }
+    }
+
+    private string GetMedalColor(int index)
+    {
+        return index switch
+        {
+            0 => Colors.Amber.Accent4,   // First place (Gold)
+            1 => Colors.BlueGray.Lighten4, // Second place (Silver)
+            2 => Colors.DeepOrange.Lighten1, // Third place (Bronze)
+            _ => "transparent" // Default color for others
+        };
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetEventsAsync();
+    }
+
+    private async Task GetEventsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/Details?id={ID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _eventDetail = (await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options))?.FirstOrDefault();
+
+            if (_eventDetail != null)
+            {
+                _eventDetailLoaded = true;
+            }
+
+        }
+        catch (HttpRequestException)
+        {
+            _eventDetailLoaded = false;
+        }
+    }
+}

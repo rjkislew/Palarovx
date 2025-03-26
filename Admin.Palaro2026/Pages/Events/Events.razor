@@ -11,10 +11,6 @@
 
 
 <MudGrid Spacing="0">
-    <MudItem xs="12">
-        <MudText Typo="Typo.h4">Events</MudText>
-        <MudBreadcrumbs Items="_items"></MudBreadcrumbs>
-    </MudItem>
     @if (_errorLoading == false)
     {
         <MudItem xs="12">
@@ -27,7 +23,7 @@
         <MudItem xs="12">
             <MudTable Outlined Items="_eventDetails" Striped Context="eventDetail" Filter="FilterFunc" Elevation="0">
                 <ToolBarContent>
-                    <MudText Typo="Typo.h6">List of Events</MudText>
+                    <MudText Typo="Typo.h6">Events</MudText>
                     <MudSpacer />
                     <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
                                   Adornment="Adornment.Start"
@@ -61,7 +57,17 @@
                 <RowTemplate>
                     <MudTd Datalabel="Event">
                         <MudStack Spacing="0">
-                            <MudText Typo="Typo.caption" Class="mb-2">[@eventDetail.EventStage]</MudText>
+                            <MudStack Row Class="mb-2" Spacing="1">
+                                <MudText Typo="Typo.caption">[@eventDetail.EventStage] - </MudText>
+                                @if (@eventDetail.IsFinished == true)
+                                {
+                                    <MudText Typo="Typo.caption">Finished</MudText>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption">Ongoing</MudText>
+                                }
+                            </MudStack>
                             <MudText>@eventDetail.Category</MudText>
                             <MudStack Row Spacing="1">
                                 <MudText Typo="Typo.caption">
@@ -79,20 +85,20 @@
                     <MudTd Datalabel="Opposing Teams">
                         <MudGrid>
                             <MudItem xs="12">
-                                <MudVirtualize Items="@eventDetail.EventVersusList" Context="teams">
+                                <MudVirtualize Items="@eventDetail.EventVersusList" Context="team">
                                     <MudTooltip>
                                         <ChildContent>
                                             <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Class="pa-0 pl-2">
-                                                @teams.Abbreviation
-                                                <MudIconButton class="ml-2" Icon="@Icons.Material.Filled.Settings" Size="Size.Small" OnClick="() => OpenEditEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID, teams.ID)" />
+                                                @team.Abbreviation [ @team.Score ]
+                                                <MudIconButton Class="ml-2" Icon="@Icons.Material.Filled.Settings" Size="Size.Small" OnClick="() => OpenEditEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID, team.ID)" />
                                             </MudChip>
                                         </ChildContent>
                                         <TooltipContent>
-                                            <MudVirtualize Items="@teams.EventVersusTeamPlayersList" Context="players">
+                                            <MudVirtualize Items="@team.EventVersusTeamPlayersList" Context="players">
                                                 <MudStack Spacing="0">
                                                     <MudText Typo="Typo.caption">@players.FirstName @players.LastName</MudText>
                                                     <MudText Typo="Typo.caption">@players.School</MudText>
-                                                    @if (players != teams.EventVersusTeamPlayersList?.Last())
+                                                    @if (players != team.EventVersusTeamPlayersList?.Last())
                                                     {
                                                         <MudDivider Class="py-1" />
                                                     }
@@ -180,29 +186,56 @@
     private string _searchString = "";
     private bool _errorLoading;
 
-    private bool FilterFunc(EventsDTO.EventDetails.Event streams)
+    private bool FilterFunc(EventsDTO.EventDetails.Event events)
     {
         if (string.IsNullOrWhiteSpace(_searchString))
             return true;
-        return streams.Category!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-            streams.EventStage!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-            streams.Sport!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-            streams.Subcategory!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-            streams.Gender!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-            streams.Level!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-            streams.StreamService!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-            streams.Venue!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-            streams.StreamService!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-            streams.FirstName!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-            streams.LastName!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+
+        // Split search terms by comma and trim spaces
+        var searchTerms = _searchString.Split(',')
+                                       .Select(term => term.Trim().ToLower())
+                                       .Where(term => !string.IsNullOrEmpty(term))
+                                       .ToList();
+
+        bool matchesAnyTerm = false;
+
+        foreach (var term in searchTerms)
+        {
+            if ("finished".StartsWith(term) && events.IsFinished == true)
+            {
+                matchesAnyTerm = true;
+                continue;
+            }
+
+            if ("ongoing".StartsWith(term) && events.IsFinished == false)
+            {
+                matchesAnyTerm = true;
+                continue;
+            }
+
+            bool eventDetails = (events.Category?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.EventStage?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.Sport?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.Subcategory?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.Gender?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.Level?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.StreamService?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.Venue?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.FirstName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.LastName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
+
+            bool opposingTeamsMatch = (events.EventVersusList?.Any(team =>
+                (team?.Region?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (team?.Abbreviation?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)) ?? false);
+
+            if (eventDetails || opposingTeamsMatch)
+            {
+                matchesAnyTerm = true;
+            }
+        }
+
+        return matchesAnyTerm;
     }
-
-    private List<BreadcrumbItem> _items =
-    [
-        new("Home", href: "./"),
-    new("Events", href: null, disabled: true)
-    ];
-
 
     // DTOs
     public class EventsDTO
@@ -244,6 +277,7 @@
                 public string? Region { get; set; }
                 public string? Abbreviation { get; set; }
                 public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public string? Rank { get; set; }
                 public DateTime? RecentUpdateAt { get; set; }
             }
 
@@ -347,7 +381,7 @@
         };
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
 
-        var dialog = await DialogService.ShowAsync<EditEventTeamsDialog>("Add Team for the Event", parameter, options);
+        var dialog = await DialogService.ShowAsync<EditEventTeamsDialog>("Edit Team for the Event", parameter, options);
 
         var result = await dialog.Result;
 

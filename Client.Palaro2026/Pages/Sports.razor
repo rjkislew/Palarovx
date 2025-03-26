@@ -1,0 +1,116 @@
+﻿@page "/sports"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudGrid>
+    <!-- SPORTS -->
+    <MudItem xs="12">
+        <MudContainer Gutters="false" MaxWidth="MaxWidth.Large">
+            <MudStack>
+                <MudTabs Elevation="0" ApplyEffectsToContainer="true" PanelClass="pa-6" Centered>
+                    <MudVirtualize Items="_sportCategories" Context="categoryData">
+                        <MudTabPanel Style="text-transform: none" Text="@categoryData.Category">
+                            <MudGrid Justify="Justify.Center">
+                                <MudVirtualize Items="_sports?.Where(s => s.SportCategoryID == categoryData.ID).ToList()" Context="sport">
+                                    <MudItem xs="12" sm="6" md="4">
+                                        <MudLink Href=@($"sports/{categoryData.Category}/{sport.Sport}") Underline="Underline.None">
+                                            <MudPaper Style="height: 100%" Outlined Class="slide-top">
+                                            <MudStack Spacing="3">
+                                                <MudImage Src="@($"Media/Sports/Images/{sport.Sport}.png")" ObjectPosition="ObjectPosition.Top" ObjectFit="ObjectFit.Cover" Height="300" />
+                                                <MudStack Class="pa-3">
+                                                    <MudStack Row AlignItems="AlignItems.Center">
+                                                        <MudImage ObjectFit="ObjectFit.Contain" Height="20" Src="@($"media/sports/icons/black/{sport.Sport}.png")" />
+                                                        <MudText Typo="Typo.h5" Color="Color.Dark" Style="text-transform: uppercase; font-weight: bold">@sport.Sport</MudText>
+                                                    </MudStack>
+                                                    <MudText Typo="Typo.caption">@sport.Description</MudText>
+                                                </MudStack>
+                                            </MudStack>
+                                        </MudPaper>
+                                        </MudLink>
+                                    </MudItem>
+                                </MudVirtualize>
+                            </MudGrid>
+                        </MudTabPanel>
+                    </MudVirtualize>
+                </MudTabs>
+            </MudStack>
+        </MudContainer>
+    </MudItem>
+</MudGrid>
+
+<!-- Footer -->
+<FooterComponent />
+
+@code {
+    private List<SportsDTO.Sports>? _sports;
+    private List<SportsDTO.SportCategories>? _sportCategories;
+
+    public class SportsDTO
+    {
+        public class SportCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+        }
+
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+    }
+
+    // Initialization method to fetch data and update UI elements
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSportsAsync();
+        await GetSportCategoriesAsync();
+    }
+
+    private async Task GetSportsAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Sports";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _sports = await JsonSerializer.DeserializeAsync<List<SportsDTO.Sports>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task GetSportCategoriesAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Sports/Categories";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _sportCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportCategories>>(responseStream, options);
+        }
+        catch (HttpRequestException ex)
+        {
+            // Handle exception, log, or display an error message
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+}
