@@ -134,6 +134,9 @@ public partial class Palaro2026Context : DbContext
             entity.Property(e => e.EventID)
                 .HasMaxLength(20)
                 .IsUnicode(false);
+            entity.Property(e => e.Rank)
+                .HasMaxLength(10)
+                .IsUnicode(false);
             entity.Property(e => e.RecentUpdateAt).HasColumnType("datetime");
             entity.Property(e => e.Score)
                 .HasMaxLength(50)

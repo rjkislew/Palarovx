@@ -13,6 +13,8 @@ public partial class EventVersusTeams
 
     public string? Score { get; set; }
 
+    public string? Rank { get; set; }
+
     public DateTime? RecentUpdateAt { get; set; }
 
     public virtual Events? Event { get; set; }
