@@ -13,6 +13,4 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddMudServices();
 builder.Services.AddScoped<MapBoxService>();
 builder.Services.AddScoped<APIService>();
-builder.Configuration.AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true);
-
 await builder.Build().RunAsync();
