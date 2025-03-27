@@ -13,4 +13,6 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddMudServices();
 builder.Services.AddScoped<MapBoxService>();
 builder.Services.AddScoped<APIService>();
+builder.Services.AddScoped<ThemeService>();
+
 await builder.Build().RunAsync();
