@@ -19,7 +19,7 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
-        [HttpGet("ByRegion")]
+        [HttpGet]
         public async Task<ActionResult<List<MedalTallyDTO.RegionalMedalTally>>> GetMedalTally()
         {
             try
@@ -88,6 +88,81 @@ namespace Server.Palaro2026.Controller
             }
         }
 
+        [HttpGet("ByRegion")]
+        public async Task<ActionResult<List<MedalTallyDTO.RegionalMedalTally>>> GetMedalTallyByRegion([FromQuery] string? regionFilter = null)
+        {
+            try
+            {
+                // Fetch all regions
+                var allRegions = await _context.SchoolRegions
+                    .Select(r => new { r.Region, r.Abbreviation })
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                // Fetch only Championship stage events
+                var events = await _context.Events
+                    .Include(e => e.EventVersusTeams)
+                        .ThenInclude(ev => ev.SchoolRegion)
+                    .Where(e => e.EventStage!.Stage == "Championship")
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                var medalTally = new Dictionary<string, MedalTallyDTO.RegionalMedalTally>();
+
+                // Process medals for teams
+                foreach (var eventEntity in events)
+                {
+                    var sortedTeams = eventEntity.EventVersusTeams?
+                        .Where(ev => ev.SchoolRegion != null)
+                        .OrderByDescending(ev => int.TryParse(ev.Score, out int score) ? score : 0)
+                        .ToList();
+
+                    if (sortedTeams == null || sortedTeams.Count == 0) continue;
+
+                    // Assign medals
+                    AssignMedal(sortedTeams.ElementAtOrDefault(0), medalTally, "Gold");
+                    AssignMedal(sortedTeams.ElementAtOrDefault(1), medalTally, "Silver");
+                    AssignMedal(sortedTeams.ElementAtOrDefault(2), medalTally, "Bronze");
+                }
+
+                // Ensure all regions are included, even if they have no medals
+                foreach (var region in allRegions)
+                {
+                    if (!medalTally.ContainsKey(region.Region!))
+                    {
+                        medalTally[region.Region!] = new MedalTallyDTO.RegionalMedalTally
+                        {
+                            Region = region.Region!,
+                            Abbreviation = region.Abbreviation!,
+                            Gold = 0,
+                            Silver = 0,
+                            Bronze = 0,
+                            Total = 0
+                        };
+                    }
+                }
+
+                // Convert dictionary to a sorted list
+                var result = medalTally.Values
+                    .OrderByDescending(mt => mt.Gold)
+                    .ThenByDescending(mt => mt.Silver)
+                    .ThenByDescending(mt => mt.Bronze)
+                    .ToList();
+
+                // Apply region filter if provided
+                if (!string.IsNullOrEmpty(regionFilter))
+                {
+                    result = result.Where(mt => mt.Region!.Contains(regionFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
         // Helper function to assign medals
         private void AssignMedal(EventVersusTeams? team, Dictionary<string, MedalTallyDTO.RegionalMedalTally> medalTally, string medalType)
         {
@@ -127,6 +202,5 @@ namespace Server.Palaro2026.Controller
                                        (medalTally[region].Silver ?? 0) +
                                        (medalTally[region].Bronze ?? 0);
         }
-
     }
 }

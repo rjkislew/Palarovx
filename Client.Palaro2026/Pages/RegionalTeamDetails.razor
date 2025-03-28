@@ -1,4 +1,4 @@
-﻿@page "/events"
+﻿@page "/regional-teams/{Region}-{Abbreviation}"
 
 @using System.Net.Http
 @using System.Text.Json
@@ -11,30 +11,54 @@
 <MudContainer MaxWidth="MaxWidth.Large">
     <MudGrid>
         <MudItem xs="12">
-            <MudStack Row Style="width: 100%" Justify="Justify.Center">
-                <MudButton Size="Size.Large" Style="text-transform: none" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Href="./events/medal-tally">Medal Tally</MudButton>
-                <MudButton Size="Size.Large" Style="text-transform: none" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Href="./events/venues">Event Venues</MudButton>
+            <MudStack Row AlignItems="AlignItems.Center">
+                <MudImage Src="@($"media/regions/{Abbreviation}.png")" Height="100" />
+                <MudStack Spacing="0">
+                    <MudText Style="font-size: 40px">@Abbreviation</MudText>
+                    <MudText>@Region</MudText>
+                </MudStack>
             </MudStack>
+        </MudItem>
+        <MudItem xs="12">
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudText Typo="Typo.h6">Medal Tally</MudText>
+                </MudItem>
+                <MudItem xs="3">
+                    <MudStack Spacing="3" Style="width: 100%" AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.Amber.Accent4}")" Size="Size.Large" />
+                        <MudText Style="font-size: 30px">@(_regionalMedalTallies?.Gold)</MudText>
+                    </MudStack>
+                </MudItem>                
+                <MudItem xs="3">
+                    <MudStack Spacing="3" Style="width: 100%" AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.BlueGray.Lighten4}")" Size="Size.Large" />
+                        <MudText Style="font-size: 30px">@(_regionalMedalTallies?.Silver)</MudText>
+                    </MudStack>
+                </MudItem>
+                <MudItem xs="3">
+                    <MudStack Spacing="3" Style="width: 100%" AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.DeepOrange.Lighten1}")" Size="Size.Large" />
+                        <MudText Style="font-size: 30px">@(_regionalMedalTallies?.Bronze)</MudText>
+                    </MudStack>
+                </MudItem>
+                <MudItem xs="3">
+                    <MudStack Spacing="3" Style="width: 100%" AlignItems="AlignItems.Center">
+                        <MudStack Row>
+                            <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.Amber.Accent4}")" Size="Size.Large" />
+                            <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.BlueGray.Lighten4}")" Size="Size.Large" />
+                            <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.DeepOrange.Lighten1}")" Size="Size.Large" />
+                        </MudStack>
+                        <MudText Style="font-size: 30px">@(_regionalMedalTallies?.Gold)</MudText>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
         </MudItem>
         <MudItem xs="12">
             <MudStack AlignItems="AlignItems.Start">
                 <MudButton OnClick="OnExpandFilterCollapseClick" StartIcon="@(_expandedFilter ? @Icons.Material.Filled.FilterAltOff : @Icons.Material.Filled.FilterAlt)">Filter</MudButton>
                 <MudCollapse Expanded="_expandedFilter">
                     <MudStack Spacing="3">
-                        <MudStack Spacing="0">
-                            <MudText>Regional Teams</MudText>
-                            <MudChipSet T="string" SelectedValues="_selectedEventTeams" SelectionMode="SelectionMode.MultiSelection" CheckMark SelectedValuesChanged="UpdateSelectedEventTeams">
-                                <MudVirtualize Items="_eventTeamList" Context="team">
-                                    <MudChip Size="Size.Small" Variant="Variant.Text" Value="@team">@team</MudChip>
-                                </MudVirtualize>
-                                @if (_selectedEventTeams != null && _selectedEventTeams.Any())
-                                {
-                                    <MudChip OnClick="ClearSelectedEventTeams" Variant="Variant.Text" Color="Color.Error" Size="Size.Small">
-                                        Clear Selection
-                                    </MudChip>
-                                }
-                            </MudChipSet>
-                        </MudStack>
                         <MudStack Spacing="0">
                             <MudText>Sports</MudText>
                             <MudChipSet T="string" SelectedValues="_selectedSports" SelectionMode="SelectionMode.MultiSelection" CheckMark SelectedValuesChanged="UpdateSelectedSports">
@@ -203,34 +227,27 @@
 <FooterComponent />
 
 @code {
+    [Parameter]
+    public string? Region { get; set; }
+    [Parameter]
+    public string? Abbreviation { get; set; }
+
     private List<EventsDTO.EventDetails.Event>? _storedEventDetails;
     private List<EventsDTO.EventDetails.Event>? _eventDetails;
+    private MedalTallyDTO.RegionalMedalTally? _regionalMedalTallies;
+
     private string[]? _sportList;
     private string[]? _eventStageList;
     private string[]? _streamServiceList;
-    private string[]? _eventTeamList;
     bool _expandedFilter = false;
 
     private string[]? _selectedSports;
     private string[]? _selectedEventStages;
     private string[]? _selectedStreamServices;
-    private string[]? _selectedEventTeams;
 
     private void OnExpandFilterCollapseClick()
     {
         _expandedFilter = !_expandedFilter;
-    }
-
-    private async Task ClearSelectedEventTeams()
-    {
-        _selectedEventTeams = Array.Empty<string>();
-
-        await GetQueriedEventsAsync("");
-    }
-    public async Task UpdateSelectedEventTeams(IReadOnlyCollection<string> values)
-    {
-        _selectedEventTeams = values.ToArray();
-        await GetQueriedEventsAsync("eventTeams");
     }
 
 
@@ -328,6 +345,19 @@
         }
     }
 
+    public class MedalTallyDTO
+    {
+        public class RegionalMedalTally
+        {
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public int? Gold { get; set; }
+            public int? Silver { get; set; }
+            public int? Bronze { get; set; }
+            public int? Total { get; set; }
+        }
+    }
+
     private string GetThumbnailUrl(string? url)
     {
         if (string.IsNullOrWhiteSpace(url)) return string.Empty;
@@ -355,13 +385,14 @@
     protected override async Task OnInitializedAsync()
     {
         await GetEventsAsync();
+        await GetMedalTallyByRegionAsync();
     }
 
     private async Task GetEventsAsync()
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Events/Details";
+            string url = $"{apiService.Palaro2026API}/Events/Details?region={Region}";
 
             HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
             httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
@@ -373,13 +404,43 @@
             _sportList = _storedEventDetails?.Select(e => e.Sport!).Where(sub => !string.IsNullOrWhiteSpace(sub)).Distinct().ToArray();
             _eventStageList = _storedEventDetails?.Select(e => e.EventStage!).Where(sub => !string.IsNullOrWhiteSpace(sub)).Distinct().ToArray();
             _streamServiceList = _storedEventDetails?.Select(e => e.StreamService!).Where(sub => !string.IsNullOrWhiteSpace(sub)).Distinct().ToArray();
-            _eventTeamList = _storedEventDetails?.Where(e => e.EventVersusList != null).SelectMany(e => e.EventVersusList!).Select(t => t.Region!).Where(region => !string.IsNullOrWhiteSpace(region)).Distinct().ToArray();
         }
         catch (HttpRequestException)
         {
             _eventDetails = null;
         }
     }
+
+    private async Task GetMedalTallyByRegionAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/MedalTally/ByRegion?regionFilter={Region}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            string responseContent = await httpResponse.Content.ReadAsStringAsync();
+            Console.WriteLine($"API Response: {responseContent}");
+
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var medalTallyArray = JsonSerializer.Deserialize<MedalTallyDTO.RegionalMedalTally[]>(responseContent, options);
+
+            // Get the first element (if it exists)
+            _regionalMedalTallies = medalTallyArray?.FirstOrDefault();
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"JSON Deserialization Error: {ex.Message}");
+        }
+    }
+
+
+
 
     private async Task GetQueriedEventsAsync(string selectedChip)
     {
@@ -391,10 +452,6 @@
             var storedEvents = await Task.Run(() =>
             {
                 var query = _storedEventDetails.AsQueryable();
-
-                if (_selectedEventTeams?.Any() == true)
-                    query = query.Where(e => e.EventVersusList != null &&
-                                             e.EventVersusList.Any(v => _selectedEventTeams.Contains(v.Region!)));
 
                 if (_selectedSports?.Any() == true)
                     query = query.Where(e => _selectedSports.Contains(e.Sport!));
@@ -433,15 +490,6 @@
                                                       .Where(sub => !string.IsNullOrWhiteSpace(sub))
                                                       .Distinct()
                                                       .ToArray();
-                }
-                if (selectedChip != "eventTeams")
-                {
-                    _eventTeamList = _eventDetails.Where(e => e.EventVersusList != null)
-                                                  .SelectMany(e => e.EventVersusList!)
-                                                  .Select(t => t.Region!)
-                                                  .Where(region => !string.IsNullOrWhiteSpace(region))
-                                                  .Distinct()
-                                                  .ToArray();
                 }
             });
         }
