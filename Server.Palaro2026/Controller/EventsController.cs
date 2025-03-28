@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Server.Palaro2026.Context;
 using Server.Palaro2026.DTO;
 using Server.Palaro2026.Entities;
+using System.Text.Json;
 
 namespace Server.Palaro2026.Controller
 {
@@ -1103,41 +1104,37 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
+
         [HttpPut("VersusTeams/{id}")]
-        public async Task<IActionResult> PutEventVersusTeams(int id, EventsDTO.EventVersusTeams eventVersusTeams)
+        public async Task<IActionResult> PutEventVersusTeams(int id, EventsDTO.EventVersusTeams updatedEvent)
         {
-            if (id != eventVersusTeams.ID)
-            {
-                return BadRequest();
-            }
+            var existingEvent = await _context.EventVersusTeams.FindAsync(id);
+            if (existingEvent == null) return NotFound();
 
-            var existingEventVersusTeams = await _context.EventVersusTeams.FindAsync(id);
-            if (existingEventVersusTeams == null)
-            {
-                return NotFound();
-            }
+            // Ignore ID from the request body
+            updatedEvent.ID = existingEvent.ID;
 
-            existingEventVersusTeams.Score = eventVersusTeams.Score;
-            existingEventVersusTeams.SchoolRegionID = eventVersusTeams.SchoolRegionID;
-            existingEventVersusTeams.EventID = eventVersusTeams.EventID;
-            existingEventVersusTeams.Rank = eventVersusTeams.Rank;
-            existingEventVersusTeams.RecentUpdateAt = eventVersusTeams.RecentUpdateAt;
+            // Only update fields that are not null
+            if (!string.IsNullOrEmpty(updatedEvent.Score))
+                existingEvent.Score = updatedEvent.Score;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!EventVersusTeamsExists(id))
-                {
-                    return NotFound();
-                }
-                throw;
-            }
+            if (updatedEvent.SchoolRegionID.HasValue)
+                existingEvent.SchoolRegionID = updatedEvent.SchoolRegionID;
+
+            if (!string.IsNullOrEmpty(updatedEvent.EventID))
+                existingEvent.EventID = updatedEvent.EventID;
+
+            if (!string.IsNullOrEmpty(updatedEvent.Rank))
+                existingEvent.Rank = updatedEvent.Rank;
+
+            if (updatedEvent.RecentUpdateAt.HasValue)
+                existingEvent.RecentUpdateAt = updatedEvent.RecentUpdateAt;
+
+            await _context.SaveChangesAsync();
 
             return NoContent();
         }
+
 
         [HttpPost("VersusTeams")]
         public async Task<ActionResult<EventVersus>> PostEventVersusTeams(EventsDTO.EventVersusTeams eventVersusTeams)

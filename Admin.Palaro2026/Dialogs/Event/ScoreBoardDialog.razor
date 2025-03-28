@@ -1,0 +1,186 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudGrid Justify="Justify.Center">
+                <MudVirtualize Items="_events" Context="eventDetails">
+                    <MudVirtualize Items="eventDetails.EventVersusList" Context="team">
+                        <MudItem xs="3">
+                            <MudPaper Class="pa-3" Outlined Style="height: 100%">
+                                <MudStack Justify="Justify.SpaceBetween" Style="height: 100%">
+                                    <MudStack Row Spacing="1" Style="height: 100%" AlignItems="AlignItems.Center">
+                                        <MudImage Src="@($"media/regions/{team.Abbreviation}.png")" Height="50"/>
+                                        <MudStack Spacing="0" Style="height: 100%">
+                                            <MudText Class="text-center" Style="font-weight: bold">@team.Abbreviation</MudText>
+                                            <MudText Class="text-center" Style="font-size: 10px">@team.Region</MudText>
+                                        </MudStack>
+                                    </MudStack>
+                                    <MudNumericField T="int" Style="font-size: 50px"
+                                    Value="@(int.TryParse(team.Score, out int val) ? val : 0)"
+                                    ValueChanged="@(value => UpdateTeamScoreAsync(team.ID, value.ToString()))">
+                                    </MudNumericField>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    </MudVirtualize>
+                </MudVirtualize>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions></DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // Passed data from page
+    [Parameter]
+    public string? SelectedEventID { get; set; }
+
+
+    // Variables
+    private List<EventsDTO.EventDetails.Event>? _events;
+
+    // Dialog actions// Dialog Actions
+    private void Cancel() => MudDialog?.Cancel();
+
+    // Load dialog if true
+    private bool? _isLoaded = false;
+
+    // DTOs
+    public class EventsDTO
+    {
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public string? StreamTitle { get; set; }
+                public bool? IsFinished { get; set; }
+                public byte[]? Attachement { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public string? Rank { get; set; }
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
+    }
+
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetEventsOnDialogOpenAsync();
+    }
+
+    private async Task GetEventsOnDialogOpenAsync()
+    {
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/Details?id={SelectedEventID}";
+
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+
+            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _events = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options);
+
+            _isLoaded = true;
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error fetching data: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateTeamScoreAsync(int? id, string score)
+    {
+        if (id == null) return;
+
+        try
+        {
+            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/{id}";
+
+            var updatedTeam = new { Score = score }; // Score as string
+
+            string jsonPayload = JsonSerializer.Serialize(updatedTeam);
+            Console.WriteLine($"Request Payload: {jsonPayload}"); // Log JSON payload
+
+            var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+            HttpResponseMessage response = await httpClient.PutAsync(url, content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string errorMessage = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error Response: {errorMessage}");
+            }
+            else
+            {
+                await GetEventsOnDialogOpenAsync();
+            }
+
+            response.EnsureSuccessStatusCode();
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error updating score: {ex.Message}");
+        }
+    }
+}

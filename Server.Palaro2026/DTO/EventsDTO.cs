@@ -167,6 +167,15 @@ public class EventsDTO
         public DateTime? RecentUpdateAt { get; set; }
     }
 
+    public class EventVersusTeamsUpdateDTO
+    {
+        public string? Score { get; set; }
+        public int? SchoolRegionID { get; set; }
+        public string? EventID { get; set; }
+        public string? Rank { get; set; }
+        public DateTime? RecentUpdateAt { get; set; }
+    }
+
     public class EventVersusTeamPlayers
     {
         public int ID { get; set; }
