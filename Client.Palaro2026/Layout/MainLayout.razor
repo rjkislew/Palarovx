@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+
 @inject IJSRuntime JSRuntime
 @inject NavigationManager uriHelper
 @inject ThemeService ThemeService
@@ -27,7 +28,11 @@
             </MudLink>
             <NavigationMenu />
             <MudSpacer />
-            <MudIconButton OnClick="ToggleDarkMode" Icon="@GetThemeIcon()" />
+
+            <!-- Night mode button -->
+            <MudTooltip Text="@GetThemeTooltip()" Arrow="true" Placement="Placement.Left">
+                <MudIconButton OnClick="ToggleDarkMode" Icon="@GetThemeIcon()" />
+            </MudTooltip>
         </MudAppBar>
     </MudHidden>
     <MudHidden Breakpoint="Breakpoint.SmAndUp">
@@ -70,17 +75,32 @@
 
     private async Task ToggleDarkMode()
     {
-        ThemeService.ToggleDarkMode();
-        await ThemeService.SaveThemePreference(ThemeService.IsDarkMode);
+        await ThemeService.ToggleDarkModeAsync();
     }
 
     private string GetThemeIcon()
     {
+        if (!ThemeService.UserSelectedTheme)
+            return Icons.Material.Filled.AutoMode;
+
         return ThemeService.IsDarkMode switch
         {
-            true => Icons.Material.Filled.ModeNight,
+            true => Icons.Material.Filled.DarkMode,
             false => Icons.Material.Filled.LightMode,
-            _ => Icons.Material.Filled.AutoMode
+            _ => Icons.Material.Filled.Help // fallback if something goes wrong
+        };
+    }
+
+    private string GetThemeTooltip()
+    {
+        if (!ThemeService.UserSelectedTheme)
+            return "System Theme";
+
+        return ThemeService.IsDarkMode switch
+        {
+            true => "Dark Mode",
+            false => "Light Mode",
+            _ => "Unknown Theme"
         };
     }
 
@@ -107,6 +127,7 @@
                 Tertiary = "db5a5a",
                 Background = Colors.Gray.Darken4,
                 Surface = Colors.Gray.Darken4,
+                DrawerBackground = Colors.Gray.Darken4,
                 ActionDefault = Colors.Gray.Lighten5,
                 AppbarBackground = Colors.Gray.Darken4,
                 AppbarText = Colors.Gray.Lighten5,
@@ -115,6 +136,13 @@
             LayoutProperties = new LayoutProperties()
             {
                 DrawerWidthLeft = "280px"
+            },
+            Typography = new Typography()
+            {
+                Default = new DefaultTypography()
+                {
+                    FontFamily = new[] { "Inter", "sans-serif" },
+                },
             }
         };
 

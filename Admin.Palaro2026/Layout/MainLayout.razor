@@ -1,24 +1,47 @@
 ﻿@inherits LayoutComponentBase
 
+<!-- 
+    MainLayout.razor
+    This is the main layout for the Blazor application.
+    It includes the app bar, drawer, and main content area.
+    The layout is responsive and adapts to different screen sizes.
+-->
+
 @using System.Net.Http
 @using System.Text.Json
 @using System.Threading.Tasks
 @inject APIService apiService
 @inject HttpClient httpClient
+@inject ThemeService ThemeService
 
 @* Required *@
-<MudThemeProvider @ref="_mudThemeProvider" Theme="PalaroTheme" DefaultScrollbar="true" IsDarkMode="@(_isDarkMode ?? false)" />
+<MudThemeProvider @ref="_mudThemeProvider" Theme="PalaroTheme" DefaultScrollbar="true" IsDarkMode="@(ThemeService.IsDarkMode ?? false)" />
 <MudPopoverProvider />
 
 @* Needed for dialogs *@
-<MudDialogProvider />
+<MudDialogProvider  />
 
 @* Needed for snackbars *@
 <MudSnackbarProvider />
 
+<!--
+    Main layout structure:
+     - App bar: contains the logo, drawer button, and night mode button
+     - Drawer: contains the navigation menu
+     - Main content area: where the main content is displayed
+-->
 <MudLayout>
     <MudAppBar Elevation="0">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Edge="Edge.Start" OnClick="@((e) => ToggleDrawer())" />
+        <!-- 
+            App bar:
+             - Drawer button
+             - Palaro 2026 Logo
+             - Night mode button
+        -->
+        <!-- Drawer -->
+        <MudIconButton Icon="@(_DrawerOpen ? Icons.Material.Filled.MenuOpen : Icons.Material.Filled.Menu )" Edge="Edge.Start" OnClick="ToggleDrawer" />
+
+        <!-- Palaro 2026 Logo: links to homepage -->
         <MudLink Href="./" Underline="Underline.None">
             <MudStack Row AlignItems="AlignItems.Center">
                 <MudImage Height="50" Src="./media/logo/Flat Logo with 2026.png" />
@@ -29,11 +52,20 @@
             </MudStack>
         </MudLink>
         <MudSpacer />
-        <MudIconButton OnClick="ToggleDarkMode" Icon="@GetThemeIcon()" />
+
+        <!-- Night mode button with tooltip -->
+        <MudTooltip Text="@GetThemeTooltip()" Arrow="true" Placement="Placement.Left">
+            <MudIconButton OnClick="ToggleDarkMode" Icon="@GetThemeIcon()" />
+        </MudTooltip>
+
     </MudAppBar>
-    <MudDrawer @bind-Open="_open" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Mini" Elevation="0">
+
+    <!-- Drawer: mini variant enabled -->
+    <MudDrawer @bind-Open="_DrawerOpen" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Mini" Elevation="0">
         <NavMenu />
     </MudDrawer>
+
+    <!-- Main content area -->
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.False" Class="pa-5">
             @Body
@@ -43,64 +75,96 @@
 
 @code
 {
-    private bool? _isDarkMode = null; // null = Auto, true = Night, false = Light
+    // null = Auto, true = Night, false = Light
+    private bool? _isDarkMode = null; 
+
+    // ThemeService: handles theme management
     private MudThemeProvider? _mudThemeProvider;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    // initialization: sets the theme and subscribes to theme changes
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender && _mudThemeProvider is not null)
-        {
-            try
-            {
-                await _mudThemeProvider.WatchSystemPreference(OnSystemPreferenceChanged);
-                StateHasChanged();
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"Error in OnAfterRenderAsync: {ex.Message}");
-            }
-        }
+        // initialize the theme service
+        ThemeService.OnThemeChanged += StateHasChanged;
+        await ThemeService.LoadThemePreference();
     }
 
-    private Task OnSystemPreferenceChanged(bool newValue)
+    // dark mode toggle: switches between dark and light mode
+    private async Task ToggleDarkMode()
     {
-        _isDarkMode = newValue;
-        StateHasChanged();
-        return Task.CompletedTask;
+        await ThemeService.ToggleDarkModeAsync();
     }
 
-    private void ToggleDarkMode()
-    {
-        _isDarkMode = _isDarkMode switch
-        {
-            null => true,  // Auto -> Night
-            true => false, // Night -> Light
-            false => null  // Light -> Auto
-        };
-    }
-
+    // theme icon: returns the appropriate icon based on the current theme
     private string GetThemeIcon()
     {
-        return _isDarkMode switch
+        // if the user has not selected a theme, return the auto mode icon
+        if (!ThemeService.UserSelectedTheme)
+            return Icons.Material.Filled.AutoMode;
+
+        // if the user has selected a theme, return the appropriate icon
+        return ThemeService.IsDarkMode switch
         {
-            true => Icons.Material.Filled.ModeNight,
-            false => Icons.Material.Filled.LightMode,
-            _ => Icons.Material.Filled.AutoMode
+            true => Icons.Material.Filled.DarkMode, // dark mode icon
+            false => Icons.Material.Filled.LightMode, // light mode icon
+            _ => Icons.Material.Filled.Help // fallback if something goes wrong
         };
     }
 
+    // theme tooltip: returns the appropriate tooltip based on the current theme
+    private string GetThemeTooltip()
+    {
+        if (!ThemeService.UserSelectedTheme)
+            return "System Theme";
+
+        return ThemeService.IsDarkMode switch
+        {
+            true => "Dark Mode",
+            false => "Light Mode",
+            _ => "Unknown Theme"
+        };
+    }
+
+
+    // drawer open state: controls the visibility of the drawer
+    private bool _DrawerOpen = false;
+
+    // method to toggle the drawer open state
+    private void ToggleDrawer()
+    {
+        _DrawerOpen = !_DrawerOpen;
+    }
+
+
+    // Palaro theme: defines the theme for the application
     private MudTheme PalaroTheme = new MudTheme()
         {
             PaletteLight = new PaletteLight()
             {
                 Dark = Colors.Gray.Darken4,
+                White = Colors.Gray.Lighten5,
                 Primary = "1e4ca1",
                 Secondary = "ebb94d",
                 Tertiary = "ba3535",
+                ActionDefault = Colors.Gray.Darken4,
                 AppbarBackground = Colors.Shades.White,
                 AppbarText = Colors.Shades.Black,
-                TextPrimary = Colors.Gray.Darken4,
-                TextSecondary = Colors.Gray.Darken4,
+                TextPrimary = Colors.Shades.Black,
+            },
+            PaletteDark = new PaletteDark()
+            {
+                Dark = Colors.Gray.Lighten5,
+                White = Colors.Gray.Darken4,
+                Primary = "4a7ad3",
+                Secondary = "f8d589",
+                Tertiary = "db5a5a",
+                Background = Colors.Gray.Darken4,
+                DrawerBackground = Colors.Gray.Darken4,
+                Surface = Colors.Gray.Darken4,
+                ActionDefault = Colors.Gray.Lighten5,
+                AppbarBackground = Colors.Gray.Darken4,
+                AppbarText = Colors.Gray.Lighten5,
+                TextPrimary = Colors.Shades.White
             },
             LayoutProperties = new LayoutProperties()
             {
@@ -114,11 +178,4 @@
                 },
             }
         };
-
-    private bool _open = false;
-
-    private void ToggleDrawer()
-    {
-        _open = !_open;
-    }
 }

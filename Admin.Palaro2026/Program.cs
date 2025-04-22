@@ -25,5 +25,6 @@ builder.Services.AddMudServices(config =>
     config.SnackbarConfiguration.SnackbarVariant = Variant.Filled;
 });
 builder.Services.AddSingleton<APIService>();
+builder.Services.AddScoped<ThemeService>();
 
 await builder.Build().RunAsync();

@@ -11,8 +11,13 @@
 
 
 <MudGrid Spacing="0">
+
+    <!-- checks if there are any error from API calls -->
     @if (_errorLoading == false)
     {
+        <!-- if no error then display events -->
+
+        <!-- Add Event and Refresh Table buttons -->
         <MudItem xs="12">
             <MudStack Row Spacing="0" Justify="Justify.FlexEnd">
                 <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddEventDialog">Add Event</MudButton>
@@ -20,8 +25,16 @@
                 <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetEventsAsync">Refresh Table</MudButton>
             </MudStack>
         </MudItem>
+
+        <!-- table -->
         <MudItem xs="12">
-            <MudTable Outlined Items="_eventDetails" Striped Context="eventDetail" Filter="FilterFunc" Elevation="0">
+            <MudTable Outlined Items="_eventDetails" Context="eventDetail" Filter="FilterFunc" Elevation="0">
+
+                <!-- 
+                    Toolbar content:
+                    - Table title
+                    - Search bar
+                -->
                 <ToolBarContent>
                     <MudText Typo="Typo.h6">Events</MudText>
                     <MudSpacer />
@@ -30,6 +43,8 @@
                                   AdornmentIcon="@Icons.Material.Filled.Search"
                                   IconSize="Size.Medium" />
                 </ToolBarContent>
+
+                <!-- colgroup: column fixed widths: disabled/hidden on mobile view port -->
                 <ColGroup>
                     <MudHidden Breakpoint="Breakpoint.Xs">
                         <col style="width: 20%" />
@@ -41,6 +56,8 @@
                         <col style="width: 5%" />
                     </MudHidden>
                 </ColGroup>
+
+                <!-- headers: default sort by schedule by descending order - display the recently added event first -->
                 <HeaderContent>
                     <MudTh>Event</MudTh>
                     <MudTh>Opposing Teams</MudTh>
@@ -54,6 +71,8 @@
                     <MudTh>Tally Clerk</MudTh>
                     <MudTh>Settings</MudTh>
                 </HeaderContent>
+
+                <!-- rows: render all data from coming from events api -->
                 <RowTemplate>
                     <MudTd Datalabel="Event">
                         <MudStack Spacing="0">
@@ -86,7 +105,7 @@
                         <MudGrid>
                             <MudItem xs="12">
                                 <MudVirtualize Items="@eventDetail.EventVersusList" Context="team">
-                                    <MudTooltip>
+                                    <MudTooltip Delay="0.5" Arrow="true" >
                                         <ChildContent>
                                             <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Class="pa-0 pl-2">
                                                 @team.Abbreviation [ @team.Score ]
@@ -161,9 +180,13 @@
                         <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditEventDialog(eventDetail.ID)" />
                     </MudTd>
                 </RowTemplate>
+
+                <!-- if no record showing dispay this text -->
                 <NoRecordsContent>
                     <MudText Typo="Typo.caption">No records found.</MudText>
                 </NoRecordsContent>
+
+                <!-- table pagination: max of 5 rows dispalyed at a time -->
                 <PagerContent>
                     <MudTablePager />
                 </PagerContent>
@@ -172,6 +195,8 @@
     }
     else
     {
+
+        <!-- if there are error/s display loading (mudprogress, indeterminate) -->
         <MudItem xs="12">
             <MudProgressLinear Indeterminate="true" />
         </MudItem>
@@ -179,13 +204,24 @@
 </MudGrid>
 
 @code {
+    // Variables
+
+    // mud dialog instance: required for dialogs to work
     private IMudDialogInstance? MudDialog { get; set; }
 
+    // populated by API
+
+    // list of events
     private List<EventsDTO.EventDetails.Event>? _eventDetails;
 
+
     private string _searchString = "";
+
+    // when error occurs while loading data by requests to palaro API
     private bool _errorLoading;
 
+
+    // filtering function from the table
     private bool FilterFunc(EventsDTO.EventDetails.Event events)
     {
         if (string.IsNullOrWhiteSpace(_searchString))
@@ -201,18 +237,21 @@
 
         foreach (var term in searchTerms)
         {
+            // checks if the event is finished in event details: search from boolean value to string
             if ("finished".StartsWith(term) && events.IsFinished == true)
             {
                 matchesAnyTerm = true;
                 continue;
             }
 
+            // checks if the event is ongoing in event details: search from boolean value to string
             if ("ongoing".StartsWith(term) && events.IsFinished == false)
             {
                 matchesAnyTerm = true;
                 continue;
             }
 
+            // checks from event details
             bool eventDetails = (events.Category?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
                                 (events.EventStage?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
                                 (events.Sport?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
@@ -224,6 +263,7 @@
                                 (events.FirstName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
                                 (events.LastName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
 
+            // checks from opposing teams in event details
             bool opposingTeamsMatch = (events.EventVersusList?.Any(team =>
                 (team?.Region?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 (team?.Abbreviation?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)) ?? false);
@@ -237,7 +277,7 @@
         return matchesAnyTerm;
     }
 
-    // DTOs
+    // data transfer object (DTO) for events
     public class EventsDTO
     {
         public class EventDetails
@@ -292,11 +332,14 @@
         }
     }
 
+    // Initialization
     protected override async Task OnInitializedAsync()
     {
         await GetEventsAsync();
     }
 
+
+    // API Call for Events
     private async Task GetEventsAsync()
     {
         try
@@ -317,8 +360,8 @@
         }
     }
 
-    // Dialog
 
+    // opening dialog method: add event dialog
     private async Task OpenAddEventDialog()
     {
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
@@ -333,6 +376,8 @@
         }
     }
 
+
+    // opening dialog method: edit event dialog
     private async Task OpenEditEventDialog(string? selectedEventID)
     {
         var parameter = new DialogParameters<EditEventDialog>
@@ -351,6 +396,8 @@
         }
     }
 
+
+    // opening dialog method: add event teams dialog
     private async Task OpenAddEventTeamsDialog(string? selectedEventID, int? selectedSubSportID)
     {
         var parameter = new DialogParameters<AddEventTeamsDialog>
@@ -358,7 +405,7 @@
             {x => x.SelectedEventID, selectedEventID},
             {x => x.SelectedSubCategoryID, selectedSubSportID},
         };
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
 
         var dialog = await DialogService.ShowAsync<AddEventTeamsDialog>("Add Team for the Event", parameter, options);
 
@@ -371,6 +418,8 @@
         }
     }
 
+
+    // opening dialog method: edit event teams dialog
     private async Task OpenEditEventTeamsDialog(string? selectedEventID, int? selectedSubSportID, int? selectedEventTeamsID)
     {
         var parameter = new DialogParameters<EditEventTeamsDialog>
