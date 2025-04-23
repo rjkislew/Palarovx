@@ -25,6 +25,12 @@ builder.Services.AddMudServices(config =>
     config.SnackbarConfiguration.SnackbarVariant = Variant.Filled;
 });
 builder.Services.AddSingleton<APIService>();
+builder.Services.AddScoped(sp =>
+{
+    var httpClient = new HttpClient { BaseAddress = new Uri(builder.Configuration["ApiUrl"]!) };
+    var config = sp.GetRequiredService<IConfiguration>();
+    return new APIService(config, httpClient);
+});
 builder.Services.AddScoped<ThemeService>();
 
 await builder.Build().RunAsync();
