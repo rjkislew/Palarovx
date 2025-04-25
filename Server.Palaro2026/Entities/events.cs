@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Server.Palaro2026.Entities;
 
 public partial class Events
 {
+
     public string ID { get; set; } = null!;
 
     public int? EventStageID { get; set; }
@@ -37,6 +39,7 @@ public partial class Events
 
     public virtual EventVenues? EventVenues { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<EventVersusTeams> EventVersusTeams { get; set; } = new List<EventVersusTeams>();
 
     public virtual SportSubcategories? SportSubcategory { get; set; }

@@ -1,34 +1,52 @@
-﻿using Microsoft.AspNetCore.OpenApi;
+﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi.Models;
 
 namespace Server.Palaro2026;
 
-internal sealed class BearerSecuritySchemeTransformer(Microsoft.AspNetCore.Authentication.IAuthenticationSchemeProvider authenticationSchemeProvider) : IOpenApiDocumentTransformer
+internal sealed class BearerSecuritySchemeTransformer(IAuthenticationSchemeProvider authenticationSchemeProvider)
+    : IOpenApiDocumentTransformer
 {
-    public async Task TransformAsync(OpenApiDocument document, OpenApiDocumentTransformerContext context, CancellationToken cancellationToken)
+    public async Task TransformAsync(OpenApiDocument document, OpenApiDocumentTransformerContext context,
+        CancellationToken cancellationToken)
     {
-        var authenticationSchemes = await authenticationSchemeProvider.GetAllSchemesAsync();
-        if (authenticationSchemes.Any(authScheme => authScheme.Name == "Bearer"))
-        {
-            var requirements = new Dictionary<string, OpenApiSecurityScheme>
-            {
-                ["Bearer"] = new OpenApiSecurityScheme
-                {
-                    Type = SecuritySchemeType.Http,
-                    Scheme = "bearer",
-                    In = ParameterLocation.Header,
-                    BearerFormat = "Json Web Token"
-                }
-            };
-            document.Components ??= new OpenApiComponents();
-            document.Components.SecuritySchemes = requirements;
+        var bearerScheme = await authenticationSchemeProvider.GetSchemeAsync("Bearer");
+        if (bearerScheme == null) return;
 
-            foreach (var operation in document.Paths.Values.SelectMany(path => path.Operations))
+        // Create security scheme once
+        var securityScheme = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Reference = new OpenApiReference
             {
-                operation.Value.Security.Add(new OpenApiSecurityRequirement
-                {
-                    [new OpenApiSecurityScheme { Reference = new OpenApiReference { Id = "Bearer", Type = ReferenceType.SecurityScheme } }] = Array.Empty<string>()
-                });
+                Type = ReferenceType.SecurityScheme,
+                Id = "Bearer"
+            }
+        };
+
+        // Initialize components if needed
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, OpenApiSecurityScheme>();
+
+        // Add security scheme
+        document.Components.SecuritySchemes["Bearer"] = securityScheme;
+
+        // Create security requirement once
+        var securityRequirement = new OpenApiSecurityRequirement
+        {
+            [securityScheme] = new List<string>()
+        };
+
+        // Apply to all operations more efficiently
+        foreach (var pathItem in document.Paths.Values)
+        {
+            foreach (var operation in pathItem.Operations.Values)
+            {
+                operation.Security ??= new List<OpenApiSecurityRequirement>();
+                operation.Security.Add(securityRequirement);
             }
         }
     }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Server.Palaro2026.Entities;
 
@@ -11,5 +12,6 @@ public partial class UserRoles
 
     public string? Description { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<Users> Users { get; set; } = new List<Users>();
 }

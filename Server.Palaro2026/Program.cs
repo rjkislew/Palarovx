@@ -6,16 +6,23 @@ using Scalar.AspNetCore;
 using System.Text;
 using Server.Palaro2026;
 using Microsoft.AspNetCore.Http.Json;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.MaxDepth = 128;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.Configure<JsonOptions>(options =>
 {
+    options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     options.SerializerOptions.MaxDepth = 128;
+    options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
 });
-builder.Services.AddSignalR();
+
 
 var connectionString = builder.Configuration.GetConnectionString("Palaro2026DB")
                        ?? throw new InvalidOperationException("Connection string is not configured properly.");
@@ -70,7 +77,7 @@ builder.Services.AddAuthentication(options =>
     options.IncludeErrorDetails = true;
 });
 
-builder.Services.AddOpenApi("v1", options => { options.AddDocumentTransformer<BearerSecuritySchemeTransformer>() ; });
+builder.Services.AddOpenApi("v1", options => { options.AddDocumentTransformer<BearerSecuritySchemeTransformer>(); });
 
 var app = builder.Build();
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Server.Palaro2026.Entities;
 
@@ -15,8 +16,10 @@ public partial class ProfilePlayers
 
     public int? SportID { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<EventVersusTeamPlayers> EventVersusTeamPlayers { get; set; } = new List<EventVersusTeamPlayers>();
 
+    [JsonIgnore]
     public virtual ICollection<ProfilePlayerSports> ProfilePlayerSports { get; set; } = new List<ProfilePlayerSports>();
 
     public virtual Schools? School { get; set; }

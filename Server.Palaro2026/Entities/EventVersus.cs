@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Server.Palaro2026.Entities;
 
@@ -17,6 +18,7 @@ public partial class EventVersus
 
     public virtual Events? Event { get; set; }
 
+    [JsonIgnore]
     public virtual ICollection<EventVersusTeamPlayers> EventVersusTeamPlayers { get; set; } = new List<EventVersusTeamPlayers>();
 
     public virtual SchoolRegions? SchoolRegion { get; set; }
