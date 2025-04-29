@@ -24,7 +24,7 @@
                 <MudSelect @bind-SelectedValues="_selectedPlayerIDs" SelectAll="true" ToStringFunc="@(id => _profilePlayerEvents?.FirstOrDefault(c => c.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)"
                            T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Player" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedRegionIDValue == null">
                     <MudVirtualize Items="_profilePlayerEvents" Context="player">
-                        <MudSelectItem T="int?" Value="player.ID">@player.FirstName @player.LastName</MudSelectItem>
+                        <MudSelectItem T="int?" Value="player.ID">@player.FirstName @player.LastName </MudSelectItem>
                     </MudVirtualize>
                 </MudSelect>
             </MudItem>
@@ -125,42 +125,14 @@
 
     private async Task GetSchoolRegionsAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        string url = $"/Schools/Regions";
+        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(url);
     }
 
     private async Task GetPlayerAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Events?regionID={_selectedRegionIDValue}&subCategoryID={SelectedSubCategoryID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _profilePlayerEvents = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayerEvent>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        string url = $"/Profiles/Player/Events?regionID={_selectedRegionIDValue}&subCategoryID={SelectedSubCategoryID}";
+        _profilePlayerEvents = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
     }
 
     // Dialog actions
@@ -176,7 +148,7 @@
 
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: $"Do you confirm addition of?",
+            message: $"Do you confirm addition?",
             yesText: "Yes",
             cancelText: "Cancel",
             options: options);
@@ -194,75 +166,44 @@
     // Add player sport event and coach/es on that event
     private async Task AddEventVersusTeamsAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Events/VersusTeams";
-
-            var eventVersusTeams = new EventsDTO.EventVersusTeams
-                {
-                    EventID = SelectedEventID,
-                    SchoolRegionID = _selectedRegionIDValue,
-                    Score = _scoreValue,
-                    RecentUpdateAt = _recentUpdateAt,
-                };
-
-            var jsonContent = JsonSerializer.Serialize(eventVersusTeams);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode();
-
-            // Deserialize the response to get the newly created ID
-            string responseContent = await httpResponse.Content.ReadAsStringAsync();
-            var createdEventVersusTeams = JsonSerializer.Deserialize<EventsDTO.EventVersusTeams>(responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-            if (createdEventVersusTeams != null)
+        var addEventVersusTeams = new EventsDTO.EventVersusTeams
             {
-                _createdEventVersusTeamIDValue = createdEventVersusTeams.ID;
-            }
+                EventID = SelectedEventID,
+                SchoolRegionID = _selectedRegionIDValue,
+                Score = _scoreValue,
+                RecentUpdateAt = _recentUpdateAt,
+            };
+
+        string url = $"/Events/VersusTeams";
+        var createdEventVersusTeams = await apiService.PostAndReadAsync<EventsDTO.EventVersusTeams>(url, addEventVersusTeams);
+
+        if (createdEventVersusTeams != null)
+        {
+            _createdEventVersusTeamIDValue = createdEventVersusTeams.ID;
 
             await AddEventVersusTeamPlayersAsync();
 
-            if (httpResponse.IsSuccessStatusCode)
-            {
-                Snackbar.Add("Player sport event added successfully.", Severity.Success);
-                MudDialog?.Close(DialogResult.Ok(true));
-            }
-            else
-            {
-                string errorMessage = await httpResponse.Content.ReadAsStringAsync();
-                Snackbar.Add($"Failed to add sport event: {errorMessage}", Severity.Error);
-            }
-
+            Snackbar.Add("Team added successfully.", Severity.Success);
             MudDialog?.Close(DialogResult.Ok(true));
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
+            Snackbar.Add("Failed to add team.", Severity.Error);
         }
     }
 
+
     private async Task AddEventVersusTeamPlayersAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/Players";
-
-            var eventStream = _selectedPlayerIDs?.Where(id => id.HasValue)
+        var addEventTeamPlayers = _selectedPlayerIDs?.Where(id => id.HasValue)
                 .Select(playerID => new EventsDTO.EventVersusTeamPlayers
                     {
                         ProfilePlayerID = playerID!.Value,
                         EventVersusID = _createdEventVersusTeamIDValue,
                     }).ToList();
 
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-        }
-        catch (HttpRequestException ex)
-        {
-            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
-        }
+        string url = $"/Events/VersusTeams/Players";
+        var success = await apiService.PostAsync(url, addEventTeamPlayers);
     }
 }

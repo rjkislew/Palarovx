@@ -53,8 +53,8 @@ public class APIService
         {
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
-            var stream = await response.Content.ReadAsStreamAsync();
-            return await JsonSerializer.DeserializeAsync<T>(stream, _jsonOptions);
+            string responseContent = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<T>(responseContent, _jsonOptions);
         }
         catch
         {
@@ -77,6 +77,24 @@ public class APIService
             return false;
         }
     }
+    public async Task<T?> PostAndReadAsync<T>(string relativeUrl, object data)
+    {
+        var url = BuildUrl(relativeUrl);
+        try
+        {
+            var jsonContent = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync(url, jsonContent);
+            response.EnsureSuccessStatusCode();
+
+            string responseContent = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<T>(responseContent, _jsonOptions);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
 
     public async Task<bool> PutAsync<T>(string relativeUrl, T data)
     {
