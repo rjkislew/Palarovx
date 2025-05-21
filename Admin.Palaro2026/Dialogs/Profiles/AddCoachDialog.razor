@@ -102,22 +102,8 @@ else
 
     private async Task GetSchoolRegionsAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        string url = "/Schools/Regions";
+        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(url);
     }
 
     // Dialog Actions
@@ -150,28 +136,23 @@ else
     // Add Coach profile
     private async Task AddCoachProfileAsync()
     {
-        try
+        var addCoachProfile = new ProfilesDTO.ProfileCoaches
+            {
+                FirstName = _firstnameValue,
+                LastName = _lastnameValue,
+                SchoolRegionID = _selectedSchoolRegionIDValue,
+            };
+
+        string url = $"/Profiles/Coach";
+        var success = await apiService.PostAsync(url, addCoachProfile);
+
+        if (success)
         {
-            string url = $"{apiService.Palaro2026API}/Profiles/Coach";
-
-            var eventStream = new ProfilesDTO.ProfileCoaches
-                {
-                    FirstName = _firstnameValue,
-                    LastName = _lastnameValue,
-                    SchoolRegionID = _selectedSchoolRegionIDValue,
-                };
-
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            Snackbar.Add($"{_firstnameValue} {_lastnameValue} as coach has been added successfully.", Severity.Success);
+            Snackbar.Add($"{_firstnameValue} {_lastnameValue} as coach added successfully.", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Failed to add {_firstnameValue} {_lastnameValue} as coach.", Severity.Error);
         }
     }
 }

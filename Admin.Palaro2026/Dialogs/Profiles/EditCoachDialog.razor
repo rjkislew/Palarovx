@@ -34,10 +34,10 @@
         </DialogContent>
         <DialogActions>
             <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
-                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteProfileCoachAsync">Delete</MudButton>
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteCoachProfileAsync">Delete</MudButton>
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
-                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateProfileCoachAsync" Disabled="_editCoachButtonDisabled">Update</MudButton>
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateCoachProfileAsync" Disabled="_editCoachButtonDisabled">Update</MudButton>
                 </MudStack>
             </MudStack>
         </DialogActions>
@@ -115,61 +115,36 @@ else
         }
     }
 
-    private async Task GetProfileCoachOnDialogOpenAsync(int profileCoachID)
+    private async Task GetProfileCoachOnDialogOpenAsync(int? profileCoachID)
     {
-        try
+        string url = $"/Profiles/Coach?id={profileCoachID}";
+
+        _profileCoaches = await apiService.GetAsync<ProfilesDTO.ProfileCoaches>(url);
+
+        if (_profileCoaches != null)
         {
-            string url = $"{apiService.Palaro2026API}/Profiles/Coach?id={profileCoachID}";
+            var selectedCoach = _profileCoaches.First();
+            // Title
+            _dialogHeader = $"{selectedCoach.FirstName} {selectedCoach.LastName}";
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _profileCoaches = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfileCoaches>>(responseStream, options);
-
-            if (_profileCoaches != null)
-            {
-                var selectedCoach = _profileCoaches.First();
-                // Title
-                _dialogHeader = $"{selectedCoach.FirstName} {selectedCoach.LastName}";
-
-                // Data
-                _selectedSchoolRegionIDValue = selectedCoach.SchoolRegionID;
-                _firstnameValue = selectedCoach.FirstName;
-                _lastnameValue = selectedCoach.LastName;
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error fetching data: {ex.Message}");
+            // Data
+            _selectedSchoolRegionIDValue = selectedCoach.SchoolRegionID;
+            _firstnameValue = selectedCoach.FirstName;
+            _lastnameValue = selectedCoach.LastName;
         }
     }
 
     private async Task GetSchoolRegionsOnDialogOpenAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+        string url = "/Schools/Regions";
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        _schoolRegions = await apiService.GetAsync<SchoolDTO.SchoolRegions>(url);
     }
 
     // Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
 
-    private async Task ConfirmDeleteProfileCoachAsync()
+    private async Task ConfirmDeleteCoachProfileAsync()
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
@@ -185,7 +160,7 @@ else
         }
     }
 
-    private async Task ConfirmUpdateProfileCoachAsync()
+    private async Task ConfirmUpdateCoachProfileAsync()
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
@@ -195,58 +170,54 @@ else
 
         if (result == true)
         {
-            await UpdateProfileCoachAsync();
+            await UpdateCoachProfileAsync();
 
             MudDialog?.Close(DialogResult.Ok(true));
         }
     }
 
     // Update Coach profile
-    private async Task UpdateProfileCoachAsync()
+    private async Task UpdateCoachProfileAsync()
     {
-        try
+        if (selectedCoachID == 0) return;
+
+        var updateCoachProfile = new ProfilesDTO.ProfileCoaches
+            {
+                ID = selectedCoachID,
+                FirstName = _firstnameValue,
+                LastName = _lastnameValue,
+                SchoolRegionID = _selectedSchoolRegionIDValue
+            };
+
+        string url = $"/Profiles/Coach/{selectedCoachID}";
+        var success = await apiService.PutAsync(url, updateCoachProfile);
+
+        if (success)
         {
-            if (selectedCoachID == 0) return;
-
-            var updatedStream = new ProfilesDTO.ProfileCoaches
-                {
-                    ID = selectedCoachID,
-                    FirstName = _firstnameValue,
-                    LastName = _lastnameValue,
-                    SchoolRegionID = _selectedSchoolRegionIDValue
-                };
-
-            string url = $"{apiService.Palaro2026API}/Profiles/Coach/{selectedCoachID}";
-            var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
-
-            HttpResponseMessage response = await httpClient.PutAsync(url, content);
-            response.EnsureSuccessStatusCode();
-
-            Snackbar.Add($"Coach {_firstnameValue} {_lastnameValue} details updated", Severity.Success);
+            Snackbar.Add($"Coach {_dialogHeader} has been updated successfully.", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error updating coach: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error updating coach {_dialogHeader}.", Severity.Error);
         }
     }
 
     // Delete Coach profile
     private async Task DeleteProfileCoachAsync()
     {
-        try
+        if (selectedCoachID == 0) return;
+
+        string url = $"/Profiles/Coach/{selectedCoachID}";
+
+        var success = await apiService.DeleteAsync(url);
+
+        if (success)
         {
-            if (selectedCoachID == 0) return;
-
-            string url = $"{apiService.Palaro2026API}/Profiles/Coach/{selectedCoachID}";
-
-            HttpResponseMessage response = await httpClient.DeleteAsync(url);
-            response.EnsureSuccessStatusCode();
-
             Snackbar.Add($"Coach {_dialogHeader} has been deleted successfully.", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error deleting coach {_dialogHeader}: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error deleting coach {_dialogHeader}.", Severity.Error);
         }
     }
 }

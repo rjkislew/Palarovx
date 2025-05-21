@@ -99,37 +99,27 @@
     // Add event venue
     private async Task AddEventVenueAsync()
     {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(_venueValue) || !_latitudeValue.HasValue || !_longitudeValue.HasValue)
+        if (string.IsNullOrWhiteSpace(_venueValue) || !_latitudeValue.HasValue || !_longitudeValue.HasValue) return;
+
+        var addEventStream = new EventsDTO.EventVenues
             {
-                Console.WriteLine("Stream service and URL cannot be empty.");
-                return;
-            }
+                Address = _addressValue,
+                Venue = _venueValue,
+                Latitude = _latitudeValue,
+                Longitude = _longitudeValue
+            };
 
-            string url = $"{apiService.Palaro2026API}/Events/Venues";
+        string url = "/Events/Venues";
 
-            var eventStream = new EventsDTO.EventVenues
-                {
-                    Address = _addressValue,
-                    Venue = _venueValue,
-                    Latitude = _latitudeValue,
-                    Longitude = _longitudeValue
-                };
+        var success = await apiService.PostAsync(url, addEventStream);
 
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            ClearFields();
-
-            Snackbar.Add("Event venue added successfully.", Severity.Success);
-        }
-        catch (HttpRequestException ex)
+        if (success)
         {
-            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Venue {_venueValue} added successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"Failed to add venue {_venueValue}.", Severity.Error);
         }
     }
 }

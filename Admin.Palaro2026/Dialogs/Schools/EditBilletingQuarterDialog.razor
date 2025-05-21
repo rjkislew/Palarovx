@@ -145,56 +145,30 @@ else
 
     private async Task GetBilletingQuarterOnDialogOpenAsync(int ID)
     {
-        try
+        string url = $"/Schools/BilletingQuarters?id={ID}";
+
+        _schoolBilletingQuarter = await apiService.GetAsync<SchoolDTO.SchoolBilletingQuarters>(url);
+
+        if (_schoolBilletingQuarter != null)
         {
-            string url = $"{apiService.Palaro2026API}/Schools/BilletingQuarters?id={ID}";
+            var selectedBilletingQuarter = _schoolBilletingQuarter.First();
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolBilletingQuarter = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolBilletingQuarters>>(responseStream, options);
-
-            if (_schoolBilletingQuarter != null)
-            {
-                var selectedBilletingQuarter = _schoolBilletingQuarter.First();
-
-                _dialogHeader = $"{selectedBilletingQuarter.BilletingQuarter}";
-                _selectedSchoolRegionIDValue = selectedBilletingQuarter.SchoolRegionID;
-                _billetingQuarterValue = selectedBilletingQuarter.BilletingQuarter;
-                _addressValue = selectedBilletingQuarter.Address;
-                _latitudeValue = selectedBilletingQuarter.Latitude;
-                _longitudeValue = selectedBilletingQuarter.Longitude;
-                _contactPersonValue = selectedBilletingQuarter.ContactPerson;
-                _contactPersonNumberValue = selectedBilletingQuarter.ContactPersonNumber;
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
+            _dialogHeader = $"{selectedBilletingQuarter.BilletingQuarter}";
+            _selectedSchoolRegionIDValue = selectedBilletingQuarter.SchoolRegionID;
+            _billetingQuarterValue = selectedBilletingQuarter.BilletingQuarter;
+            _addressValue = selectedBilletingQuarter.Address;
+            _latitudeValue = selectedBilletingQuarter.Latitude;
+            _longitudeValue = selectedBilletingQuarter.Longitude;
+            _contactPersonValue = selectedBilletingQuarter.ContactPerson;
+            _contactPersonNumberValue = selectedBilletingQuarter.ContactPersonNumber;
         }
     }
 
     private async Task GetSchoolRegionsOnDialogOpenAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+        string url = $"{apiService.Palaro2026API}/Schools/Regions";
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        _schoolRegions = await apiService.GetAsync<SchoolDTO.SchoolRegions>(url);
     }
 
 
@@ -236,51 +210,48 @@ else
     // Update billeting quarter
     private async Task UpdateBilletingQuarterAsync()
     {
-        try
+        var updateBilletingQuarter = new SchoolDTO.SchoolBilletingQuarters
+            {
+                ID = selectedBilletingQuarterID,
+                SchoolRegionID = _selectedSchoolRegionIDValue,
+                BilletingQuarter = _billetingQuarterValue,
+                Address = _addressValue,
+                Latitude = _latitudeValue,
+                Longitude = _longitudeValue,
+                ContactPerson = _contactPersonValue,
+                ContactPersonNumber = _contactPersonNumberValue?.Replace(" ", "")
+            };
+
+        string url = $"/Schools/BilletingQuarters/{selectedBilletingQuarterID}";
+
+        var success = await apiService.PutAsync(url, updateBilletingQuarter);
+
+        if (success)
         {
-            var updatedStream = new SchoolDTO.SchoolBilletingQuarters
-                {
-                    ID = selectedBilletingQuarterID,
-                    SchoolRegionID = _selectedSchoolRegionIDValue,
-                    BilletingQuarter = _billetingQuarterValue,
-                    Address = _addressValue,
-                    Latitude = _latitudeValue,
-                    Longitude = _longitudeValue,
-                    ContactPerson = _contactPersonValue,
-                    ContactPersonNumber = _contactPersonNumberValue?.Replace(" ", "")
-                };
-
-            string url = $"{apiService.Palaro2026API}/Schools/BilletingQuarters/{selectedBilletingQuarterID}";
-            var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
-
-            HttpResponseMessage response = await httpClient.PutAsync(url, content);
-            response.EnsureSuccessStatusCode();
-
-            Snackbar.Add("Billeting quarter details updated successfully.", Severity.Success);
+            Snackbar.Add("Billeting quarter updated successfully.", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error updating billeting quarter: {ex.Message}", Severity.Error);
+            Snackbar.Add("Error updating billeting quarter.", Severity.Error);
         }
     }
 
     // Delete billeting quarter
     private async Task DeleteBilletingQuarterAsync()
     {
-        try
+        if (selectedBilletingQuarterID == 0) return;
+
+        string url = $"/Schools/BilletingQuarters/{selectedBilletingQuarterID}";
+
+        var success = await apiService.DeleteAsync(url);
+
+        if (success)
         {
-            if (selectedBilletingQuarterID == 0) return;
-
-            string url = $"{apiService.Palaro2026API}/Schools/BilletingQuarters/{selectedBilletingQuarterID}";
-
-            HttpResponseMessage response = await httpClient.DeleteAsync(url);
-            response.EnsureSuccessStatusCode();
-
             Snackbar.Add("Billeting quarter deleted successfully.", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error deleting billeting quarter: {ex.Message}", Severity.Error);
+            Snackbar.Add("Error deleting billeting quarter.", Severity.Error);
         }
     }
 }

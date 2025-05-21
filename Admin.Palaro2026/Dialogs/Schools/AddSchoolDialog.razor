@@ -56,9 +56,9 @@
     private IMudDialogInstance? MudDialog { get; set; }
 
     // JSON storage
-    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
-    private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
-    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
+    private List<SchoolDTO.SchoolDivisions>? _schoolDivisions;
+    private List<SchoolDTO.SchoolLevels>? _schoolLevels;
 
     // Variables
     private int? _selectedSchoolRegionIDValue;
@@ -75,7 +75,7 @@
     string.IsNullOrEmpty(_schoolValue);
 
     // DTOs
-    public class SchoolsDTO
+    public class SchoolDTO
     {
         public class Schools
         {
@@ -117,62 +117,23 @@
 
     private async Task GetSchoolRegionsAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+        string url = "/Schools/Regions";
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        _schoolRegions = await apiService.GetAsync<SchoolDTO.SchoolRegions>(url);
     }
 
     private async Task GetSchoolDivisionsAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
+        string url = $"/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDivisions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        _schoolDivisions = await apiService.GetAsync<SchoolDTO.SchoolDivisions>(url);
     }
 
     private async Task GetSchoolLevelsAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Levels";
+        string url = $"/Schools/Levels";
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolLevels>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        _schoolLevels = await apiService.GetAsync<SchoolDTO.SchoolLevels>(url);
     }
 
 
@@ -207,28 +168,23 @@
     // Add school
     private async Task AddSchoolAsync()
     {
-        try
+        var addSchool = new SchoolDTO.Schools
+            {
+                SchoolDivisionID = _selectedSchoolDivisionIDValue,
+                SchoolLevelsID = _selectedSchoolLevelIDValue,
+                School = _schoolValue
+            };
+
+        string url = $"{apiService.Palaro2026API}/Schools";
+        var success = await apiService.PostAsync(url, addSchool);
+
+        if (success)
         {
-            string url = $"{apiService.Palaro2026API}/Schools";
-
-            var eventStream = new SchoolsDTO.Schools
-                {
-                    SchoolDivisionID = _selectedSchoolDivisionIDValue,
-                    SchoolLevelsID = _selectedSchoolLevelIDValue,
-                    School = _schoolValue
-                };
-
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode();
-
-            Snackbar.Add("School added successfully.", Severity.Success);
+            Snackbar.Add("School added successfully", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
+            Snackbar.Add("Failed to add school", Severity.Error);
         }
     }
 }

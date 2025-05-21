@@ -20,7 +20,7 @@
             </MudStack>
         </MudItem>
         <MudItem xs="12">
-            <MudTable Outlined Items="_eventVenues" Striped Virtualize="true" Filter="FilterFunc" Elevation="0" Hover>
+            <MudTable Outlined Items="_eventVenues" Virtualize="true" Filter="FilterFunc" Elevation="0" Hover>
                 <ToolBarContent>
                     <MudText Typo="Typo.h6">Event Venues</MudText>
                     <MudSpacer />
@@ -52,21 +52,18 @@
                     <MudTh>Settings</MudTh>
                 </HeaderContent>
                 <RowTemplate Context="venue">
-                    <MudTd DataLabel="Venue">@venue.Venue</MudTd>
-                    <MudTd DataLabel="Address">@venue.Address</MudTd>
+                    <MudTd DataLabel="Venue">
+                        <MudText Style="font-weight: bold" Typo="Typo.body2">@venue.Venue</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Address">
+                        <MudText Typo="Typo.body2">@venue.Address</MudText>
+                    </MudTd>
                     <MudTd DataLabel="Coordinates">
                         <MudLink Underline="Underline.Hover" Href="@($"https://www.google.com/maps/?q={venue.Latitude},{venue.Longitude}")" Target="_blank">
-                            <MudStack Row AlignItems="AlignItems.Center">
-                                <MudStack Spacing="0">
-                                    <MudText Typo="Typo.body2">
-                                        Lat: @venue.Latitude
-                                    </MudText>
-                                    <MudText Typo="Typo.body2">
-                                        Long: @venue.Longitude
-                                    </MudText>
-                                </MudStack>
-                                <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" />
-                            </MudStack>
+                            <MudText Typo="Typo.body2">
+                                Lat: @venue.Latitude <br />
+                                Long: @venue.Longitude
+                            </MudText>
                         </MudLink>
                     </MudTd>
                     <MudTd DataLabel="Settings" Style="text-align: center">
@@ -134,7 +131,7 @@
         {
             {x => x.selectedVenueID, selectedID}
         };
-        var options = new DialogOptions {CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+        var options = new DialogOptions {CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
 
         var dialog = await DialogService.ShowAsync<EditVenueDialog>("Edit Venue Settings", parameter, options);
 
@@ -148,7 +145,7 @@
 
     private async Task OpenAddVenueDialog()
     {
-        var options = new DialogOptions {CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
 
         var dialog = await DialogService.ShowAsync<AddVenueDialog>("Add Venue Settings", options);
 
@@ -169,21 +166,7 @@
 
     private async Task GetEventVenuesAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Events/Venues";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _eventVenues = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVenues>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        string url = "/Events/Venues";
+        _eventVenues = await apiService.GetAsync<EventsDTO.EventVenues>(url);
     }
 }

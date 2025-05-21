@@ -160,101 +160,45 @@
 
     private async Task GetSchoolRegionsAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        string url = "/Schools/Regions";
+        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(url);
     }
 
     private async Task GetEventVersusTeamsAsync()
     {
-        try
+        string url = $"/Events/VersusTeams?id={SelectedEventVersusTeamsID}";
+        _eventVersusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(url);
+
+        if (_eventVersusTeams != null)
         {
-            string url = $"{apiService.Palaro2026API}/Events/VersusTeams?id={SelectedEventVersusTeamsID}";
+            var eventVersusTeam = _eventVersusTeams.First();
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _eventVersusTeams = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVersusTeams>>(responseStream, options);
-
-            if (_eventVersusTeams != null)
-            {
-                var eventVersusTeam = _eventVersusTeams.First();
-
-                _selectedEventVersusTeamsIDValue = eventVersusTeam.ID;
-                _selectedEventID = eventVersusTeam.EventID;
-                _selectedRegionIDValue = eventVersusTeam.SchoolRegionID;
-                _scoreValue = eventVersusTeam.Score;
-                _rankValue = eventVersusTeam.Rank;
-                _recentUpdateAt = eventVersusTeam.RecentUpdateAt;
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
+            _selectedEventVersusTeamsIDValue = eventVersusTeam.ID;
+            _selectedEventID = eventVersusTeam.EventID;
+            _selectedRegionIDValue = eventVersusTeam.SchoolRegionID;
+            _scoreValue = eventVersusTeam.Score;
+            _rankValue = eventVersusTeam.Rank;
+            _recentUpdateAt = eventVersusTeam.RecentUpdateAt;
         }
     }
 
     private async Task GetEventVersusTeamPlayersAsync()
     {
-        try
+        string url = $"/Events/VersusTeams/Players?eventVersusID={SelectedEventVersusTeamsID}";
+        _eventVersusTeamPlayers = await apiService.GetAsync<EventsDTO.EventVersusTeamPlayers>(url);
+
+        if (_eventVersusTeamPlayers != null)
         {
-            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/Players?eventVersusID={SelectedEventVersusTeamsID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _eventVersusTeamPlayers = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVersusTeamPlayers>>(responseStream, options);
-
-            if (_eventVersusTeamPlayers != null)
-            {
-                var eventVersusTeam = _eventVersusTeamPlayers.First();
-                _selectedEventVersusTeamPlayersIDValue = eventVersusTeam.ID;
-                _selectedPlayerIDValues = _eventVersusTeamPlayers.Select(c => c.ProfilePlayerID).ToList();
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
+            var eventVersusTeam = _eventVersusTeamPlayers.First();
+            _selectedEventVersusTeamPlayersIDValue = eventVersusTeam.ID;
+            _selectedPlayerIDValues = _eventVersusTeamPlayers.Select(c => c.ProfilePlayerID).ToList();
         }
     }
 
     private async Task GetPlayerAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Events?regionID={_selectedRegionIDValue}&subCategoryID={SelectedSubCategoryID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _profilePlayerEvents = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayerEvent>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        string url = $"/Profiles/Player/Events?regionID={_selectedRegionIDValue}&subCategoryID={SelectedSubCategoryID}";
+        _profilePlayerEvents = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
     }
 
     // Dialog actions// Dialog Actions
@@ -297,26 +241,24 @@
     // while aslo addding new sport event coach
     private async Task UpdateEventVersusTeamsAsync()
     {
-        try
+        if (SelectedEventVersusTeamsID == 0) return;
+
+        var updatedTeam = new EventsDTO.EventVersusTeams
+            {
+                EventID = SelectedEventID,
+                ID = _selectedEventVersusTeamsIDValue,
+                SchoolRegionID = _selectedRegionIDValue,
+                Score = _scoreValue,
+                Rank = _rankValue,
+                RecentUpdateAt = _recentUpdateAt,
+            };
+
+        string url = $"/Events/VersusTeams/{SelectedEventVersusTeamsID}";
+
+        var success = await apiService.PutAsync(url, updatedTeam);
+
+        if (success)
         {
-            if (SelectedEventVersusTeamsID == 0) return;
-
-            var updatedTeam = new EventsDTO.EventVersusTeams
-                {
-                    EventID = SelectedEventID,
-                    ID = _selectedEventVersusTeamsIDValue,
-                    SchoolRegionID = _selectedRegionIDValue,
-                    Score = _scoreValue,
-                    Rank = _rankValue,
-                    RecentUpdateAt = _recentUpdateAt,
-                };
-
-            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/{SelectedEventVersusTeamsID}";
-            var content = new StringContent(JsonSerializer.Serialize(updatedTeam), Encoding.UTF8, "application/json");
-
-            HttpResponseMessage response = await httpClient.PutAsync(url, content);
-            response.EnsureSuccessStatusCode();
-
             // If there are selected players, update them, otherwise delete all
             if (_selectedPlayerIDValues?.Any() == true)
             {
@@ -328,78 +270,57 @@
                 await DeleteEventVersusTeamPlayersByEventVersusTeamIDAsync();
             }
 
-            Snackbar.Add("Selected team updated successfully.", Severity.Success);
+            Snackbar.Add("Team updated successfully.", Severity.Success);
             MudDialog?.Close(DialogResult.Ok(true));
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error updating player sport event: {ex.Message}", Severity.Error);
+            Snackbar.Add("Failed to update team.", Severity.Error);
         }
     }
 
 
     private async Task PostEventVersusTeamPlayersAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/Players";
+        var eventStream = _selectedPlayerIDValues?.Where(id => id.HasValue)
+            .Select(playerID => new EventsDTO.EventVersusTeamPlayers
+                {
+                    ProfilePlayerID = playerID!.Value,
+                    EventVersusID = SelectedEventVersusTeamsID,
+                }).ToList();
 
-            var eventStream = _selectedPlayerIDValues?.Where(id => id.HasValue)
-                .Select(playerID => new EventsDTO.EventVersusTeamPlayers
-                    {
-                        ProfilePlayerID = playerID!.Value,
-                        EventVersusID = SelectedEventVersusTeamsID,
-                    }).ToList();
+        if (eventStream == null || !eventStream.Any()) return;
 
-            if (eventStream == null || !eventStream.Any()) return;
-
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode();
-        }
-        catch (HttpRequestException ex)
-        {
-            Snackbar.Add($"Error posting data: {ex.Message}", Severity.Error);
-        }
+        string url = $"/Events/VersusTeams/Players";
+        var success = await apiService.PostAsync(url, eventStream);
     }
 
 
     // Delete Sport event and sport event coach by sport event ID
     private async Task DeleteEventVersusTeamPlayersByEventVersusTeamIDAsync()
     {
-        try
-        {
-            if (SelectedEventVersusTeamsID == 0) return;
+        if (SelectedEventVersusTeamsID == 0) return;
 
-            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/Players/ByEventVersusTeam/{SelectedEventVersusTeamsID}";
+        string url = $"/Events/VersusTeams/Players/ByEventVersusTeam/{SelectedEventVersusTeamsID}";
 
-            HttpResponseMessage response = await httpClient.DeleteAsync(url);
-            response.EnsureSuccessStatusCode();
-        }
-        catch (HttpRequestException ex)
-        {
-            Snackbar.Add($"Error deleting player sport coach: {ex.Message}", Severity.Error);
-        }
+        var success = await apiService.DeleteAsync(url);
     }
 
     private async Task DeleteEventVersusTeamPlayersAsync()
     {
-        try
+        if (SelectedEventVersusTeamsID == 0) return;
+
+        string url = $"/Events/VersusTeams/{SelectedEventVersusTeamsID}";
+
+        var success = await apiService.DeleteAsync(url);
+
+        if (success)
         {
-            if (SelectedEventVersusTeamsID == 0) return;
-
-            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/{SelectedEventVersusTeamsID}";
-
-            HttpResponseMessage response = await httpClient.DeleteAsync(url);
-            response.EnsureSuccessStatusCode();
-
-            Snackbar.Add("Player sport event deleted successfully.", Severity.Success);
+            Snackbar.Add($"Team deleted successfully.", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error deleting player sport event: {ex.Message}", Severity.Error);
+            Snackbar.Add("Failed to delete team.", Severity.Error);
         }
     }
 }

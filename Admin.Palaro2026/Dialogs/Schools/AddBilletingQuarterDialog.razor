@@ -132,22 +132,9 @@ else
 
     private async Task GetSchoolRegionsAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+        string url = "/Schools/Regions";
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        _schoolRegions = await apiService.GetAsync<SchoolDTO.SchoolRegions>(url);
     }
 
 
@@ -186,35 +173,27 @@ else
 
     private async Task AddBilletingQuarterAsync()
     {
-        try
+        var addBilletingQuarter = new SchoolDTO.SchoolBilletingQuarters
+            {
+                SchoolRegionID = _selectedSchoolRegionIDValue,
+                BilletingQuarter = _billetingQuarterValue,
+                Address = _addressValue,
+                Latitude = _latitudeValue,
+                Longitude = _longitudeValue,
+                ContactPerson = _contactPersonValue,
+                ContactPersonNumber = _contactPersonNumberValue?.Replace(" ", "")
+            };
+
+        string url = "/Schools/BilletingQuarters";
+        var success = await apiService.PostAsync(url, addBilletingQuarter);
+
+        if (success)
         {
-            string url = $"{apiService.Palaro2026API}/Schools/BilletingQuarters";
-
-            var eventStream = new SchoolDTO.SchoolBilletingQuarters
-                {
-                    SchoolRegionID = _selectedSchoolRegionIDValue,
-                    BilletingQuarter = _billetingQuarterValue,
-                    Address = _addressValue,
-                    Latitude = _latitudeValue,
-                    Longitude = _longitudeValue,
-                    ContactPerson = _contactPersonValue,
-                    ContactPersonNumber = _contactPersonNumberValue?.Replace(" ", "")
-                };
-
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode(); //Ensure a successful response
-
-            ClearFields();
-
-            Snackbar.Add("Billeting quarter added successfully.", Severity.Success);
+            Snackbar.Add("Billeting Quarter added successfully", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-
-            Snackbar.Add($"Error adding data: {ex.Message}", Severity.Error);
+            Snackbar.Add("Failed to add Billeting Quarter", Severity.Error);
         }
     }
 }

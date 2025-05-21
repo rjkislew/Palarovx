@@ -18,16 +18,17 @@
                             <MudPaper Class="pa-3" Outlined Style="height: 100%">
                                 <MudStack Justify="Justify.SpaceBetween" Style="height: 100%">
                                     <MudStack Row Spacing="1" Style="height: 100%" AlignItems="AlignItems.Center">
-                                        <MudImage Src="@($"media/regions/{team.Abbreviation}.png")" Height="50"/>
+                                        <MudImage Src="@($"media/regions/{team.Abbreviation}.png")" Height="50" />
                                         <MudStack Spacing="0" Style="height: 100%">
                                             <MudText Class="text-center" Style="font-weight: bold">@team.Abbreviation</MudText>
                                             <MudText Class="text-center" Style="font-size: 10px">@team.Region</MudText>
                                         </MudStack>
                                     </MudStack>
-                                    <MudNumericField T="int" Style="font-size: 50px"
-                                    Value="@(int.TryParse(team.Score, out int val) ? val : 0)"
-                                    ValueChanged="@(value => UpdateTeamScoreAsync(team.ID, value.ToString()))">
+                                    <MudNumericField T="int" Style="font-size: 50px" Disabled="@(team.ID == _updatingTeamId)"
+                                                     Value="@(int.TryParse(team.Score, out int val) ? val : 0)"
+                                                     ValueChanged="@(value => UpdateTeamScoreAsync(team.ID, value.ToString()))">
                                     </MudNumericField>
+                                    <MudProgressLinear Indeterminate="true" Style="margin-top: -14px" hidden="@(team.ID != _updatingTeamId)" />
                                 </MudStack>
                             </MudPaper>
                         </MudItem>
@@ -63,6 +64,11 @@ else
 
     // Dialog actions// Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
+
+    // Disable numeric field if update is in progress
+    private bool _scoreIsUpdating = false;
+    private int? _updatingTeamId = null;
+
 
     // Load dialog if true
     private bool? _isLoaded = false;
@@ -131,56 +137,46 @@ else
 
     private async Task GetEventsOnDialogOpenAsync()
     {
-        try
+        string url = $"/Events/Details?id={SelectedEventID}";
+        _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+
+        if (_events != null)
         {
-            string url = $"{apiService.Palaro2026API}/Events/Details?id={SelectedEventID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _events = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options);
-
             _isLoaded = true;
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Console.WriteLine($"Error fetching data: {ex.Message}");
+            Snackbar.Add("Failed to load event details", Severity.Error);
+            return;
         }
     }
 
     private async Task UpdateTeamScoreAsync(int? id, string score)
     {
+        _updatingTeamId = id;
+        _scoreIsUpdating = true;
+
         if (id == null) return;
 
-        try
+        string url = $"/Events/VersusTeams/{id}";
+
+        var updateScore = new { Score = score }; // Score as string
+
+        var success = await apiService.PutAsync(url, updateScore);
+
+        if (success)
         {
-            string url = $"{apiService.Palaro2026API}/Events/VersusTeams/{id}";
-
-            var updatedTeam = new { Score = score }; // Score as string
-
-            string jsonPayload = JsonSerializer.Serialize(updatedTeam);
-            Console.WriteLine($"Request Payload: {jsonPayload}"); // Log JSON payload
-
-            var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-            HttpResponseMessage response = await httpClient.PutAsync(url, content);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                string errorMessage = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Error Response: {errorMessage}");
-            }
-            else
-            {
-                await GetEventsOnDialogOpenAsync();
-            }
-
-            response.EnsureSuccessStatusCode();
+            // add task delay to mitigate rapid updates
+            await Task.Delay(500);
+            _scoreIsUpdating = false;
+            await GetEventsOnDialogOpenAsync();
+            Snackbar.Add("Score updated successfully", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Console.WriteLine($"Error updating score: {ex.Message}");
+            Snackbar.Add("Failed to update score", Severity.Error);
         }
+
+        _updatingTeamId = null;
     }
 }

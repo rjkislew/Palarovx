@@ -80,10 +80,10 @@ else
 
 
     // JSON storage
-    private List<SchoolsDTO.Schools>? _school;
-    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
-    private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
-    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SchoolDTO.Schools>? _school;
+    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
+    private List<SchoolDTO.SchoolDivisions>? _schoolDivisions;
+    private List<SchoolDTO.SchoolLevels>? _schoolLevels;
 
 
     // Variables
@@ -107,7 +107,7 @@ else
 
 
     // DTOs
-    public class SchoolsDTO
+    public class SchoolDTO
     {
         public class Schools
         {
@@ -153,129 +153,65 @@ else
 
     private async Task GetSchoolsOnDialogOpenAsync(int schoolID)
     {
-        try
+        string url = $"/Schools?id={schoolID}";
+
+        _school = await apiService.GetAsync<SchoolDTO.Schools>(url);
+
+        if (_school != null)
         {
-            string url = $"{apiService.Palaro2026API}/Schools?id={schoolID}";
+            var selectedSchool = _school.First();
+            // Title
+            _dialogHeader = $"{selectedSchool.School}";
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _school = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.Schools>>(responseStream, options);
-
-            if (_school != null)
-            {
-                var selectedSchool = _school.First();
-                // Title
-                _dialogHeader = $"{selectedSchool.School}";
-
-                // Data
-                _selectedSchoolLevelIDValue = selectedSchool.SchoolLevelsID;
-                _selectedSchoolDivisionIDValue = selectedSchool.SchoolDivisionID;
-                _schoolValue = selectedSchool.School;
-            }
-
-            await GetSchoolLevelsOnDialogOpenAsync();
-            await GetSchoolDivisionsOnDialogOpenAsync();
+            // Data
+            _selectedSchoolLevelIDValue = selectedSchool.SchoolLevelsID;
+            _selectedSchoolDivisionIDValue = selectedSchool.SchoolDivisionID;
+            _schoolValue = selectedSchool.School;
         }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+
+        await GetSchoolLevelsOnDialogOpenAsync();
+        await GetSchoolDivisionsOnDialogOpenAsync();
     }
 
     // Load after GetSchoolsOnDialogOpenAsync
     private async Task GetSchoolLevelsOnDialogOpenAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Levels";
+        string url = $"/Schools/Levels";
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolLevels>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        _schoolLevels = await apiService.GetAsync<SchoolDTO.SchoolLevels>(url);
     }
 
     private async Task GetSchoolDivisionsOnDialogOpenAsync()
     {
-        try
+        string url = $"/Schools/Divisions?id={_selectedSchoolDivisionIDValue}";
+
+        _schoolDivisions = await apiService.GetAsync<SchoolDTO.SchoolDivisions>(url);
+
+        if (_schoolDivisions != null && _schoolDivisions.Any())
         {
-            string url = $"{apiService.Palaro2026API}/Schools/Divisions?id={_selectedSchoolDivisionIDValue}";
+            var division = _schoolDivisions.First(); // Store values from the first school as an example
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDivisions>>(responseStream, options);
-
-            if (_schoolDivisions != null && _schoolDivisions.Any())
-            {
-                var division = _schoolDivisions.First(); // Store values from the first school as an example
-
-                _selectedSchoolRegionIDValue = division.SchoolRegionID;
-            }
-
-            await GetSchoolRegionsOnDialogOpenAsync();
+            _selectedSchoolRegionIDValue = division.SchoolRegionID;
         }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+
+        await GetSchoolRegionsOnDialogOpenAsync();
     }
 
     private async Task GetSchoolRegionsOnDialogOpenAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
+        string url = "/Schools/Regions";
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+        _schoolRegions = await apiService.GetAsync<SchoolDTO.SchoolRegions>(url);
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolRegions>>(responseStream, options);
-
-            await GetSchoolDivisionsAsync();
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        await GetSchoolDivisionsAsync();
     }
 
     // Load after GetSchoolRegionsOnDialogOpenAsync
     private async Task GetSchoolDivisionsAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
+        string url = $"/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolDivisions = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolDivisions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        _schoolDivisions = await apiService.GetAsync<SchoolDTO.SchoolDivisions>(url);
     }
 
 
@@ -318,49 +254,46 @@ else
     // Update School
     private async Task UpdateSchoolAsync()
     {
-        try
+        if (selectedSchoolID == 0) return;
+
+        var updateSchool = new SchoolDTO.Schools
+            {
+                ID = selectedSchoolID,
+                School = _schoolValue,
+                SchoolDivisionID = _selectedSchoolDivisionIDValue,
+                SchoolLevelsID = _selectedSchoolLevelIDValue
+            };
+
+        string url = $"/Schools/{selectedSchoolID}";
+
+        var success = await apiService.PutAsync(url, updateSchool);
+
+        if (success)
         {
-            if (selectedSchoolID == 0) return;
-
-            var updatedStream = new SchoolsDTO.Schools
-                {
-                    ID = selectedSchoolID,
-                    School = _schoolValue,
-                    SchoolDivisionID = _selectedSchoolDivisionIDValue,
-                    SchoolLevelsID = _selectedSchoolLevelIDValue
-                };
-
-            string url = $"{apiService.Palaro2026API}/Schools/{selectedSchoolID}";
-            var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
-
-            HttpResponseMessage response = await httpClient.PutAsync(url, content);
-            response.EnsureSuccessStatusCode();
-
-            Snackbar.Add("School details updated successfully.", Severity.Success);
+            Snackbar.Add("School updated successfully.", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error updating school: {ex.Message}", Severity.Error);
+            Snackbar.Add("Error updating school.", Severity.Error);
         }
     }
 
     // Delete School
     private async Task DeleteSchoolAsync()
     {
-        try
+        if (selectedSchoolID == 0) return;
+
+        string url = $"/Schools/{selectedSchoolID}";
+
+        var success = await apiService.DeleteAsync(url);
+
+        if (success)
         {
-            if (selectedSchoolID == 0) return;
-
-            string url = $"{apiService.Palaro2026API}/Schools/{selectedSchoolID}";
-
-            HttpResponseMessage response = await httpClient.DeleteAsync(url);
-            response.EnsureSuccessStatusCode();
-
             Snackbar.Add("School deleted successfully.", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error deleting school: {ex.Message}", Severity.Error);
+            Snackbar.Add("Error deleting school.", Severity.Error);
         }
     }
 }

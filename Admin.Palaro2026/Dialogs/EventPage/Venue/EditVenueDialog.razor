@@ -141,7 +141,7 @@ else
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: "Do you confirm deletion of stream service?",
+            message: $"Do you confirm deletion of {_venueValue}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
@@ -156,7 +156,7 @@ else
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: "Do you confirm changes of stream service?",
+            message: $"Do you confirm changes of {_venueValue}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
@@ -170,54 +170,47 @@ else
     // Update Venue
     private async Task UpdateVenueAsync()
     {
-        try
+        if (selectedVenueID == 0) return;
+
+        var updatedStream = new EventsDTO.EventVenues
+            {
+                ID = selectedVenueID,
+                Address = _addressValue,
+                Venue = _venueValue,
+                Latitude = _latitudeValue,
+                Longitude = _longitudeValue
+            };
+
+        string url = $"/Events/Venues/{selectedVenueID}";
+
+        var success = await apiService.PutAsync(url, updatedStream);
+
+        if (success)
         {
-            if (selectedVenueID == 0) return;
-
-            var updatedStream = new EventsDTO.EventVenues
-                {
-                    ID = selectedVenueID,
-                    Address = _addressValue,
-                    Venue = _venueValue,
-                    Latitude = _latitudeValue,
-                    Longitude = _longitudeValue
-                };
-
-            string url = $"{apiService.Palaro2026API}/Events/Venues/{selectedVenueID}";
-            var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
-
-            HttpResponseMessage response = await httpClient.PutAsync(url, content);
-            response.EnsureSuccessStatusCode();
-
-            Snackbar.Add("Stream updated successfully.", Severity.Success);
-
-            MudDialog?.Close(DialogResult.Ok(true));
+            Snackbar.Add($"Venue {_venueValue} updated successfully.", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error updating stream: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error updating {_venueValue}.", Severity.Error);
         }
     }
 
     // Delete Venu
     private async Task DeleteVenueAsync()
     {
-        try
+        if (selectedVenueID == 0) return;
+
+        string url = $"/Events/Venues/{selectedVenueID}";
+
+        var success = await apiService.DeleteAsync(url);
+
+        if (success)
         {
-            if (selectedVenueID == 0) return;
-
-            string url = $"{apiService.Palaro2026API}/Events/Venues/{selectedVenueID}";
-
-            HttpResponseMessage response = await httpClient.DeleteAsync(url);
-            response.EnsureSuccessStatusCode();
-
-            Snackbar.Add("Stream deleted successfully.", Severity.Success);
-
-            MudDialog?.Close(DialogResult.Ok(true));
+            Snackbar.Add($"Venue {_venueValue} deleted successfully", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error deleting stream: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Failed to delete {_venueValue}", Severity.Error);
         }
     }
 }

@@ -74,7 +74,7 @@
 
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: $"Do you confirm addition of {_streamTitleValue}?",
+            message: $"Do you confirm addition of stream {_streamTitleValue}?",
             yesText: "Yes",
             cancelText: "Cancel",
             options: options);
@@ -91,29 +91,24 @@
     // Add event stream service
     private async Task AddEventStreamAsync()
     {
-        try
+        var updateEventStream = new EventsDTO.EventStreams
+            {
+                EventStreamServiceID = SelectedStreamID,
+                StreamTitle = _streamTitleValue,
+                StreamURL = _streamURLValue,
+                StreamDate = DateTime.Now
+            };
+
+        string url = "/Events/StreamService/Streams";
+        var success = await apiService.PostAsync(url, updateEventStream);
+
+        if (success)
         {
-            string url = $"{apiService.Palaro2026API}/Events/StreamService/Streams";
-
-            var eventStream = new EventsDTO.EventStreams
-                {
-                    EventStreamServiceID = SelectedStreamID,
-                    StreamTitle = _streamTitleValue,
-                    StreamURL = _streamURLValue,
-                    StreamDate = DateTime.Now
-                };
-
-            var jsonContent = JsonSerializer.Serialize(eventStream);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            Snackbar.Add($"Event stream {_streamTitleValue} added successfully.", Severity.Success);
+            Snackbar.Add($"Stream {_streamTitleValue} added successfully.", Severity.Success);
         }
-        catch (HttpRequestException ex)
+        else
         {
-            Snackbar.Add($"Error adding stream: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Failed to add stream {_streamTitleValue}.", Severity.Error);
         }
     }
 }

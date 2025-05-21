@@ -32,7 +32,7 @@ public class APIService
 
     public async Task<List<T>?> GetAsync<T>(string relativeUrl)
     {
-        var url = BuildUrl(relativeUrl);
+        string url = BuildUrl(relativeUrl);
         try
         {
             var response = await _httpClient.GetAsync(url);
@@ -48,7 +48,7 @@ public class APIService
 
     public async Task<T?> GetSingleAsync<T>(string relativeUrl)
     {
-        var url = BuildUrl(relativeUrl);
+        string url = BuildUrl(relativeUrl);
         try
         {
             var response = await _httpClient.GetAsync(url);
@@ -64,7 +64,7 @@ public class APIService
 
     public async Task<bool> PostAsync<T>(string relativeUrl, T data)
     {
-        var url = BuildUrl(relativeUrl);
+        string url = BuildUrl(relativeUrl);
         try
         {
             var jsonContent = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
@@ -79,7 +79,7 @@ public class APIService
     }
     public async Task<T?> PostAndReadAsync<T>(string relativeUrl, object data)
     {
-        var url = BuildUrl(relativeUrl);
+        string url = BuildUrl(relativeUrl);
         try
         {
             var jsonContent = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
@@ -98,7 +98,7 @@ public class APIService
 
     public async Task<bool> PutAsync<T>(string relativeUrl, T data)
     {
-        var url = BuildUrl(relativeUrl);
+        string url = BuildUrl(relativeUrl);
         try
         {
             var jsonContent = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
@@ -114,7 +114,7 @@ public class APIService
 
     public async Task<bool> DeleteAsync(string relativeUrl)
     {
-        var url = BuildUrl(relativeUrl);
+        string url = BuildUrl(relativeUrl);
         try
         {
             var response = await _httpClient.DeleteAsync(url);

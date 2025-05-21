@@ -30,9 +30,9 @@
             <MudTable Outlined Items="_eventDetails" Context="eventDetail" Filter="FilterFunc" Elevation="0">
 
                 <!--
-                    Toolbar content:
-                    - Table title
-                    - Search bar
+                Toolbar content:
+                - Table title
+                - Search bar
                 -->
                 <ToolBarContent>
                     <MudText Typo="Typo.h6">Events</MudText>
@@ -49,8 +49,8 @@
                         <col style="width: 20%" />
                         <col style="width: 20%" />
                         <col style="width: 15%" />
-                        <col style="width: 15%" />
-                        <col style="width: 15%" />
+                        <col style="width: 10%" />
+                        <col style="width: 20%" />
                         <col style="width: 10%" />
                         <col style="width: 5%" />
                     </MudHidden>
@@ -74,29 +74,36 @@
                 <!-- rows: render all data from coming from events api -->
                 <RowTemplate>
                     <MudTd Datalabel="Event">
-                        <MudStack Spacing="0">
-                            <MudStack Row Class="mb-2" Spacing="1">
-                                <MudText Typo="Typo.caption">[@eventDetail.EventStage] - </MudText>
+                        <MudStack>
+                            <MudStack Spacing="0">
+                                <MudText Style="font-weight: bold">
+                                    @eventDetail.Sport
+                                    <MudElement>
+                                        <MudText Typo="Typo.caption">
+                                            | @eventDetail.Category
+                                        </MudText>
+                                    </MudElement>
+                                </MudText>
+                                <MudText Typo="Typo.caption">
+                                    @eventDetail.Subcategory ∙ @eventDetail.Level ∙ @eventDetail.Gender
+                                </MudText>
+                            </MudStack>
+
+                            <MudStack Row Spacing="0">
                                 @if (@eventDetail.IsFinished == true)
                                 {
-                                    <MudText Typo="Typo.caption">Finished</MudText>
+                                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircleOutline">Finished</MudChip>
+                                }
+                                else if (eventDetail.IsFinished == false && eventDetail.EventVersusList?.Count() < 2)
+                                {
+                                    <MudChip T="string" Color="Color.Default" Size="Size.Small" Icon="@Icons.Material.Filled.NotificationImportant">Add Players</MudChip>
                                 }
                                 else
                                 {
-                                    <MudText Typo="Typo.caption">Ongoing</MudText>
+                                    <MudChip T="string" Color="Color.Warning" Size="Size.Small" Icon="@Icons.Material.Filled.PlayCircleOutline">Ongoing</MudChip>
                                 }
+                                <MudChip T="string" Color="Color.Default" Size="Size.Small" Icon="@Icons.Material.Filled.WorkspacePremium">@eventDetail.EventStage</MudChip>
                             </MudStack>
-                            <MudText>
-                                @eventDetail.Sport
-                                <MudElement>
-                                    <MudText Typo="Typo.caption">
-                                        | @eventDetail.Category
-                                    </MudText>
-                                </MudElement>
-                            </MudText>
-                            <MudText Typo="Typo.caption">
-                                @eventDetail.Subcategory ∙ @eventDetail.Level ∙ @eventDetail.Gender
-                            </MudText>
                         </MudStack>
                     </MudTd>
                     <MudTd Datalabel="Opposing Teams">
@@ -340,22 +347,8 @@
     // API Call for Events
     private async Task GetEventsAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Events/Details";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _eventDetails = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-            _errorLoading = true;
-        }
+        string url = "/Events/Details";
+        _eventDetails = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
     }
 
 
