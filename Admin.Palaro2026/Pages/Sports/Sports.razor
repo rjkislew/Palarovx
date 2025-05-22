@@ -10,73 +10,78 @@
 @inject HttpClient httpClient
 
 <MudGrid Spacing="0">
-    @if (_schoolDetails != null && _schoolDetails.Any())
+    @if (_sportCategories != null && _sportCategories.Any())
     {
         <MudItem xs="12">
-            <MudStack Row Spacing="0" Justify="Justify.FlexEnd">
-                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddSchoolDialog">Add School</MudButton>
-                <MudDivider Vertical="true" FlexItem="true" />
-                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetSchoolDetailsAsync">Refresh Table</MudButton>
+            <MudStack Row Spacing="0" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.h6">Sports</MudText>
+                <MudButton Size="Size.Large" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetSportsDetailsAsync">Refresh Data</MudButton>
             </MudStack>
         </MudItem>
         <MudItem xs="12">
-            <MudTable Outlined Items="_schoolDetails" Context="school" Virtualize="true" Filter="FilterFunc" Elevation="0">
-                <ToolBarContent>
-                    <MudText Typo="Typo.h6">Sports</MudText>
-                    <MudSpacer />
-                    <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
-                    Adornment="Adornment.Start"
-                    AdornmentIcon="@Icons.Material.Filled.Search"
-                    IconSize="Size.Medium" />
-                </ToolBarContent>
-                <ColGroup>
-                    <MudHidden Breakpoint="Breakpoint.Xs">
-                        <col style="width: 30%" />
-                        <col style="width: 20%" />
-                        <col style="width: 20%;" />
-                        <col style="width: 25%;" />
-                        <col style="width: 5%;" />
-                    </MudHidden>
-                </ColGroup>
-                <HeaderContent>
-                    <MudTh>
-                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object?>(x=>x.School)">
-                            School
-                        </MudTableSortLabel>
-                    </MudTh>
-                    <MudTh>
-                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object?>(x=>x.Level)">
-                            School Level
-                        </MudTableSortLabel>
-                    </MudTh>
-                    <MudTh>
-                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object?>(x=>x.Division)">
-                            Division
-                        </MudTableSortLabel>
-                    </MudTh>
-                    <MudTh>
-                        <MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object?>(x=>x.Region)">
-                            Region
-                        </MudTableSortLabel>
-                    </MudTh>
-                    <MudTh>Settings</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="School">@school.School</MudTd>
-                    <MudTd DataLabel="School Level">@school.Level</MudTd>
-                    <MudTd DataLabel="Division">@school.Division</MudTd>
-                    <MudTd DataLabel="Region">@school.Region (@school.Abbreviation)</MudTd>
-                    <MudTd DataLabel="Settings" Style="text-align: center">
-                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditSchoolDialog(school.ID)" />
-                    </MudTd>
-                </RowTemplate>
-                <NoRecordsContent>
-                    <MudText Typo="Typo.caption">No matching records found.</MudText>
-                </NoRecordsContent>
-                <PagerContent>
-                    <MudTablePager />
-                </PagerContent>
-            </MudTable>
+            <MudDivider />
+            <MudTabs>
+                <MudVirtualize Items="_sportCategories" Context="sportCategory">
+                    <MudTabPanel Style="text-transform: none" Text="@sportCategory.Category">
+                        <MudTabs Position="Position.Left" PanelClass="pa-3">
+                            <MudVirtualize Items="sportCategory.SportsList" Context="sport">
+                                <MudTabPanel Style="text-transform: none" Text="@sport.Sport">
+                                    <MudGrid>
+                                        <MudVirtualize Items="sport.SchoolLevelsList" Context="schoolLevel">
+                                            <MudItem xs="12" md="6">
+                                                <MudText>@schoolLevel.Level</MudText>
+                                                <MudDivider Class="mb-5" />
+                                                <MudGrid>
+                                                    <MudVirtualize Items="schoolLevel.SportGenderCategoriesList" Context="gender">
+                                                        <MudItem xs="12" sm="6" >
+                                                            @{
+                                                                string? genderCategory;
+
+                                                                if (gender.Gender == "Male")
+                                                                {
+                                                                    genderCategory = "Male ♂️";
+                                                                }
+                                                                else if (gender.Gender == "Female")
+                                                                {
+                                                                    genderCategory = "Female ♀️";
+                                                                }
+                                                                else
+                                                                {
+                                                                    genderCategory = "Mixed ♂️♀️";
+                                                                }
+                                                            }
+                                                            <MudText Typo="Typo.body2">@genderCategory</MudText>
+                                                            <MudDivider/>
+                                                            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                                                            <MudText Style="font-size: 12px" Class="mb-2">@(gender.SportSubcategoriesList?.Count == 1 ? "Subcategory" : "Subcategories")</MudText>
+                                                                <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Settings" />
+                                                            </MudStack>
+                                                            <MudStack>
+                                                                @{
+                                                                    int subcategoryIndex = 1;
+                                                                }
+                                                                <MudVirtualize Items="gender.SportSubcategoriesList" Context="subcategory">
+                                                                    <MudText Typo="Typo.caption">
+                                                                        @subcategoryIndex. @subcategory.Subcategory
+                                                                        @{
+                                                                            subcategoryIndex++;
+                                                                        }
+                                                                    </MudText>
+                                                                </MudVirtualize>
+                                                            </MudStack>
+
+                                                        </MudItem>
+                                                    </MudVirtualize>
+                                                </MudGrid>
+                                            </MudItem>
+                                        </MudVirtualize>
+                                    </MudGrid>
+                                </MudTabPanel>
+                            </MudVirtualize>
+                        </MudTabs>
+                    </MudTabPanel>
+                </MudVirtualize>
+            </MudTabs>
         </MudItem>
     }
     else
@@ -94,56 +99,62 @@
 
 
     // JSON storage
-    private List<SportsDTO.SportCategories>? _sportCategories;
-    private List<SportsDTO.Sports>? _sports;
-    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
-    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+    private List<SportsDTO.SportDetails.SportCategory>? _sportCategories;
 
 
     // DTOs
 
     public class SportsDTO
     {
-        public class SportCategories
+        public class SportDetails
         {
-            public int ID { get; set; }
-            public string? Category { get; set; }
-        }
+            public class SportCategory
+            {
+                public int ID { get; set; }
+                public string? Category { get; set; }
+                public List<Sports>? SportsList { get; set; }
+            }
 
-        public class Sports
-        {
-            public int ID { get; set; }
-            public string? Sport { get; set; }
-            public string? Description { get; set; }
-            public int? SportCategoryID { get; set; }
-        }
+            public class Sports
+            {
+                public int ID { get; set; }
+                public string? Sport { get; set; }
+                public string? Description { get; set; }
+                public List<SchoolLevels>? SchoolLevelsList { get; set; }
+            }
 
-        public class SportSubcategories
-        {
-            public int ID { get; set; }
-            public string? Subcategory { get; set; }
-            public int? SportID { get; set; }
-            public int? SportGenderCategoryID { get; set; }
-            public int? SchoolLevelID { get; set; }
-        }
+            public class SchoolLevels
+            {
+                public int ID { get; set; }
+                public string? Level { get; set; }
+                public List<SportGenderCategories>? SportGenderCategoriesList { get; set; }
+            }
 
-        public class SportGenderCategories
-        {
-            public int ID { get; set; }
-            public string? Gender { get; set; }
+            public class SportGenderCategories
+            {
+                public int ID { get; set; }
+                public string? Gender { get; set; }
+                public List<SportSubcategories>? SportSubcategoriesList { get; set; }
+            }
+
+            public class SportSubcategories
+            {
+                public int ID { get; set; }
+                public string? Subcategory { get; set; }
+            }
         }
     }
 
     // Initialization
     protected override async Task OnInitializedAsync()
     {
-        await GetSchoolDetailsAsync();
+        await GetSportsDetailsAsync();
     }
 
-    private async Task GetSchoolDetailsAsync()
+    private async Task GetSportsDetailsAsync()
     {
-        string url = "/Schools/Details";
+        string url = "/Sports/Details";
 
-        _schoolDetails = await apiService.GetAsync<SchoolDTO.SchoolDetails.Schools>(url);
+        _sportCategories = await apiService.GetAsync<SportsDTO.SportDetails.SportCategory>(url);
     }
 }

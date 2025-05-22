@@ -1,10 +1,10 @@
 ﻿@inherits LayoutComponentBase
 
 <!--
-MainLayout.razor
-This is the main layout for the Blazor application.
-It includes the app bar, drawer, and main content area.
-The layout is responsive and adapts to different screen sizes.
+    MainLayout.razor
+    This is the main layout for the Blazor application.
+    It includes the app bar, drawer, and main content area.
+    The layout is responsive and adapts to different screen sizes.
 -->
 @using System.Net.Http
 @using System.Text.Json
@@ -12,9 +12,6 @@ The layout is responsive and adapts to different screen sizes.
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject ThemeService ThemeService
-@inject NavigationManager Navigation
-@inject CookieService cookieService
-
 
 @* Required *@
 <MudThemeProvider @ref="_mudThemeProvider" Theme="PalaroTheme" DefaultScrollbar="true" IsDarkMode="@(ThemeService.IsDarkMode ?? false)" />
@@ -26,77 +23,10 @@ The layout is responsive and adapts to different screen sizes.
 @* Needed for snackbars *@
 <MudSnackbarProvider />
 
-<!--
-Main layout structure:
-- App bar: contains the logo, drawer button, and night mode button
-- Drawer: contains the navigation menu
-- Main content area: where the main content is displayed
--->
+
 <MudLayout>
-    <MudAppBar Elevation="0" Gutters="false" Class="px-4">
-        <!--
-        App bar:
-        - Drawer button
-        - Palaro 2026 Logo
-        - Night mode button
-        -->
-        <!-- Drawer -->
-        <MudIconButton Icon="@(_DrawerOpen ? Icons.Material.Filled.MenuOpen : Icons.Material.Filled.Menu )" Edge="Edge.Start" OnClick="ToggleDrawer" />
-
-        <!-- Palaro 2026 Logo: links to homepage -->
-        <MudLink Href="./" Underline="Underline.None">
-            <MudStack Row AlignItems="AlignItems.Center">
-                <MudImage Height="50" Src="./media/logo/Flat Logo with 2026.png" />
-                <MudStack Spacing="0" AlignItems="AlignItems.Start" Justify="Justify.Center" Style="height: 100%" Class="mr-10">
-                    <MudText Typo="Typo.h5" Color="Color.Dark" Style="font-weight: bold" Class="mb-n2">PALARO 2026</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Dark">Agusan del Sur | Management</MudText>
-                </MudStack>
-            </MudStack>
-        </MudLink>
-        <MudSpacer />
-
-        <MudButton Size="Size.Large" DropShadow="false" Variant="Variant.Filled" OnClick="@ToggleOpen">
-            @_userDetails?.FirstName @_userDetails?.LastName
-        </MudButton>
-        <MudPopover Open="@_toggleProfile" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" DropShadow="false">
-            <MudPaper>
-                <MudStack Class="pa-3" Spacing="0">
-                    <MudPaper Class="pa-2">
-                        <MudStack Spacing="0" AlignItems="AlignItems.Center">
-                            <MudText>
-                                @_userDetails?.FirstName @_userDetails?.LastName
-                            </MudText>
-                            <MudText Style="font-size: 10px; font-style: italic">@($"@{_userDetails?.Username}")</MudText>
-                            <MudText Typo="Typo.caption" Class="mt-2">
-                                @_userDetails?.Role
-                            </MudText>
-                        </MudStack>
-                    </MudPaper>
-                    <!-- Night mode button with tooltip -->
-                    <MudButton StartIcon="@Icons.Material.Filled.Settings">Account Settings</MudButton>
-                    <MudButton OnClick="ToggleDarkMode" StartIcon="@GetThemeIcon()">@GetThemeTitle()</MudButton>
-                    <MudButton OnClick="Logout" StartIcon="@Icons.Material.Filled.Logout" Class="mt-5">Logout</MudButton>
-                </MudStack>
-            </MudPaper>
-        </MudPopover>
-        <MudOverlay @bind-Visible="_toggleProfile" LockScroll="false" AutoClose="true" />
-
-        @if (!isAPIAvailable)
-        {
-            <MudProgressLinear Indeterminate="true" Color="Color.Tertiary" Class="absolute object-bottom mt-17" />
-        }
-    </MudAppBar>
-
-    <!-- Drawer: mini variant enabled -->
-    <MudDrawer @bind-Open="_DrawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0">
-
-        <!-- NavMenu.razor component -->
-        <NavMenu />
-    </MudDrawer>
-
-    <!-- Main content area -->
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.False" Class="pa-5">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="pt-5">
             @Body
         </MudContainer>
     </MudMainContent>
@@ -104,36 +34,13 @@ Main layout structure:
 
 @code
 {
-    private UserDetails? _userDetails;
-
-    private bool _initialized = false;
-
-    private bool _toggleProfile = false;
-    private void ToggleOpen() => _toggleProfile = !_toggleProfile;
-
     // null = Auto, true = Night, false = Light
     private bool? _isDarkMode = null;
 
     bool isAPIAvailable;
-    public string? token { get; set; }
-    public string? userID { get; set; }
 
     // ThemeService: handles theme management
     private MudThemeProvider? _mudThemeProvider;
-
-    //DTO
-    public class UserDetails
-    {
-        public string ID { get; set; } = null!;
-        public string? FirstName { get; set; }
-        public string? LastName { get; set; }
-        public string? Username { get; set; }
-        public DateTime? CreatedAt { get; set; }
-        public DateTime? UpdateAt { get; set; }
-        public DateTime? LastLogin { get; set; }
-        public bool? Active { get; set; }
-        public string? Role { get; set; }
-    }
 
     // initialization: sets the theme and subscribes to theme changes
     protected override async Task OnInitializedAsync()
@@ -142,52 +49,6 @@ Main layout structure:
         ThemeService.OnThemeChanged += StateHasChanged;
         await ThemeService.LoadThemePreference();
         isAPIAvailable = await CheckApiConnectionAsync("https://pgas.ph/palaro2026api/api/Status");
-
-        token = await cookieService.GetCookie("authenticationToken");
-        userID = await cookieService.GetCookie("userID");
-
-        await CheckAuthenticationAsync();
-        await GetUserDetail();
-    }
-
-    private async Task GetUserDetail()
-    {
-        if (string.IsNullOrEmpty(userID)) return;
-
-        string url = $"/Users/UserDetail?userID={userID}";
-        _userDetails = await apiService.GetSingleAsync<UserDetails>(url);
-    }
-
-    private async Task CheckAuthenticationAsync()
-    {
-        // Ensure the token and user ID were retrieved from cookies
-        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(userID))
-        {
-            // Optional: clear any potentially stale cookies
-            await cookieService.ClearCookie("authenticationToken");
-            await cookieService.ClearCookie("userID");
-
-            // Redirect to login page
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        // Optional: redirect away from login page if already authenticated
-        var currentUri = Navigation.ToBaseRelativePath(Navigation.Uri).ToLower();
-
-        if (currentUri == "login")
-        {
-            Navigation.NavigateTo("/");
-        }
-    }
-
-
-    private async Task Logout()
-    {
-        await cookieService.ClearCookie("authenticationToken");
-        await cookieService.ClearCookie("userID");
-
-        Navigation.NavigateTo("/login", forceLoad: true);
     }
 
     async Task<bool> CheckApiConnectionAsync(string apiUrl)
@@ -228,7 +89,7 @@ Main layout structure:
     }
 
     // theme tooltip: returns the appropriate tooltip based on the current theme
-    private string GetThemeTitle()
+    private string GetThemeTooltip()
     {
         if (!ThemeService.UserSelectedTheme)
             return "System Theme";
@@ -345,7 +206,7 @@ Main layout structure:
                 Button = new ButtonTypography()
                 {
                     FontSize = "clamp(0.875rem, 0.8vw + 0.25rem, 1rem)",
-                    FontWeight = "400",
+                    FontWeight = "700",
                     TextTransform = "none"
                 },
                 Caption = new CaptionTypography()

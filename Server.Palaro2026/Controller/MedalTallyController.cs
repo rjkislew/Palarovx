@@ -20,187 +20,37 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<MedalTallyDTO.RegionalMedalTally>>> GetMedalTally()
+        public async Task<ActionResult<List<MedalTallyDTO.RegionalMedalTally>>> MedalTallyByRegion([FromQuery] string? region)
         {
-            try
+            var query = _context.EventVersusTeams
+                .Include(m => m.SchoolRegion)
+                .Where(m => m.Rank == "Champion" || m.Rank == "First Runner-up" || m.Rank == "Second Runner-up");
+
+            // Apply region filter if specified
+            if (!string.IsNullOrWhiteSpace(region))
             {
-                // Fetch all regions
-                var allRegions = await _context.SchoolRegions
-                    .Select(r => new { r.Region, r.Abbreviation })
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                // Fetch only Championship stage events
-                var events = await _context.Events
-                    .Include(e => e.EventVersusTeams)
-                        .ThenInclude(ev => ev.SchoolRegion)
-                    .Where(e => e.EventStage!.Stage == "Championship")
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                var medalTally = new Dictionary<string, MedalTallyDTO.RegionalMedalTally>();
-
-                // Process medals for teams
-                foreach (var eventEntity in events)
-                {
-                    var sortedTeams = eventEntity.EventVersusTeams?
-                        .Where(ev => ev.SchoolRegion != null)
-                        .OrderByDescending(ev => int.TryParse(ev.Score, out int score) ? score : 0)
-                        .ToList();
-
-                    if (sortedTeams == null || sortedTeams.Count == 0) continue;
-
-                    // Assign medals
-                    AssignMedal(sortedTeams.ElementAtOrDefault(0), medalTally, "Gold");
-                    AssignMedal(sortedTeams.ElementAtOrDefault(1), medalTally, "Silver");
-                    AssignMedal(sortedTeams.ElementAtOrDefault(2), medalTally, "Bronze");
-                }
-
-                // Ensure all regions are included, even if they have no medals
-                foreach (var region in allRegions)
-                {
-                    if (!medalTally.ContainsKey(region.Region!))
-                    {
-                        medalTally[region.Region!] = new MedalTallyDTO.RegionalMedalTally
-                        {
-                            Region = region.Region!,
-                            Abbreviation = region.Abbreviation!,
-                            Gold = 0,
-                            Silver = 0,
-                            Bronze = 0,
-                            Total = 0
-                        };
-                    }
-                }
-
-                // Convert dictionary to a sorted list
-                var result = medalTally.Values
-                    .OrderByDescending(mt => mt.Gold)
-                    .ThenByDescending(mt => mt.Silver)
-                    .ThenByDescending(mt => mt.Bronze)
-                    .ToList();
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
-
-        [HttpGet("ByRegion")]
-        public async Task<ActionResult<List<MedalTallyDTO.RegionalMedalTally>>> GetMedalTallyByRegion([FromQuery] string? regionFilter = null)
-        {
-            try
-            {
-                // Fetch all regions
-                var allRegions = await _context.SchoolRegions
-                    .Select(r => new { r.Region, r.Abbreviation })
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                // Fetch only Championship stage events
-                var events = await _context.Events
-                    .Include(e => e.EventVersusTeams)
-                        .ThenInclude(ev => ev.SchoolRegion)
-                    .Where(e => e.EventStage!.Stage == "Championship")
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                var medalTally = new Dictionary<string, MedalTallyDTO.RegionalMedalTally>();
-
-                // Process medals for teams
-                foreach (var eventEntity in events)
-                {
-                    var sortedTeams = eventEntity.EventVersusTeams?
-                        .Where(ev => ev.SchoolRegion != null)
-                        .OrderByDescending(ev => int.TryParse(ev.Score, out int score) ? score : 0)
-                        .ToList();
-
-                    if (sortedTeams == null || sortedTeams.Count == 0) continue;
-
-                    // Assign medals
-                    AssignMedal(sortedTeams.ElementAtOrDefault(0), medalTally, "Gold");
-                    AssignMedal(sortedTeams.ElementAtOrDefault(1), medalTally, "Silver");
-                    AssignMedal(sortedTeams.ElementAtOrDefault(2), medalTally, "Bronze");
-                }
-
-                // Ensure all regions are included, even if they have no medals
-                foreach (var region in allRegions)
-                {
-                    if (!medalTally.ContainsKey(region.Region!))
-                    {
-                        medalTally[region.Region!] = new MedalTallyDTO.RegionalMedalTally
-                        {
-                            Region = region.Region!,
-                            Abbreviation = region.Abbreviation!,
-                            Gold = 0,
-                            Silver = 0,
-                            Bronze = 0,
-                            Total = 0
-                        };
-                    }
-                }
-
-                // Convert dictionary to a sorted list
-                var result = medalTally.Values
-                    .OrderByDescending(mt => mt.Gold)
-                    .ThenByDescending(mt => mt.Silver)
-                    .ThenByDescending(mt => mt.Bronze)
-                    .ToList();
-
-                // Apply region filter if provided
-                if (!string.IsNullOrEmpty(regionFilter))
-                {
-                    result = result.Where(mt => mt.Region!.Contains(regionFilter, StringComparison.OrdinalIgnoreCase)).ToList();
-                }
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
-
-        // Helper function to assign medals
-        private void AssignMedal(EventVersusTeams? team, Dictionary<string, MedalTallyDTO.RegionalMedalTally> medalTally, string medalType)
-        {
-            if (team == null || team.SchoolRegion == null) return;
-
-            string region = team.SchoolRegion.Region!;
-            string abbreviation = team.SchoolRegion.Abbreviation!;
-
-            if (!medalTally.ContainsKey(region))
-            {
-                medalTally[region] = new MedalTallyDTO.RegionalMedalTally
-                {
-                    Region = region,
-                    Abbreviation = abbreviation,
-                    Gold = 0,
-                    Silver = 0,
-                    Bronze = 0,
-                    Total = 0
-                };
+                query = query.Where(m => m.SchoolRegion!.Region == region);
             }
 
-            switch (medalType)
+            var medalTally = await query
+                .GroupBy(m => new { m.SchoolRegion!.Region, m.SchoolRegion.Abbreviation })
+                .Select(g => new MedalTallyDTO.RegionalMedalTally
+                {
+                    Region = g.Key.Region,
+                    Abbreviation = g.Key.Abbreviation,
+                    Gold = g.Count(x => x.Rank == "Champion"),
+                    Silver = g.Count(x => x.Rank == "First Runner-up"),
+                    Bronze = g.Count(x => x.Rank == "Second Runner-up"),
+                    Total = g.Count()
+                })
+                .ToListAsync();
+
+            if (medalTally == null || medalTally.Count == 0)
             {
-                case "Gold":
-                    medalTally[region].Gold++;
-                    break;
-                case "Silver":
-                    medalTally[region].Silver++;
-                    break;
-                case "Bronze":
-                    medalTally[region].Bronze++;
-                    break;
+                return NotFound("No medal tally found.");
             }
 
-            // Update total medal count
-            medalTally[region].Total = (medalTally[region].Gold ?? 0) +
-                                       (medalTally[region].Silver ?? 0) +
-                                       (medalTally[region].Bronze ?? 0);
+            return Ok(medalTally);
         }
     }
 }

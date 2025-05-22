@@ -22,8 +22,60 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
+        [HttpGet("UserDetail")]
+        public async Task<ActionResult<UsersDTO.UserDetails>> GetUserDetails(string? userID)
+        {
+            var user = await _context.Users
+                .Include(r => r.Role)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.ID == userID);
+
+            if (user == null)
+                return NotFound();
+
+            var mappedUser = new UsersDTO.UserDetails
+            {
+                ID = user.ID,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Username = user.Username,
+                CreatedAt = user.CreatedAt,
+                UpdateAt = user.UpdateAt,
+                LastLogin = user.LastLogin,
+                Active = user.Active,
+                Role = user.Role?.Role
+            };
+
+            return Ok(mappedUser);
+        }
+
+
+        [HttpGet("UsersInformation")]
+        public async Task<ActionResult<IEnumerable<UsersDTO.UserDetails>>> GetUsersInformation()
+        {
+            var users = await _context.Users
+                .Include(r => r.Role)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var mappedUsers = users.Select(user => new UsersDTO.UserDetails
+            {
+                ID = user.ID,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Username = user.Username,
+                CreatedAt = user.CreatedAt,
+                UpdateAt = user.UpdateAt,
+                LastLogin = user.LastLogin,
+                Active = user.Active,
+                Role = user.Role?.Role
+            }).ToList();
+
+            return Ok(mappedUsers);
+        }
+
         [HttpGet("TallyClerkList")]
-        public async Task<ActionResult<IEnumerable<UsersDTO.UserList>>> GetUsersNameList()
+        public async Task<ActionResult<IEnumerable<UsersDTO.UserList>>> GetTallyClerkList()
         {
             var users = await _context.Users
                 .Include(r => r.Role)
@@ -37,6 +89,22 @@ namespace Server.Palaro2026.Controller
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 Role = user.Role?.Role
+            }).ToList();
+
+            return Ok(mappedUsers);
+        }
+
+        [HttpGet("Usernames")]
+        public async Task<ActionResult<IEnumerable<UsersDTO.UsernameList>>> GetUsernamesList()
+        {
+            var users = await _context.Users
+                .Include(r => r.Role)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var mappedUsers = users.Select(user => new UsersDTO.UsernameList
+            {
+                Username = user.Username,
             }).ToList();
 
             return Ok(mappedUsers);

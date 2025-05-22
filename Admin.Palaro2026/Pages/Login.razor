@@ -1,0 +1,164 @@
+﻿@page "/login"
+@layout NoMenuLayout
+
+@using System.Text.Json
+@using System.Text
+@using System.Net.Http.Headers;
+@using System.Text.Json.Serialization
+
+@inject HttpClient httpClient
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject CookieService cookieService
+@inject HttpClient httpClient
+
+<PageTitle>Sign in - PALARO 2026 | Management</PageTitle>
+
+<MudGrid>
+    <MudItem xs="12" Style="height: 80vh">
+        <MudStack Style="height: 100%" Justify="Justify.Center" AlignItems="AlignItems.Center">
+            <MudContainer MaxWidth="MaxWidth.Medium">
+                <MudStack Spacing="2">
+                    <MudPaper Outlined Class="pa-5 rounded-xl">
+                        <MudGrid>
+                            <MudItem xs="12">
+                                <MudImage Src="media/logo/Logo with 2026.png" Fluid Width="150" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudGrid>
+                                    <MudItem xs="12" md="6">
+                                        <MudText Style="font-size: 40px">Sign in</MudText>
+                                        <MudText Typo="Typo.caption">You are about to sign in to Palaro 2026 Management</MudText>
+                                    </MudItem>
+                                    <MudItem xs="12" md="6">
+                                        <MudStack Spacing="10" hidden="@usernameField">
+                                            <MudStack AlignItems="AlignItems.Start" Spacing="0">
+                                                <MudTextField FullWidth T="string" Label="Username" ShrinkLabel Variant="Variant.Outlined" @bind-Value="_usernameValue" HelperText="@_errorMessage"/>
+                                                <MudButton Size="Size.Small" Style="text-transform:none" Class="rounded-pill" Color="Color.Tertiary">Forgot account?</MudButton>
+                                            </MudStack>
+                                            <MudStack Row Justify="Justify.FlexEnd">
+                                                <MudButton Style="text-transform:none" Class="rounded-pill" DropShadow="false" Variant="Variant.Filled" Color="Color.Tertiary" OnClick="CheckUsername">Next</MudButton>
+                                            </MudStack>
+                                        </MudStack>
+                                        <MudStack Spacing="10" hidden="@passwordField">
+                                            <MudStack AlignItems="AlignItems.Start" Spacing="0">
+                                                <MudTextField FullWidth T="string" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" @bind-Value="_passwordValue" />
+                                            </MudStack>
+                                            <MudStack Row Justify="Justify.FlexEnd">
+                                                <MudButton Style="text-transform:none" Class="rounded-pill" DropShadow="false" Variant="Variant.Filled" Color="Color.Tertiary" OnClick="LoginUser">Log in</MudButton>
+                                            </MudStack>
+                                        </MudStack>
+                                    </MudItem>
+                                </MudGrid>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </MudStack>
+            </MudContainer>
+        </MudStack>
+    </MudItem>
+</MudGrid>
+@code {
+    private List<UsernameList>? _usernameLists;
+
+    private bool usernameField = false;
+    private bool passwordField = true;
+
+    private string? _usernameValue;
+    private string? _passwordValue;
+    private string? _errorMessage;
+
+    //DTO
+    public class UserLogin
+    {
+        public string? Username { get; set; }
+        public string? Password { get; set; }
+    }
+
+    public class LoginResponse
+    {
+        public string? Token { get; set; }
+        public string? ID { get; set; }
+        public string? Role { get; set; }
+    }
+
+    public class UsernameList
+    {
+        public string? Username { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetUsernameListAsync();
+    }
+    private async Task GetUsernameListAsync()
+    {
+        string url = "/Users/Usernames";
+        _usernameLists = await apiService.GetAsync<UsernameList>(url);
+    }
+
+    private void CheckUsername()
+    {
+        if (string.IsNullOrWhiteSpace(_usernameValue))
+        {
+            _errorMessage = "Please enter a username.";
+            return;
+        }
+
+        bool exists = _usernameLists?.Any(u => u.Username == _usernameValue) ?? false;
+
+        if (exists)
+        {
+            // Proceed to password field
+            usernameField = true;
+            passwordField = false;
+        }
+        else
+        {
+            _errorMessage = "Username not found. Please contact administrator.";
+        }
+    }
+
+    private async Task LoginUser()
+    {
+        if (string.IsNullOrWhiteSpace(_usernameValue) || string.IsNullOrWhiteSpace(_passwordValue))
+        {
+            Snackbar.Add("Please enter both username and password.", Severity.Warning);
+            return;
+        }
+
+        var loginRequest = new UserLogin
+            {
+                Username = _usernameValue,
+                Password = _passwordValue
+            };
+
+        string url = "Authentication/Login";
+        var result = await apiService.PostAndReadAsync<LoginResponse>(url, loginRequest);
+
+        if (result != null && !string.IsNullOrEmpty(result.Token))
+        {
+            // Store token and user info in cookies
+            await cookieService.SetCookie("authenticationToken", result.Token!, 43200, true, "Strict");
+            await cookieService.SetCookie("userID", result.ID!, 43200, true, "Strict");
+
+            // Clear any existing Authorization headers (important for scoped services)
+            if (httpClient.DefaultRequestHeaders.Contains("Authorization"))
+            {
+                httpClient.DefaultRequestHeaders.Remove("Authorization");
+            }
+
+            // Set the new Authorization header
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result.Token!);
+
+            // Navigate to home
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            Snackbar.Add("Login failed. Please check your credentials.", Severity.Error);
+        }
+    }
+}

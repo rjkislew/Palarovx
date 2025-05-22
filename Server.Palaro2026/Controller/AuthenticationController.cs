@@ -103,34 +103,35 @@ namespace Server.Palaro2026.Controller
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
 
-            // Make sure the key is at least 256 bits (32 bytes)
             var keyString = jwtSettings["Key"] ?? throw new ArgumentNullException("JWT Key is missing in configuration.");
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            // Define the current time in UTC+8
+            var utcPlus8 = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8));
 
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.ID),
                 new Claim(JwtRegisteredClaimNames.GivenName, user.FirstName ?? string.Empty),
-                new Claim(JwtRegisteredClaimNames.FamilyName, user.LastName ?? string.Empty), // Handle null Lastname
-                new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()),
-                new Claim("Role", user.Role ?? string.Empty) // Handle potential null Role
+                new Claim(JwtRegisteredClaimNames.FamilyName, user.LastName ?? string.Empty),
+                new Claim(JwtRegisteredClaimNames.Iat, utcPlus8.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
+                new Claim("Role", user.Role ?? string.Empty)
             };
 
-            int expiresInMinutes = int.Parse(jwtSettings["ExpiresInMinutes"] ?? "60"); // Default to 60 minutes
-
+            // Expiration is still in UTC, so use DateTime.UtcNow.AddHours(12)
             var token = new JwtSecurityToken(
                 issuer: jwtSettings["Issuer"],
                 audience: jwtSettings["Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(expiresInMinutes), // Shorter expiration time
+                expires: DateTime.UtcNow.AddHours(12), // Token valid for 12 hours
                 signingCredentials: credentials
             );
 
-            // Optionally, encrypt the JWT to provide an additional layer of security
             var handler = new JwtSecurityTokenHandler();
             return handler.WriteToken(token);
         }
+
 
         [HttpPost("Login")]
         public async Task<IActionResult> Login([FromBody] UsersDTO.UserLogin loginRequest)

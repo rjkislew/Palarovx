@@ -12,7 +12,7 @@
         <MudGrid Spacing="1">
             <MudItem xs="12">
                 <MudSelect @bind-Value="_selectedRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined"
-                           T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedPlayerIDValues = null; await GetPlayerAsync(); }))">
+                T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedPlayerIDValues = null; await GetPlayerAsync(); }))">
                     <MudVirtualize Items="_schoolRegions" Context="region">
                         <MudSelectItem T="int?" Value="@region.ID">
                             @region.Region (@region.Abbreviation)
@@ -22,7 +22,7 @@
             </MudItem>
             <MudItem xs="12">
                 <MudSelect @bind-SelectedValues="_selectedPlayerIDValues" SelectAll="true" ToStringFunc="@(id => _profilePlayerEvents?.FirstOrDefault(c => c.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)"
-                           T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Player" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedRegionIDValue == null">
+                T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Player" ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedRegionIDValue == null">
                     <MudVirtualize Items="_profilePlayerEvents" Context="player">
                         <MudSelectItem T="int?" Value="player.ID">@player.FirstName @player.LastName</MudSelectItem>
                     </MudVirtualize>
@@ -33,9 +33,26 @@
             </MudItem>
             <MudItem xs="12" md="6">
                 <MudSelect T="string" Margin="Margin.Dense" Label="Placement" @bind-Value="_rankValue" ShrinkLabel Variant="Variant.Outlined" Clearable>
-                    <MudVirtualize Items="Placements" Context="placement">
-                        <MudSelectItem T="string" Value="@placement">@placement</MudSelectItem>
-                    </MudVirtualize>
+                    @{
+                        List<string>? selectedPlacement;
+
+                        if (SelectedEventStage == "Championship")
+                        {
+                            selectedPlacement = _ChampionshipPlacements;
+                        }
+                        else
+                        {
+                            selectedPlacement = Placements;
+                        }
+                    }
+
+                    @if (selectedPlacement is not null)
+                    {
+                        <MudVirtualize Items="selectedPlacement" Context="placement">
+                            <MudSelectItem T="string" Value="@placement">@placement</MudSelectItem>
+                        </MudVirtualize>
+                    }
+
                 </MudSelect>
             </MudItem>
         </MudGrid>
@@ -64,6 +81,8 @@
     public int? SelectedSubCategoryID { get; set; }
     [Parameter]
     public int? SelectedEventVersusTeamsID { get; set; }
+    [Parameter]
+    public string? SelectedEventStage { get; set; }
 
 
     // JSON storage
@@ -92,11 +111,17 @@
     private bool? _isLoaded = false;
 
 
-    private List<string> Placements = new()
+    private List<string> _ChampionshipPlacements = new()
     {
         "Champion",
         "First Runner-Up",
         "Second Runner-Up",
+        "Eliminated",
+    };
+
+    private List<string> Placements = new()
+    {
+        "Winner",
         "Eliminated",
     };
 
