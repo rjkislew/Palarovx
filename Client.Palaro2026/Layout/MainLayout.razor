@@ -44,10 +44,7 @@
                     <MudIconButton OnClick="ToggleDarkMode" Icon="@GetThemeIcon()" />
                 </MudTooltip>
             </MudStack>
-            @if (!isAPIAvailable)
-            {
-                <MudProgressLinear Indeterminate="true" Color="Color.Tertiary" Class="absolute object-bottom mt-17" />
-            }
+
         </MudAppBar>
     </MudHidden>
     <MudHidden Breakpoint="Breakpoint.MdAndUp">
@@ -63,15 +60,11 @@
                         <MudIconButton OnClick="@InstallApp" Icon="@Icons.Material.Filled.Download" />
                     </MudTooltip>
                 }
-
                 <MudTooltip Text="@GetThemeTooltip()" Arrow="true" Placement="Placement.Left" Duration="0">
                     <MudIconButton OnClick="ToggleDarkMode" Icon="@GetThemeIcon()" />
                 </MudTooltip>
             </MudStack>
-            @if (!isAPIAvailable)
-            {
-                <MudProgressLinear Indeterminate="true" Color="Color.Tertiary" Class="absolute object-bottom mt-15" />
-            }
+
         </MudAppBar>
         <MudDrawer @bind-Open="@_open">
             <MudDrawerHeader Dense="true" Class="pa-1">
@@ -105,7 +98,6 @@
     {
         ThemeService.OnThemeChanged += StateHasChanged;
         await ThemeService.LoadThemePreference();
-        isAPIAvailable = await CheckApiConnectionAsync("https://pgas.ph/palaro2026api/api/Status");
 
         // Check if the app is running in standalone mode (PWA installed)
         var isStandalone = await JSRuntime.InvokeAsync<bool>("pwaHelper.isRunningStandalone");
@@ -114,6 +106,8 @@
         if (isStandalone)
         {
             showButton = false; // Hide the button if the app is in standalone mode
+
+            StateHasChanged(); // Trigger a re-render to update the UI
         }
         else
         {
@@ -121,6 +115,8 @@
             Console.WriteLine("canInstall: " + canInstall); // Log whether install is possible
 
             showButton = canInstall; // Show the button if install is available
+
+            StateHasChanged(); // Trigger a re-render to update the UI
         }
 
         StateHasChanged(); // Trigger a re-render after state change
@@ -129,20 +125,6 @@
     private async Task InstallApp()
     {
         await JSRuntime.InvokeVoidAsync("pwaHelper.installApp");
-    }
-
-    async Task<bool> CheckApiConnectionAsync(string apiUrl)
-    {
-        try
-        {
-            var response = await httpClient.GetAsync(apiUrl);
-            return response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Unauthorized;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"API check failed: {ex.Message}");
-            return false;
-        }
     }
 
     private async Task ToggleDarkMode()

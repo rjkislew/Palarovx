@@ -176,7 +176,7 @@ window.initializeMap = (containerId, token, markers) => {
         // Popup for individual markers
         window.map.on('click', 'unclustered-point', (e) => {
             const coordinates = e.features[0].geometry.coordinates.slice();
-            const { venue, address, latitude, longitude } = e.features[0].properties;
+            const { id, venue, address, latitude, longitude } = e.features[0].properties;
 
             const popupContent = `
                 <div class="popup-content" style="width: auto;">
@@ -282,11 +282,12 @@ window.initializeMap = (containerId, token, markers) => {
                 <div class="popup-content" style="width: auto;">
                     <h3>${venueName}</h3>
                     <h4>${address}</h4>
-                    <button style="margin-top: 5px" class="get-directions-button" onclick="getLocation(${lat}, ${lng})">
+                    <button style="margin-top: 5px" onclick="sendVenueToBlazor('${venueName}')">
                         Get Directions
                     </button>
                 </div>
             `;
+
 
             window.currentPopup = new mapboxgl.Popup()
                 .setLngLat([lng, lat])
@@ -305,7 +306,7 @@ window.initializeMap = (containerId, token, markers) => {
         showUserLocation: true
     });
 
-    window.map.addControl(geolocateControl).addControl(new mapboxgl.NavigationControl());
+    window.map.addControl(geolocateControl, 'bottom-right').addControl(new mapboxgl.NavigationControl(), 'bottom-right');
 
     geolocateControl.on('geolocate', (event) => {
         userLat = event.coords.latitude;
@@ -424,4 +425,18 @@ window.getLocation = (latitude, longitude) => {
     const destination = [longitude, latitude];
     window.selectedDestination = destination; // Store the selected destination
     window.showDirections(destination); // Call the showDirections function
+};
+
+window.registerBlazorObject = function (blazorRef) {
+    window.blazorComponent = blazorRef;
+};
+
+window.sendVenueToBlazor = function (venueName) {
+    if (window.blazorComponent) {
+        window.blazorComponent.invokeMethodAsync('SetSelectedVenueFromJS', venueName)
+            .then(() => console.log("Venue sent to Blazor:", venueName))
+            .catch(err => console.error("Blazor call failed:", err));
+    } else {
+        console.error("Blazor reference not set.");
+    }
 };

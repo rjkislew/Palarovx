@@ -1,4 +1,5 @@
 ﻿@page "/regional-teams/billeting-quarters"
+@page "/regional-teams/billeting-quarters/@{SelectedLongitude:decimal},{SelectedLatitude:decimal}/{SelectedRegion}, {SelectedAddress}, {SelectedID:int}"
 
 @using System.Text.Json
 @using System.Threading.Tasks
@@ -6,70 +7,116 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject MapBoxService mapBoxService
+@inject NavigationManager Navigation
 
 <MudContainer Gutters="false" MaxWidth="MaxWidth.False">
-    <MudPaper Class="ma-3 pa-2" Style="z-index: 1; position: absolute">
-        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-            <MudIcon Icon="@Icons.Material.Filled.LocationOn" Color="Color.Primary" />
-            <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined"
-                       Value="@newLocation"
-                       ValueChanged="HandleLocationChange"
-                       FullWidth Label="Regional Teams"
-                       OnClearButtonClick="ClearSelection">
-                <MudVirtualize Items="quarterContents" Context="quarter">
-                    <MudSelectItem T="string" Value="@quarter.Region">
-                        <MudStack Row AlignItems="AlignItems.Center">
-                            <MudImage Src="@($"media/regions/{quarter.Abbreviation}.webp")" Height="20" Class="mr-1" />
-                            <MudText>@quarter.Region (@quarter.Abbreviation)</MudText>
+    <MudGrid Style="z-index: 1; position: absolute;">
+        <MudItem xs="12" md="4">
+            <MudContainer MaxWidth="MaxWidth.Large">
+                <MudStack>
+                    <MudPaper Outlined Class="py-2 px-3 mt-3" Style="width: 100%" Elevation="0">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1" Style="width: 100%">
+                            <MudSelect Margin="Margin.Dense" Clearable T="int?" Variant="Variant.Outlined"
+                            @bind-Value="triggerSelectLocation"
+                            FullWidth Label="Regional Teams"
+                            OnClearButtonClick="ClearSelection"
+                            Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.LocationOn" AdornmentColor="Color.Primary">
+                                <MudVirtualize Items="_billetingQuarters" Context="quarter">
+                                    <MudSelectItem T="int?" Value="@quarter.ID">
+                                        <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                            <MudImage Src="@($"media/regions/{quarter.Abbreviation}.webp")" Height="20" Class="mr-1" />
+                                            <MudText Typo="Typo.body2" Style="line-height: 1.5;">
+                                                @quarter.Region (@quarter.Abbreviation)
+                                            </MudText>
+                                        </MudStack>
+                                    </MudSelectItem>
+                                </MudVirtualize>
+                            </MudSelect>
                         </MudStack>
-                    </MudSelectItem>
-                </MudVirtualize>
-            </MudSelect>
-        </MudStack>
-
-        @if (selectedRegion != null)
-        {
-            <MudPaper Elevation="0" Style="margin-top: 15px;">
-                <MudStack Spacing="5">
-                    <MudStack Spacing="2">
-                        <MudStack Spacing="0">
-                            <MudText><b>Quarter</b></MudText>
-                            <MudDivider />
-                        </MudStack>
-                        <MudStack Row AlignItems="AlignItems.Center">
-                            <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.School"></MudIcon>
-                            <MudText Typo="Typo.body2">@selectedRegion.BilletingQuarter</MudText>
-                        </MudStack>
-                        <MudStack Row AlignItems="AlignItems.Center">
-                            <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.LocationOn"></MudIcon>
-                            <MudText Typo="Typo.body2">@selectedRegion.Address</MudText>
-                        </MudStack>
-                    </MudStack>
-                    <MudStack Spacing="2">
-                        <MudStack Spacing="0">
-                            <MudText><b>Contact Person</b></MudText>
-                            <MudDivider />
-                        </MudStack>
-                        <MudStack Row AlignItems="AlignItems.Center">
-                            <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person"></MudIcon>
-                            <MudText Typo="Typo.body2">@selectedRegion.ContactPerson</MudText>
-                        </MudStack>
-                        <MudStack Row AlignItems="AlignItems.Center">
-                            <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Phone"></MudIcon>
-                            <MudText Typo="Typo.body2">@selectedRegion.ContactPersonNumber</MudText>
-                        </MudStack>
-                    </MudStack>
+                    </MudPaper>
+                    @if (_selectedRegionBilletingQuarters != null)
+                    {
+                        <MudPaper Outlined Elevation="0">
+                            <MudStack Spacing="5" Class="pa-3">
+                                <MudStack Spacing="1">
+                                    <MudStack Spacing="0">
+                                        <MudText><b>Quarter</b></MudText>
+                                        <MudDivider />
+                                    </MudStack>
+                                    <MudStack Spacing="0">
+                                        <MudStack Row AlignItems="AlignItems.Center">
+                                            <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.School"></MudIcon>
+                                            <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters.BilletingQuarter</MudText>
+                                        </MudStack>
+                                        <MudStack Row AlignItems="AlignItems.Center">
+                                            <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.LocationOn"></MudIcon>
+                                            <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters.Address</MudText>
+                                        </MudStack>
+                                    </MudStack>
+                                </MudStack>
+                                <MudStack Spacing="1">
+                                    <MudStack Spacing="0">
+                                        <MudText><b>Contact Person</b></MudText>
+                                        <MudDivider />
+                                    </MudStack>
+                                    <MudStack Spacing="0">
+                                        <MudStack Row AlignItems="AlignItems.Center">
+                                            <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person"></MudIcon>
+                                            <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters.ContactPerson</MudText>
+                                        </MudStack>
+                                        <MudStack Row AlignItems="AlignItems.Center">
+                                            <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Phone"></MudIcon>
+                                            <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters.ContactPersonNumber</MudText>
+                                        </MudStack>
+                                    </MudStack>
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
                 </MudStack>
-            </MudPaper>
-        }
-    </MudPaper>
+            </MudContainer>
+        </MudItem>
+    </MudGrid>
     <MudStack id="map" Style="width: 100%; height: calc(100vh - 64px); overflow: hidden"></MudStack>
 </MudContainer>
 
 @code {
-    private string? newLocation;
-    private List<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>? quarterContents;
-    private SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters? selectedRegion;
+    [Parameter]
+    public string? SelectedRegion { get; set; } = null!;
+    [Parameter]
+    public string? SelectedAddress { get; set; } = null!;
+    [Parameter]
+    public int SelectedID { get; set; }
+    [Parameter]
+    public decimal? SelectedLongitude { get; set; } = null!;
+    [Parameter]
+    public decimal? SelectedLatitude { get; set; } = null!;
+
+    private int? triggerSelectLocation
+    {
+        get => _selectedRegionBilletingQuarters?.ID;
+        set
+        {
+            if (value.HasValue)
+            {
+                var venue = _billetingQuarters?.FirstOrDefault(v => v.ID == value.Value);
+                if (venue != null && venue.Longitude.HasValue && venue.Latitude.HasValue)
+                {
+                    _selectedRegionBilletingQuarters = venue;
+                    SelectedRegion = venue.Region;
+                    SelectedAddress = venue.Address;
+                    SelectedLongitude = venue.Longitude;
+                    SelectedLatitude = venue.Latitude;
+                    SelectedID = venue.ID;
+
+                    _ = HandleLocationChange(SelectedRegion, SelectedAddress, SelectedID, SelectedLongitude, SelectedLatitude);
+                }
+            }
+        }
+    }
+
+    private List<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>? _billetingQuarters;
+    private SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters? _selectedRegionBilletingQuarters;
 
     public class SchoolsDTO
     {
@@ -90,7 +137,41 @@
         }
     }
 
-    private async Task GetBilletingQuarters()
+    private async Task ClearSelection()
+    {
+        SelectedRegion = null;
+        _selectedRegionBilletingQuarters = null;
+
+        Navigation.NavigateTo("/regional-teams/billeting-quarters");
+
+        await JSRuntime.InvokeVoidAsync("clearRoute");
+
+        await JSRuntime.InvokeVoidAsync("centerMap", null);
+    }
+
+    private async Task HandleLocationChange(string? selectedRegion, string? selectedAddress, int selectedID, decimal? selectedLongitude, decimal? selectedLatitude)
+    {
+        await JSRuntime.InvokeVoidAsync("showDirections", new object[] {new decimal?[] { selectedLongitude, selectedLatitude } });
+
+        var url = string.IsNullOrWhiteSpace(selectedRegion) ? "/regional-teams/billeting-quarters" : $"/regional-teams/billeting-quarters/@{selectedLongitude},{selectedLatitude}/{Uri.EscapeDataString(selectedRegion)}, {Uri.EscapeDataString(selectedAddress)}, {selectedID}";
+
+        Navigation.NavigateTo(url);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetBilletingQuartersAsync();
+        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapBoxService.mapboxToken, _billetingQuarters);
+
+        if (!string.IsNullOrEmpty(SelectedRegion))
+        {
+            await HandleLocationChange(SelectedRegion, SelectedAddress, SelectedID, SelectedLongitude, SelectedLatitude);
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task GetBilletingQuartersAsync()
     {
         try
         {
@@ -100,7 +181,16 @@
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            quarterContents = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>>(responseStream, options);
+            var billetingQuarterData = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>>(responseStream, options);
+
+            _billetingQuarters = billetingQuarterData?
+                .OrderBy(bq => bq.ID)
+                .ToList();
+
+            if (SelectedID != 0)
+            {
+                _selectedRegionBilletingQuarters = _billetingQuarters?.FirstOrDefault(b => b.ID == SelectedID);
+            }
         }
         catch (HttpRequestException ex)
         {
@@ -108,37 +198,4 @@
         }
     }
 
-    private async Task ClearSelection()
-    {
-        newLocation = null;
-        selectedRegion = null;
-        await JSRuntime.InvokeVoidAsync("clearRoute");
-        await JSRuntime.InvokeVoidAsync("centerMap", null);
-        StateHasChanged();
-    }
-
-    private async Task HandleLocationChange(string? selectedValue)
-    {
-        if (string.IsNullOrEmpty(selectedValue)) return;
-
-        newLocation = selectedValue;
-        selectedRegion = quarterContents?.FirstOrDefault(region => region.Region == newLocation);
-
-        if (selectedRegion?.Latitude != null && selectedRegion.Longitude != null)
-        {
-            await JSRuntime.InvokeVoidAsync("showDirections", new object[] {
-                new decimal[] { (decimal)selectedRegion.Longitude.Value, (decimal)selectedRegion.Latitude.Value }
-        });
-        }
-        else
-        {
-            Console.WriteLine("No matching venue found or invalid coordinates.");
-        }
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await GetBilletingQuarters();
-        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapBoxService.mapboxToken, quarterContents);
-    }
 }

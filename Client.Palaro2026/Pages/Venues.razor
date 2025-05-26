@@ -1,4 +1,5 @@
-﻿@page "/events/venues"
+﻿@page "/venues"
+@page "/venues/@{SelectedLongitude:decimal},{SelectedLatitude:decimal}/{SelectedVenue}, {SelectedAddress}, {SelectedID:int}"
 
 @using System.Text.Json
 @using System.Threading.Tasks
@@ -6,36 +7,258 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject MapBoxService mapBoxService
+@inject NavigationManager Navigation
 
 <MudContainer Gutters="false" MaxWidth="MaxWidth.False">
-    <MudPaper Class="ma-3 pa-2" Style="z-index: 1; position: absolute;" Elevation="0">
-        <MudStack Row AlignItems="AlignItems.Center" Spacing="1" Style="width: 100%">
-            <MudIcon Icon="@Icons.Material.Filled.LocationOn" Color="Color.Primary" />
-            <MudSelect Margin="Margin.Dense" Clearable T="string" Variant="Variant.Outlined"
-                       Value="newLocation"
-                       ValueChanged="HandleLocationChange"
-                       FullWidth Label="Venue"
-                       OnClearButtonClick="ClearSelection">
-                <MudVirtualize Items="eventVenues" Context="venue">
-                    <MudSelectItem T="string" Value="@venue.Venue">
-                        @venue.Venue, @venue.Address
-                    </MudSelectItem>
-                </MudVirtualize>
-            </MudSelect>
-        </MudStack>
-    </MudPaper>
+    <MudGrid Style="z-index: 1; position: absolute;">
+        <MudItem xs="12" md="4">
+            <MudContainer MaxWidth="MaxWidth.Large">
+                <MudStack>
+                    <MudPaper Outlined Class="py-2 px-3 mt-3" Style="width: 100%" Elevation="0">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1" Style="width: 100%">
+                            <MudSelect Margin="Margin.Dense" Clearable T="int?" Variant="Variant.Outlined"
+                            @bind-Value="triggerSelectLocation"
+                            FullWidth Label="Venue"
+                            OnClearButtonClick="ClearSelection"
+                            Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.LocationOn" AdornmentColor="Color.Primary">
+                                <MudVirtualize Items="_venues" Context="venue">
+                                    <MudSelectItem T="int?" Value="@venue.ID">
+                                        <MudStack Spacing="0">
+                                            <MudText Typo="Typo.body2" Style="line-height: 1.3;">
+                                                @venue.Venue,
+                                                <MudElement>
+                                                    <MudText Typo="Typo.caption">
+                                                        @venue.Address
+                                                    </MudText>
+                                                </MudElement>
+                                            </MudText>
+                                        </MudStack>
+                                    </MudSelectItem>
+                                </MudVirtualize>
+                            </MudSelect>
+                        </MudStack>
+                    </MudPaper>
+                    @if (_events?.Any() == true && !string.IsNullOrEmpty(SelectedVenue) && _toggleEventView == true)
+                    {
+                        <MudPaper Outlined>
+                            <MudVirtualize Items="_events" Context="eventDetail">
+                                @* Content *@
+                                <MudLink Href="@($"./events/{eventDetail.ID}")" Underline="Underline.None" Color="Color.Dark" Style="height: 100%; user-select: text; -webkit-user-drag: none;" draggable="auto">
+                                    <MudStack Style="height: 100%" Spacing="0">
+
+                                        @* Image *@
+                                        @if (eventDetail.OnStream == true && eventDetail.IsFinished == false)
+                                        {
+                                            <MudStack Class="relative">
+                                                <MudChip Icon="@Icons.Material.Filled.FiberManualRecord" T="string" Variant="Variant.Filled" Color="Color.Error" Size="Size.Small" Class="absolute ml-3 mt-3 animate-blink">
+                                                    Live
+                                                </MudChip>
+                                                <MudImage Src="@GetThumbnailUrl(eventDetail.StreamURL)"
+                                                Style="width: 100%; height: 250px"
+                                                Class="rounded-t"
+                                                ObjectFit="ObjectFit.Cover" />
+                                            </MudStack>
+                                        }
+                                        else if (eventDetail.OnStream == true && eventDetail.IsFinished == true)
+                                        {
+                                            <MudStack Class="relative">
+                                                <MudChip Icon="@Icons.Material.Filled.PlayCircleFilled" T="string" Variant="Variant.Filled" Color="Color.Info" Size="Size.Small" Class="absolute ml-3 mt-3">
+                                                    Was Live
+                                                </MudChip>
+                                                <MudImage Src="@GetThumbnailUrl(eventDetail.StreamURL)"
+                                                Style="width: 100%; height: 250px"
+                                                Class="rounded-t"
+                                                ObjectFit="ObjectFit.Cover" />
+                                            </MudStack>
+                                        }
+                                        else
+                                        {
+                                            <MudStack Class="relative">
+                                                <MudChip Icon="@Icons.Material.Filled.CircleNotifications" T="string" Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small" Style="z-index: 10" Class="absolute ml-3 mt-3">
+                                                    Not on live
+                                                </MudChip>
+                                                <MudImage Src="@($"media/sports/icons/white/{eventDetail.Sport}.webp")"
+                                                Style="width: 50px; height: 50px; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10"
+                                                Class="rounded-t absolute "
+                                                ObjectFit="ObjectFit.Cover" />
+                                                <MudStack Style="background-color: rgba(0,0,0,0.5); width: 100%; height: 250px" Class="rounded-t absolute" />
+                                                <MudImage Src="@($"media/sports/images/{eventDetail.Sport}.webp")"
+                                                Style="width: 100%; height: 250px"
+                                                Class="rounded-t"
+                                                ObjectFit="ObjectFit.Cover" />
+                                            </MudStack>
+                                        }
+
+                                        @* Title *@
+                                        @* Sport Details *@
+                                        <MudStack Justify="Justify.SpaceBetween" Style="height: 100%" Class="pa-3">
+                                            <MudStack Spacing="0">
+                                                <MudText Style="font-weight: bold">@eventDetail.Subcategory</MudText>
+                                                <MudText Typo="Typo.caption">@eventDetail.EventStage ∙ @eventDetail.Sport</MudText><MudText Typo="Typo.caption">
+                                                    @{
+                                                        var eventDate = eventDetail.Date;
+                                                        var displayDate = eventDate.HasValue
+                                                    ? (eventDate.Value.Date == DateTime.Today ? "Today"
+                                                    : eventDate.Value.Date == DateTime.Today.AddDays(1) ? "Tomorrow"
+                                                    : eventDate.Value.ToString("dddd - MMMM d"))
+                                                    : "No Date";
+
+                                                        var displayTime = eventDetail.Time.HasValue
+                                                    ? DateTime.Today.Add(eventDetail.Time.Value).ToString("hh:mm tt")
+                                                    : "No Time";
+                                                    }
+                                                    @displayDate - @displayTime ∙ @eventDetail.Venue
+                                                </MudText>
+                                            </MudStack>
+
+                                            <MudText Typo="Typo.caption" Class="mt-3" Style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal;">
+                                                #@eventDetail.Category?.Replace(" ", "") #@eventDetail.Level?.Replace(" ", "") #@eventDetail.EventStage?.Replace(" ", "")
+                                                <MudElement>
+                                                    #
+                                                    @if (eventDetail.Gender == "Male")
+                                                    {
+                                                        <MudText Typo="Typo.caption">Male♂️</MudText>
+                                                    }
+                                                    else if (eventDetail.Gender == "Female")
+                                                    {
+                                                        <MudText Typo="Typo.caption">Female♀️</MudText>
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudText Typo="Typo.caption">Mixed♂️♀️</MudText>
+                                                    }
+                                                </MudElement>
+                                            </MudText>
+                                        </MudStack>
+
+                                        <!--<MudButton FullWidth Variant="Variant.Text" Size="Size.Small" Style="text-transform: none" DropShadow="false" Color="Color.Tertiary" Href="@($"https://www.google.com/maps/?q={eventDetail.Latitude},{eventDetail.Longitude}")" Target="_blank">Details</MudButton>-->
+                                    </MudStack>
+                                </MudLink>
+                            </MudVirtualize>
+                        </MudPaper>
+                    }
+                    @if (_events?.Any() == true && !string.IsNullOrEmpty(SelectedVenue))
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" StartIcon="@(_toggleEventView == true ? @Icons.Material.Filled.ArrowUpward : @Icons.Material.Filled.ArrowDownward)" OnClick="toggleSelectedLocationView" />
+                    }
+                </MudStack>
+            </MudContainer>
+        </MudItem>
+    </MudGrid>
     <MudStack id="map"
-              Style="width: 100%; height: calc(100vh - 48px); overflow: hidden">
+    Style="width: 100%; height: calc(100vh - 64px); overflow: hidden">
     </MudStack>
 </MudContainer>
+
 @code {
-    private string? newLocation;
-    private string? selectedLocation;
-    private EventsDTO.EventVenues? selectedVenue;
-    private List<EventsDTO.EventVenues>? eventVenues;
+    [Parameter]
+    public string? SelectedVenue { get; set; } = null!;
+    [Parameter]
+    public string? SelectedAddress { get; set; } = null!;
+    [Parameter]
+    public int SelectedID { get; set; }
+    [Parameter]
+    public decimal? SelectedLongitude { get; set; } = null!;
+    [Parameter]
+    public decimal? SelectedLatitude { get; set; } = null!;
+
+    private bool? _toggleEventView = true;
+
+    private int? triggerSelectLocation
+    {
+        get => _selectedVenue?.ID;
+        set
+        {
+            if (value.HasValue)
+            {
+                var venue = _venues?.FirstOrDefault(v => v.ID == value.Value);
+                if (venue != null && venue.Longitude.HasValue && venue.Latitude.HasValue)
+                {
+                    _selectedVenue = venue;
+                    SelectedVenue = venue.Venue;
+                    SelectedAddress = venue.Address;
+                    SelectedLongitude = venue.Longitude;
+                    SelectedLatitude = venue.Latitude;
+                    SelectedID = venue.ID;
+
+                    _ = HandleLocationChange(SelectedVenue, SelectedAddress, SelectedID, SelectedLongitude, SelectedLatitude);
+                }
+            }
+        }
+    }
+
+    private EventsDTO.EventVenues? _selectedVenue;
+    private List<EventsDTO.EventVenues>? _venues;
+    private List<EventsDTO.EventDetails.Event>? _events;
 
     public class EventsDTO
     {
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+
+                //public int? SportSubcategoryID { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                //
+
+                // public int? EventVenuesID { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                //
+
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+
+
+                // public int? StreamID { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                //
+
+                public bool? IsFinished { get; set; }
+                public byte[]? Attachement { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+
+                //public string? UserID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                // public int? SchoolRegionID { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                //
+
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
+
         public class EventVenues
         {
             public int ID { get; set; }
@@ -46,7 +269,68 @@
         }
     }
 
-    private async Task GetVenues()
+    private string GetThumbnailUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
+
+        if (url.Contains("youtube.com/watch?v="))
+        {
+            var videoId = url.Split("v=")[1].Split('&')[0];
+            return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
+        }
+
+        return "media/images/no-thumbnail-default.webp";
+    }
+
+    // Method to clear the selection
+    private async Task ClearSelection()
+    {
+        SelectedVenue = null;
+        _selectedVenue = null;
+
+        Navigation.NavigateTo("/venues");
+
+        // Clear the route from the map via JS interop
+        await JSRuntime.InvokeVoidAsync("clearRoute");
+
+        // Center the map back to user location or default location
+        await JSRuntime.InvokeVoidAsync("centerMap", null); // Pass null to center on the default location
+    }
+
+    private void toggleSelectedLocationView()
+    {
+        _toggleEventView = !_toggleEventView; // Toggle the view state
+    }
+
+    // Method to handle location change
+
+
+    private async Task HandleLocationChange(string? selectedVenue, string? selectedAddress, int selectedID, decimal? selectedLongitude, decimal? selectedLatitude)
+    {
+        await JSRuntime.InvokeVoidAsync("showDirections", new object[] { new decimal?[] { selectedLongitude, selectedLatitude } });
+
+        var url = string.IsNullOrWhiteSpace(selectedVenue) ? "/venues" : $"/venues/@{selectedLongitude},{selectedLatitude}/{Uri.EscapeDataString(selectedVenue)}, {Uri.EscapeDataString(selectedAddress)}, {selectedID}";
+
+        Navigation.NavigateTo(url);
+
+        await GetEventsAsync();
+    }
+
+    // Method to initialize the map on the first render
+    protected override async Task OnInitializedAsync()
+    {
+        await GetVenuesAsync();
+        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapBoxService.mapboxToken, _venues);
+
+        if (!string.IsNullOrEmpty(SelectedVenue))
+        {
+            await HandleLocationChange(SelectedVenue, SelectedAddress, SelectedID, SelectedLongitude, SelectedLatitude);
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task GetVenuesAsync()
     {
         try
         {
@@ -57,9 +341,16 @@
 
             using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            eventVenues = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVenues>>(responseStream, options);
+            var eventVenuesData = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVenues>>(responseStream, options);
 
-            StateHasChanged();
+            _venues = eventVenuesData?
+            .OrderBy(v => v.Address ?? string.Empty)
+            .ToList();
+
+            if (SelectedID != 0)
+            {
+                _selectedVenue = _venues?.FirstOrDefault(b => b.ID == SelectedID);
+            }
         }
         catch (HttpRequestException ex)
         {
@@ -68,52 +359,23 @@
         }
     }
 
-    // Method to clear the selection
-    private async void ClearSelection()
+    private async Task GetEventsAsync()
     {
-        newLocation = null; // Clear the newLocation
-        selectedLocation = null; // Clear selectedLocation as well
-
-        // Clear the route from the map via JS interop
-        await JSRuntime.InvokeVoidAsync("clearRoute");
-
-        // Center the map back to user location or default location
-        await JSRuntime.InvokeVoidAsync("centerMap", null); // Pass null to center on the default location
-    }
-
-    // Method to handle location change
-    private async Task HandleLocationChange(string? selectedVenue)
-    {
-        // Ensure newLocation is not null or empty
-        if (string.IsNullOrEmpty(selectedVenue))
+        if (string.IsNullOrEmpty(SelectedVenue))
         {
-            return;
+            return; // Exit if no location is selected
         }
 
-        newLocation = selectedVenue;  // Update newLocation to the selected value
-        selectedLocation = newLocation; // Optional: keep this if needed for other purposes
+        string url = $"{apiService.Palaro2026API}/Events/Details?venue={SelectedVenue}&onStream=true&isFinished=false";
 
-        // Find the selected venue from the Venues list
-        this.selectedVenue = eventVenues?.FirstOrDefault(venue => venue.Venue == newLocation);
+        HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+        httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
-        if (this.selectedVenue != null && this.selectedVenue.Latitude.HasValue && this.selectedVenue.Longitude.HasValue)
-        {
-            // Call JavaScript to provide directions with coordinates
-            await JSRuntime.InvokeVoidAsync("showDirections", new object[] {
-                new decimal[] { (decimal)this.selectedVenue.Longitude.Value, (decimal)this.selectedVenue.Latitude.Value } // Destination coordinates
-    });
-        }
-        else
-        {
-            Console.WriteLine("No matching venue found or invalid coordinates.");
-        }
-    }
+        using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        _events = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options);
 
-    // Method to initialize the map on the first render
-    protected override async Task OnInitializedAsync()
-    {
-        await GetVenues();
-        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapBoxService.mapboxToken, eventVenues);
+        StateHasChanged();
     }
 }
 
