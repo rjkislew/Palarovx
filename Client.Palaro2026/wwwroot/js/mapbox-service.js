@@ -4,6 +4,20 @@ let userLat = null;
 let userLong = null;
 let userLocation = sportsComplex;  // Default to sportsComplex initially
 
+window.registerDotNetReference = function (dotNetRef) {
+    window.dotNetRef = dotNetRef;
+};
+
+function sendVenueToBlazor(id) {
+    if (window.dotNetRef) {
+        window.dotNetRef.invokeMethodAsync('OnCoordinateSelected', id)
+            .catch(err => console.error(err));
+    } else {
+        console.warn('Blazor reference not set.');
+    }
+}
+
+
 // Initialize map and geolocation handling
 window.initializeMap = (containerId, token, markers) => {
     mapboxgl.accessToken = token;
@@ -28,6 +42,7 @@ window.initializeMap = (containerId, token, markers) => {
                 coordinates: [location.longitude, location.latitude]
             },
             properties: {
+                id: location.id,
                 venue: location.venue || location.billetingQuarter,
                 address: location.address,
                 latitude: location.latitude,
@@ -182,7 +197,7 @@ window.initializeMap = (containerId, token, markers) => {
                 <div class="popup-content" style="width: auto;">
                     <h3>${venue}</h3>
                     <h4>${address}</h4>
-                    <button style="margin-top: 5px" class="get-directions-button" onclick="getLocation(${latitude}, ${longitude})">Get Directions</button>
+                    <button onclick="sendVenueToBlazor(${id})">Get Direction</button>
                 </div>
             `;
 
@@ -282,9 +297,7 @@ window.initializeMap = (containerId, token, markers) => {
                 <div class="popup-content" style="width: auto;">
                     <h3>${venueName}</h3>
                     <h4>${address}</h4>
-                    <button style="margin-top: 5px" onclick="sendVenueToBlazor('${venueName}')">
-                        Get Directions
-                    </button>
+                    <button onclick="sendVenueToBlazor(${id})">Get Direction</button>
                 </div>
             `;
 
@@ -353,6 +366,7 @@ window.showDirections = (destination) => {
                 console.error("No routes found in the response.");
                 return;
             }
+
             const route = data.routes[0].geometry.coordinates;
 
             // Create a GeoJSON source and add to the map
@@ -383,20 +397,37 @@ window.showDirections = (destination) => {
                 }
             });
 
-            // Fly to the destination
-            window.map.flyTo({
-                center: destination,
-                essential: true, // This animation is considered essential with respect to prefers-reduced-motion
-                zoom: 20,
-                pitch: 60,
-                bearing: -60,
-                speed: 1.2,
-                curve: 1.2,
-                duration: 5000
+            // Fit the map to the route's bounding box
+            const bounds = route.reduce((b, coord) => b.extend(coord), new mapboxgl.LngLatBounds(route[0], route[0]));
+            window.map.fitBounds(bounds, {
+                padding: 50,
+                linear: true
             });
+
+            // Optionally store the destination for later use
+            window.routeDestination = destination;
         })
         .catch(error => console.error('Error fetching directions:', error));
 };
+
+window.flyToLocation = function (lng, lat) {
+    if (!window.map) {
+        console.error("Map is not initialized.");
+        return;
+    }
+
+    window.map.flyTo({
+        center: [lng, lat],
+        essential: true,
+        zoom: 20,
+        pitch: 60,
+        bearing: -60,
+        speed: 1.2,
+        curve: 1.2,
+        duration: 5000
+    });
+};
+
 
 window.centerMap = (userLocation, destination) => {
     // Determine the center location: user location or default sports complex location
@@ -425,18 +456,4 @@ window.getLocation = (latitude, longitude) => {
     const destination = [longitude, latitude];
     window.selectedDestination = destination; // Store the selected destination
     window.showDirections(destination); // Call the showDirections function
-};
-
-window.registerBlazorObject = function (blazorRef) {
-    window.blazorComponent = blazorRef;
-};
-
-window.sendVenueToBlazor = function (venueName) {
-    if (window.blazorComponent) {
-        window.blazorComponent.invokeMethodAsync('SetSelectedVenueFromJS', venueName)
-            .then(() => console.log("Venue sent to Blazor:", venueName))
-            .catch(err => console.error("Blazor call failed:", err));
-    } else {
-        console.error("Blazor reference not set.");
-    }
 };
