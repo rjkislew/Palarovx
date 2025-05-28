@@ -1,5 +1,5 @@
 ﻿@page "/regional-teams/billeting-quarters"
-@page "/regional-teams/billeting-quarters/@{SelectedLongitude:decimal},{SelectedLatitude:decimal}/{SelectedRegion}, {SelectedAddress}, {SelectedID:int}"
+@page "/regional-teams/billeting-quarters/@{SelectedLongitude:decimal},{SelectedLatitude:decimal}/{SelectedID:int}/{SelectedRegion}, {SelectedAddress}"
 
 @using System.Text.Json
 @using System.Threading.Tasks
@@ -10,7 +10,7 @@
 @inject NavigationManager Navigation
 
 <MudContainer Gutters="false" MaxWidth="MaxWidth.False">
-    <MudStack Style="z-index: 1; position: absolute; width: 450px" Class="px-3">
+    <MudStack Class="px-3 responsive-width" Style="z-index: 1; position: absolute;">
         <MudPaper Outlined Class="py-2 px-3 mt-3" Style="width: 100%" Elevation="0">
             <MudStack Row AlignItems="AlignItems.Center" Spacing="1" Style="width: 100%">
                 <MudSelect Margin="Margin.Dense" Clearable T="int?" Variant="Variant.Outlined"
@@ -43,11 +43,11 @@
                         <MudStack Spacing="0">
                             <MudStack Row AlignItems="AlignItems.Center">
                                 <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.School"></MudIcon>
-                                <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters.BilletingQuarter</MudText>
+                                <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters?.BilletingQuarter</MudText>
                             </MudStack>
                             <MudStack Row AlignItems="AlignItems.Center">
                                 <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.LocationOn"></MudIcon>
-                                <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters.Address</MudText>
+                                <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters?.Address</MudText>
                             </MudStack>
                         </MudStack>
                     </MudStack>
@@ -59,11 +59,11 @@
                         <MudStack Spacing="0">
                             <MudStack Row AlignItems="AlignItems.Center">
                                 <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person"></MudIcon>
-                                <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters.ContactPerson</MudText>
+                                <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters?.ContactPerson</MudText>
                             </MudStack>
                             <MudStack Row AlignItems="AlignItems.Center">
                                 <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Phone"></MudIcon>
-                                <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters.ContactPersonNumber</MudText>
+                                <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters?.ContactPersonNumber</MudText>
                             </MudStack>
                         </MudStack>
                     </MudStack>
@@ -75,6 +75,7 @@
             <MudStack Row Justify="Justify.FlexEnd">
                 <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@(_toggleEventView == true ? @Icons.Material.Filled.ArrowUpward : @Icons.Material.Filled.ArrowDownward)" OnClick="toggleSelectedLocationView" />
                 <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.ZoomIn" OnClick="() => FlyToLocation(SelectedLongitude, SelectedLatitude)" />
+                <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.OpenInFull" OnClick="SetAndFitBounds" />
             </MudStack>
         }
     </MudStack>
@@ -83,15 +84,15 @@
 
 @code {
     [Parameter]
-    public string? SelectedRegion { get; set; } = null!;
+    public string? SelectedRegion { get; set; }
     [Parameter]
-    public string? SelectedAddress { get; set; } = null!;
+    public string? SelectedAddress { get; set; }
     [Parameter]
     public int SelectedID { get; set; }
     [Parameter]
-    public decimal? SelectedLongitude { get; set; } = null!;
+    public decimal? SelectedLongitude { get; set; }
     [Parameter]
-    public decimal? SelectedLatitude { get; set; } = null!;
+    public decimal? SelectedLatitude { get; set; }
 
     private bool? _toggleEventView = true;
 
@@ -173,7 +174,7 @@
         SelectedRegion = null;
         _selectedRegionBilletingQuarters = null;
 
-        Navigation.NavigateTo("/regional-teams/billeting-quarters");
+        Navigation.NavigateTo("./regional-teams/billeting-quarters");
 
         await JSRuntime.InvokeVoidAsync("clearRoute");
 
@@ -189,7 +190,7 @@
     {
         await JSRuntime.InvokeVoidAsync("showDirections", new object[] { new decimal?[] { selectedLongitude, selectedLatitude } });
 
-        var url = string.IsNullOrWhiteSpace(selectedRegion) ? "/regional-teams/billeting-quarters" : $"/regional-teams/billeting-quarters/@{selectedLongitude},{selectedLatitude}/{Uri.EscapeDataString(selectedRegion)}, {Uri.EscapeDataString(selectedAddress)}, {selectedID}";
+        var url = string.IsNullOrWhiteSpace(selectedRegion) ? "./regional-teams/billeting-quarters" : $"./regional-teams/billeting-quarters/@{selectedLongitude},{selectedLatitude}/{selectedID}/{selectedRegion.ToSlug()}, {selectedAddress.ToSlug()}";
 
         Navigation.NavigateTo(url);
     }
@@ -198,6 +199,16 @@
     {
         await JSRuntime.InvokeVoidAsync("flyToLocation", lng, lat);
     }
+
+    private async Task SetAndFitBounds()
+    {
+        // Step 1: Set selectedLocation in JavaScript
+        await JSRuntime.InvokeVoidAsync("setSelectedLocation", SelectedLongitude, SelectedLatitude);
+
+        // Step 2: Call fitUserAndSelectedBounds from JavaScript
+        await JSRuntime.InvokeVoidAsync("fitUserAndSelectedBounds");
+    }
+
 
     protected override async Task OnInitializedAsync()
     {

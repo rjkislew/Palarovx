@@ -15,3 +15,4 @@ builder.Services.AddScoped<APIService>();
 builder.Services.AddScoped<ThemeService>();
 
 await builder.Build().RunAsync();
+

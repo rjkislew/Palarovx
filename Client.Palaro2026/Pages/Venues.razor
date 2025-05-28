@@ -1,8 +1,9 @@
 ﻿@page "/venues"
-@page "/venues/@{SelectedLongitude:decimal},{SelectedLatitude:decimal}/{SelectedVenue}, {SelectedAddress}, {SelectedID:int}"
+@page "/venues/@{SelectedLongitude:decimal},{SelectedLatitude:decimal}/{SelectedID:int}/{SelectedVenue}, {SelectedAddress}"
 
 @using System.Text.Json
 @using System.Threading.Tasks
+@using System.Text.RegularExpressions
 @inject IJSRuntime JSRuntime
 @inject APIService apiService
 @inject HttpClient httpClient
@@ -10,7 +11,7 @@
 @inject NavigationManager Navigation
 
 <MudContainer Gutters="false" MaxWidth="MaxWidth.False">
-    <MudStack Style="z-index: 1; position: absolute; width: 450px" Class="px-3">
+    <MudStack Class="px-3 responsive-width" Style="z-index: 1; position: absolute;">
         <MudPaper Outlined Class="py-2 px-3 mt-3" Style="width: 100%" Elevation="0">
             <MudStack Row AlignItems="AlignItems.Center" Spacing="1" Style="width: 100%">
                 <MudSelect Margin="Margin.Dense" Clearable T="int?" Variant="Variant.Outlined"
@@ -136,10 +137,17 @@
         }
         @if (_events?.Any() == true && !string.IsNullOrEmpty(SelectedVenue))
         {
-            <MudStack Row Justify="Justify.FlexEnd">
+            <MudStack Row Justify="Justify.FlexEnd" Style="width: 100%">
                 <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@(_toggleEventView == true ? @Icons.Material.Filled.ArrowUpward : @Icons.Material.Filled.ArrowDownward)" OnClick="toggleSelectedLocationView" />
                 <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.ZoomIn" OnClick="() => FlyToLocation(SelectedLongitude, SelectedLatitude)" />
             </MudStack>
+        }
+        else if (!string.IsNullOrEmpty(SelectedVenue))
+        {
+            <MudStack Row Justify="Justify.FlexEnd" Style="width: 100%">
+                <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.ZoomIn" OnClick="() => FlyToLocation(SelectedLongitude, SelectedLatitude)" />
+                <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.OpenInFull" OnClick="SetAndFitBounds" />
+            </MudStack>            
         }
     </MudStack>
     <MudStack id="map"
@@ -313,7 +321,7 @@
         SelectedVenue = null;
         _selectedVenue = null;
 
-        Navigation.NavigateTo("/venues");
+        Navigation.NavigateTo("./venues");
 
         // Clear the route from the map via JS interop
         await JSRuntime.InvokeVoidAsync("clearRoute");
@@ -332,7 +340,7 @@
     {
         await JSRuntime.InvokeVoidAsync("showDirections", new object[] { new decimal?[] { selectedLongitude, selectedLatitude } });
 
-        var url = string.IsNullOrWhiteSpace(selectedVenue) ? "/venues" : $"/venues/@{selectedLongitude},{selectedLatitude}/{Uri.EscapeDataString(selectedVenue)}, {Uri.EscapeDataString(selectedAddress)}, {selectedID}";
+        var url = string.IsNullOrWhiteSpace(selectedVenue) ? "./venues" : $"./venues/@{selectedLongitude},{selectedLatitude}/{selectedID}/{selectedVenue.ToSlug()}, {selectedAddress.ToSlug()}";
 
         Navigation.NavigateTo(url);
 
@@ -344,11 +352,23 @@
         await JSRuntime.InvokeVoidAsync("flyToLocation", lng, lat);
     }
 
+    private async Task SetAndFitBounds()
+    {
+        // Step 1: Set selectedLocation in JavaScript
+        await JSRuntime.InvokeVoidAsync("setSelectedLocation", SelectedLongitude, SelectedLatitude);
+
+        // Step 2: Call fitUserAndSelectedBounds from JavaScript
+        await JSRuntime.InvokeVoidAsync("fitUserAndSelectedBounds");
+    }
+
+
     // Method to initialize the map on the first render
     protected override async Task OnInitializedAsync()
     {
         await GetVenuesAsync();
         await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapBoxService.mapboxToken, _venues);
+
+        await Task.Delay(2000);
 
         if (!string.IsNullOrEmpty(SelectedVenue))
         {
@@ -356,7 +376,10 @@
 
             StateHasChanged();
         }
+
+        await JSRuntime.InvokeVoidAsync("setUserLocationFromGeolocation");
     }
+
 
     private async Task GetVenuesAsync()
     {

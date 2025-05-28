@@ -11,5 +11,23 @@
             public int? Bronze { get; set; }
             public int? Total { get; set; }
         }
+
+        public class SchoolLevelMedalTally
+        {
+            public class SchoolLevel
+            {
+                public string? Level { get; set; }
+                public List<RegionalMedalTally>? RegionalMedalTallyList { get; set; }
+            }
+            public class RegionalMedalTally
+            {
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public int? Gold { get; set; }
+                public int? Silver { get; set; }
+                public int? Bronze { get; set; }
+                public int? Total { get; set; }
+            }
+        }
     }
 }
