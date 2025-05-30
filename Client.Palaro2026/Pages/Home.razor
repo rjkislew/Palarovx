@@ -191,7 +191,7 @@
                             <MudText Typo="Typo.caption">Palaro Sports features diverse athletic events, promoting competition, teamwork, and inclusivity across various disciplines.</MudText>
                             <MudDivider />
                         </MudStack>
-                        <MudTabs Elevation="0" ApplyEffectsToContainer="true" PanelClass="pa-6">
+                        <MudTabs KeepPanelsAlive Elevation="0" ApplyEffectsToContainer="true" PanelClass="pa-6">
                             <MudVirtualize Items="_sportCategories" Context="categoryData">
                                 <MudTabPanel Style="text-transform: none" Text="@categoryData.Category">
                                     <MudStack Row Wrap="Wrap.Wrap">
@@ -289,60 +289,16 @@
 
     private async Task GetSportsAsync()
     {
-        try
-        {
-            var storedData = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "sportsData");
+        string url = "/Sports";
+        _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
 
-            if (!string.IsNullOrEmpty(storedData) && storedData != "null")
-            {
-                //Console.WriteLine($"📦 Raw JSON from localStorage...");
-
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                _sports = JsonSerializer.Deserialize<List<SportsDTO.Sports>>(storedData, options);
-            }
-
-            else
-            {
-                //Console.WriteLine("🌐 Fetching sports from API...");
-
-                string url = $"{apiService.Palaro2026API}/Sports";
-                HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-                httpResponse.EnsureSuccessStatusCode();
-
-                using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                _sports = await JsonSerializer.DeserializeAsync<List<SportsDTO.Sports>>(responseStream, options);
-
-                var jsonData = JsonSerializer.Serialize(_sports);
-                await JSRuntime.InvokeVoidAsync("localStorageHelper.set", "sportsData", jsonData);
-            }
-
-            var random = new Random();
-            _randomSports = _sports?.OrderBy(_ => random.Next()).ToList();
-        }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"❌ Error fetching data: {ex.Message}");
-        }
+        var random = new Random();
+        _randomSports = _sports?.OrderBy(_ => random.Next()).ToList();
     }
 
     private async Task GetSportCategoriesAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Sports/Categories";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sportCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportCategories>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        string url = "/Sports/Categories";
+        _sportCategories = await apiService.GetAsync<SportsDTO.SportCategories>(url);
     }
 }

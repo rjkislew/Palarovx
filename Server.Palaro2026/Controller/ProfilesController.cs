@@ -220,16 +220,29 @@ namespace Server.Palaro2026.Controller
 
 
         [HttpGet("Player/Details")]
-        public async Task<ActionResult<List<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>>> GetProfilePlayerDetails()
+        public async Task<ActionResult<List<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>>> GetProfilePlayerDetails(
+        [FromQuery] int? id,
+        [FromQuery] string? firstName,
+        [FromQuery] string? lastName,
+        [FromQuery] string? school,
+        [FromQuery] int? schoolLevelID,
+        [FromQuery] string? level,
+        [FromQuery] string? division,
+        [FromQuery] int? regionID,
+        [FromQuery] string? region,
+        [FromQuery] string? abbreviation,
+        [FromQuery] string? category,
+        [FromQuery] int? sportID,
+        [FromQuery] string? sport)
         {
             try
             {
-                var profilePlayers = await _context.ProfilePlayers
+                var query = _context.ProfilePlayers
                     .Include(p => p.School)
                         .ThenInclude(sd => sd!.SchoolDivision)
                             .ThenInclude(sr => sr!.SchoolRegion)
                     .Include(p => p.School)
-                        .ThenInclude(sl => sl!.SchoolLevels) // Assuming it's a collection
+                        .ThenInclude(sl => sl!.SchoolLevels)
                     .Include(p => p.Sport)
                         .ThenInclude(sc => sc!.SportCategory)
                     .Include(p => p.ProfilePlayerSports)
@@ -242,9 +255,50 @@ namespace Server.Palaro2026.Controller
                     .Include(p => p.ProfilePlayerSports)
                         .ThenInclude(ppc => ppc.ProfilePlayerSportCoaches)
                             .ThenInclude(pc => pc.ProfileCoach)
-                    .ToListAsync();
+                    .AsQueryable();
 
-                // Map the database entities to DTOs
+                // Apply filters
+                if (id.HasValue)
+                    query = query.Where(p => p.ID == id.Value);
+
+                if (!string.IsNullOrEmpty(firstName))
+                    query = query.Where(p => p.FirstName != null && p.FirstName.Contains(firstName));
+
+                if (!string.IsNullOrEmpty(lastName))
+                    query = query.Where(p => p.LastName != null && p.LastName.Contains(lastName));
+
+                if (!string.IsNullOrEmpty(school))
+                    query = query.Where(p => p.School != null && p.School.School != null && p.School.School.Contains(school));
+
+                if (schoolLevelID.HasValue)
+                    query = query.Where(p => p.School != null && p.School.SchoolLevels != null && p.School.SchoolLevels.ID == schoolLevelID.Value);
+
+                if (!string.IsNullOrEmpty(level))
+                    query = query.Where(p => p.School != null && p.School.SchoolLevels != null && p.School.SchoolLevels.Level != null && p.School.SchoolLevels.Level.Contains(level));
+
+                if (!string.IsNullOrEmpty(division))
+                    query = query.Where(p => p.School != null && p.School.SchoolDivision != null && p.School.SchoolDivision.Division != null && p.School.SchoolDivision.Division.Contains(division));
+
+                if (regionID.HasValue)
+                    query = query.Where(p => p.School != null && p.School.SchoolDivision != null && p.School.SchoolDivision.SchoolRegion != null && p.School.SchoolDivision.SchoolRegion.ID == regionID.Value);
+
+                if (!string.IsNullOrEmpty(region))
+                    query = query.Where(p => p.School != null && p.School.SchoolDivision != null && p.School.SchoolDivision.SchoolRegion != null && p.School.SchoolDivision.SchoolRegion.Region != null && p.School.SchoolDivision.SchoolRegion.Region.Contains(region));
+
+                if (!string.IsNullOrEmpty(abbreviation))
+                    query = query.Where(p => p.School != null && p.School.SchoolDivision != null && p.School.SchoolDivision.SchoolRegion != null && p.School.SchoolDivision.SchoolRegion.Abbreviation != null && p.School.SchoolDivision.SchoolRegion.Abbreviation.Contains(abbreviation));
+
+                if (!string.IsNullOrEmpty(category))
+                    query = query.Where(p => p.Sport != null && p.Sport.SportCategory != null && p.Sport.SportCategory.Category != null && p.Sport.SportCategory.Category.Contains(category));
+
+                if (sportID.HasValue)
+                    query = query.Where(p => p.SportID == sportID.Value);
+
+                if (!string.IsNullOrEmpty(sport))
+                    query = query.Where(p => p.Sport != null && p.Sport.Sport != null && p.Sport.Sport.Contains(sport));
+
+                var profilePlayers = await query.ToListAsync();
+
                 var mappedProfilePlayers = profilePlayers.Select(player => new ProfilesDTO.ProfilePlayersDetails.ProfilePlayers
                 {
                     ID = player.ID,
@@ -268,8 +322,8 @@ namespace Server.Palaro2026.Controller
                             Subcategory = sport.Key.Subcategory,
                             Gender = sport.Key.Gender,
                             ProfilePlayerSportCoachesList = sport
-                                .SelectMany(sportEntry => sportEntry.ProfilePlayerSportCoaches) // Fix: Iterate through collection
-                                .Where(pc => pc.ProfileCoach != null) // Ensure non-null coaches
+                                .SelectMany(sportEntry => sportEntry.ProfilePlayerSportCoaches)
+                                .Where(pc => pc.ProfileCoach != null)
                                 .Select(pc => new ProfilesDTO.ProfilePlayersDetails.ProfilePlayerSportCoaches
                                 {
                                     CoachFirstName = pc.ProfileCoach!.FirstName,
@@ -285,6 +339,7 @@ namespace Server.Palaro2026.Controller
                 return StatusCode(500, "Internal server error. Please try again later.");
             }
         }
+
 
 
         // Profile Players

@@ -8,8 +8,8 @@
 @inject HttpClient httpClient
 
 <MudContainer MaxWidth="MaxWidth.Medium">
-    <MudTabs>
-        <MudTabPanel Text="All Level">
+    <MudTabs KeepPanelsAlive Elevation="0" ApplyEffectsToContainer="true" PanelClass="pa-6" Centered>
+        <MudTabPanel Style="text-transform: none" Text="Grand Total">
             <MudTable Items="_regionalMedalTallies" HorizontalScrollbar="true" Virtualize SortLabel="Sort by" Elevation="0" AllowUnsorted="false" Context="region">
                 <ColGroup>
                     <MudHidden Breakpoint="Breakpoint.Xs">
@@ -94,9 +94,9 @@
                 </RowTemplate>
             </MudTable>
         </MudTabPanel>
-        <MudVirtualize Items="_schoolLevels" Context="schoolLevel">
-            <MudTabPanel Text="@schoolLevel.Level">
-                <MudTable Items="_regionalMedalTallies.Where()" HorizontalScrollbar="true" Virtualize SortLabel="Sort by" Elevation="0" AllowUnsorted="false" Context="region">
+        <MudVirtualize Items="_schoolLevelMedalTallies" Context="schoolLevelMedalTally">
+            <MudTabPanel Style="text-transform: none" Text="@schoolLevelMedalTally.Level">
+                <MudTable Items="schoolLevelMedalTally.RegionalMedalTallyList" HorizontalScrollbar="true" Virtualize SortLabel="Sort by" Elevation="0" AllowUnsorted="false" Context="region">
                     <ColGroup>
                         <MudHidden Breakpoint="Breakpoint.Xs">
                             <col style="width: 50%" />
@@ -109,25 +109,28 @@
                     </ColGroup>
                     <HeaderContent>
                         <MudTh Style="text-indent: 25px">
-                            <MudTableSortLabel SortBy="new Func<MedalTallyDTO.RegionalMedalTally, object>(x => x.Region!)">Region</MudTableSortLabel>
+                            <MudTableSortLabel SortBy="new Func<MedalTallyDTO.SchoolLevelMedalTally.RegionalMedalTally, object>(x => x.Region!)">
+                                Region
+                            </MudTableSortLabel>
+
                         </MudTh>
                         <MudTh>
-                            <MudTableSortLabel InitialDirection="SortDirection.Descending" SortBy="new Func<MedalTallyDTO.RegionalMedalTally, object>(x => x.Gold!)">
+                            <MudTableSortLabel InitialDirection="SortDirection.Descending" SortBy="new Func<MedalTallyDTO.SchoolLevelMedalTally.RegionalMedalTally, object>(x => x.Gold!)">
                                 Gold
                             </MudTableSortLabel>
                         </MudTh>
                         <MudTh Style="text-align: center; text-indent: 12px">
-                            <MudTableSortLabel SortBy="new Func<MedalTallyDTO.RegionalMedalTally, object>(x => x.Silver!)">
+                            <MudTableSortLabel SortBy="new Func<MedalTallyDTO.SchoolLevelMedalTally.RegionalMedalTally, object>(x => x.Silver!)">
                                 Silver
                             </MudTableSortLabel>
                         </MudTh>
                         <MudTh Style="text-align: center; text-indent: 12px">
-                            <MudTableSortLabel SortBy="new Func<MedalTallyDTO.RegionalMedalTally, object>(x => x.Bronze!)">
+                            <MudTableSortLabel SortBy="new Func<MedalTallyDTO.SchoolLevelMedalTally.RegionalMedalTally, object>(x => x.Bronze!)">
                                 Bronze
                             </MudTableSortLabel>
                         </MudTh>
                         <MudTh Style="text-align: center; text-indent: 12px">
-                            <MudTableSortLabel SortBy="new Func<MedalTallyDTO.RegionalMedalTally, object>(x => x.Total!)">
+                            <MudTableSortLabel SortBy="new Func<MedalTallyDTO.SchoolLevelMedalTally.RegionalMedalTally, object>(x => x.Total!)">
                                 Total
                             </MudTableSortLabel>
                         </MudTh>
@@ -186,7 +189,7 @@
 <FooterComponent />
 @code {
     private List<MedalTallyDTO.RegionalMedalTally>? _regionalMedalTallies;
-    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>? _schoolLevelMedalTallies;
 
     public class MedalTallyDTO
     {
@@ -199,61 +202,43 @@
             public int? Bronze { get; set; }
             public int? Total { get; set; }
         }
-    }
-    public class SchoolsDTO
-    {
-        public class SchoolLevels
+
+        public class SchoolLevelMedalTally
         {
-            public int ID { get; set; }
-            public string? Level { get; set; }
+            public class SchoolLevel
+            {
+                public string? Level { get; set; }
+                public List<RegionalMedalTally>? RegionalMedalTallyList { get; set; }
+            }
+
+            public class RegionalMedalTally
+            {
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public int? Gold { get; set; }
+                public int? Silver { get; set; }
+                public int? Bronze { get; set; }
+                public int? Total { get; set; }
+            }
         }
     }
-
 
     // Initialization method to fetch data and update UI elements
     protected override async Task OnInitializedAsync()
     {
-        await GetSchoolLevelsAsync();
         await GetMedalTallyByRegionAsync();
+        await GetMedalTallyBySchoolLevelAsync();
     }
 
     private async Task GetMedalTallyByRegionAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/MedalTally";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _regionalMedalTallies = await JsonSerializer.DeserializeAsync<List<MedalTallyDTO.RegionalMedalTally>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        string url = "/MedalTally";
+        _regionalMedalTallies = await apiService.GetAsync<MedalTallyDTO.RegionalMedalTally>(url);
     }
 
-    private async Task GetSchoolLevelsAsync()
+    private async Task GetMedalTallyBySchoolLevelAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Levels";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolsDTO.SchoolLevels>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        string url = "/MedalTally/BySchoolLevel";
+        _schoolLevelMedalTallies = await apiService.GetAsync<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>(url);
     }
 }

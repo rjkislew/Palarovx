@@ -1,0 +1,172 @@
+﻿@page "/regional-teams/{Abbreviation}-{Region}/players/{FirstName}-{LastName}"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<PageTitle>@($"{FirstName} {LastName} - {Region} ({Abbreviation}) | Palaro 2026")</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    <MudGrid>
+        <MudItem xs="12">
+            <MudStack>
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.End" Style="width: 100%">
+                    <MudStack Row AlignItems="AlignItems.Center">
+                        <MudImage Src="@($"media/regions/{Abbreviation}.webp")" Height="100" />
+                        <MudStack Spacing="0" Justify="Justify.Center">
+                            <MudText Typo="Typo.h3">@Abbreviation</MudText>
+                            <MudText Typo="Typo.h5">@Region</MudText>
+                        </MudStack>
+                    </MudStack>
+                    <MudStack Class="flex-sm-row" AlignItems="AlignItems.End">
+                        <MudButton DropShadow="false" Color="Color.Primary" Variant="Variant.Filled" Href="@($"./regional-teams/{Abbreviation}-{Region}")">Events</MudButton>
+                        <MudButton DropShadow="false" Color="Color.Primary" Variant="Variant.Filled">Billeting Quarters</MudButton>
+                    </MudStack>
+                </MudStack>
+                <MudDivider />
+            </MudStack>
+        </MudItem>
+        <MudItem xs="12">
+            <MudText Typo="Typo.h2">@_profilePlayers?.FirstName @_profilePlayers?.LastName</MudText>
+            <MudText><b>@_profilePlayers?.Sport</b> | @_profilePlayers?.Category</MudText>
+            <MudText>@_profilePlayers?.Level</MudText>
+            <MudText>@_profilePlayers?.School, @_profilePlayers?.Division</MudText>
+        </MudItem>
+        <MudDivider />
+        <MudItem xs="12">
+            <MudGrid>
+                <MudVirtualize Items="@_profilePlayers?.ProfilePlayerSportsList" Context="sport">
+                    <MudItem xs="6" md="4" lg="3">
+                        <MudCard Outlined>
+                            <MudStack Class="pa-3">
+                                <MudText Typo="Typo.body2">
+                                    @sport.Subcategory |
+                                    <MudElement>
+                                        @{
+                                            string gender;
+
+                                            if (sport.Gender == "Male")
+                                            {
+                                                gender = "♂️";
+                                            }
+                                            else if (sport.Gender == "Female")
+                                            {
+                                                gender = "♀️";
+                                            }
+                                            else
+                                            {
+                                                gender = "♂️♀️";
+                                            }
+                                        }
+                                        <MudText Typo="Typo.caption">
+                                            @gender
+                                        </MudText>
+                                    </MudElement>
+                                    <MudDivider />
+                                    @if (sport.ProfilePlayerSportCoachesList?.Count > 1)
+                                    {
+                                        <MudText Typo="Typo.caption">
+                                            Coaches:
+                                        </MudText>
+                                    }
+                                    else if (sport.ProfilePlayerSportCoachesList?.Count == 1)
+                                    {
+                                        <MudText Typo="Typo.caption">
+                                            Coach:
+                                        </MudText>
+                                    }
+
+                                    <MudStack Row Spacing="0" Wrap="Wrap.Wrap">
+                                        <MudVirtualize Items="sport.ProfilePlayerSportCoachesList" Context="coach">
+                                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">
+                                                @coach.CoachFirstName @coach.CoachLastName
+                                            </MudChip>
+                                        </MudVirtualize>
+                                    </MudStack>
+                                </MudText>
+                            </MudStack>
+                        </MudCard>
+                    </MudItem>
+                </MudVirtualize>
+            </MudGrid>
+        </MudItem>
+
+    </MudGrid>
+</MudContainer>
+<FooterComponent />
+
+@code {
+    [Parameter]
+    public string? Region { get; set; }
+    [Parameter]
+    public string? Abbreviation { get; set; }
+    [Parameter]
+    public string? FirstName { get; set; }
+    [Parameter]
+    public string? LastName { get; set; }
+
+    private ProfilesDTO.ProfilePlayersDetails.ProfilePlayers? _profilePlayers;
+
+    public class ProfilesDTO
+    {
+        public class ProfilePlayersDetails
+        {
+            public class ProfilePlayers
+            {
+                public int ID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+                public int? SchoolLevelID { get; set; }
+                public string? Level { get; set; }
+                public string? Division { get; set; }
+                public int? RegionID { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public string? Category { get; set; }
+                public int? SportID { get; set; }
+                public string? Sport { get; set; }
+                public List<ProfilePlayerSports>? ProfilePlayerSportsList { get; set; }
+            }
+
+            public class ProfilePlayerSports
+            {
+                public int ProfilePlayerSportID { get; set; }
+                public string? Gender { get; set; }
+                public string? Subcategory { get; set; }
+                public List<ProfilePlayerSportCoaches>? ProfilePlayerSportCoachesList { get; set; }
+            }
+
+            public class ProfilePlayerSportCoaches
+            {
+                public string? CoachFirstName { get; set; }
+                public string? CoachLastName { get; set; }
+            }
+        }
+
+        public class ProfilePlayers
+        {
+            public int ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public int? SchoolID { get; set; }
+            public int? SportID { get; set; }
+        }
+    }
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetPlayersProfileAsync();
+    }
+
+    private async Task GetPlayersProfileAsync()
+    {
+        string url = $"/Profiles/Player/Details?region={Region}&firstName={FirstName}&lastName={LastName}";
+
+        _profilePlayers = await apiService.GetSingleAsync<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>(url);
+    }
+}

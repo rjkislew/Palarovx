@@ -19,14 +19,13 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
-        [HttpGet("ByRegion")]
+        [HttpGet]
         public async Task<ActionResult<List<MedalTallyDTO.RegionalMedalTally>>> MedalTallyByRegion([FromQuery] string? region)
         {
             var query = _context.EventVersusTeams
                 .Include(m => m.SchoolRegion)
                 .Where(m => m.Rank == "Champion" || m.Rank == "First Runner-up" || m.Rank == "Second Runner-up");
 
-            // Apply region filter if specified
             if (!string.IsNullOrWhiteSpace(region))
             {
                 query = query.Where(m => m.SchoolRegion!.Region == region);
@@ -43,66 +42,71 @@ namespace Server.Palaro2026.Controller
                     Bronze = g.Count(x => x.Rank == "Second Runner-up"),
                     Total = g.Count()
                 })
+                .OrderByDescending(x => x.Gold)
+                .ThenBy(x => x.Region)
+                .ThenByDescending(x => x.Silver)
+                .ThenBy(x => x.Region)
+                .ThenByDescending(x => x.Bronze)
+                .ThenBy(x => x.Region)
                 .ToListAsync();
-
-            if (medalTally == null || medalTally.Count == 0)
-            {
-                return NotFound("No medal tally found.");
-            }
 
             return Ok(medalTally);
         }
 
-
         [HttpGet("BySchoolLevel")]
         public async Task<ActionResult<List<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>>> MedalTallyBySchoolLevel([FromQuery] string? region)
         {
-            var query = _context.EventVersusTeams
+            var medalTally = await _context.EventVersusTeams
                 .Include(m => m.SchoolRegion)
                 .Include(e => e.Event)
                     .ThenInclude(s => s!.SportSubcategory)
                         .ThenInclude(l => l!.SchoolLevel)
-                .Where(m => m.Rank == "Champion" || m.Rank == "First Runner-up" || m.Rank == "Second Runner-up");
-
-            if (!string.IsNullOrWhiteSpace(region))
-            {
-                query = query.Where(m => m.SchoolRegion!.Region == region);
-            }
-
-            // Fetch the data into memory
-            var data = await query.ToListAsync();
-
-            // Group in memory
-            var groupedByLevel = data
+                .Where(m => m.Rank == "Champion" || m.Rank == "First Runner-up" || m.Rank == "Second Runner-up")
+                .Where(m => string.IsNullOrWhiteSpace(region) || m.SchoolRegion!.Region == region)
                 .GroupBy(m => new
                 {
                     Level = m.Event!.SportSubcategory!.SchoolLevel!.Level,
                     Region = m.SchoolRegion!.Region,
                     Abbreviation = m.SchoolRegion.Abbreviation
                 })
-                .GroupBy(g => g.Key.Level)
+                .Select(g => new
+                {
+                    g.Key.Level,
+                    g.Key.Region,
+                    g.Key.Abbreviation,
+                    Gold = g.Count(x => x.Rank == "Champion"),
+                    Silver = g.Count(x => x.Rank == "First Runner-up"),
+                    Bronze = g.Count(x => x.Rank == "Second Runner-up")
+                })
+                .ToListAsync();
+
+            var result = medalTally
+                .GroupBy(x => x.Level)
                 .Select(g => new MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel
                 {
                     Level = g.Key,
-                    RegionalMedalTallyList = g.Select(regionGroup => new MedalTallyDTO.SchoolLevelMedalTally.RegionalMedalTally
-                    {
-                        Region = regionGroup.Key.Region,
-                        Abbreviation = regionGroup.Key.Abbreviation,
-                        Gold = regionGroup.Count(x => x.Rank == "Champion"),
-                        Silver = regionGroup.Count(x => x.Rank == "First Runner-up"),
-                        Bronze = regionGroup.Count(x => x.Rank == "Second Runner-up"),
-                        Total = regionGroup.Count()
-                    }).ToList()
+                    RegionalMedalTallyList = g
+                        .Select(x => new MedalTallyDTO.SchoolLevelMedalTally.RegionalMedalTally
+                        {
+                            Region = x.Region,
+                            Abbreviation = x.Abbreviation,
+                            Gold = x.Gold,
+                            Silver = x.Silver,
+                            Bronze = x.Bronze,
+                            Total = x.Gold + x.Silver + x.Bronze
+                        })
+                        .OrderByDescending(x => x.Gold)
+                        .ThenBy(x => x.Region)
+                        .ThenByDescending(x => x.Silver)
+                        .ThenBy(x => x.Region)
+                        .ThenByDescending(x => x.Bronze)
+                        .ThenBy(x => x.Region)
+                        .ToList()
                 })
+                .OrderBy(x => x.Level)
                 .ToList();
 
-            if (groupedByLevel == null || groupedByLevel.Count == 0)
-            {
-                return NotFound("No medal tally found.");
-            }
-
-            return Ok(groupedByLevel);
+            return result.Count == 0 ? NotFound("No medal tally found.") : Ok(result);
         }
-
     }
 }

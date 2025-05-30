@@ -1,35 +1,7 @@
-﻿window.updateAvailable = new Promise((resolve, reject) => {
-    if (!('serviceWorker' in navigator)) {
-        const errorMessage = `This browser doesn't support service workers`;
-        console.error(errorMessage);
-        reject(errorMessage);
-        return;
-    }
-
-    navigator.serviceWorker.register('js/service-worker.js')
-        .then(registration => {
-            console.info(`Service worker registration successful (scope: ${registration.scope})`);
-            registration.onupdatefound = () => {
-                const installingServiceWorker = registration.installing;
-                installingServiceWorker.onstatechange = () => {
-                    if (installingServiceWorker.state === 'installed') {
-                        resolve(!!navigator.serviceWorker.controller);
-                    }
-                }
-            };
-        })
-        .catch(error => {
-            console.error('Service worker registration failed with error:', error);
-            reject(error);
-        });
-});
-
-window.registerForUpdateAvailableNotification = (caller, methodName) => {
-
-    window.updateAvailable.then(isUpdateAvailable => {
-
-        if (isUpdateAvailable) {
-            caller.invokeMethodAsync(methodName).then();
-        }
-    });
-};
+﻿// sw-registrator.js
+if ('serviceWorker' in navigator) {
+    const baseHref = document.querySelector('base')?.getAttribute('href') ?? '/';
+    navigator.serviceWorker.register(baseHref + 'js/service-worker.published.js')
+        .then(() => console.log('[SW] Registered'))
+        .catch(err => console.error('[SW] Registration failed:', err));
+}

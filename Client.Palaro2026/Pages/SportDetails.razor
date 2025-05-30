@@ -35,7 +35,7 @@
                 <MudItem xs="12">
                     <MudStack AlignItems="AlignItems.Center" Style="width: 100%">
                         <MudText Typo="Typo.body2">@_sportDescription</MudText>
-                        <MudTabs Elevation="0" ApplyEffectsToContainer="true" PanelClass="pt-6" Centered Style="width: 100%">
+                        <MudTabs KeepPanelsAlive Elevation="0" ApplyEffectsToContainer="true" PanelClass="pt-6" Centered Style="width: 100%">
                             @if (_sportSubcategories != null && _sportSubcategories.Any())
                             {
                                 @foreach (var group in _sportSubcategories.GroupBy(s => s.SchoolLevelID))
@@ -396,96 +396,41 @@
 
     private async Task GetSportCategoriesAsync()
     {
-        try
+        string url = $"/Sports/Categories?category={Category}";
+        var sportCategories = await apiService.GetAsync<SportsDTO.SportCategories>(url);
+
+        if (sportCategories != null)
         {
-            string url = $"{apiService.Palaro2026API}/Sports/Categories?category={Category}";
+            var sportCategory = sportCategories.First();
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var sportCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportCategories>>(responseStream, options);
-
-            if (sportCategories != null)
-            {
-                var sportCategory = sportCategories.First();
-
-                _selectedSportCategoryID = sportCategory.ID;
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
+            _selectedSportCategoryID = sportCategory.ID;
         }
     }
 
     private async Task GetSportsAsync()
     {
-        try
+        string url = $"/Sports?sport={Sports}&sportCategoryID={_selectedSportCategoryID}";
+        var sports = await apiService.GetAsync<SportsDTO.Sports>(url);
+
+        if (sports != null)
         {
-            string url = $"{apiService.Palaro2026API}/Sports?sport={Sports}&sportCategoryID={_selectedSportCategoryID}";
+            var sport = sports.First();
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            _sportDescription = sport.Description;
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var sports = await JsonSerializer.DeserializeAsync<List<SportsDTO.Sports>>(responseStream, options);
-
-            if (sports != null)
-            {
-                var sport = sports.First();
-
-                _sportDescription = sport.Description;
-
-                await GetSportSubcategoriesAsync(sport.ID);
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
+            await GetSportSubcategoriesAsync(sport.ID);
         }
     }
 
     private async Task GetSportSubcategoriesAsync(int sportID)
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Sports/Subcategories?sportID={sportID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sportSubcategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportSubcategories>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
+        string url = $"/Sports/Subcategories?sportID={sportID}";
+        _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
     }
 
     private async Task GetEventsAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Events/Details?category={Category}&sport={Sports}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _eventDetails = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options);
-        }
-        catch (HttpRequestException)
-        {
-            _eventDetails = null;
-        }
+        string url = $"/Events/Details?category={Category}&sport={Sports}";
+        _eventDetails = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
     }
 }
