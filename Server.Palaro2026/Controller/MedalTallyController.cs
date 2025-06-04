@@ -22,26 +22,29 @@ namespace Server.Palaro2026.Controller
         [HttpGet]
         public async Task<ActionResult<List<MedalTallyDTO.RegionalMedalTally>>> MedalTallyByRegion([FromQuery] string? region)
         {
-            var query = _context.EventVersusTeams
-                .Include(m => m.SchoolRegion)
-                .Where(m => m.Rank == "Champion" || m.Rank == "First Runner-up" || m.Rank == "Second Runner-up");
+            var regions = _context.SchoolRegions.AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(region))
             {
-                query = query.Where(m => m.SchoolRegion!.Region == region);
+                regions = regions.Where(r => r.Region == region);
             }
 
-            var medalTally = await query
-                .GroupBy(m => new { m.SchoolRegion!.Region, m.SchoolRegion.Abbreviation })
-                .Select(g => new MedalTallyDTO.RegionalMedalTally
-                {
-                    Region = g.Key.Region,
-                    Abbreviation = g.Key.Abbreviation,
-                    Gold = g.Count(x => x.Rank == "Champion"),
-                    Silver = g.Count(x => x.Rank == "First Runner-up"),
-                    Bronze = g.Count(x => x.Rank == "Second Runner-up"),
-                    Total = g.Count()
-                })
+            var medalTally = await regions
+                .GroupJoin(
+                    _context.EventVersusTeams
+                        .Where(m => m.Rank == "Champion" || m.Rank == "First Runner-up" || m.Rank == "Second Runner-up"),
+                    r => r.ID,
+                    evt => evt.SchoolRegionID,
+                    (r, medals) => new MedalTallyDTO.RegionalMedalTally
+                    {
+                        Region = r.Region!,
+                        Abbreviation = r.Abbreviation!,
+                        Gold = medals.Count(x => x.Rank == "Champion"),
+                        Silver = medals.Count(x => x.Rank == "First Runner-up"),
+                        Bronze = medals.Count(x => x.Rank == "Second Runner-up"),
+                        Total = medals.Count()
+                    }
+                )
                 .OrderByDescending(x => x.Gold)
                 .ThenBy(x => x.Region)
                 .ThenByDescending(x => x.Silver)
@@ -53,9 +56,17 @@ namespace Server.Palaro2026.Controller
             return Ok(medalTally);
         }
 
+
         [HttpGet("BySchoolLevel")]
         public async Task<ActionResult<List<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>>> MedalTallyBySchoolLevel([FromQuery] string? region)
         {
+            var regions = _context.SchoolRegions.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(region))
+            {
+                regions = regions.Where(r => r.Region == region);
+            }
+
             var medalTally = await _context.EventVersusTeams
                 .Include(m => m.SchoolRegion)
                 .Include(e => e.Event)

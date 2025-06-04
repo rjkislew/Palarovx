@@ -23,6 +23,7 @@ builder.Services.AddMudServices(config =>
     config.SnackbarConfiguration.ShowTransitionDuration = 500;
     config.SnackbarConfiguration.SnackbarVariant = Variant.Filled;
 });
+
 builder.Services.AddSingleton<APIService>();
 builder.Services.AddSingleton<CookieService>();
 builder.Services.AddScoped<ThemeService>();

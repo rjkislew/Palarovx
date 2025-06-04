@@ -4,50 +4,58 @@
 @using System.Text.Json
 @using System.Threading.Tasks
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject ThemeService ThemeService
 
 <PageTitle>Sporting Events | PALARO 2026 - Agusan del Sur</PageTitle>
 
-<MudGrid>
-    <!-- SPORTS -->
-    <MudItem xs="12">
-        <MudContainer Gutters="false" MaxWidth="MaxWidth.Large">
-            <MudStack>
-                <MudTabs KeepPanelsAlive Elevation="0" ApplyEffectsToContainer="true" PanelClass="pa-6" Centered>
-                    <MudVirtualize Items="_sportCategories" Context="categoryData">
-                        <MudTabPanel Style="text-transform: none" Text="@categoryData.Category">
-                            <MudGrid Justify="Justify.Center">
-                                <MudVirtualize Items="_sports?.Where(s => s.SportCategoryID == categoryData.ID).ToList()" Context="sport">
-                                    <MudItem xs="6" sm="4" md="3">
-                                        <MudLink Href=@($"sports/{categoryData.Category}/{sport.Sport}") Underline="Underline.None">
-                                            <MudPaper Style="height: 100%" Outlined Class="hover-effect">
-                                            <MudStack Spacing="3">
-                                                <MudImage Src="@($"Media/Sports/Images/{sport.Sport}.webp")" ObjectPosition="ObjectPosition.Top" Class="rounded-t" ObjectFit="ObjectFit.Cover" Height="300" />
-                                                <MudStack Class="pa-3">
-                                                    <MudStack Row AlignItems="AlignItems.Center">
-                                                            <MudImage ObjectFit="ObjectFit.Contain" Height="20" Src="@($"media/sports/icons/{(ThemeService.IsDarkMode == true ? "white" : "black")}/{sport.Sport}.webp")" />
-                                                        <MudText Typo="Typo.h5" Color="Color.Dark" Style="text-transform: uppercase; font-weight: bold">@sport.Sport</MudText>
+@if (isEmpty == true)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-20"/>
+}
+else
+{
+    <MudGrid>
+        <!-- SPORTS -->
+        <MudItem xs="12">
+            <MudContainer Gutters="false" MaxWidth="MaxWidth.Large">
+                <MudStack>
+                    <MudTabs KeepPanelsAlive Elevation="0" ApplyEffectsToContainer="true" PanelClass="pa-6" Centered>
+                        <MudVirtualize Items="_sportCategories" Context="categoryData">
+                            <MudTabPanel Style="text-transform: none" Text="@categoryData.Category">
+                                <MudGrid Justify="Justify.Center">
+                                    <MudVirtualize Items="_sports?.Where(s => s.SportCategoryID == categoryData.ID).ToList()" Context="sport">
+                                        <MudItem xs="6" sm="4" md="3">
+                                            <MudLink Href=@($"sports/{categoryData.Category}/{sport.Sport}") Underline="Underline.None">
+                                                <MudPaper Style="height: 100%" Outlined Class="hover-effect">
+                                                    <MudStack Spacing="3">
+                                                        <MudImage Src="@($"Media/Sports/Images/{sport.Sport}.webp")" ObjectPosition="ObjectPosition.Top" Class="rounded-t" ObjectFit="ObjectFit.Cover" Height="300" />
+                                                        <MudStack Class="pa-3">
+                                                            <MudStack Row AlignItems="AlignItems.Center">
+                                                                <MudImage ObjectFit="ObjectFit.Contain" Height="20" Src="@($"media/sports/icons/{(ThemeService.IsDarkMode == true ? "white" : "black")}/{sport.Sport}.webp")" />
+                                                                <MudText Typo="Typo.h5" Color="Color.Dark">@sport.Sport</MudText>
+                                                            </MudStack>
+                                                            <MudText Typo="Typo.caption">@sport.Description</MudText>
+                                                        </MudStack>
                                                     </MudStack>
-                                                    <MudText Typo="Typo.caption">@sport.Description</MudText>
-                                                </MudStack>
-                                            </MudStack>
-                                        </MudPaper>
-                                        </MudLink>
-                                    </MudItem>
-                                </MudVirtualize>
-                            </MudGrid>
-                        </MudTabPanel>
-                    </MudVirtualize>
-                </MudTabs>
+                                                </MudPaper>
+                                            </MudLink>
+                                        </MudItem>
+                                    </MudVirtualize>
+                                </MudGrid>
+                            </MudTabPanel>
+                        </MudVirtualize>
+                    </MudTabs>
 
-                <!-- Sporting Events Venues -->
-                <MudButton EndIcon="@Icons.Material.Filled.ArrowForward" Variant="Variant.Text" Size="Size.Large" Href="./venues">Sporting Event Venues</MudButton>
-            </MudStack>
-        </MudContainer>
-    </MudItem>
-</MudGrid>
+                    <!-- Sporting Events Venues -->
+                    <MudButton EndIcon="@Icons.Material.Filled.ArrowForward" Variant="Variant.Text" Size="Size.Large" Href="./venues">Sporting Event Venues</MudButton>
+                </MudStack>
+            </MudContainer>
+        </MudItem>
+    </MudGrid>
+}
 
 <!-- Footer -->
 <FooterComponent />
@@ -55,6 +63,8 @@
 @code {
     private List<SportsDTO.Sports>? _sports;
     private List<SportsDTO.SportCategories>? _sportCategories;
+
+    private bool isEmpty = true;
 
     public class SportsDTO
     {
@@ -80,6 +90,15 @@
         await ThemeService.LoadThemePreference();
         await GetSportsAsync();
         await GetSportCategoriesAsync();
+
+        if (_sports != null && _sportCategories != null)
+        {
+            isEmpty = false;
+        }
+        else
+        {
+            isEmpty = true;
+        }
     }
 
     private async Task GetSportsAsync()

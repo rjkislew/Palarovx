@@ -148,7 +148,7 @@ function addMarkersSource(geojson) {
 }
 
 function addClusterLayers() {
-    const clusterColors = ['#4CAF50', '#FF9800', '#F44336'];
+    const clusterColors = ['#1E4CA1', '#BA3535', '#EBB94D'];
 
     window.map.addLayer({
         id: 'clusters',
@@ -198,7 +198,7 @@ function addUnclusteredLayers() {
         source: 'markers',
         filter: ['!', ['has', 'point_count']],
         paint: {
-            'circle-color': '#007AFF',
+            'circle-color': '#EBB94D',
             'circle-radius': 8,
             'circle-stroke-width': 2,
             'circle-stroke-color': '#fff'
@@ -370,8 +370,8 @@ window.showDirections = (destination) => {
                     'line-cap': 'round'
                 },
                 'paint': {
-                    'line-color': '#FF6D00',
-                    'line-width': 8
+                    'line-color': '#000000',
+                    'line-width': 4
                 }
             });
 
@@ -420,7 +420,7 @@ window.fitRouteBounds = (coordinates) => {
     );
 
     window.map.fitBounds(bounds, {
-        padding: 200,
+        padding: 50,
         linear: true
     });
 };
@@ -442,7 +442,7 @@ window.fitUserAndSelectedBounds = () => {
     );
 
     window.map.fitBounds(bounds, {
-        padding: 200,
+        padding: 50,
         linear: true
     });
 };

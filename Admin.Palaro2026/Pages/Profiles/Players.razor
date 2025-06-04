@@ -38,12 +38,12 @@
                 </ColGroup>
                 <HeaderContent>
                     <MudTh>
-                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers, object?>(x=>new {x.FirstName, x.LastName})">
+                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers, object?>(x => (x.FirstName, x.LastName))">
                             Player
                         </MudTableSortLabel>
                     </MudTh>
                     <MudTh>
-                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers, object?>(x=> new {x.Region, x.Abbreviation})">
+                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers, object?>(x => (x.Region, x.Abbreviation))">
                             School
                         </MudTableSortLabel>
                     </MudTh>
@@ -308,23 +308,30 @@
         if (string.IsNullOrWhiteSpace(_searchString))
             return true;
 
-        bool matchesBasicInfo = (profilePlayers.FirstName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                                (profilePlayers.LastName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                                (profilePlayers.Region?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                                (profilePlayers.Abbreviation?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                                (profilePlayers.Sport?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                                (profilePlayers.Category?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false);
+        bool matchesBasicInfo = new[] {
+             profilePlayers.FirstName,
+             profilePlayers.LastName,
+             profilePlayers.Region,
+             profilePlayers.Abbreviation,
+             profilePlayers.Sport,
+             profilePlayers.Category
+    }
+        .Where(field => !string.IsNullOrWhiteSpace(field))
+        .Any(field => field!.Contains(_searchString, StringComparison.OrdinalIgnoreCase));
 
-        bool matchesProfilePlayerSports = (profilePlayers.ProfilePlayerSportsList?.Any(sport =>
-         (sport.Gender?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-         (sport.Subcategory?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-         (sport.ProfilePlayerSportCoachesList?.Any(coach =>
-             (coach.CoachFirstName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
-             (coach.CoachLastName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false)) ?? false)
-     ) ?? false);
+        bool matchesProfilePlayerSports = profilePlayers.ProfilePlayerSportsList?
+            .Where(sport =>
+                (sport.Gender?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (sport.Subcategory?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (sport.ProfilePlayerSportCoachesList?.Any(coach =>
+                    (coach.CoachFirstName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (coach.CoachLastName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false)) ?? false)
+            )
+            .Any() ?? false;
 
         return matchesBasicInfo || matchesProfilePlayerSports;
     }
+
 
 
     // Dialogs
