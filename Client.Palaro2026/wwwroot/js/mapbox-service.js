@@ -231,21 +231,10 @@ function setupMapEvents() {
 
 function setupMarkerClickEvent() {
     window.map.on('click', 'unclustered-point', (e) => {
-        const coordinates = e.features[0].geometry.coordinates.slice();
-        const { id, venue, address } = e.features[0].properties;
+        const { id } = e.features[0].properties;
 
-        const popupContent = `
-            <div class="popup-content" style="width: auto;">
-                <h3>${venue}</h3>
-                <h4>${address}</h4>
-                <button onclick="sendVenueToBlazor(${id})">Get Direction</button>
-            </div>
-        `;
-
-        new mapboxgl.Popup()
-            .setLngLat(coordinates)
-            .setHTML(popupContent)
-            .addTo(window.map);
+        // Directly call the Blazor-interacting function
+        sendVenueToBlazor(id);
     });
 }
 
@@ -375,7 +364,6 @@ window.showDirections = (destination) => {
                 }
             });
 
-
             fitRouteBounds(route);
 
             window.routeDestination = destination;
@@ -420,7 +408,7 @@ window.fitRouteBounds = (coordinates) => {
     );
 
     window.map.fitBounds(bounds, {
-        padding: 50,
+        padding: 100,
         linear: true
     });
 };
@@ -442,7 +430,7 @@ window.fitUserAndSelectedBounds = () => {
     );
 
     window.map.fitBounds(bounds, {
-        padding: 50,
+        padding: 100,
         linear: true
     });
 };

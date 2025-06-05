@@ -38,9 +38,8 @@
         </MudPaper>
         @if (_events?.Any() == true && !string.IsNullOrEmpty(SelectedVenue) && _toggleEventView == true)
         {
-            <MudText>Finished Events</MudText>
             <MudGrid>
-                <MudItem xs="6">
+                <MudItem xs="12">
                     <MudPaper Outlined>
                         <MudVirtualize Items="_events" Context="eventDetail">
                             @* Content *@
@@ -112,21 +111,28 @@
                                             </MudText>
                                         </MudStack>
 
+                                        <MudField Label="Opposing Teams" Variant="Variant.Outlined" InnerPadding="false">
+                                            <MudStack Class="py-2" Row Spacing="0">
+                                                <MudVirtualize Items="eventDetail.EventVersusList" Context="team">
+                                                    <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">@team.Region (@team.Abbreviation)</MudChip>
+                                                </MudVirtualize>
+                                            </MudStack>
+                                        </MudField>
+
                                         <MudText Typo="Typo.caption" Class="mt-3" Style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal;">
                                             #@eventDetail.Category?.Replace(" ", "") #@eventDetail.Level?.Replace(" ", "") #@eventDetail.EventStage?.Replace(" ", "")
                                             <MudElement>
-                                                #
                                                 @if (eventDetail.Gender == "Male")
                                                 {
-                                                    <MudText Typo="Typo.caption">Male♂️</MudText>
+                                                    <MudText Typo="Typo.caption">#Male♂️</MudText>
                                                 }
                                                 else if (eventDetail.Gender == "Female")
                                                 {
-                                                    <MudText Typo="Typo.caption">Female♀️</MudText>
+                                                    <MudText Typo="Typo.caption">#Female♀️</MudText>
                                                 }
                                                 else
                                                 {
-                                                    <MudText Typo="Typo.caption">Mixed♂️♀️</MudText>
+                                                    <MudText Typo="Typo.caption">#Mixed♂️♀️</MudText>
                                                 }
                                             </MudElement>
                                         </MudText>
@@ -145,6 +151,7 @@
             <MudStack Row Justify="Justify.FlexEnd" Style="width: 100%">
                 <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@(_toggleEventView == true ? @Icons.Material.Filled.ArrowUpward : @Icons.Material.Filled.ArrowDownward)" OnClick="toggleSelectedLocationView" />
                 <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.FmdGood" OnClick="() => FlyToLocation(SelectedLongitude, SelectedLatitude)" />
+                <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.OpenInFull" OnClick="SetAndFitBounds" />
             </MudStack>
         }
         else if (!string.IsNullOrEmpty(SelectedVenue))
@@ -343,13 +350,16 @@
 
     private async Task HandleLocationChange(string? selectedVenue, string? selectedAddress, int selectedID, decimal? selectedLongitude, decimal? selectedLatitude)
     {
-        await JSRuntime.InvokeVoidAsync("showDirections", new object[] { new decimal?[] { selectedLongitude, selectedLatitude } });
-
-        var url = string.IsNullOrWhiteSpace(selectedVenue) ? "./venues" : $"./venues/@{selectedLongitude},{selectedLatitude}/{selectedID}/{selectedVenue.ToSlug()}, {selectedAddress.ToSlug()}";
-
-        Navigation.NavigateTo(url);
+        _events = null; // Clear events when changing location
+        _toggleEventView = true; // Reset event view toggle
 
         await GetEventsAsync();
+
+        await JSRuntime.InvokeVoidAsync("showDirections", new object[] { new decimal?[] { selectedLongitude, selectedLatitude } });
+
+        var url = string.IsNullOrWhiteSpace(selectedVenue) ? "./venues" : $"./venues/@{selectedLongitude},{selectedLatitude}/{selectedID}/{selectedVenue}, {selectedAddress}";
+
+        Navigation.NavigateTo(url);
     }
 
     private async Task FlyToLocation(decimal? lng, decimal? lat)
