@@ -39,17 +39,6 @@ public class ThemeService
         NotifyStateChanged();
     }
 
-    public async Task SaveThemePreference(bool? isDarkMode)
-    {
-        IsDarkMode = isDarkMode;
-        UserSelectedTheme = isDarkMode != null;
-
-        var value = isDarkMode?.ToString().ToLower() ?? "null";
-        await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "darkMode", value);
-
-        NotifyStateChanged();
-    }
-
     public async Task ToggleDarkModeAsync()
     {
         IsDarkMode = IsDarkMode switch

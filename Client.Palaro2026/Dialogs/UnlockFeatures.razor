@@ -1,0 +1,78 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        <MudText>Unlock Developed Features</MudText>
+        <MudTextField Class="mt-5 mb-10" T="string" Label="Password" InputType="@PasswordInput" Variant="Variant.Outlined" Adornment="Adornment.End" AdornmentIcon="@PasswordInputIcon" OnAdornmentClick="TogglePassword" AdornmentAriaLabel="Show Password" @bind-Value="_passwordValue" />
+        <MudText Typo="Typo.caption">Please contact the developer, <MudElement><MudLink Href="https://www.facebook.com/jowneyx" Target="_blank"><MudText Typo="Typo.caption">Joniselury Rasco</MudText></MudLink></MudElement>, for the password if you are trying to access these features.</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+            <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+            <MudStack Row Justify="Justify.SpaceBetween">
+                <MudButton Style="text-transform: none" DropShadow="false" OnClick="Unlock">Unlock</MudButton>
+            </MudStack>
+        </MudStack>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    private string? _passwordValue;
+    private bool? isUnlocked;
+    private bool isShow;
+    string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+    InputType PasswordInput = InputType.Password;
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    // Add event stream service
+    private void Unlock()
+    {
+        if (_passwordValue == "PALARO2026")
+        {
+            isUnlocked = true;
+            JSRuntime.InvokeVoidAsync("localStorage.setItem", "isUnlocked", true);
+            Snackbar.Add("Features unlocked successfully.", Severity.Success);
+            MudDialog?.Close(DialogResult.Ok(true));
+            
+        }
+        else if (string.IsNullOrWhiteSpace(_passwordValue))
+        {
+            Snackbar.Add("Please enter a password.", Severity.Error);
+            return;
+        }
+        else
+        {
+            Snackbar.Add("Incorrect password.", Severity.Error);
+            return;
+        }        
+    }
+
+    void TogglePassword()
+    {
+        @if (isShow)
+        {
+            isShow = false;
+            PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+            PasswordInput = InputType.Password;
+        }
+        else
+        {
+            isShow = true;
+            PasswordInputIcon = Icons.Material.Filled.Visibility;
+            PasswordInput = InputType.Text;
+        }
+    }
+}

@@ -46,9 +46,8 @@ namespace Server.Palaro2026.Controller
                     }
                 )
                 .OrderByDescending(x => x.Gold)
-                .ThenBy(x => x.Region)
+                .ThenByDescending(x => x.Total)
                 .ThenByDescending(x => x.Silver)
-                .ThenBy(x => x.Region)
                 .ThenByDescending(x => x.Bronze)
                 .ThenBy(x => x.Region)
                 .ToListAsync();
@@ -60,13 +59,19 @@ namespace Server.Palaro2026.Controller
         [HttpGet("BySchoolLevel")]
         public async Task<ActionResult<List<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>>> MedalTallyBySchoolLevel([FromQuery] string? region)
         {
-            var regions = _context.SchoolRegions.AsQueryable();
+            // Step 1: Get all school levels
+            var allSchoolLevels = await _context.SchoolLevels
+                .Select(sl => sl.Level)
+                .Distinct()
+                .ToListAsync();
 
-            if (!string.IsNullOrWhiteSpace(region))
-            {
-                regions = regions.Where(r => r.Region == region);
-            }
+            // Step 2: Get all regions (with optional filter)
+            var allRegions = await _context.SchoolRegions
+                .Where(r => string.IsNullOrWhiteSpace(region) || r.Region == region)
+                .Select(r => new { r.Region, r.Abbreviation })
+                .ToListAsync();
 
+            // Step 3: Get medal tally data
             var medalTally = await _context.EventVersusTeams
                 .Include(m => m.SchoolRegion)
                 .Include(e => e.Event)
@@ -91,25 +96,37 @@ namespace Server.Palaro2026.Controller
                 })
                 .ToListAsync();
 
-            var result = medalTally
-                .GroupBy(x => x.Level)
-                .Select(g => new MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel
+            // Step 4: Compose final result: For each School Level, join all Regions (even with no medals)
+            var result = allSchoolLevels
+                .Select(level => new MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel
                 {
-                    Level = g.Key,
-                    RegionalMedalTallyList = g
-                        .Select(x => new MedalTallyDTO.SchoolLevelMedalTally.RegionalMedalTally
-                        {
-                            Region = x.Region,
-                            Abbreviation = x.Abbreviation,
-                            Gold = x.Gold,
-                            Silver = x.Silver,
-                            Bronze = x.Bronze,
-                            Total = x.Gold + x.Silver + x.Bronze
-                        })
+                    Level = level,
+                    RegionalMedalTallyList = allRegions
+                        .GroupJoin(
+                            medalTally.Where(m => m.Level == level),
+                            region => region.Region,
+                            medal => medal.Region,
+                            (region, medals) => medals.Select(m => new MedalTallyDTO.SchoolLevelMedalTally.RegionalMedalTally
+                            {
+                                Region = m.Region,
+                                Abbreviation = m.Abbreviation,
+                                Gold = m.Gold,
+                                Silver = m.Silver,
+                                Bronze = m.Bronze,
+                                Total = m.Gold + m.Silver + m.Bronze
+                            }).DefaultIfEmpty(new MedalTallyDTO.SchoolLevelMedalTally.RegionalMedalTally
+                            {
+                                Region = region.Region,
+                                Abbreviation = region.Abbreviation,
+                                Gold = 0,
+                                Silver = 0,
+                                Bronze = 0,
+                                Total = 0
+                            }))
+                        .SelectMany(x => x)
                         .OrderByDescending(x => x.Gold)
-                        .ThenBy(x => x.Region)
+                        .ThenByDescending(x => x.Total)
                         .ThenByDescending(x => x.Silver)
-                        .ThenBy(x => x.Region)
                         .ThenByDescending(x => x.Bronze)
                         .ThenBy(x => x.Region)
                         .ToList()
@@ -119,5 +136,6 @@ namespace Server.Palaro2026.Controller
 
             return result.Count == 0 ? NotFound("No medal tally found.") : Ok(result);
         }
+
     }
 }

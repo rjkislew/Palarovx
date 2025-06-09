@@ -25,6 +25,7 @@ builder.Services.AddMudServices();
 builder.Services.AddScoped<MapBoxService>();
 builder.Services.AddScoped<APIService>();
 builder.Services.AddScoped<ThemeService>();
+builder.Services.AddSingleton<FeaturesUnlockingService>();
 
 await builder.Build().RunAsync();
 

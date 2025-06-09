@@ -5,18 +5,24 @@
 @inject IJSRuntime JSRuntime
 @inject APIService apiService
 @inject HttpClient httpClient
+@inject FeaturesUnlockingService featuresUnlockingService
+
+<PageTitle>Regional Teams | PALARO 2026 - Agusan del Sur</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large">
     <MudGrid Justify="Justify.Center">
         <MudItem xs="12">
             <MudStack Row Style="width: 100%" Justify="Justify.Center">
-                <MudButton Size="Size.Large" Style="text-transform: none" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Href="./events/medal-tally">Medal Tally</MudButton>
+                @if (featuresUnlockingService.IsUnlocked == true)
+                {
+                    <MudButton Size="Size.Large" Style="text-transform: none" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Href="./events/medal-tally">Medal Tally</MudButton>
+                }
                 <MudButton Size="Size.Large" Style="text-transform: none" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Href="./regional-teams/billeting-quarters">Billeting Quarters</MudButton>
             </MudStack>
         </MudItem>
         <MudVirtualize Items="_schoolRegions" Context="region">
             <MudItem xs="6" sm="4" lg="3" xl="2">
-                <MudLink Href="@($"./regional-teams/{region.Abbreviation}-{region.Region}")" Underline="Underline.None">
+                <MudLink Href="@(featuresUnlockingService.IsUnlocked == true ? $"./regional-teams/{region.Abbreviation}-{region.Region}" : null)" Underline="Underline.None">
                     <MudPaper Style="height: 100%" Outlined Class="hover-effect">
                         <MudStack Class="pa-3" Style="height: 100%">
                             <MudImage Src="@($"media/regions/{region.Abbreviation}.webp")" />
@@ -31,7 +37,7 @@
         </MudVirtualize>
     </MudGrid>
 </MudContainer>
-<FooterComponent/>
+<FooterComponent />
 @code {
     private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
 
@@ -48,6 +54,8 @@
     // Initialization method to fetch data and update UI elements
     protected override async Task OnInitializedAsync()
     {
+        featuresUnlockingService.OnLockChanged += StateHasChanged;
+        await featuresUnlockingService.LoadFromLocalStorageAsync();
         await GetRegionsAsync();
     }
 

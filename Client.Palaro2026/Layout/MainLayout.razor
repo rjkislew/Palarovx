@@ -1,10 +1,12 @@
 ﻿@inherits LayoutComponentBase
 
 @inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
 @inject NavigationManager uriHelper
 @inject HttpClient httpClient
 @inject ThemeService ThemeService
 @inject APIService apiService
+@inject FeaturesUnlockingService featuresUnlockingService
 
 @* Required *@
 <MudThemeProvider @ref="_mudThemeProvider" Theme="PalaroTheme" DefaultScrollbar="true" IsDarkMode="@(ThemeService.IsDarkMode ?? false)" />
@@ -33,6 +35,9 @@
 
             <!-- Night mode button -->
             <MudStack Row AlignItems="AlignItems.Center" Spacing="0">
+                <MudIconButton OnClick="@(featuresUnlockingService.IsUnlocked? OpenLockFeaturesDialog : OpenUnlockFeaturesDialog)"
+                               Icon="@(featuresUnlockingService.IsUnlocked ? Icons.Material.Filled.Lock : Icons.Material.Filled.LockOpen)" />
+
                 @if (showButton)
                 {
                     <MudIconButton OnClick="@InstallApp" Icon="@Icons.Material.Filled.Download" />
@@ -49,6 +54,8 @@
             <MudImage Height="50" Src="./media/logo/Flat Logo with 2026.webp" />
             <MudSpacer />
             <MudStack Row AlignItems="AlignItems.Center" Spacing="0">
+                <MudIconButton OnClick="@(featuresUnlockingService.IsUnlocked? OpenLockFeaturesDialog : OpenUnlockFeaturesDialog)"
+                               Icon="@(featuresUnlockingService.IsUnlocked ? Icons.Material.Filled.Lock : Icons.Material.Filled.LockOpen)" />
                 @if (showButton)
                 {
                     <MudIconButton OnClick="@InstallApp" Icon="@Icons.Material.Filled.Download" />
@@ -81,6 +88,12 @@
 {
     private MudThemeProvider? _mudThemeProvider;
 
+    // mud dialog instance: required for dialogs to work
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    private bool? isUnlocked;
+    private bool? isNoticeAgreed;
+
     private bool isAPIAvailable;
 
     private bool showButton = false;
@@ -88,6 +101,7 @@
     protected override async Task OnInitializedAsync()
     {
         ThemeService.OnThemeChanged += StateHasChanged;
+        featuresUnlockingService.OnLockChanged += StateHasChanged;
         await ThemeService.LoadThemePreference();
 
         // Check if the app is running in standalone mode (PWA installed)
@@ -110,7 +124,26 @@
             StateHasChanged(); // Trigger a re-render to update the UI
         }
 
+        await CheckFeaturesUnlocked(); // Check if features are unlocked
+        await CheckNoticeAgreed(); // Check if notice is agreed
+
+        if (isNoticeAgreed != true)
+        {
+            await OpenNoticeDialog(); // Check if notice is agreed
+        }
+
         StateHasChanged(); // Trigger a re-render after state change
+    }
+
+    private async Task CheckFeaturesUnlocked()
+    {
+        await featuresUnlockingService.LoadFromLocalStorageAsync();
+    }
+
+    private async Task CheckNoticeAgreed()
+    {
+        var isNoticeAgreedString = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "agreeNotice");
+        isNoticeAgreed = bool.TryParse(isNoticeAgreedString, out var result) && result;
     }
 
     private async Task InstallApp()
@@ -136,6 +169,48 @@
         };
     }
 
+
+    // opening dialog method: add event dialog
+    private async Task OpenNoticeDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, NoHeader = true };
+
+        var dialog = await DialogService.ShowAsync<Notice>("Notice", options);
+
+        var result = await dialog.Result;
+    }
+
+    // opening dialog method: add event dialog
+    private async Task OpenUnlockFeaturesDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true, NoHeader = true};
+
+        var dialog = await DialogService.ShowAsync<UnlockFeatures>("Unlock", options);
+
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await CheckFeaturesUnlocked(); // Refresh the unlocked state after dialog closes
+        }
+    }
+
+    private async Task OpenLockFeaturesDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm locking of features?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await featuresUnlockingService.ToggleUnlockFeaturesAsync();
+        }
+    }
 
     private MudTheme PalaroTheme = new MudTheme()
     {
