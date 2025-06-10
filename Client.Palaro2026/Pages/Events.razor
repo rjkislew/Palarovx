@@ -1,4 +1,5 @@
 ﻿@page "/events"
+@page "/events/{EventStatus}"
 
 @using System.Net.Http
 @using System.Text.Json
@@ -14,21 +15,51 @@
 <MudContainer MaxWidth="MaxWidth.Large">
     <MudGrid>
         <MudItem xs="12">
-            <MudStack Row Style="width: 100%" Justify="Justify.Center">
-                <MudButton Size="Size.Large" Style="text-transform: none" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Href="./events/medal-tally">Medal Tally</MudButton>
-                <MudButton Size="Size.Large" Style="text-transform: none" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Href="./events/venues">Event Venues</MudButton>
-            </MudStack>
+            <MudText Typo="Typo.h2">Watch Events</MudText>
+            <MudText Typo="Typo.subtitle1">Explore the events of PALARO 2026.</MudText>
         </MudItem>
         <MudItem xs="12">
-            <MudTabs KeepPanelsAlive Elevation="0" ApplyEffectsToContainer="true" PanelClass="pa-6" Centered>
+            <MudBreadcrumbs Style="font-size: 15px" Class="pa-0" Items="_items"></MudBreadcrumbs>
+            <MudDivider />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudLink Href="./events/medal-tally" Underline="Underline.None">
+                <MudPaper Class="scale-up-center">
+                    <MudStack Spacing="0" Class="pa-3">
+                        <MudText Typo="Typo.h3">Medal Tally 🎖️</MudText>
+                        <MudText>View the performance of each region.</MudText>
+                        <MudText Typo="Typo.caption">This section displays the official medal tally of participating regions, helping you track gold, silver, and bronze standings in real-time.</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudLink>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudLink Href="./venues" Underline="Underline.None">
+                <MudPaper Class="scale-up-center">
+                    <MudStack Spacing="0" Class="pa-3">
+                        <MudText Typo="Typo.h3">Event Venues 📍</MudText>
+                        <MudText>Know where each event is held.</MudText>
+                        <MudText Typo="Typo.caption">This section lists the venues for each event, providing details on locations and facilities.</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudLink>
+        </MudItem>
+        <MudItem xs="12">
+            <MudDivider />
+        </MudItem>
+        <MudItem xs="12">
+            <MudTabs KeepPanelsAlive Elevation="0" ApplyEffectsToContainer="true" PanelClass="pt-6" Centered @bind-ActivePanelIndex="_activeTabIndex">
                 <MudVirtualize Items="@eventStatus" Context="status">
-                    <MudTabPanel Text="@(status == true ? "Finished" : "Ongoing")" Style="text-transform: none">
-                        <MudGrid>
+                    <MudTabPanel Text="@(status == true ? "Finished" : "Ongoing")"
+                                 Style="text-transform: none"
+                                 OnClick="@(() => navigationManager.NavigateTo($"/events/{(status == true ? "Finished" : "Ongoing")}"))">
+
+                        <MudGrid Justify="Justify.Center">
                             <MudVirtualize Items="@_events?.Where(e => e.IsFinished == status).OrderByDescending(e => e.Date).ThenBy(e => e.Sport).ThenBy(e => e.Subcategory).ToList()" Context="eventDetail">
                                 <MudItem xs="12" sm="6" md="4">
-                                    <MudPaper Outlined Style="height: 100%" Class="hover-effect">
+                                    <MudPaper Style="height: 100%" Class="scale-up-center">
                                         @* Content *@
-                                        <MudLink Href="@($"./events/{eventDetail.ID}")" Underline="Underline.None" Color="Color.Dark" Style="height: 100%; user-select: text; -webkit-user-drag: none;" draggable="auto">
+                                        <MudLink Href="@($"./events/{(status == true ? "Finished" : "Ongoing")}/{eventDetail.ID}")" Underline="Underline.None" Color="Color.Dark" Style="height: 100%; user-select: text; -webkit-user-drag: none;" draggable="auto">
                                             <MudStack Style="height: 100%" Spacing="0">
 
                                                 @* Image *@
@@ -152,8 +183,15 @@
 <FooterComponent />
 
 @code {
+    [Parameter]
+    public string? EventStatus { get; set; }
+
     private List<EventsDTO.EventDetails.Event>? _events;
+
+    private List<BreadcrumbItem> _items = new();
+
     private bool?[]? eventStatus;
+    private int _activeTabIndex = 0;
 
     public class EventsDTO
     {
@@ -235,8 +273,42 @@
         }
 
         await GetEventsAsync();
-        StateHasChanged(); // trigger re-render after events load
+
+        SetActiveTabIndexFromUrl();
+
+        _items = new List<BreadcrumbItem>
+        {
+            new("Home", href: "./"),
+            new("Events", href: null, disabled: true)
+        };
     }
+
+    private void SetActiveTabIndexFromUrl()
+    {
+        var uri = new Uri(navigationManager.Uri);
+        var lastSegment = uri.Segments.LastOrDefault()?.TrimEnd('/').ToLower();
+
+        if (!string.IsNullOrWhiteSpace(lastSegment))
+        {
+            switch (lastSegment)
+            {
+                case "finished":
+                    _activeTabIndex = 1;
+                    break;
+                case "ongoing":
+                    _activeTabIndex = 0;
+                    break;
+                default:
+                    _activeTabIndex = 0;
+                    break;
+            }
+        }
+        else
+        {
+            _activeTabIndex = 0;
+        }
+    }
+
 
     private void HandleLockChanged()
     {
