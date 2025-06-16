@@ -1,49 +1,47 @@
 ﻿using Microsoft.JSInterop;
 
-public class FeaturesUnlockingService
+namespace Client.Palaro2026.Services
 {
-    private readonly IJSRuntime _jsRuntime;
-
-    public event Action? OnLockChanged;
-
-    public bool IsUnlocked { get; private set; }
-
-    public FeaturesUnlockingService(IJSRuntime jsRuntime)
+    public class FeaturesUnlockingService(IJSRuntime jsRuntime)
     {
-        _jsRuntime = jsRuntime;
-    }
+        private readonly IJSRuntime _jsRuntime = jsRuntime;
 
-    public async Task ToggleUnlockFeaturesAsync()
-    {
-        IsUnlocked = !IsUnlocked;
+        public event Action? OnLockChanged;
 
-        var value = IsUnlocked.ToString().ToLower(); // "true" or "false"
-        await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "isUnlocked", value);
+        public bool IsUnlocked { get; private set; }
 
-        NotifyStateChanged();
-    }
-
-    public async Task LoadFromLocalStorageAsync()
-    {
-        var isUnlockedString = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "isUnlocked");
-
-        if (!string.IsNullOrEmpty(isUnlockedString) && isUnlockedString != "null")
+        public async Task ToggleUnlockFeaturesAsync()
         {
-            var previous = IsUnlocked;
-            IsUnlocked = isUnlockedString switch
-            {
-                "true" => true,
-                "false" => false,
-                _ => false
-            };
+            IsUnlocked = !IsUnlocked;
 
-            if (IsUnlocked != previous)
+            var value = IsUnlocked.ToString().ToLower(); // "true" or "false"
+            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "isUnlocked", value);
+
+            NotifyStateChanged();
+        }
+
+        public async Task LoadFromLocalStorageAsync()
+        {
+            var isUnlockedString = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "isUnlocked");
+
+            if (!string.IsNullOrEmpty(isUnlockedString) && isUnlockedString != "null")
             {
-                OnLockChanged?.Invoke();
+                var previous = IsUnlocked;
+                IsUnlocked = isUnlockedString switch
+                {
+                    "true" => true,
+                    "false" => false,
+                    _ => false
+                };
+
+                if (IsUnlocked != previous)
+                {
+                    OnLockChanged?.Invoke();
+                }
             }
         }
+
+
+        private void NotifyStateChanged() => OnLockChanged?.Invoke();
     }
-
-
-    private void NotifyStateChanged() => OnLockChanged?.Invoke();
 }

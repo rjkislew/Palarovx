@@ -1,4 +1,5 @@
 using Client.Palaro2026;
+using Client.Palaro2026.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor;

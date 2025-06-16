@@ -3,6 +3,7 @@
 @using System.Net.Http
 @using System.Text.Json
 @using System.Threading.Tasks
+@using Client.Palaro2026.Services
 @inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
@@ -34,62 +35,71 @@
             <MudDivider />
         </MudItem>
         <MudItem xs="12">
-            <MudGrid>
-                <MudVirtualize Items="@_profilePlayers?.ProfilePlayerSportsList" Context="sport">
-                    <MudItem xs="6" md="4" lg="3">
-                        <MudPaper Style="height: 100%">
-                            <MudStack Class="pa-3" Style="height: 100%">
-                                <MudText Typo="Typo.body2">
-                                    @sport.Subcategory |
-                                    <MudElement>
-                                        @{
-                                            string gender;
-
-                                            if (sport.Gender == "Male")
-                                            {
-                                                gender = "♂️";
-                                            }
-                                            else if (sport.Gender == "Female")
-                                            {
-                                                gender = "♀️";
-                                            }
-                                            else
-                                            {
-                                                gender = "♂️♀️";
-                                            }
-                                        }
-                                        <MudText Typo="Typo.caption">
-                                            @gender
-                                        </MudText>
-                                    </MudElement>
-                                    <MudDivider />
-                                    @if (sport.ProfilePlayerSportCoachesList?.Count > 1)
-                                    {
-                                        <MudText Typo="Typo.caption">
-                                            Coaches:
-                                        </MudText>
+    <MudGrid>
+        <MudVirtualize Items="@_profilePlayers?.ProfilePlayerSportsList" Context="sport">
+            <MudItem xs="6" md="4" lg="3">
+                <MudPaper Outlined Out Style="height: 100%">
+                    <MudStack Class="pa-3" Style="height: 100%" Justify="Justify.Center">
+                        <MudStack Row Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.body2">
+                                @sport.Subcategory |
+                                <MudElement>
+                                    @{
+                                        string genderIcon = sport.Gender switch
+                                        {
+                                            "Male" => "♂️",
+                                            "Female" => "♀️",
+                                            _ => "♂️♀️"
+                                        };
                                     }
-                                    else if (sport.ProfilePlayerSportCoachesList?.Count == 1)
-                                    {
-                                        <MudText Typo="Typo.caption">
-                                            Coach:
-                                        </MudText>
-                                    }
+                                    <MudText Typo="Typo.caption">@genderIcon</MudText>
+                                </MudElement>
+                            </MudText>
+                            
+                            @{
+                                var matchingEvent = _events?
+                                    .FirstOrDefault(e =>
+                                        e.Subcategory == sport.Subcategory &&
+                                        e.Gender == sport.Gender &&
+                                        e.Level == _profilePlayers?.Level);
 
-                                    <MudStack Row Spacing="0" Wrap="Wrap.Wrap">
-                                        <MudVirtualize Items="sport.ProfilePlayerSportCoachesList" Context="coach">
-                                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">
-                                                @coach.CoachFirstName @coach.CoachLastName
-                                            </MudChip>
-                                        </MudVirtualize>
-                                    </MudStack>
-                                </MudText>
+                                var regionRank = matchingEvent?.EventVersusList?
+                                    .FirstOrDefault(x => x.Region == _profilePlayers?.Region)?.Rank;
+
+                                    string medalColor = GetMedalColor(regionRank);
+                            }
+
+                            @if (!string.IsNullOrEmpty(regionRank))
+                            {
+                                <MudIcon Style="@($"color: {medalColor}")" Icon="@Icons.Material.Filled.WorkspacePremium" Size="Size.Large">
+                                    Rank: @regionRank
+                                </MudIcon>
+                            } 
                             </MudStack>
-                        </MudPaper>
-                    </MudItem>
-                </MudVirtualize>
-            </MudGrid>
-        </MudItem>
+
+                            <MudDivider />
+
+                            @if (sport.ProfilePlayerSportCoachesList?.Count > 0)
+                            {
+                                <MudText Typo="Typo.caption">
+                                    @(sport.ProfilePlayerSportCoachesList.Count == 1 ? "Coach:" : "Coaches:")
+                                </MudText>
+
+                                <MudStack Row Spacing="0" Wrap="Wrap.Wrap">
+                                    <MudVirtualize Items="sport.ProfilePlayerSportCoachesList" Context="coach">
+                                        <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">
+                                            @coach.CoachFirstName @coach.CoachLastName
+                                        </MudChip>
+                                    </MudVirtualize>
+                                </MudStack>
+                            }
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudVirtualize>
+    </MudGrid>
+</MudItem>
+
 
     </MudGrid>
 </MudContainer>
@@ -108,6 +118,7 @@
     private List<BreadcrumbItem> _items = new();
 
     private ProfilesDTO.ProfilePlayersDetails.ProfilePlayers? _profilePlayers;
+    private List<EventsDTO.EventDetails.Event>? _events;
 
     public class ProfilesDTO
     {
@@ -156,10 +167,78 @@
         }
     }
 
+    public class EventsDTO
+    {
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public string? StreamTitle { get; set; }
+                public bool? IsFinished { get; set; }
+                public byte[]? Attachement { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public string? Rank { get; set; }
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
+    }
+
+    private string GetMedalColor(string? rank)
+{
+    return rank switch
+    {
+        "Champion" => Colors.Amber.Accent4,         // Champion - Gold
+        "First Runner-Up" => Colors.BlueGray.Lighten4,     // 1st Runner-Up - Silver
+        "Second Runner-Up" => Colors.DeepOrange.Lighten1,   // 2nd Runner-Up - Bronze
+        _ => "transparent"
+    };
+}
+
+
+
     // Initialization
     protected override async Task OnInitializedAsync()
     {
         await GetPlayersProfileAsync();
+        await GetEventsAsync();
 
         _items = new List<BreadcrumbItem>
         {
@@ -176,5 +255,11 @@
         string url = $"/Profiles/Player/Details?region={Region}&firstName={FirstName}&lastName={LastName}";
 
         _profilePlayers = await apiService.GetSingleAsync<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>(url);
+    }
+
+    private async Task GetEventsAsync()
+    {
+        string url = $"/Events/Details?region={Region}&firstName={FirstName}&lastName={LastName}&isFinished=true&eventStage=Championship";
+        _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
     }
 }

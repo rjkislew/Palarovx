@@ -1,15 +1,22 @@
 ﻿@using System.Net.Http
 @using System.Text.Json
 @using System.Threading.Tasks
-@inject IDialogService DialogService
+@using Client.Palaro2026.Services
+
+@inject IDialogService dialogService
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject NavigationManager navigationManager
 @inject FeaturesUnlockingService featuresUnlockingService
 
+<!-- Navigation Menu -->
 <MudNavMenu Rounded >
+
+    <!-- flexes to row view on smaller screens -->
     <MudStack Class="flex-sm-row">
         <MudNavLink Ripple="false" Href="./" Match="NavLinkMatch.All">Home</MudNavLink>
+
+        <!-- Checks if features are unlocked: show events if true else hide events -->
         @if (featuresUnlockingService.IsUnlocked)
         {
             if (_hasEvents == true)
@@ -25,15 +32,22 @@
 
 @code
 {
+    // Flag to check if events exist
     private bool _hasEvents;
 
     protected override async Task OnInitializedAsync()
     {
+        // check if the user has access to features
         featuresUnlockingService.OnLockChanged += StateHasChanged;
+
+        // Load the features unlocking state from local storage
         await featuresUnlockingService.LoadFromLocalStorageAsync();
+
+        // Check if the user has access to events based on the feature unlocking service
         await CheckIfEventsExistAsync();
     }
 
+    // check if events exist in the API
     private async Task CheckIfEventsExistAsync()
     {
         try
@@ -51,11 +65,13 @@
             }
             else
             {
+                // If the response is not successful, assume no events exist
                 _hasEvents = false;
             }
         }
         catch (Exception)
         {
+            // If there's an error (e.g., network issue, API down), assume no events exist
             _hasEvents = false;
         }
     }
