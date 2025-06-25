@@ -7,6 +7,8 @@
 @inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
+@inject NavigationManager navigationManager
+@inject FeaturesUnlockingService featuresUnlockingService
 
 <PageTitle>
     @_eventDetail?.Sport - @_eventDetail?.Subcategory  (@_eventDetail?.EventStage) | PALARO 2026 - Agusan del Sur
@@ -243,6 +245,15 @@
 
     protected override async Task OnInitializedAsync()
     {
+        featuresUnlockingService.OnLockChanged += HandleLockChanged;
+        await featuresUnlockingService.LoadFromLocalStorageAsync();
+
+        if (!featuresUnlockingService.IsUnlocked)
+        {
+            navigationManager.NavigateTo("/");
+            return;
+        }
+
         await GetEventsAsync();
 
         _items = new List<BreadcrumbItem>
@@ -253,6 +264,24 @@
             new($"{_eventDetail?.Sport} - {_eventDetail?.Subcategory} ({_eventDetail?.EventStage})", href: null, disabled: true)
         };
     }
+
+    private void HandleLockChanged()
+    {
+        if (!featuresUnlockingService.IsUnlocked)
+        {
+            navigationManager.NavigateTo("./");
+        }
+        else
+        {
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        featuresUnlockingService.OnLockChanged -= HandleLockChanged;
+    }
+
 
     private async Task GetEventsAsync()
     {

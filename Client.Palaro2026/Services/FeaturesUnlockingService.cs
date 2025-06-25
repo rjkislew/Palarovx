@@ -1,4 +1,5 @@
 ﻿using Microsoft.JSInterop;
+using static MudBlazor.Colors;
 
 namespace Client.Palaro2026.Services
 {
@@ -19,6 +20,12 @@ namespace Client.Palaro2026.Services
 
             NotifyStateChanged();
         }
+        public async Task UnlockFeaturesAsync()
+        {
+            IsUnlocked = true;
+            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "isUnlocked", IsUnlocked.ToString().ToLower());
+        }
+
 
         public async Task LoadFromLocalStorageAsync()
         {

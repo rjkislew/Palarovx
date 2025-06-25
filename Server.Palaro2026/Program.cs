@@ -37,6 +37,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
         policy.WithOrigins(
+            "https://palarongpambansa2026.com",
+            "https://palarongpambansa2026.com:444",
             "https://pgas.ph",
             "https://localhost:7061",
             "https://localhost:7170",

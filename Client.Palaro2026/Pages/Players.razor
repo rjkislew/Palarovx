@@ -8,6 +8,8 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject ThemeService ThemeService
+@inject NavigationManager navigationManager
+@inject FeaturesUnlockingService featuresUnlockingService
 
 <PageTitle>@($"Players for {Region} | Palaro 2026")</PageTitle>
 
@@ -26,6 +28,42 @@
             <MudBreadcrumbs Style="font-size: 15px" Class="pa-0" Items="_items"></MudBreadcrumbs>
             <MudDivider />
         </MudItem>
+        @* <MudItem xs="12" md="3">
+            <MudSelect Margin="Margin.Dense" Clearable Variant="Variant.Outlined"
+                       T="string" @bind-Value="_selectedLevel" Label="Select Level">
+                @foreach (var level in _profilePlayers?
+                                .Where(p => !string.IsNullOrEmpty(p.Level))
+                                .Select(p => p.Level)
+                                .Distinct() ?? Enumerable.Empty<string>())
+                {
+                    <MudSelectItem Value="@level">@level</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudSelect Margin="Margin.Dense" Clearable Variant="Variant.Outlined"
+                       T="string" @bind-Value="_selectedSport" Label="Select Sport">
+                @foreach (var level in _profilePlayers?
+                                .Where(p => !string.IsNullOrEmpty(p.Level))
+                                .Select(p => p.Sport)
+                                .Distinct() ?? Enumerable.Empty<string>())
+                {
+                    <MudSelectItem Value="@level">@level</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudSelect Margin="Margin.Dense" Clearable Variant="Variant.Outlined"
+                       T="string" @bind-Value="_selectedCategory" Label="Select Category">
+                @foreach (var level in _profilePlayers?
+                                .Where(p => !string.IsNullOrEmpty(p.Level))
+                                .Select(p => p.Category)
+                                .Distinct() ?? Enumerable.Empty<string>())
+                {
+                    <MudSelectItem Value="@level">@level</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem> *@
         <MudItem xs="12">
             <MudGrid>
                 <MudVirtualize Items="_profilePlayers" Context="player">
@@ -38,7 +76,7 @@
                                         <MudText Typo="Typo.caption">@player.Level</MudText>
                                         <MudText Typo="Typo.caption">@player.School, @player.Division</MudText>
                                     </MudStack>
-                                    <MudDivider/>
+                                    <MudDivider />
                                     <MudStack Row Spacing="1" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
                                         <MudImage ObjectFit="ObjectFit.Contain" Height="40" Src="@($"media/sports/icons/{(ThemeService.IsDarkMode == true ? "white" : "black")}/{player.Sport}.webp")" />
                                         <MudStack Spacing="0">
@@ -62,6 +100,12 @@
     public string? Region { get; set; }
     [Parameter]
     public string? Abbreviation { get; set; }
+
+    private string? _selectedLevel;
+
+    private string? _selectedSport;
+
+    private string? _selectedCategory;
 
     private List<BreadcrumbItem> _items = new();
 
@@ -117,6 +161,15 @@
     // Initialization
     protected override async Task OnInitializedAsync()
     {
+        featuresUnlockingService.OnLockChanged += HandleLockChanged;
+        await featuresUnlockingService.LoadFromLocalStorageAsync();
+
+        if (!featuresUnlockingService.IsUnlocked)
+        {
+            navigationManager.NavigateTo("/");
+            return;
+        }
+
         ThemeService.OnThemeChanged += StateHasChanged;
         await ThemeService.LoadThemePreference();
 
@@ -129,6 +182,23 @@
             new($"{Region}", href: $"./regional-teams/{Abbreviation}-{Region}"),
             new("Players", href: null, disabled: true)
         };
+    }
+
+    private void HandleLockChanged()
+    {
+        if (!featuresUnlockingService.IsUnlocked)
+        {
+            navigationManager.NavigateTo("./");
+        }
+        else
+        {
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        featuresUnlockingService.OnLockChanged -= HandleLockChanged;
     }
 
     private async Task GetPlayersProfileAsync()
