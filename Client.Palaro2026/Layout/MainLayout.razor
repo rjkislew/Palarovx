@@ -2,6 +2,7 @@
 @inherits LayoutComponentBase
 
 @inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
 @inject IDialogService dialogService
 @inject HttpClient httpClient
 @inject ThemeService themeService
@@ -133,12 +134,18 @@
     // Flag to control the visibility of the install button
     private bool _showInstallButton = false;
 
+    // Flag to indicate if a new version is available
+    private bool _newVersionAvailable = false;
+
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if the app is running in a PWA context and register for update notifications
+        await RegisterForUpdateAvailableNotification();
+
         // remove this method if you don't want to unlock features on initialization or when governor cane is done checking
 
-        //await featuresUnlockingService.UnlockFeaturesAsync(); // Ensure features are unlocked on initialization
+           //await featuresUnlockingService.UnlockFeaturesAsync(); // Ensure features are unlocked on initialization
 
         themeService.OnThemeChanged += StateHasChanged;
         featuresUnlockingService.OnLockChanged += StateHasChanged;
@@ -390,5 +397,41 @@
     private void ToggleDrawer()
     {
         _isDrawOpen = !_isDrawOpen;
+    }
+
+
+    // Register for update available notification
+    private async Task RegisterForUpdateAvailableNotification()
+    {
+        await JSRuntime.InvokeAsync<object>(
+            identifier: "registerForUpdateAvailableNotification",
+            DotNetObjectReference.Create(this),
+            nameof(OnUpdateAvailable));
+    }
+
+    [JSInvokable(nameof(OnUpdateAvailable))]
+    public Task OnUpdateAvailable()
+    {
+        _newVersionAvailable = true;
+
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomCenter;
+        Snackbar.Add("A new version is available.", Severity.Info, config =>
+        {
+            config.RequireInteraction = true; // Prevent auto-dismiss
+            config.ShowCloseIcon = false;     // Hide close icon
+            config.VisibleStateDuration = int.MaxValue; // Keeps snackbar indefinitely
+
+            config.Action = "Update";
+            config.ActionColor = Color.Primary;
+            config.OnClick = snackbar =>
+            {
+                // Reload the page to get the latest version
+                JSRuntime.InvokeVoidAsync("location.reload", true);
+                return Task.CompletedTask;
+            };
+        });
+
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 }

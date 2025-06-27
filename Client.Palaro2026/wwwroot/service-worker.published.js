@@ -1,93 +1,51 @@
-﻿// Caution! Understand offline caveats before publishing: https://aka.ms/blazor-offline-considerations
+﻿// Caution! Be sure you understand the caveats before publishing an application with
+// offline support. See https://aka.ms/blazor-offline-considerations
 
-importScripts('service-worker-assets.js'); // ✅ Load assetsManifest
-
+self.importScripts('./service-worker-assets.js');
 self.addEventListener('install', event => event.waitUntil(onInstall(event)));
 self.addEventListener('activate', event => event.waitUntil(onActivate(event)));
 self.addEventListener('fetch', event => event.respondWith(onFetch(event)));
 
 const cacheNamePrefix = 'offline-cache-';
 const cacheName = `${cacheNamePrefix}${self.assetsManifest.version}`;
-
-const offlineAssetsInclude = [
-    /\.dll$/, /\.pdb$/, /\.wasm$/, /\.html$/, /\.js$/, /\.json$/, /\.css$/,
-    /\.woff$/, /\.woff2$/, /\.png$/, /\.jpeg$/, /\.jpg$/, /\.gif$/,
-    /\.ico$/, /\.blat$/, /\.webp$/, /\.dat$/, /\.webmanifest$/, /\.manifest$/
-];
-
+const offlineAssetsInclude = [/\.dll$/, /\.pdb$/, /\.wasm/, /\.html/, /\.js$/, /\.json$/, /\.css$/, /\.woff$/, /\.png$/, /\.jpe?g$/, /\.gif$/, /\.ico$/, /\.blat$/, /\.dat$/];
 const offlineAssetsExclude = [/^service-worker\.js$/];
 
-const base = "/";
-const baseUrl = new URL(base, self.origin);
-
 async function onInstall(event) {
-    console.info('[SW] Install started');
+    console.info('Service worker: Install');
 
-    const assetsToCache = self.assetsManifest.assets
+    // Activate the new service worker as soon as the old one is retired.
+    self.skipWaiting();
+
+    // Fetch and cache all matching items from the assets manifest
+    const assetsRequests = self.assetsManifest.assets
         .filter(asset => offlineAssetsInclude.some(pattern => pattern.test(asset.url)))
         .filter(asset => !offlineAssetsExclude.some(pattern => pattern.test(asset.url)))
-        .map(asset => new Request(asset.url, {
-            integrity: asset.hash,
-            cache: 'no-cache'
-        }));
-
-    const cache = await caches.open(cacheName);
-    console.info('[SW] Caching files:', assetsToCache.map(r => r.url));
-    await cache.addAll(assetsToCache);
-
-    self.skipWaiting();
+        .map(asset => new Request(asset.url, { integrity: asset.hash }));
+    await caches.open(cacheName).then(cache => cache.addAll(assetsRequests));
 }
 
 async function onActivate(event) {
-    console.info('[SW] Activate');
+    console.info('Service worker: Activate');
 
+    // Delete unused caches
     const cacheKeys = await caches.keys();
-    await Promise.all(
-        cacheKeys
-            .filter(key => key.startsWith(cacheNamePrefix) && key !== cacheName)
-            .map(key => caches.delete(key))
-    );
-
-    self.clients.claim();
+    await Promise.all(cacheKeys
+        .filter(key => key.startsWith(cacheNamePrefix) && key !== cacheName)
+        .map(key => caches.delete(key)));
 }
 
 async function onFetch(event) {
-    if (event.request.method !== 'GET') {
-        return fetch(event.request);
+    let cachedResponse = null;
+    if (event.request.method === 'GET') {
+        // For all navigation requests, try to serve index.html from cache
+        // If you need some URLs to be server-rendered, edit the following check to exclude those URLs
+        const shouldServeIndexHtml = event.request.mode === 'navigate';
+
+        const request = shouldServeIndexHtml ? 'index.html' : event.request;
+        const cache = await caches.open(cacheName);
+        cachedResponse = await cache.match(request);
     }
 
-    const cache = await caches.open(cacheName);
-
-    if (event.request.mode === 'navigate') {
-        const cachedIndex = await cache.match('index.html');
-        if (cachedIndex) {
-            console.info('[SW] Serving cached index.html for navigation:', event.request.url);
-            return cachedIndex;
-        }
-        console.warn('[SW] index.html not found in cache!');
-    }
-
-    const cachedResponse = await cache.match(event.request);
-    if (cachedResponse) {
-        return cachedResponse;
-    }
-
-    try {
-        const networkResponse = await fetch(event.request);
-
-        // ✅ Avoid caching unsupported request URLs
-        if (
-            networkResponse &&
-            networkResponse.ok &&
-            event.request.url.startsWith('http')
-        ) {
-            cache.put(event.request, networkResponse.clone());
-        }
-
-        return networkResponse;
-    } catch (error) {
-        console.warn('[SW] Network fetch failed:', event.request.url, error);
-        return new Response("Offline", { status: 503 });
-    }
+    return cachedResponse || fetch(event.request);
 }
-
