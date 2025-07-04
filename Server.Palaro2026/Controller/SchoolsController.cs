@@ -18,7 +18,11 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
-        [HttpGet("Details")]
+        // ------------------------------------------------------------------------------------------------------------------
+
+        // Schools details view
+
+        [HttpGet("Details")] // /api/Schools/Details
         public async Task<ActionResult<List<SchoolsDTO.SchoolDetails.Schools>>> GetSchoolDetails()
         {
             try
@@ -51,9 +55,9 @@ namespace Server.Palaro2026.Controller
             }
         }
 
+        // Schools REST methods
 
-        // Schools
-
+        // Mapping Schools entity to SchoolsDTO.Schools
         private static SchoolsDTO.Schools SchoolsDTOMapper(Schools schools) =>
            new SchoolsDTO.Schools
            {
@@ -63,7 +67,7 @@ namespace Server.Palaro2026.Controller
                SchoolLevelsID = schools.SchoolLevelsID,
            };
 
-        [HttpGet]
+        [HttpGet] // /api/Schools
         public async Task<ActionResult<IEnumerable<SchoolsDTO.Schools>>> GetSchools(
         [FromQuery] int? id = null,
         [FromQuery] string? school = null,
@@ -90,7 +94,38 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("{id}")]
+        [HttpPost] // /api/Schools
+        public async Task<ActionResult<Schools>> PostSchools(SchoolsDTO.Schools schools)
+        {
+            var schoolsDTO = new Schools
+            {
+                ID = schools.ID,
+                School = schools.School,
+                SchoolDivisionID = schools.SchoolDivisionID,
+                SchoolLevelsID = schools.SchoolLevelsID,
+            };
+
+            _context.Schools.Add(schoolsDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (SchoolsExist(schools.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetSchools", new { id = schools.ID }, SchoolsDTOMapper(schoolsDTO));
+        }
+
+        [HttpPut("{id}")] // /api/Schools/{id}
         public async Task<IActionResult> PutSchools(int id, SchoolsDTO.Schools schoolsDto)
         {
             if (schoolsDto == null || id != schoolsDto.ID)
@@ -116,7 +151,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!SchoolsExists(id))
+                if (!SchoolsExist(id))
                 {
                     return NotFound();
                 }
@@ -126,38 +161,36 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost]
-        public async Task<ActionResult<Schools>> PostSchools(SchoolsDTO.Schools schools)
+        [HttpPatch("{id}")] // /api/Schools/{id}
+        public async Task<IActionResult> PatchSchools(int id, [FromBody] SchoolsDTO.Schools updatedSchool)
         {
-            var schoolsDTO = new Schools
-            {
-                ID = schools.ID,
-                School = schools.School,
-                SchoolDivisionID = schools.SchoolDivisionID,
-                SchoolLevelsID = schools.SchoolLevelsID,
-            };
+            var existingSchool = await _context.Schools.FindAsync(id);
 
-            _context.Schools.Add(schoolsDTO);
+            if (existingSchool == null) return NotFound();
+
+            if (updatedSchool.School != null) existingSchool.School = updatedSchool.School;
+            if (updatedSchool.SchoolDivisionID != null) existingSchool.SchoolDivisionID = updatedSchool.SchoolDivisionID;
+            if (updatedSchool.SchoolLevelsID != null) existingSchool.SchoolLevelsID = updatedSchool.SchoolLevelsID;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!SchoolsExist(id)) return NotFound();
+                else throw;
+            }
             catch (DbUpdateException)
             {
-                if (SchoolsExists(schools.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (SchoolsExist(updatedSchool.ID)) return Conflict();
+                else throw;
             }
 
-            return CreatedAtAction("GetSchools", new { id = schools.ID }, SchoolsDTOMapper(schoolsDTO));
+            return NoContent();
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id}")] // /api/Schools/{id}
         public async Task<IActionResult> DeleteSchools(int id)
         {
             var schools = await _context.Schools.FindAsync(id);
@@ -172,15 +205,15 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool SchoolsExists(int id)
+        // Check if a school exists by ID
+        private bool SchoolsExist(int id)
         {
             return _context.Schools.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
-
-
-
+        // School Billeting Quarters view
         [HttpGet("BilletingQuarters/Details")]
         public async Task<ActionResult<List<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>>> GetBilletingQuartersDetails()
         {
@@ -213,8 +246,10 @@ namespace Server.Palaro2026.Controller
                 return StatusCode(500, "Internal server error. Please try again later.");
             }
         }
-        // School Billeting Quarters
 
+        // School Billeting Quarters REST methods
+
+        // Mapping SchoolBilletingQuarters entity to SchoolsDTO.SchoolBilletingQuarters
         private static SchoolsDTO.SchoolBilletingQuarters SchoolBilletingQuartersDTOMapper(SchoolBilletingQuarters schoolBilletingQuarters) =>
            new SchoolsDTO.SchoolBilletingQuarters
            {
@@ -228,7 +263,7 @@ namespace Server.Palaro2026.Controller
                ContactPersonNumber = schoolBilletingQuarters.ContactPersonNumber
            };
 
-        [HttpGet("BilletingQuarters")]
+        [HttpGet("BilletingQuarters")] // /api/Schools/BilletingQuarters
         public async Task<ActionResult<IEnumerable<SchoolsDTO.SchoolBilletingQuarters>>> GetSchoolBilletingQuarters(
         [FromQuery] int? ID = null,
         [FromQuery] int? schoolRegionID = null,
@@ -271,7 +306,27 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("BilletingQuarters/{id}")]
+        [HttpPost("BilletingQuarters")] // /api/Schools/BilletingQuarters
+        public async Task<ActionResult<SchoolBilletingQuarters>> PostSchoolBilletingQuarters(SchoolsDTO.SchoolBilletingQuarters schoolBilletingQuarters)
+        {
+            var schoolBilletingQuartersDTO = new SchoolBilletingQuarters
+            {
+                ID = schoolBilletingQuarters.ID,
+                SchoolRegionID = schoolBilletingQuarters.SchoolRegionID,
+                BilletingQuarter = schoolBilletingQuarters.BilletingQuarter,
+                Address = schoolBilletingQuarters.Address,
+                Latitude = schoolBilletingQuarters.Latitude,
+                Longitude = schoolBilletingQuarters.Longitude,
+                ContactPerson = schoolBilletingQuarters.ContactPerson,
+                ContactPersonNumber = schoolBilletingQuarters.ContactPersonNumber
+            };
+            _context.SchoolBilletingQuarters.Add(schoolBilletingQuartersDTO);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction("GetSchoolBilletingQuarters", new { id = schoolBilletingQuarters.ID }, SchoolBilletingQuartersDTOMapper(schoolBilletingQuartersDTO));
+        }
+
+        [HttpPut("BilletingQuarters/{id}")] // /api/Schools/BilletingQuarters/{id}
         public async Task<IActionResult> PutSchoolBilletingQuarters(int id, SchoolsDTO.SchoolBilletingQuarters schoolBilletingQuarters)
         {
             if (id != schoolBilletingQuarters.ID)
@@ -312,27 +367,34 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("BilletingQuarters")]
-        public async Task<ActionResult<SchoolBilletingQuarters>> PostSchoolBilletingQuarters(SchoolsDTO.SchoolBilletingQuarters schoolBilletingQuarters)
+        [HttpPatch("BilletingQuarters/{id}")] // /api/Schools/BilletingQuarters/{id}
+        public async Task<IActionResult> PatchSchoolBilletingQuarters(int id, [FromBody] SchoolsDTO.SchoolBilletingQuarters updatedQuarter)
         {
-            var schoolBilletingQuartersDTO = new SchoolBilletingQuarters
-            {
-                ID = schoolBilletingQuarters.ID,
-                SchoolRegionID = schoolBilletingQuarters.SchoolRegionID,
-                BilletingQuarter = schoolBilletingQuarters.BilletingQuarter,
-                Address = schoolBilletingQuarters.Address,
-                Latitude = schoolBilletingQuarters.Latitude,
-                Longitude = schoolBilletingQuarters.Longitude,
-                ContactPerson = schoolBilletingQuarters.ContactPerson,
-                ContactPersonNumber = schoolBilletingQuarters.ContactPersonNumber
-            };
-            _context.SchoolBilletingQuarters.Add(schoolBilletingQuartersDTO);
-            await _context.SaveChangesAsync();
+            var existingQuarter = await _context.SchoolBilletingQuarters.FindAsync(id);
+            if (existingQuarter == null) return NotFound();
 
-            return CreatedAtAction("GetSchoolBilletingQuarters", new { id = schoolBilletingQuarters.ID }, SchoolBilletingQuartersDTOMapper(schoolBilletingQuartersDTO));
+            if (updatedQuarter.SchoolRegionID != null) existingQuarter.SchoolRegionID = updatedQuarter.SchoolRegionID;
+            if (updatedQuarter.BilletingQuarter != null) existingQuarter.BilletingQuarter = updatedQuarter.BilletingQuarter;
+            if (updatedQuarter.Address != null) existingQuarter.Address = updatedQuarter.Address;
+            if (updatedQuarter.Latitude != null) existingQuarter.Latitude = updatedQuarter.Latitude;
+            if (updatedQuarter.Longitude != null) existingQuarter.Longitude = updatedQuarter.Longitude;
+            if (updatedQuarter.ContactPerson != null) existingQuarter.ContactPerson = updatedQuarter.ContactPerson;
+            if (updatedQuarter.ContactPersonNumber != null) existingQuarter.ContactPersonNumber = updatedQuarter.ContactPersonNumber;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.SchoolBilletingQuarters.Any(e => e.ID == id)) return NotFound();
+                else throw;
+            }
+
+            return NoContent();
         }
 
-        [HttpDelete("BilletingQuarters/{id}")]
+        [HttpDelete("BilletingQuarters/{id}")] // /api/Schools/BilletingQuarters/{id}
         public async Task<IActionResult> DeleteSchoolBilletingQuarters(int id)
         {
             var schoolBilletingQuarters = await _context.SchoolBilletingQuarters.FindAsync(id);
@@ -347,17 +409,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
+        // Check if a School Billeting Quarter exists by ID
         private bool SchoolBilletingQuartersExists(int id)
         {
             return _context.SchoolBilletingQuarters.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
+        // School Divisions REST methods
 
-
-
-        // School Division
-
+        // Mapping SchoolDivisions entity to SchoolsDTO.SchoolDivisions
         private static SchoolsDTO.SchoolDivisions SchoolDivisionsDTOMapper(SchoolDivisions schoolDivisions) =>
            new SchoolsDTO.SchoolDivisions
            {
@@ -366,7 +428,7 @@ namespace Server.Palaro2026.Controller
                SchoolRegionID = schoolDivisions.SchoolRegionID
            };
 
-        [HttpGet("Divisions")]
+        [HttpGet("Divisions")] // /api/Schools/Divisions
         public async Task<ActionResult<IEnumerable<SchoolsDTO.SchoolDivisions>>> GetSchoolDivisions(
         [FromQuery] int? id = null,
         [FromQuery] string? division = null,
@@ -389,7 +451,36 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Divisions/{id}")]
+        [HttpPost("Divisions")] // /api/Schools/Divisions
+        public async Task<ActionResult<SchoolDivisions>> PostSchoolDivisions(SchoolsDTO.SchoolDivisions schoolDivisions)
+        {
+            var schoolDivisionsDTO = new SchoolDivisions
+            {
+                ID = schoolDivisions.ID,
+                Division = schoolDivisions.Division,
+                SchoolRegionID = schoolDivisions.SchoolRegionID
+            };
+            _context.SchoolDivisions.Add(schoolDivisionsDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (SchoolDivisionsExist(schoolDivisions.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetSchoolDivisions", new { id = schoolDivisions.ID }, SchoolDivisionsDTOMapper(schoolDivisionsDTO));
+        }
+
+        [HttpPut("Divisions/{id}")] // /api/Schools/Divisions/{id}
         public async Task<IActionResult> PutSchoolDivisions(int id, SchoolsDTO.SchoolDivisions schoolDivisions)
         {
             if (id != schoolDivisions.ID)
@@ -412,7 +503,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!SchoolDivisionsExists(id))
+                if (!SchoolDivisionsExist(id))
                 {
                     return NotFound();
                 }
@@ -425,36 +516,29 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Divisions")]
-        public async Task<ActionResult<SchoolDivisions>> PostSchoolDivisions(SchoolsDTO.SchoolDivisions schoolDivisions)
+        [HttpPatch("Divisions/{id}")] // /api/Schools/Divisions/{id}
+        public async Task<IActionResult> PatchSchoolDivisions(int id, [FromBody] SchoolsDTO.SchoolDivisions updatedDivision)
         {
-            var schoolDivisionsDTO = new SchoolDivisions
-            {
-                ID = schoolDivisions.ID,
-                Division = schoolDivisions.Division,
-                SchoolRegionID = schoolDivisions.SchoolRegionID
-            };
-            _context.SchoolDivisions.Add(schoolDivisionsDTO);
+            var existingDivision = await _context.SchoolDivisions.FindAsync(id);
+            if (existingDivision == null) return NotFound();
+
+            if (updatedDivision.Division != null) existingDivision.Division = updatedDivision.Division;
+            if (updatedDivision.SchoolRegionID != null) existingDivision.SchoolRegionID = updatedDivision.SchoolRegionID;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
-            catch (DbUpdateException)
+            catch (DbUpdateConcurrencyException)
             {
-                if (SchoolDivisionsExists(schoolDivisions.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (!_context.SchoolDivisions.Any(e => e.ID == id)) return NotFound();
+                else throw;
             }
 
-            return CreatedAtAction("GetSchoolDivisions", new { id = schoolDivisions.ID }, SchoolDivisionsDTOMapper(schoolDivisionsDTO));
+            return NoContent();
         }
 
-        [HttpDelete("Divisions/{id}")]
+        [HttpDelete("Divisions/{id}")] // /api/Schools/Divisions/{id}
         public async Task<IActionResult> DeleteSchoolDivisions(int id)
         {
             var schoolDivisions = await _context.SchoolDivisions.FindAsync(id);
@@ -469,15 +553,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool SchoolDivisionsExists(int id)
+        // Check if a School Division exists by ID
+        private bool SchoolDivisionsExist(int id)
         {
             return _context.SchoolDivisions.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
+        // School Level REST methods
 
-
-        // School Level
+        // Mapping SchoolLevels entity to SchoolsDTO.SchoolLevels
         private static SchoolsDTO.SchoolLevels SchoolLevelsDTOMapper(SchoolLevels schoolLevels) =>
            new SchoolsDTO.SchoolLevels
            {
@@ -485,7 +571,7 @@ namespace Server.Palaro2026.Controller
                Level = schoolLevels.Level
            };
 
-        [HttpGet("Levels")]
+        [HttpGet("Levels")] // /api/Schools/Levels
         public async Task<ActionResult<IEnumerable<SchoolsDTO.SchoolLevels>>> GetSchoolLevels(
         [FromQuery] int? id = null,
         [FromQuery] string? level = null)
@@ -504,7 +590,35 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Levels/{id}")]
+        [HttpPost("Levels")] // /api/Schools/Levels
+        public async Task<ActionResult<SchoolLevels>> PostSchoolLevels(SchoolsDTO.SchoolLevels schoolLevels)
+        {
+            var schoolLevelsDTO = new SchoolLevels
+            {
+                ID = schoolLevels.ID,
+                Level = schoolLevels.Level
+            };
+            _context.SchoolLevels.Add(schoolLevelsDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (SchoolLevelsExist(schoolLevels.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetSchoolLevels", new { id = schoolLevels.ID }, SchoolLevelsDTOMapper(schoolLevelsDTO));
+        }
+
+        [HttpPut("Levels/{id}")] // /api/Schools/Levels/{id}
         public async Task<IActionResult> PutSchoolLevels(int id, SchoolsDTO.SchoolLevels schoolLevels)
         {
             if (id != schoolLevels.ID)
@@ -526,7 +640,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!SchoolLevelsExists(id))
+                if (!SchoolLevelsExist(id))
                 {
                     return NotFound();
                 }
@@ -539,35 +653,28 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Levels")]
-        public async Task<ActionResult<SchoolLevels>> PostSchoolLevels(SchoolsDTO.SchoolLevels schoolLevels)
+        [HttpPatch("Levels/{id}")] // /api/Schools/Levels/{id}
+        public async Task<IActionResult> PatchSchoolLevels(int id, [FromBody] SchoolsDTO.SchoolLevels updatedLevel)
         {
-            var schoolLevelsDTO = new SchoolLevels
-            {
-                ID = schoolLevels.ID,
-                Level = schoolLevels.Level
-            };
-            _context.SchoolLevels.Add(schoolLevelsDTO);
+            var existingLevel = await _context.SchoolLevels.FindAsync(id);
+            if (existingLevel == null) return NotFound();
+
+            if (updatedLevel.Level != null) existingLevel.Level = updatedLevel.Level;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
-            catch (DbUpdateException)
+            catch (DbUpdateConcurrencyException)
             {
-                if (SchoolLevelsExists(schoolLevels.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (!_context.SchoolLevels.Any(e => e.ID == id)) return NotFound();
+                else throw;
             }
 
-            return CreatedAtAction("GetSchoolLevels", new { id = schoolLevels.ID }, SchoolLevelsDTOMapper(schoolLevelsDTO));
+            return NoContent();
         }
 
-        [HttpDelete("Levels/{id}")]
+        [HttpDelete("Levels/{id}")] // /api/Schools/Levels/{id}
         public async Task<IActionResult> DeleteSchoolLevels(int id)
         {
             var schoolLevels = await _context.SchoolLevels.FindAsync(id);
@@ -582,16 +689,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool SchoolLevelsExists(int id)
+        // Check if a School Level exists by ID
+        private bool SchoolLevelsExist(int id)
         {
             return _context.SchoolLevels.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
+        // School Regions REST methods
 
-
-        // School Regions
-
+        // Mapping SchoolRegions entity to SchoolsDTO.SchoolRegions
         private static SchoolsDTO.SchoolRegions SchoolRegionsDTOMapper(SchoolRegions schoolRegions) =>
            new SchoolsDTO.SchoolRegions
            {
@@ -600,7 +708,7 @@ namespace Server.Palaro2026.Controller
                Abbreviation = schoolRegions.Abbreviation
            };
 
-        [HttpGet("Regions")]
+        [HttpGet("Regions")] // /api/Schools/Regions
         public async Task<ActionResult<IEnumerable<SchoolsDTO.SchoolRegions>>> GetSchoolRegions(
         [FromQuery] int? id = null,
         [FromQuery] string? region = null,
@@ -623,7 +731,37 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Regions/{id}")]
+        [HttpPost("Regions")] // /api/Schools/Regions
+        public async Task<ActionResult<SchoolRegions>> PostSchoolRegions(SchoolsDTO.SchoolRegions schoolRegions)
+        {
+            var schoolRegionsDTO = new SchoolRegions
+            {
+                ID = schoolRegions.ID,
+                Region = schoolRegions.Region,
+                Abbreviation = schoolRegions.Abbreviation
+            };
+
+            _context.SchoolRegions.Add(schoolRegionsDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (SchoolRegionsExist(schoolRegions.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetSchoolRegions", new { id = schoolRegions.ID }, SchoolRegionsDTOMapper(schoolRegionsDTO));
+        }
+
+        [HttpPut("Regions/{id}")] // /api/Schools/Regions/{id}  
         public async Task<IActionResult> PutSchoolRegions(int id, SchoolsDTO.SchoolRegions schoolRegions)
         {
             if (id != schoolRegions.ID)
@@ -646,7 +784,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!SchoolRegionsExists(id))
+                if (!SchoolRegionsExist(id))
                 {
                     return NotFound();
                 }
@@ -659,37 +797,30 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Regions")]
-        public async Task<ActionResult<SchoolRegions>> PostSchoolRegions(SchoolsDTO.SchoolRegions schoolRegions)
+        [HttpPatch("Regions/{id}")] // /api/Schools/Regions/{id}
+        public async Task<IActionResult> PatchSchoolRegions(int id, [FromBody] SchoolsDTO.SchoolRegions updatedRegion)
         {
-            var schoolRegionsDTO = new SchoolRegions
-            {
-                ID = schoolRegions.ID,
-                Region = schoolRegions.Region,
-                Abbreviation = schoolRegions.Abbreviation
-            };
+            var existingRegion = await _context.SchoolRegions.FindAsync(id);
+            if (existingRegion == null) return NotFound();
 
-            _context.SchoolRegions.Add(schoolRegionsDTO);
+            if (updatedRegion.Region != null) existingRegion.Region = updatedRegion.Region;
+            if (updatedRegion.Abbreviation != null) existingRegion.Abbreviation = updatedRegion.Abbreviation;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
-            catch (DbUpdateException)
+            catch (DbUpdateConcurrencyException)
             {
-                if (SchoolRegionsExists(schoolRegions.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (!_context.SchoolRegions.Any(e => e.ID == id)) return NotFound();
+                else throw;
             }
 
-            return CreatedAtAction("GetSchoolRegions", new { id = schoolRegions.ID }, SchoolRegionsDTOMapper(schoolRegionsDTO));
+            return NoContent();
         }
 
-        [HttpDelete("Regions/{id}")]
+
+        [HttpDelete("Regions/{id}")] // /api/Schools/Regions/{id}
         public async Task<IActionResult> DeleteSchoolRegions(int id)
         {
             var schoolRegions = await _context.SchoolRegions.FindAsync(id);
@@ -704,7 +835,8 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool SchoolRegionsExists(int id)
+        // Check if a School Region exists by ID
+        private bool SchoolRegionsExist(int id)
         {
             return _context.SchoolRegions.Any(e => e.ID == id);
         }

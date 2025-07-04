@@ -10,6 +10,9 @@ public class UsersDTO
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? Username { get; set; }
+        public string? Affiliation { get; set; }
+        public string? EmailAddress { get; set; }
+        public string? ContactNumber { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdateAt { get; set; }
         public DateTime? LastLogin { get; set; }
@@ -61,6 +64,9 @@ public class UsersDTO
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? Username { get; set; }
+        public string? Affiliation { get; set; }
+        public string? EmailAddress { get; set; }
+        public string? ContactNumber { get; set; }
         public string? PasswordHash { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdateAt { get; set; }

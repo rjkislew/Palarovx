@@ -77,6 +77,7 @@ public class APIService
             return false;
         }
     }
+
     public async Task<T?> PostAndReadAsync<T>(string relativeUrl, object data)
     {
         string url = BuildUrl(relativeUrl);
@@ -94,7 +95,39 @@ public class APIService
             return default;
         }
     }
+    public async Task<bool> PatchAsync<T>(string relativeUrl, T data)
+    {
+        string url = BuildUrl(relativeUrl);
+        try
+        {
+            var jsonContent = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
+            var response = await _httpClient.PatchAsync(url, jsonContent);
+            response.EnsureSuccessStatusCode();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
+    public async Task<TResponse?> PatchAndReadAsync<TRequest, TResponse>(string relativeUrl, TRequest data)
+    {
+        string url = BuildUrl(relativeUrl);
+        try
+        {
+            var jsonContent = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
+            var response = await _httpClient.PatchAsync(url, jsonContent);
+            response.EnsureSuccessStatusCode();
+
+            string responseContent = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<TResponse>(responseContent, _jsonOptions);
+        }
+        catch
+        {
+            return default;
+        }
+    }
 
     public async Task<bool> PutAsync<T>(string relativeUrl, T data)
     {

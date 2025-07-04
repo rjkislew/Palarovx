@@ -6,7 +6,7 @@ namespace Server.Palaro2026.Entities;
 
 public partial class ProfileCoaches
 {
-    public int ID { get; set; }
+    public string ID { get; set; } = null!;
 
     public string? FirstName { get; set; }
 

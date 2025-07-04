@@ -9,7 +9,7 @@ public partial class EventVersusTeamPlayers
 
     public int? EventVersusID { get; set; }
 
-    public int? ProfilePlayerID { get; set; }
+    public string? ProfilePlayerID { get; set; }
 
     public virtual EventVersusTeams? EventVersus { get; set; }
 

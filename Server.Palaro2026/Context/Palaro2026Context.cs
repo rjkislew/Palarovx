@@ -12,8 +12,6 @@ public partial class Palaro2026Context : DbContext
     {
     }
 
-    public virtual DbSet<EventNews> EventNews { get; set; }
-
     public virtual DbSet<EventStages> EventStages { get; set; }
 
     public virtual DbSet<EventStreamServices> EventStreamServices { get; set; }
@@ -27,6 +25,10 @@ public partial class Palaro2026Context : DbContext
     public virtual DbSet<EventVersusTeams> EventVersusTeams { get; set; }
 
     public virtual DbSet<Events> Events { get; set; }
+
+    public virtual DbSet<News> News { get; set; }
+
+    public virtual DbSet<NewsCategories> NewsCategories { get; set; }
 
     public virtual DbSet<ProfileCoaches> ProfileCoaches { get; set; }
 
@@ -62,13 +64,6 @@ public partial class Palaro2026Context : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<EventNews>(entity =>
-        {
-            entity.HasKey(e => e.ID).HasName("PK__News__3214EC27B5C04219");
-
-            entity.Property(e => e.FacebookLink).IsUnicode(false);
-        });
-
         modelBuilder.Entity<EventStages>(entity =>
         {
             entity.HasKey(e => e.ID).HasName("PK_EventStage");
@@ -118,6 +113,10 @@ public partial class Palaro2026Context : DbContext
 
         modelBuilder.Entity<EventVersusTeamPlayers>(entity =>
         {
+            entity.Property(e => e.ProfilePlayerID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+
             entity.HasOne(d => d.EventVersus).WithMany(p => p.EventVersusTeamPlayers)
                 .HasForeignKey(d => d.EventVersusID)
                 .HasConstraintName("FK_EventVersusTeamPlayers_EventVersus");
@@ -135,7 +134,7 @@ public partial class Palaro2026Context : DbContext
                 .HasMaxLength(20)
                 .IsUnicode(false);
             entity.Property(e => e.Rank)
-                .HasMaxLength(10)
+                .HasMaxLength(20)
                 .IsUnicode(false);
             entity.Property(e => e.RecentUpdateAt).HasColumnType("datetime");
             entity.Property(e => e.Score)
@@ -185,10 +184,40 @@ public partial class Palaro2026Context : DbContext
                 .HasConstraintName("FK_Events_Users");
         });
 
+        modelBuilder.Entity<News>(entity =>
+        {
+            entity.HasKey(e => e.ID).HasName("PK__News__3214EC27B5C04219");
+
+            entity.Property(e => e.AuthorID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.Content).IsUnicode(false);
+            entity.Property(e => e.DatePosted).HasColumnType("datetime");
+
+            entity.HasOne(d => d.Author).WithMany(p => p.News)
+                .HasForeignKey(d => d.AuthorID)
+                .HasConstraintName("FK_News_Users");
+
+            entity.HasOne(d => d.NewsCategory).WithMany(p => p.News)
+                .HasForeignKey(d => d.NewsCategoryID)
+                .HasConstraintName("FK_News_NewsCategories");
+        });
+
+        modelBuilder.Entity<NewsCategories>(entity =>
+        {
+            entity.Property(e => e.ID).ValueGeneratedNever();
+            entity.Property(e => e.Category)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+        });
+
         modelBuilder.Entity<ProfileCoaches>(entity =>
         {
             entity.HasKey(e => e.ID).HasName("PK__TeamCoac__3214EC27C880573E");
 
+            entity.Property(e => e.ID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
             entity.Property(e => e.FirstName)
                 .HasMaxLength(100)
                 .IsUnicode(false);
@@ -205,6 +234,10 @@ public partial class Palaro2026Context : DbContext
         {
             entity.HasKey(e => e.ID).HasName("PK_ProfilePlayerCoaches");
 
+            entity.Property(e => e.ProfileCoachID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+
             entity.HasOne(d => d.ProfileCoach).WithMany(p => p.ProfilePlayerSportCoaches)
                 .HasForeignKey(d => d.ProfileCoachID)
                 .HasConstraintName("FK_ProfilePlayerCoaches_ProfileCoaches");
@@ -216,6 +249,11 @@ public partial class Palaro2026Context : DbContext
 
         modelBuilder.Entity<ProfilePlayerSports>(entity =>
         {
+            entity.Property(e => e.ID).ValueGeneratedNever();
+            entity.Property(e => e.ProfilePlayerID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+
             entity.HasOne(d => d.ProfilePlayer).WithMany(p => p.ProfilePlayerSports)
                 .HasForeignKey(d => d.ProfilePlayerID)
                 .HasConstraintName("FK_ProfilePlayerSports_ProfilePlayers");
@@ -229,6 +267,9 @@ public partial class Palaro2026Context : DbContext
         {
             entity.HasKey(e => e.ID).HasName("PK__PlayerPr__3214EC2796F36333");
 
+            entity.Property(e => e.ID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
             entity.Property(e => e.FirstName)
                 .HasMaxLength(100)
                 .IsUnicode(false);
@@ -396,7 +437,16 @@ public partial class Palaro2026Context : DbContext
             entity.Property(e => e.ID)
                 .HasMaxLength(20)
                 .IsUnicode(false);
+            entity.Property(e => e.Affiliation)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.ContactNumber)
+                .HasMaxLength(15)
+                .IsUnicode(false);
             entity.Property(e => e.CreatedAt).HasColumnType("datetime");
+            entity.Property(e => e.EmailAddress)
+                .HasMaxLength(100)
+                .IsUnicode(false);
             entity.Property(e => e.FirstName)
                 .HasMaxLength(50)
                 .IsUnicode(false);

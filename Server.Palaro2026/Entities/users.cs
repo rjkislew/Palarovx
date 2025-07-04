@@ -14,6 +14,12 @@ public partial class Users
 
     public string? Username { get; set; }
 
+    public string? Affiliation { get; set; }
+
+    public string? EmailAddress { get; set; }
+
+    public string? ContactNumber { get; set; }
+
     public string? PasswordHash { get; set; }
 
     public DateTime? CreatedAt { get; set; }
@@ -28,6 +34,9 @@ public partial class Users
 
     [JsonIgnore]
     public virtual ICollection<Events> Events { get; set; } = new List<Events>();
+
+    [JsonIgnore]
+    public virtual ICollection<News> News { get; set; } = new List<News>();
 
     public virtual UserRoles? Role { get; set; }
 }

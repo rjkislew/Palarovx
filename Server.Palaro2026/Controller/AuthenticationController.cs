@@ -24,6 +24,8 @@ namespace Server.Palaro2026.Controller
             _configuration = configuration;
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
+
         // Registration
 
         private string HashPassword(string password)
@@ -31,18 +33,7 @@ namespace Server.Palaro2026.Controller
             return BCrypt.Net.BCrypt.HashPassword(password);
         }
 
-        private static UsersDTO.UserRegistration RegistrationDTOMapper(Users users) =>
-           new UsersDTO.UserRegistration
-           {
-               ID = users.ID,
-               FirstName = users.FirstName,
-               LastName = users.LastName,
-               Username = users.Username,
-               PasswordHash = users.PasswordHash,
-               CreatedAt = users.CreatedAt,
-               Active = users.Active
-           };
-
+        // Register user
         [HttpPost("Register")]
         public async Task<ActionResult<Users>> PostUsers(UsersDTO.UserRegistration users)
         {
@@ -50,7 +41,7 @@ namespace Server.Palaro2026.Controller
             var hashedPassword = HashPassword(users.PasswordHash!);
 
             // Generate username in lowercase
-            string username = $"{users.FirstName}.{users.LastName}".ToLower();
+            string username = $"{users.FirstName?.Replace(" ", "")}.{users.LastName}".ToLower();
 
             var usersDTO = new Users
             {
@@ -64,7 +55,7 @@ namespace Server.Palaro2026.Controller
             };
 
             // Check if the user exists before adding
-            if (UsersExists(users.ID))
+            if (UserExist(users.ID))
             {
                 return Conflict();  // Return a conflict if the user already exists
             }
@@ -85,20 +76,24 @@ namespace Server.Palaro2026.Controller
             return Ok();
         }
 
-
-        private bool UsersExists(string id)
+        // Check if user exists
+        private bool UserExist(string id)
         {
             return _context.Users.Any(e => e.ID == id);
         }
 
 
+        // ------------------------------------------------------------------------------------------------------------------
+
         // Login
 
+        // Verify password using BCrypt
         private bool VerifyPassword(string inputPassword, string storedHashedPassword)
         {
             return BCrypt.Net.BCrypt.Verify(inputPassword, storedHashedPassword);
         }
 
+        // Generate JWT token 
         private string GenerateJwtToken(UsersDTO.JWTUserAuthentication user)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
@@ -132,7 +127,7 @@ namespace Server.Palaro2026.Controller
             return handler.WriteToken(token);
         }
 
-
+        // Login user
         [HttpPost("Login")]
         public async Task<IActionResult> Login([FromBody] UsersDTO.UserLogin loginRequest)
         {
@@ -152,14 +147,18 @@ namespace Server.Palaro2026.Controller
                     return Unauthorized(new { message = "Invalid email address or password." });
                 }
 
+                // Update last login timestamp
+                user.LastLogin = DateTime.UtcNow;
+                _context.Users.Update(user); 
+                await _context.SaveChangesAsync();
+
                 // Map Users entity to UserDTO.JWTUserAuthentication.User
                 var userDto = new UsersDTO.JWTUserAuthentication
                 {
-                    ID = user.ID.ToString(), // Assuming ID is a string or convert it if necessary
+                    ID = user.ID.ToString(),
                     FirstName = user.FirstName,
                     LastName = user.LastName,
                     Role = user.Role?.Role,
-                    // No need to add roles since we're excluding it from the JWT
                 };
 
                 var token = GenerateJwtToken(userDto);

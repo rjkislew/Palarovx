@@ -1,0 +1,231 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" @bind-Value="_firstnameValue" Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" @bind-Value="_lastnameValue" Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" @bind-Value="_emailAddress" Margin="Margin.Dense" Label="Email Address" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" @bind-Value="_contactNumber" Margin="Margin.Dense" Label="Contact Number" MaxLength="11" Mask="@(new PatternMask("0000 000 0000"))" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField T="string" Margin="Margin.Dense" Label="Password" ShrinkLabel Variant="Variant.Outlined" InputType="InputType.Password" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField T="string" @bind-Value="_passwordValue" Margin="Margin.Dense" Label="Confirm Password" ShrinkLabel Variant="Variant.Outlined" InputType="InputType.Password" />
+                </MudItem>
+                <MudItem xs="12">
+                    @{
+                        string pgas = "Provincial Government of Agusan del Sur";
+                        string depedNational = "DepED National";
+                    }
+                    <MudSelect @bind-Value="_affiliationValue" Margin="Margin.Dense" Label="Affiliation" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                        <MudSelectItem T="string" Value="@pgas">@pgas</MudSelectItem>
+                        <MudSelectItem T="string" Value="@depedNational">@depedNational</MudSelectItem>
+                        <MudVirtualize Items="_schoolRegions" Context="region">
+                            <MudSelectItem T="string" Value="@region.Region">DepED @region.Region</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSelect @bind-Value="_selectedUserRoleIDValue" Margin="Margin.Dense" Label="Role" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                        <MudVirtualize Items="_userRoles" Context="role">
+                            <MudSelectItem T="int?" Value="role.ID">@role.Role</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
+                <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
+                           Disabled="_addCoachDisabled" OnClick="ConfirmUserAsync">Add</MudButton>
+            </MudStack>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+    private static readonly Random random = new(); // for random ID string generation
+
+    // JSON storage
+    private List<UsersDTO.UserRoles>? _userRoles;
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+
+    // Variables
+    private string? _firstnameValue;
+    private string? _lastnameValue;
+    private string? _emailAddress;
+    private string? _contactNumber;
+    private string? _passwordValue;
+    private string? _affiliationValue;
+    private int? _selectedUserRoleIDValue;
+
+    // Disable addition button if values are empty
+    private bool _addCoachDisabled =>
+    string.IsNullOrEmpty(_firstnameValue) ||
+    string.IsNullOrEmpty(_lastnameValue) ||
+    string.IsNullOrEmpty(_emailAddress) ||
+    string.IsNullOrEmpty(_contactNumber) ||
+    !_selectedUserRoleIDValue.HasValue;
+
+    private bool? _isLoaded = false;
+    // Load dialog if true
+
+    // DTOs
+    public class UsersDTO
+    {
+        public class Users
+        {
+            public string ID { get; set; } = null!;
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? Username { get; set; }
+            public string? Affiliation { get; set; }
+            public string? EmailAddress { get; set; }
+            public string? ContactNumber { get; set; }
+            public string? PasswordHash { get; set; }
+            public DateTime? CreatedAt { get; set; }
+            public DateTime? UpdateAt { get; set; }
+            public DateTime? LastLogin { get; set; }
+            public bool? Active { get; set; }
+            public int? RoleID { get; set; }
+        }
+
+        public class UserRoles
+        {
+            public int ID { get; set; }
+            public string? Role { get; set; }
+            public string? Description { get; set; }
+        }
+    }
+    public class SchoolsDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetUsersRolesAsync();
+        await GetSchoolRegionsAsync();
+
+        if (_userRoles?.Any() == true)
+        {
+            _isLoaded = true;
+        }
+    }
+
+    private async Task GetUsersRolesAsync()
+    {
+        string url = "/Users/Roles";
+        _userRoles = await apiService.GetAsync<UsersDTO.UserRoles>(url);
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(url);
+    }
+
+    // Dialog Actions
+    private void ClearFields()
+    {
+        _firstnameValue = null;
+        _lastnameValue = null;
+        _selectedUserRoleIDValue = null;
+        _affiliationValue = null;
+        _passwordValue = null;
+    }
+
+    private async Task ConfirmUserAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_firstnameValue} {_lastnameValue}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await AddUserAsync();
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private string GenerateRandomString(int length)
+    {
+        const string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+        return new string(Enumerable.Range(0, length)
+            .Select(_ => chars[random.Next(chars.Length)])
+            .ToArray());
+    }
+
+    // add user
+    private async Task AddUserAsync()
+    {
+        var addUser = new UsersDTO.Users
+        {
+            ID = GenerateRandomString(20),
+            FirstName = _firstnameValue,
+            LastName = _lastnameValue,
+            Username = $"{_firstnameValue}.{_lastnameValue}".ToLowerInvariant(),
+            Affiliation = _affiliationValue,
+            EmailAddress = _emailAddress,
+            ContactNumber = _contactNumber?.Replace(" ", ""),
+            PasswordHash = _passwordValue, // In a real application, ensure to hash the password securely
+            RoleID = _selectedUserRoleIDValue,
+            Active = true, // Assuming new users are active by default
+            CreatedAt = DateTime.UtcNow
+        };
+
+        string url = $"/Users";
+        var success = await apiService.PostAsync(url, addUser);
+
+        if (success)
+        {
+            Snackbar.Add($"{_firstnameValue} {_lastnameValue} as a user added successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"Failed to add {_firstnameValue} {_lastnameValue}.", Severity.Error);
+        }
+    }
+}

@@ -18,8 +18,11 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
-        [HttpGet("Coach/Details")]
+        // view coaches details
+
+        [HttpGet("Coach/Details")] // /api/Profiles/Coach/Details
         public async Task<ActionResult<List<ProfilesDTO.ProfileCoachesDetails>>> GetProfileCoachesDetails()
         {
             try
@@ -46,7 +49,11 @@ namespace Server.Palaro2026.Controller
             }
         }
 
-        // Profile Coachs
+        // ------------------------------------------------------------------------------------------------------------------
+
+        // Profile Coachs REST methods
+
+        // Map ProfileCoaches to ProfilesDTO.ProfileCoaches
         private static ProfilesDTO.ProfileCoaches ProfileCoachesDTOMapper(ProfileCoaches profileCoaches) =>
            new ProfilesDTO.ProfileCoaches
            {
@@ -56,17 +63,17 @@ namespace Server.Palaro2026.Controller
                SchoolRegionID = profileCoaches.SchoolRegionID,
            };
 
-        [HttpGet("Coach")]
+        [HttpGet("Coach")] // /api/Profiles/Coach
         public async Task<ActionResult<IEnumerable<ProfilesDTO.ProfileCoaches>>> GetProfileCoaches(
-        [FromQuery] int? ID = null,
+        [FromQuery] string? ID = null,
         [FromQuery] string? firstName = null,
         [FromQuery] string? lastName = null,
         [FromQuery] int? schoolRegionID = null)
         {
             var query = _context.ProfileCoaches.AsQueryable();
 
-            if (ID.HasValue)
-                query = query.Where(x => x.ID == ID.Value);
+            if (!string.IsNullOrEmpty(ID))
+                query = query.Where(x => x.ID == ID);
 
             if (!string.IsNullOrEmpty(firstName))
                 query = query.Where(x => x.FirstName!.Contains(firstName));
@@ -83,8 +90,39 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Coach/{id}")]
-        public async Task<IActionResult> PutProfileCoaches(int id, ProfilesDTO.ProfileCoaches profileCoaches)
+        [HttpPost("Coach")] // /api/Profiles/Coach
+        public async Task<ActionResult<ProfileCoaches>> PostProfileCoaches(ProfilesDTO.ProfileCoaches profileCoaches)
+        {
+            var profileCoachesDTO = new ProfileCoaches
+            {
+                ID = profileCoaches.ID,
+                FirstName = profileCoaches.FirstName,
+                LastName = profileCoaches.LastName,
+                SchoolRegionID = profileCoaches.SchoolRegionID,
+            };
+
+            _context.ProfileCoaches.Add(profileCoachesDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (ProfileCoachesExist(profileCoaches.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetProfileCoaches", new { id = profileCoaches.ID }, ProfileCoachesDTOMapper(profileCoachesDTO));
+        }
+
+        [HttpPut("Coach/{id}")] // /api/Profiles/Coach/{id}
+        public async Task<IActionResult> PutProfileCoaches(string id, ProfilesDTO.ProfileCoaches profileCoaches)
         {
             if (id != profileCoaches.ID)
             {
@@ -107,7 +145,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!ProfileCoachesExists(id))
+                if (!ProfileCoachesExist(id))
                 {
                     return NotFound();
                 }
@@ -117,38 +155,36 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Coach")]
-        public async Task<ActionResult<ProfileCoaches>> PostProfileCoaches(ProfilesDTO.ProfileCoaches profileCoaches)
+        [HttpPatch("Coach/{id}")] // /api/Profiles/Coach/{id}
+        public async Task<IActionResult> PatchProfileCoaches(string id, [FromBody] ProfilesDTO.ProfileCoaches updatedProfileCoach)
         {
-            var profileCoachesDTO = new ProfileCoaches
-            {
-                ID = profileCoaches.ID,
-                FirstName = profileCoaches.FirstName,
-                LastName = profileCoaches.LastName,
-                SchoolRegionID = profileCoaches.SchoolRegionID,
-            };
+            var existingCoach = await _context.ProfileCoaches.FindAsync(id);
 
-            _context.ProfileCoaches.Add(profileCoachesDTO);
+            if (existingCoach == null) return NotFound();
+
+            if (updatedProfileCoach.FirstName != null) existingCoach.FirstName = updatedProfileCoach.FirstName;
+            if (updatedProfileCoach.LastName != null) existingCoach.LastName = updatedProfileCoach.LastName;
+            if (updatedProfileCoach.SchoolRegionID != null) existingCoach.SchoolRegionID = updatedProfileCoach.SchoolRegionID;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ProfileCoachesExist(id)) return NotFound();
+                else throw;
+            }
             catch (DbUpdateException)
             {
-                if (ProfileCoachesExists(profileCoaches.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (ProfileCoachesExist(updatedProfileCoach.ID)) return Conflict();
+                else throw;
             }
 
-            return CreatedAtAction("GetProfileCoaches", new { id = profileCoaches.ID }, ProfileCoachesDTOMapper(profileCoachesDTO));
+            return NoContent();
         }
 
-        [HttpDelete("Coach/{id}")]
+        [HttpDelete("Coach/{id}")] // /api/Profiles/Coach/{id}
         public async Task<IActionResult> DeleteProfileCoaches(int id)
         {
             var ProfileCoaches = await _context.ProfileCoaches.FindAsync(id);
@@ -163,13 +199,16 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool ProfileCoachesExists(int id)
+        // Check if a ProfileCoach exist by ID
+        private bool ProfileCoachesExist(string id)
         {
             return _context.ProfileCoaches.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
-        [HttpGet("Player/Events")]
+        // Player Events view
+        [HttpGet("Player/Events")] // /api/Profiles/Player/Events
         public async Task<ActionResult<List<ProfilesDTO.ProfilePlayerEvent>>> GetProfilePlayerEvent(
         [FromQuery] int? regionID,
         [FromQuery] int? subCategoryID)
@@ -216,12 +255,10 @@ namespace Server.Palaro2026.Controller
             }
         }
 
-
-
-
-        [HttpGet("Player/Details")]
+        // Profile Players Details view
+        [HttpGet("Player/Details")] // /api/Profiles/Player/Details
         public async Task<ActionResult<List<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>>> GetProfilePlayerDetails(
-        [FromQuery] int? id,
+        [FromQuery] string? id,
         [FromQuery] string? firstName,
         [FromQuery] string? lastName,
         [FromQuery] string? school,
@@ -258,8 +295,8 @@ namespace Server.Palaro2026.Controller
                     .AsQueryable();
 
                 // Apply filters
-                if (id.HasValue)
-                    query = query.Where(p => p.ID == id.Value);
+                if (!string.IsNullOrEmpty(id))
+                    query = query.Where(p => p.ID == id);
 
                 if (!string.IsNullOrEmpty(firstName))
                     query = query.Where(p => p.FirstName != null && p.FirstName.Contains(firstName));
@@ -340,9 +377,9 @@ namespace Server.Palaro2026.Controller
             }
         }
 
+        // Profile Players REST methods
 
-
-        // Profile Players
+        // Map ProfilePlayers to ProfilesDTO.ProfilePlayers
         private static ProfilesDTO.ProfilePlayers ProfilePlayersDTOMapper(ProfilePlayers profilePlayers) =>
            new ProfilesDTO.ProfilePlayers
            {
@@ -353,9 +390,9 @@ namespace Server.Palaro2026.Controller
                SportID = profilePlayers.SportID,
            };
 
-        [HttpGet("Player")]
+        [HttpGet("Player")] // /api/Profiles/Player
         public async Task<ActionResult<IEnumerable<ProfilesDTO.ProfilePlayers>>> GetProfilePlayers(
-        [FromQuery] int? ID = null,
+        [FromQuery] string? ID = null,
         [FromQuery] string? firstName = null,
         [FromQuery] string? lastName = null,
         [FromQuery] int? schoolID = null,
@@ -363,8 +400,8 @@ namespace Server.Palaro2026.Controller
         {
             var query = _context.ProfilePlayers.AsQueryable();
 
-            if (ID.HasValue)
-                query = query.Where(x => x.ID == ID.Value);
+            if (!string.IsNullOrEmpty(ID))
+                query = query.Where(x => x.ID == ID);
 
             if (!string.IsNullOrEmpty(firstName))
                 query = query.Where(x => x.FirstName!.Contains(firstName));
@@ -385,8 +422,40 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Player/{id}")]
-        public async Task<IActionResult> PutProfilePlayers(int id, ProfilesDTO.ProfilePlayers profilePlayers)
+        [HttpPost("Player")] // /api/Profiles/Player
+        public async Task<ActionResult<ProfilePlayers>> PostProfilePlayers(ProfilesDTO.ProfilePlayers profilePlayers)
+        {
+            var profilePlayersDTO = new ProfilePlayers
+            {
+                ID = profilePlayers.ID,
+                FirstName = profilePlayers.FirstName,
+                LastName = profilePlayers.LastName,
+                SchoolID = profilePlayers.SchoolID,
+                SportID = profilePlayers.SportID,
+            };
+
+            _context.ProfilePlayers.Add(profilePlayersDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (ProfilePlayersExist(profilePlayers.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetProfilePlayers", new { id = profilePlayers.ID }, ProfilePlayersDTOMapper(profilePlayersDTO));
+        }
+
+        [HttpPut("Player/{id}")] // /api/Profiles/Player/{id}
+        public async Task<IActionResult> PutProfilePlayers(string id, ProfilesDTO.ProfilePlayers profilePlayers)
         {
             if (id != profilePlayers.ID)
             {
@@ -410,7 +479,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!ProfilePlayersExists(id))
+                if (!ProfilePlayersExist(id))
                 {
                     return NotFound();
                 }
@@ -420,40 +489,38 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Player")]
-        public async Task<ActionResult<ProfilePlayers>> PostProfilePlayers(ProfilesDTO.ProfilePlayers profilePlayers)
+        [HttpPatch("Player/{id}")] // /api/Profiles/Player/{id}
+        public async Task<IActionResult> PatchProfilePlayers(string id, [FromBody] ProfilesDTO.ProfilePlayers updatedPlayer)
         {
-            var profilePlayersDTO = new ProfilePlayers
-            {
-                ID = profilePlayers.ID,
-                FirstName = profilePlayers.FirstName,
-                LastName = profilePlayers.LastName,
-                SchoolID = profilePlayers.SchoolID,
-                SportID = profilePlayers.SportID,
-            };
+            var existingPlayer = await _context.ProfilePlayers.FindAsync(id);
 
-            _context.ProfilePlayers.Add(profilePlayersDTO);
+            if (existingPlayer == null) return NotFound();
+
+            if (updatedPlayer.FirstName != null) existingPlayer.FirstName = updatedPlayer.FirstName;
+            if (updatedPlayer.LastName != null) existingPlayer.LastName = updatedPlayer.LastName;
+            if (updatedPlayer.SchoolID != null) existingPlayer.SchoolID = updatedPlayer.SchoolID;
+            if (updatedPlayer.SportID != null) existingPlayer.SportID = updatedPlayer.SportID;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ProfilePlayersExist(id)) return NotFound();
+                else throw;
+            }
             catch (DbUpdateException)
             {
-                if (ProfilePlayersExists(profilePlayers.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (ProfilePlayersExist(updatedPlayer.ID)) return Conflict();
+                else throw;
             }
 
-            return CreatedAtAction("GetProfilePlayers", new { id = profilePlayers.ID }, ProfilePlayersDTOMapper(profilePlayersDTO));
+            return NoContent();
         }
 
-        [HttpDelete("Player/{id}")]
-        public async Task<IActionResult> DeleteProfilePlayers(int id)
+        [HttpDelete("Player/{id}")] // /api/Profiles/Player/{id}
+        public async Task<IActionResult> DeleteProfilePlayers(string id)
         {
             var ProfilePlayers = await _context.ProfilePlayers.FindAsync(id);
             if (ProfilePlayers == null)
@@ -467,15 +534,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool ProfilePlayersExists(int id)
+        // Check if a ProfilePlayer exists by ID
+        private bool ProfilePlayersExist(string id)
         {
             return _context.ProfilePlayers.Any(e => e.ID == id);
         }
 
-
-
+        // ------------------------------------------------------------------------------------------------------------------
 
         // Profile Player Sports
+
+        // Map ProfilePlayerSports to ProfilesDTO.ProfilePlayerSports
         private static ProfilesDTO.ProfilePlayerSports ProfilePlayerSportsDTOMapper(ProfilePlayerSports profilePlayerSports) =>
            new ProfilesDTO.ProfilePlayerSports
            {
@@ -484,19 +553,19 @@ namespace Server.Palaro2026.Controller
                SportSubcategoryID = profilePlayerSports.SportSubcategoryID,
            };
 
-        [HttpGet("Player/Sports")]
+        [HttpGet("Player/Sports")] // /api/Profiles/Player/Sports
         public async Task<ActionResult<IEnumerable<ProfilesDTO.ProfilePlayerSports>>> GetProfilePlayerSports(
         [FromQuery] int? ID = null,
-        [FromQuery] int? profilePlayerID = null,
+        [FromQuery] string? profilePlayerID = null,
         [FromQuery] int? sportSubcategoryID = null)
         {
             var query = _context.ProfilePlayerSports.AsQueryable();
 
             if (ID.HasValue)
-                query = query.Where(x => x.ID == ID.Value);
+                query = query.Where(x => x.ID == ID);
 
-            if (profilePlayerID.HasValue)
-                query = query.Where(x => x.ProfilePlayerID == profilePlayerID.Value);
+            if (!string.IsNullOrEmpty(profilePlayerID))
+                query = query.Where(x => x.ProfilePlayerID == profilePlayerID);
 
             if (sportSubcategoryID.HasValue)
                 query = query.Where(x => x.SportSubcategoryID == sportSubcategoryID.Value);
@@ -507,7 +576,37 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Player/Sports/{id}")]
+        [HttpPost("Player/Sports")] // /api/Profiles/Player/Sports
+        public async Task<ActionResult<ProfilePlayerSports>> PostProfilePlayerSports(ProfilesDTO.ProfilePlayerSports profilePlayerSports)
+        {
+            var profilePlayerSportsDTO = new ProfilePlayerSports
+            {
+                ID = profilePlayerSports.ID,
+                ProfilePlayerID = profilePlayerSports.ProfilePlayerID,
+                SportSubcategoryID = profilePlayerSports.SportSubcategoryID,
+            };
+
+            _context.ProfilePlayerSports.Add(profilePlayerSportsDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (ProfilePlayerSportsExist(profilePlayerSports.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetProfilePlayerSports", new { id = profilePlayerSports.ID }, ProfilePlayerSportsDTOMapper(profilePlayerSportsDTO));
+        }
+
+        [HttpPut("Player/Sports/{id}")] // /api/Profiles/Player/Sports/{id}
         public async Task<IActionResult> PutProfilePlayerSports(int id, ProfilesDTO.ProfilePlayerSports profilePlayerSports)
         {
             if (id != profilePlayerSports.ID)
@@ -530,7 +629,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!ProfilePlayerSportsExists(id))
+                if (!ProfilePlayerSportsExist(id))
                 {
                     return NotFound();
                 }
@@ -540,37 +639,35 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Player/Sports")]
-        public async Task<ActionResult<ProfilePlayerSports>> PostProfilePlayerSports(ProfilesDTO.ProfilePlayerSports profilePlayerSports)
+        [HttpPatch("Player/Sports/{id}")] // /api/Profiles/Player/Sports/{id}
+        public async Task<IActionResult> PatchProfilePlayerSports(int id, [FromBody] ProfilesDTO.ProfilePlayerSports updatedSport)
         {
-            var profilePlayerSportsDTO = new ProfilePlayerSports
-            {
-                ID = profilePlayerSports.ID,
-                ProfilePlayerID = profilePlayerSports.ProfilePlayerID,
-                SportSubcategoryID = profilePlayerSports.SportSubcategoryID,
-            };
+            var existingSport = await _context.ProfilePlayerSports.FindAsync(id);
 
-            _context.ProfilePlayerSports.Add(profilePlayerSportsDTO);
+            if (existingSport == null) return NotFound();
+
+            if (updatedSport.ProfilePlayerID != null) existingSport.ProfilePlayerID = updatedSport.ProfilePlayerID;
+            if (updatedSport.SportSubcategoryID != null) existingSport.SportSubcategoryID = updatedSport.SportSubcategoryID;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ProfilePlayerSportsExist(id)) return NotFound();
+                else throw;
+            }
             catch (DbUpdateException)
             {
-                if (ProfilePlayerSportsExists(profilePlayerSports.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (ProfilePlayerSportsExist(updatedSport.ID)) return Conflict();
+                else throw;
             }
 
-            return CreatedAtAction("GetProfilePlayerSports", new { id = profilePlayerSports.ID }, ProfilePlayerSportsDTOMapper(profilePlayerSportsDTO));
+            return NoContent();
         }
 
-        [HttpDelete("Player/Sports/{id}")]
+        [HttpDelete("Player/Sports/{id}")] // /api/Profiles/Player/Sports/{id}
         public async Task<IActionResult> DeleteProfilePlayerSports(int id)
         {
             var profilePlayerSports = await _context.ProfilePlayerSports.FindAsync(id);
@@ -585,13 +682,13 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool ProfilePlayerSportsExists(int id)
+        // Delete ProfilePlayerSports by PlayerSportID
+        private bool ProfilePlayerSportsExist(int id)
         {
             return _context.ProfilePlayerSports.Any(e => e.ID == id);
         }
 
-
-
+        // ------------------------------------------------------------------------------------------------------------------
 
         // Profile Player Coaches
         private static ProfilesDTO.ProfilePlayerSportCoaches ProfilePlayerSportCoachesDTOMapper(ProfilePlayerSportCoaches profilePlayerSportCoaches) =>
@@ -602,10 +699,10 @@ namespace Server.Palaro2026.Controller
                ProfilePlayerSportID = profilePlayerSportCoaches.ProfilePlayerSportID
            };
 
-        [HttpGet("Player/Sports/Coaches")]
+        [HttpGet("Player/Sports/Coaches")] // /api/Profiles/Player/Sports/Coaches
         public async Task<ActionResult<IEnumerable<ProfilesDTO.ProfilePlayerSportCoaches>>> GetProfilePlayerSportCoaches(
         [FromQuery] int? ID = null,
-        [FromQuery] int? profileCoachID = null,
+        [FromQuery] string? profileCoachID = null,
         [FromQuery] int? profilePlayerSportID = null)
         {
             var query = _context.ProfilePlayerSportCoaches.AsQueryable();
@@ -613,8 +710,8 @@ namespace Server.Palaro2026.Controller
             if (ID.HasValue)
                 query = query.Where(x => x.ID == ID.Value);
 
-            if (profileCoachID.HasValue)
-                query = query.Where(x => x.ProfileCoachID == profileCoachID.Value);
+            if (!string.IsNullOrEmpty(profileCoachID))
+                query = query.Where(x => x.ProfileCoachID == profileCoachID);
 
             if (profilePlayerSportID.HasValue)
                 query = query.Where(x => x.ProfilePlayerSportID == profilePlayerSportID.Value);
@@ -625,7 +722,27 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Player/Sports/Coaches/{id}")]
+        [HttpPost("Player/Sports/Coaches")] // /api/Profiles/Player/Sports/Coaches
+        public async Task<ActionResult> AddProfilePlayerSportCoaches([FromBody] List<ProfilesDTO.ProfilePlayerSportCoaches> coaches)
+        {
+            if (coaches == null || !coaches.Any())
+            {
+                return BadRequest("No coaches provided.");
+            }
+
+            var profilePlayerSportCoachesList = coaches.Select(coach => new ProfilePlayerSportCoaches
+            {
+                ProfileCoachID = coach.ProfileCoachID,
+                ProfilePlayerSportID = coach.ProfilePlayerSportID
+            }).ToList();
+
+            _context.ProfilePlayerSportCoaches.AddRange(profilePlayerSportCoachesList);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = $"{coaches.Count} coaches added successfully." });
+        }
+
+        [HttpPut("Player/Sports/Coaches/{id}")] // /api/Profiles/Player/Sports/Coaches/{id}
         public async Task<IActionResult> PutProfilePlayerSportCoaches(int id, ProfilesDTO.ProfilePlayerSportCoaches profilePlayerSportCoaches)
         {
             if (id != profilePlayerSportCoaches.ID)
@@ -648,7 +765,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!ProfilePlayerSportCoachesExists(id))
+                if (!ProfilePlayerSportCoachesExist(id))
                 {
                     return NotFound();
                 }
@@ -658,28 +775,35 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Player/Sports/Coaches")]
-        public async Task<ActionResult> AddProfilePlayerSportCoaches([FromBody] List<ProfilesDTO.ProfilePlayerSportCoaches> coaches)
+        [HttpPatch("Player/Sports/Coaches/{id}")] // /api/Profiles/Player/Sports/Coaches/{id}
+        public async Task<IActionResult> PatchProfilePlayerSportCoaches(int id, [FromBody] ProfilesDTO.ProfilePlayerSportCoaches updatedPlayerSportCoach)
         {
-            if (coaches == null || !coaches.Any())
+            var existingCoach = await _context.ProfilePlayerSportCoaches.FindAsync(id);
+
+            if (existingCoach == null) return NotFound();
+
+            if (updatedPlayerSportCoach.ProfileCoachID != null) existingCoach.ProfileCoachID = updatedPlayerSportCoach.ProfileCoachID;
+            if (updatedPlayerSportCoach.ProfilePlayerSportID != null) existingCoach.ProfilePlayerSportID = updatedPlayerSportCoach.ProfilePlayerSportID;
+
+            try
             {
-                return BadRequest("No coaches provided.");
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.ProfilePlayerSportCoaches.Any(e => e.ID == id)) return NotFound();
+                else throw;
+            }
+            catch (DbUpdateException)
+            {
+                if (_context.ProfilePlayerSportCoaches.Any(e => e.ID == updatedPlayerSportCoach.ID)) return Conflict();
+                else throw;
             }
 
-            var profilePlayerSportCoachesList = coaches.Select(coach => new ProfilePlayerSportCoaches
-            {
-                ProfileCoachID = coach.ProfileCoachID,
-                ProfilePlayerSportID = coach.ProfilePlayerSportID
-            }).ToList();
-
-            _context.ProfilePlayerSportCoaches.AddRange(profilePlayerSportCoachesList);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { Message = $"{coaches.Count} coaches added successfully." });
+            return NoContent();
         }
 
-
-        [HttpDelete("Player/Sports/Coaches/{id}")]
+        [HttpDelete("Player/Sports/Coaches/{id}")] // /api/Profiles/Player/Sports/Coaches/{id}
         public async Task<IActionResult> DeleteProfilePlayerSportCoaches(int id)
         {
             var profilePlayerSportCoaches = await _context.ProfilePlayerSportCoaches.FindAsync(id);
@@ -694,7 +818,8 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpDelete("Player/Sports/Coaches/ByPlayerSport/{playerSportID}")]
+        // Delete ProfilePlayerSportCoaches by PlayerSportID
+        [HttpDelete("Player/Sports/Coaches/ByPlayerSport/{playerSportID}")] // /api/Profiles/Player/Sports/Coaches/ByPlayerSport/{playerSportID}
         public async Task<IActionResult> DeleteByProfilePlayerSportID(int playerSportID)
         {
             var recordsToDelete = _context.ProfilePlayerSportCoaches
@@ -712,8 +837,8 @@ namespace Server.Palaro2026.Controller
             return Ok(new { Message = $"{recordsToDelete.Count} records deleted successfully." });
         }
 
-
-        private bool ProfilePlayerSportCoachesExists(int id)
+        // Check if a ProfilePlayerSportCoach exists by ID
+        private bool ProfilePlayerSportCoachesExist(int id)
         {
             return _context.ProfilePlayerSportCoaches.Any(e => e.ID == id);
         }

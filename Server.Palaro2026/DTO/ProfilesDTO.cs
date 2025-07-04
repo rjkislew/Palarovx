@@ -6,7 +6,7 @@ public class ProfilesDTO
 {
     public class ProfileCoachesDetails
     {
-        public int ID { get; set; }
+        public string ID { get; set; } = null!;
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? Region { get; set; }
@@ -15,7 +15,7 @@ public class ProfilesDTO
 
     public class ProfileCoaches
     {
-        public int ID { get; set; }
+        public string? ID { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public int? SchoolRegionID { get; set; }
@@ -23,7 +23,7 @@ public class ProfilesDTO
 
     public class ProfilePlayerEvent
     {
-        public int ID { get; set; }
+        public string? ID { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public int? RegionID { get; set; }
@@ -34,7 +34,7 @@ public class ProfilesDTO
     {
         public class ProfilePlayers
         {
-            public int ID { get; set; }
+            public string ID { get; set; } = null!;
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
             public string? School { get; set; }
@@ -67,7 +67,7 @@ public class ProfilesDTO
 
     public class ProfilePlayers
     {
-        public int ID { get; set; }
+        public string ID { get; set; } = null!;
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public int? SchoolID { get; set; }
@@ -77,7 +77,7 @@ public class ProfilesDTO
     public class ProfilePlayerSports
     {
         public int ID { get; set; }
-        public int? ProfilePlayerID { get; set; }
+        public string? ProfilePlayerID { get; set; }
         public int? SportSubcategoryID { get; set; }
     }
 
@@ -85,6 +85,6 @@ public class ProfilesDTO
     {
         public int ID { get; set; }
         public int? ProfilePlayerSportID { get; set; }
-        public int? ProfileCoachID { get; set; }
+        public string? ProfileCoachID { get; set; }
     }
 }

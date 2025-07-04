@@ -19,7 +19,7 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
-        [HttpGet]
+        [HttpGet] // /api/MedalTally
         public async Task<ActionResult<List<MedalTallyDTO.RegionalMedalTally>>> MedalTallyByRegion([FromQuery] string? region)
         {
             var regions = _context.SchoolRegions.AsQueryable();
@@ -55,8 +55,7 @@ namespace Server.Palaro2026.Controller
             return Ok(medalTally);
         }
 
-
-        [HttpGet("BySchoolLevel")]
+        [HttpGet("BySchoolLevel")] // /api/MedalTally/BySchoolLevel
         public async Task<ActionResult<List<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>>> MedalTallyBySchoolLevel([FromQuery] string? region)
         {
             // Step 1: Get all school levels

@@ -11,7 +11,7 @@ window.pwaHelper = {
     },
     isRunningStandalone: function () {
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-        console.log("isRunningStandalone: " + isStandalone);  // Add this line for debugging
+        //console.log("isRunningStandalone: " + isStandalone); 
         return isStandalone;
     },
     installApp: async function () {

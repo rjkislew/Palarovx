@@ -8,7 +8,7 @@ public partial class ProfilePlayerSports
 {
     public int ID { get; set; }
 
-    public int? ProfilePlayerID { get; set; }
+    public string? ProfilePlayerID { get; set; }
 
     public int? SportSubcategoryID { get; set; }
 

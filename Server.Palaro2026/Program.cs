@@ -9,20 +9,8 @@ using Microsoft.AspNetCore.Http.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-        options.JsonSerializerOptions.MaxDepth = 128;
-    });
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.Configure<JsonOptions>(options =>
-{
-    options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-    options.SerializerOptions.MaxDepth = 128;
-    options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-});
-
 
 var connectionString = builder.Configuration.GetConnectionString("Palaro2026DB")
                        ?? throw new InvalidOperationException("Connection string is not configured properly.");
@@ -39,6 +27,10 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
             "https://palarongpambansa2026.com",
             "https://palarongpambansa2026.com:444",
+            "https://palarongpambansa2026.com:446",
+            "https://localhost",
+            "https://localhost:444",
+            "https://localhost:446",
             "https://pgas.ph",
             "https://localhost:7061",
             "https://localhost:7170",

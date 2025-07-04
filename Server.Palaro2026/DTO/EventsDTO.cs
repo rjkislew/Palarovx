@@ -180,6 +180,6 @@ public class EventsDTO
     {
         public int ID { get; set; }
         public int? EventVersusID { get; set; }
-        public int? ProfilePlayerID { get; set; }
+        public string? ProfilePlayerID { get; set; }
     }
 }

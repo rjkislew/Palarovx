@@ -4,6 +4,7 @@ using Server.Palaro2026.Context;
 using Server.Palaro2026.DTO;
 using Server.Palaro2026.Entities;
 using System.Text.Json;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace Server.Palaro2026.Controller
 {
@@ -18,7 +19,11 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
-        [HttpGet("Details")]
+        // ------------------------------------------------------------------------------------------------------------------
+
+        // Event Views
+
+        [HttpGet("Details")] // /api/Events/Details
         public async Task<ActionResult<List<EventsDTO.EventDetails.Event>>> GetEventDetails(
         [FromQuery] string? id = null,
         [FromQuery] string? region = null,
@@ -244,7 +249,11 @@ namespace Server.Palaro2026.Controller
             }
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
+        // Event REST methods
+
+        // Map Events entity to EventsDTO.Events
         private static EventsDTO.Events EventsDTOMapper(Events events) =>
            new EventsDTO.Events
            {
@@ -263,7 +272,8 @@ namespace Server.Palaro2026.Controller
                UserID = events.UserID,
            };
 
-        [HttpGet]
+
+        [HttpGet] // /api/Events
         public async Task<ActionResult<IEnumerable<EventsDTO.Events>>> GetEvents(
         [FromQuery] string? ID = null,
         [FromQuery] int? eventStageID = null,
@@ -322,7 +332,47 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("{id}")]
+        [HttpPost] // /api/Events
+        public async Task<ActionResult<Events>> PostEvents(EventsDTO.Events events)
+        {
+            var eventsDTO = new Events
+            {
+                ID = events.ID,
+                EventStageID = events.EventStageID,
+                SportSubcategoryID = events.SportSubcategoryID,
+                EventVenuesID = events.EventVenuesID,
+                Date = events.Date,
+                Time = events.Time,
+                OnStream = events.OnStream,
+                EventStreamID = events.EventStreamID,
+                IsFinished = events.IsFinished,
+                Attachement = events.Attachement,
+                Archived = events.Archived,
+                Deleted = events.Deleted,
+                UserID = events.UserID,
+            };
+
+            _context.Events.Add(eventsDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventExist(events.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEvents", new { id = events.ID }, EventsDTOMapper(eventsDTO));
+        }
+
+        [HttpPut("{id}")] // /api/Events/{id}
         public async Task<IActionResult> PutEvents(string id, EventsDTO.Events events)
         {
             if (id != events.ID)
@@ -355,7 +405,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EventsExists(id))
+                if (!EventExist(id))
                 {
                     return NotFound();
                 }
@@ -368,47 +418,45 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost]
-        public async Task<ActionResult<Events>> PostEvents(EventsDTO.Events events)
+        [HttpPatch("{id}")] // /api/Events/{id}
+        public async Task<IActionResult> PatchEvents(string id, [FromBody] EventsDTO.Events updatedEvent)
         {
-            var eventsDTO = new Events
-            {
-                ID = events.ID,
-                EventStageID = events.EventStageID,
-                SportSubcategoryID = events.SportSubcategoryID,
-                EventVenuesID = events.EventVenuesID,
-                Date = events.Date,
-                Time = events.Time,
-                OnStream = events.OnStream,
-                EventStreamID = events.EventStreamID,
-                IsFinished = events.IsFinished,
-                Attachement = events.Attachement,
-                Archived = events.Archived,
-                Deleted = events.Deleted,
-                UserID = events.UserID,
-            };
+            var existingEvent = await _context.Events.FindAsync(id);
 
-            _context.Events.Add(eventsDTO);
+            if (existingEvent == null) return NotFound();
+
+            if (updatedEvent.EventStageID != null) existingEvent.EventStageID = updatedEvent.EventStageID;
+            if (updatedEvent.SportSubcategoryID != null) existingEvent.SportSubcategoryID = updatedEvent.SportSubcategoryID;
+            if (updatedEvent.EventVenuesID != null) existingEvent.EventVenuesID = updatedEvent.EventVenuesID;
+            if (updatedEvent.Date != null) existingEvent.Date = updatedEvent.Date;
+            if (updatedEvent.Time != null) existingEvent.Time = updatedEvent.Time;
+            if (updatedEvent.OnStream != null) existingEvent.OnStream = updatedEvent.OnStream;
+            if (updatedEvent.EventStreamID != null) existingEvent.EventStreamID = updatedEvent.EventStreamID;
+            if (updatedEvent.IsFinished != null) existingEvent.IsFinished = updatedEvent.IsFinished;
+            if (updatedEvent.Attachement != null) existingEvent.Attachement = updatedEvent.Attachement;
+            if (updatedEvent.Archived != null) existingEvent.Archived = updatedEvent.Archived;
+            if (updatedEvent.Deleted != null) existingEvent.Deleted = updatedEvent.Deleted;
+            if (updatedEvent.UserID != null) existingEvent.UserID = updatedEvent.UserID;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventExist(id)) return NotFound();
+                else throw;
+            }
             catch (DbUpdateException)
             {
-                if (EventsExists(events.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (EventExist(updatedEvent.ID)) return Conflict();
+                else throw;
             }
 
-            return CreatedAtAction("GetEvents", new { id = events.ID }, EventsDTOMapper(eventsDTO));
+            return NoContent();
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id}")] // /api/Events/{id}
         public async Task<IActionResult> DeleteEvents(string id)
         {
             var events = await _context.Events.FindAsync(id);
@@ -423,17 +471,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool EventsExists(string id)
+        // Check if Event exists
+        private bool EventExist(string id)
         {
             return _context.Events.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
+        // Event Stage REST methods
 
-
-
-        // Event Stage
-
+        // Map EventStages entity to EventsDTO.EventStages
         private static EventsDTO.EventStages EventStagesDTOMapper(EventStages eventStages) =>
            new EventsDTO.EventStages
            {
@@ -441,7 +489,7 @@ namespace Server.Palaro2026.Controller
                Stage = eventStages.Stage,
            };
 
-        [HttpGet("Stages")]
+        [HttpGet("Stages")] // /api/Events/Stages
         public async Task<ActionResult<IEnumerable<EventsDTO.EventStages>>> GetEventStages(
         [FromQuery] int? ID = null,
         [FromQuery] string? stage = null)
@@ -460,7 +508,36 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Stages/{id}")]
+        [HttpPost("Stages")] // /api/Events/Stages
+        public async Task<ActionResult<EventStages>> PostEventStages(EventsDTO.EventStages eventStages)
+        {
+            var eventStagesDTO = new EventStages
+            {
+                ID = eventStages.ID,
+                Stage = eventStages.Stage,
+            };
+
+            _context.EventStages.Add(eventStagesDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventStageExist(eventStages.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEventStages", new { id = eventStages.ID }, EventStagesDTOMapper(eventStagesDTO));
+        }
+
+        [HttpPut("Stages/{id}")] // /api/Events/Stages/{id}
         public async Task<IActionResult> PutEventStages(int id, EventsDTO.EventStages eventStages)
         {
             if (id != eventStages.ID)
@@ -482,7 +559,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EventStageExists(id))
+                if (!EventStageExist(id))
                 {
                     return NotFound();
                 }
@@ -495,36 +572,34 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Stages")]
-        public async Task<ActionResult<EventStages>> PostEventStages(EventsDTO.EventStages eventStages)
+        [HttpPatch("Stages/{id}")] // /api/Events/Stages/{id}
+        public async Task<IActionResult> PatchEventStages(int id, [FromBody] EventsDTO.EventStages updatedEventStage)
         {
-            var eventStagesDTO = new EventStages
-            {
-                ID = eventStages.ID,
-                Stage = eventStages.Stage,
-            };
+            var existingStage = await _context.EventStages.FindAsync(id);
 
-            _context.EventStages.Add(eventStagesDTO);
+            if (existingStage == null) return NotFound();
+
+            if (updatedEventStage.Stage != null) existingStage.Stage = updatedEventStage.Stage;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventStageExist(id)) return NotFound();
+                else throw;
+            }
             catch (DbUpdateException)
             {
-                if (EventStageExists(eventStages.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (EventStageExist(updatedEventStage.ID)) return Conflict();
+                else throw;
             }
 
-            return CreatedAtAction("GetEventStages", new { id = eventStages.ID }, EventStagesDTOMapper(eventStagesDTO));
+            return NoContent();
         }
 
-        [HttpDelete("Stages/{id}")]
+        [HttpDelete("Stages/{id}")] // /api/Events/Stages/{id}
         public async Task<IActionResult> DeleteEventStages(int id)
         {
             var eventStages = await _context.EventStages.FindAsync(id);
@@ -539,132 +614,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool EventStageExists(int id)
+        // Check if Event Stage exists
+        private bool EventStageExist(int id)
         {
             return _context.EventStages.Any(e => e.ID == id);
         }
 
-
-
-
-
-        // Event News
-
-        private static EventsDTO.EventNews EventNewsDTOMapper(EventNews eventNews) =>
-           new EventsDTO.EventNews
-           {
-               ID = eventNews.ID,
-               FacebookLink = eventNews.FacebookLink,
-           };
-
-        [HttpGet("News")]
-        public async Task<ActionResult<IEnumerable<EventsDTO.EventNews>>> GetEventNews(
-        [FromQuery] int? ID = null,
-        [FromQuery] string? facebookLink = null)
-        {
-            var query = _context.EventNews.AsQueryable();
-
-            if (ID.HasValue)
-                query = query.Where(x => x.ID == ID.Value);
-
-            if (!string.IsNullOrEmpty(facebookLink))
-                query = query.Where(x => x.FacebookLink!.Contains(facebookLink));
-
-            return await query
-                .Select(x => EventNewsDTOMapper(x))
-                .AsNoTracking()
-                .ToListAsync();
-        }
-
-        [HttpPut("News/{id}")]
-        public async Task<IActionResult> PutEventNews(int id, EventsDTO.EventNews eventNews)
-        {
-            if (id != eventNews.ID)
-            {
-                return BadRequest();
-            }
-
-            var existingEventNews = await _context.EventNews.FindAsync(id);
-            if (existingEventNews == null)
-            {
-                return NotFound();
-            }
-
-            existingEventNews.FacebookLink = eventNews.FacebookLink;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!EventNewsExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
-        }
-
-        [HttpPost("News")]
-        public async Task<ActionResult<EventNews>> PostEventNews(EventsDTO.EventNews eventNews)
-        {
-            var eventNewsDTO = new EventNews
-            {
-                ID = eventNews.ID,
-                FacebookLink = eventNews.FacebookLink,
-            };
-
-            _context.EventNews.Add(eventNewsDTO);
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                if (EventNewsExists(eventNews.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return CreatedAtAction("GetEventNews", new { id = eventNews.ID }, EventNewsDTOMapper(eventNewsDTO));
-        }
-
-        [HttpDelete("News/{id}")]
-        public async Task<IActionResult> DeleteEventNews(int id)
-        {
-            var eventNews = await _context.EventNews.FindAsync(id);
-            if (eventNews == null)
-            {
-                return NotFound();
-            }
-
-            _context.EventNews.Remove(eventNews);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
-        private bool EventNewsExists(int id)
-        {
-            return _context.EventNews.Any(e => e.ID == id);
-        }
-
-
-
+        // ------------------------------------------------------------------------------------------------------------------
 
         // Event Stream Services
 
+        // View Event Stream Services with details
         [HttpGet("StreamServices/Details")]
         public async Task<ActionResult<List<EventsDTO.EventStreamServicesDetails.EventStreamServices>>> GetEventStreamServicesDetails()
         {
@@ -696,7 +656,7 @@ namespace Server.Palaro2026.Controller
             }
         }
 
-
+        // Map EventStreamServices entity to EventsDTO.EventStreamServices
         private static EventsDTO.EventStreamServices EventStreamServicesDTOMapper(EventStreamServices eventStreamServices) =>
             new EventsDTO.EventStreamServices
             {
@@ -704,7 +664,7 @@ namespace Server.Palaro2026.Controller
                 StreamService = eventStreamServices.StreamService
             };
 
-        [HttpGet("StreamServices")]
+        [HttpGet("StreamServices")] // /api/Events/StreamServices
         public async Task<ActionResult<IEnumerable<EventsDTO.EventStreamServices>>> GetEventStreamServices(
             [FromQuery] int? ID = null,
             [FromQuery] string? streamService = null)
@@ -723,7 +683,36 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("StreamServices/{id}")]
+        [HttpPost("StreamServices")] // /api/Events/StreamServices
+        public async Task<ActionResult<EventStreamServices>> PostEventStreamService(EventsDTO.EventStreamServices eventStreamServiceDto)
+        {
+            var eventStreamServiceEntity = new EventStreamServices
+            {
+                ID = eventStreamServiceDto.ID,
+                StreamService = eventStreamServiceDto.StreamService
+            };
+
+            _context.EventStreamServices.Add(eventStreamServiceEntity);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventStreamServiceExist(eventStreamServiceDto.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEventStreamServices", new { id = eventStreamServiceDto.ID }, EventStreamServicesDTOMapper(eventStreamServiceEntity));
+        }
+
+        [HttpPut("StreamServices/{id}")] // /api/Events/StreamServices/{id}
         public async Task<IActionResult> PutEventStreamService(int id, EventsDTO.EventStreamServices eventStreamServiceDto)
         {
             if (id != eventStreamServiceDto.ID)
@@ -745,7 +734,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EventStreamServiceExists(id))
+                if (!EventStreamServiceExist(id))
                 {
                     return NotFound();
                 }
@@ -755,36 +744,34 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("StreamServices")]
-        public async Task<ActionResult<EventStreamServices>> PostEventStreamService(EventsDTO.EventStreamServices eventStreamServiceDto)
+        [HttpPatch("StreamServices/{id}")] // /api/Events/StreamServices/{id}
+        public async Task<IActionResult> PatchEventStreamService(int id, [FromBody] EventsDTO.EventStreamServices updatedService)
         {
-            var eventStreamServiceEntity = new EventStreamServices
-            {
-                ID = eventStreamServiceDto.ID,
-                StreamService = eventStreamServiceDto.StreamService
-            };
+            var existingService = await _context.EventStreamServices.FindAsync(id);
 
-            _context.EventStreamServices.Add(eventStreamServiceEntity);
+            if (existingService == null) return NotFound();
+
+            if (updatedService.StreamService != null) existingService.StreamService = updatedService.StreamService;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventStreamServiceExist(id)) return NotFound();
+                else throw;
+            }
             catch (DbUpdateException)
             {
-                if (EventStreamServiceExists(eventStreamServiceDto.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (EventStreamServiceExist(updatedService.ID)) return Conflict();
+                else throw;
             }
 
-            return CreatedAtAction("GetEventStreamServices", new { id = eventStreamServiceDto.ID }, EventStreamServicesDTOMapper(eventStreamServiceEntity));
+            return NoContent();
         }
 
-        [HttpDelete("StreamServices/{id}")]
+        [HttpDelete("StreamServices/{id}")] // /api/Events/StreamServices/{id}
         public async Task<IActionResult> DeleteEventStreamService(int id)
         {
             var eventStreamService = await _context.EventStreamServices.FindAsync(id);
@@ -799,16 +786,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool EventStreamServiceExists(int id)
+        // Check if Event Stream Service exists
+        private bool EventStreamServiceExist(int id)
         {
             return _context.EventStreamServices.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
+        // Event Streams REST methods
 
-
-
-        // Event Streams
+        // Map EventStreams entity to EventsDTO.EventStreams
         private static EventsDTO.EventStreams EventStreamsDTOMapper(EventStreams eventStreams) =>
         new EventsDTO.EventStreams
         {
@@ -819,7 +807,7 @@ namespace Server.Palaro2026.Controller
             StreamURL = eventStreams.StreamURL
         };
 
-        [HttpGet("StreamService/Streams")]
+        [HttpGet("StreamService/Streams")] // /api/Events/StreamService/Streams
         public async Task<ActionResult<IEnumerable<EventsDTO.EventStreams>>> GetEventStreams(
             [FromQuery] int? ID = null,
             [FromQuery] int? eventStreamServiceID = null,
@@ -850,7 +838,39 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("StreamService/Streams/{id}")]
+        [HttpPost("StreamService/Streams")] // /api/Events/StreamService/Streams
+        public async Task<ActionResult<EventStreams>> PostEventStreams(EventsDTO.EventStreams eventStreams)
+        {
+            var eventStreamsEntity = new EventStreams
+            {
+                ID = eventStreams.ID,
+                EventStreamServiceID = eventStreams.EventStreamServiceID,
+                StreamTitle = eventStreams.StreamTitle,
+                StreamDate = eventStreams.StreamDate,
+                StreamURL = eventStreams.StreamURL
+            };
+
+            _context.EventStreams.Add(eventStreamsEntity);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventStreamsExist(eventStreams.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEventStreams", new { id = eventStreams.ID }, EventStreamsDTOMapper(eventStreamsEntity));
+        }
+
+        [HttpPut("StreamService/Streams/{id}")] // /api/Events/StreamService/Streams/{id}
         public async Task<IActionResult> PutEventStreams(int id, EventsDTO.EventStreams eventStreamsDto)
         {
             if (id != eventStreamsDto.ID)
@@ -875,7 +895,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EventStreamsExists(id))
+                if (!EventStreamsExist(id))
                 {
                     return NotFound();
                 }
@@ -885,39 +905,37 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("StreamService/Streams")]
-        public async Task<ActionResult<EventStreams>> PostEventStreams(EventsDTO.EventStreams eventStreams)
+        [HttpPatch("StreamService/Streams/{id}")] // /api/Events/StreamService/Streams/{id}
+        public async Task<IActionResult> PatchEventStreams(int id, [FromBody] EventsDTO.EventStreams updatedStream)
         {
-            var eventStreamsEntity = new EventStreams
-            {
-                ID = eventStreams.ID,
-                EventStreamServiceID = eventStreams.EventStreamServiceID,
-                StreamTitle = eventStreams.StreamTitle,
-                StreamDate = eventStreams.StreamDate,
-                StreamURL = eventStreams.StreamURL
-            };
+            var existingStream = await _context.EventStreams.FindAsync(id);
 
-            _context.EventStreams.Add(eventStreamsEntity);
+            if (existingStream == null) return NotFound();
+
+            if (updatedStream.EventStreamServiceID != null) existingStream.EventStreamServiceID = updatedStream.EventStreamServiceID;
+            if (updatedStream.StreamTitle != null) existingStream.StreamTitle = updatedStream.StreamTitle;
+            if (updatedStream.StreamDate != null) existingStream.StreamDate = updatedStream.StreamDate;
+            if (updatedStream.StreamURL != null) existingStream.StreamURL = updatedStream.StreamURL;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventStreamsExist(id)) return NotFound();
+                else throw;
+            }
             catch (DbUpdateException)
             {
-                if (EventStreamsExists(eventStreams.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (EventStreamsExist(updatedStream.ID)) return Conflict();
+                else throw;
             }
 
-            return CreatedAtAction("GetEventStreams", new { id = eventStreams.ID }, EventStreamsDTOMapper(eventStreamsEntity));
+            return NoContent();
         }
 
-        [HttpDelete("StreamService/Streams/{id}")]
+        [HttpDelete("StreamService/Streams/{id}")] // /api/Events/StreamService/Streams/{id}
         public async Task<IActionResult> DeleteEventStreams(int id)
         {
             var eventStreams = await _context.EventStreams.FindAsync(id);
@@ -932,17 +950,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool EventStreamsExists(int id)
+        // Check if Event Streams exists
+        private bool EventStreamsExist(int id)
         {
             return _context.EventStreams.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
+        // Event Venues REST methods
 
-
-
-        // Venues
-
+        // Map EventVenues entity to EventsDTO.EventVenues
         private static EventsDTO.EventVenues EventVenuesDTOMapper(EventVenues eventVenues) =>
            new EventsDTO.EventVenues
            {
@@ -953,7 +971,7 @@ namespace Server.Palaro2026.Controller
                Longitude = eventVenues.Longitude,
            };
 
-        [HttpGet("Venues")]
+        [HttpGet("Venues")] // /api/Events/Venues
         public async Task<ActionResult<IEnumerable<EventsDTO.EventVenues>>> GetEventVenues(
         [FromQuery] int? ID = null,
         [FromQuery] string? address = null,
@@ -984,7 +1002,39 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Venues/{id}")]
+        [HttpPost("Venues")] // /api/Events/Venues
+        public async Task<ActionResult<EventVenues>> PostEventVenues(EventsDTO.EventVenues eventVenues)
+        {
+            var eventVenuesDTO = new EventVenues
+            {
+                ID = eventVenues.ID,
+                Address = eventVenues.Address,
+                Venue = eventVenues.Venue,
+                Latitude = eventVenues.Latitude,
+                Longitude = eventVenues.Longitude,
+            };
+
+            _context.EventVenues.Add(eventVenuesDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventVenuesExist(eventVenues.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEventVenues", new { id = eventVenues.ID }, EventVenuesDTOMapper(eventVenuesDTO));
+        }
+
+        [HttpPut("Venues/{id}")] // /api/Events/Venues/{id}
         public async Task<IActionResult> PutEventVenues(int id, EventsDTO.EventVenues eventVenuesDTO)
         {
             if (eventVenuesDTO == null || id != eventVenuesDTO.ID)
@@ -1009,7 +1059,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EventVenuesExists(id)) // Make sure this checks EventVenues, not EventStreams
+                if (!EventVenuesExist(id)) // Make sure this checks EventVenues, not EventStreams
                 {
                     return NotFound();
                 }
@@ -1022,39 +1072,37 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Venues")]
-        public async Task<ActionResult<EventVenues>> PostEventVenues(EventsDTO.EventVenues eventVenues)
+        [HttpPatch("Venues/{id}")] // /api/Events/Venues/{id}
+        public async Task<IActionResult> PatchEventVenues(int id, [FromBody] EventsDTO.EventVenues updatedVenue)
         {
-            var eventVenuesDTO = new EventVenues
-            {
-                ID = eventVenues.ID,
-                Address = eventVenues.Address,
-                Venue = eventVenues.Venue,
-                Latitude = eventVenues.Latitude,
-                Longitude = eventVenues.Longitude,
-            };
+            var existingVenue = await _context.EventVenues.FindAsync(id);
 
-            _context.EventVenues.Add(eventVenuesDTO);
+            if (existingVenue == null) return NotFound();
+
+            if (updatedVenue.Address != null) existingVenue.Address = updatedVenue.Address;
+            if (updatedVenue.Venue != null) existingVenue.Venue = updatedVenue.Venue;
+            if (updatedVenue.Latitude != null) existingVenue.Latitude = updatedVenue.Latitude;
+            if (updatedVenue.Longitude != null) existingVenue.Longitude = updatedVenue.Longitude;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventVenuesExist(id)) return NotFound();
+                else throw;
+            }
             catch (DbUpdateException)
             {
-                if (EventVenuesExists(eventVenues.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (EventVenuesExist(updatedVenue.ID)) return Conflict();
+                else throw;
             }
 
-            return CreatedAtAction("GetEventVenues", new { id = eventVenues.ID }, EventVenuesDTOMapper(eventVenuesDTO));
+            return NoContent();
         }
 
-        [HttpDelete("Venues/{id}")]
+        [HttpDelete("Venues/{id}")] // /api/Events/Venues/{id}
         public async Task<IActionResult> DeleteEventVenues(int id)
         {
             var eventVenues = await _context.EventVenues.FindAsync(id);
@@ -1069,16 +1117,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool EventVenuesExists(int id)
+        // Check if Event Venues exists
+        private bool EventVenuesExist(int id)
         {
             return _context.EventVenues.Any(e => e.ID == id);
         }
 
-
-
+        // ------------------------------------------------------------------------------------------------------------------
 
         // Event Versus Teams
 
+        // Map EventVersusTeams entity to EventsDTO.EventVersusTeams
         private static EventsDTO.EventVersusTeams EventVersusTeamsDTOMapper(EventVersusTeams eventVersusTeams) =>
            new EventsDTO.EventVersusTeams
            {
@@ -1090,7 +1139,7 @@ namespace Server.Palaro2026.Controller
                RecentUpdateAt = eventVersusTeams.RecentUpdateAt,
            };
 
-        [HttpGet("VersusTeams")]
+        [HttpGet("VersusTeams")] // /api/Events/VersusTeams
         public async Task<ActionResult<IEnumerable<EventsDTO.EventVersusTeams>>> GetEventVersusTeams(
         [FromQuery] int? ID = null,
         [FromQuery] int? schoolRegionID = null,
@@ -1122,8 +1171,40 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
+        [HttpPost("VersusTeams")] // /api/Events/VersusTeams
+        public async Task<ActionResult<EventVersusTeams>> PostEventVersusTeams(EventsDTO.EventVersusTeams eventVersusTeams)
+        {
+            var eventVersusTeamsDTO = new EventVersusTeams
+            {
+                ID = eventVersusTeams.ID,
+                Score = eventVersusTeams.Score,
+                SchoolRegionID = eventVersusTeams.SchoolRegionID,
+                EventID = eventVersusTeams.EventID,
+                Rank = eventVersusTeams.Rank,
+                RecentUpdateAt = eventVersusTeams.RecentUpdateAt,
+            };
 
-        [HttpPut("VersusTeams/{id}")]
+            _context.EventVersusTeams.Add(eventVersusTeamsDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (EventVersusTeamsExist(eventVersusTeams.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetEventVersusTeams", new { id = eventVersusTeamsDTO.ID }, EventVersusTeamsDTOMapper(eventVersusTeamsDTO));
+        }
+
+        [HttpPut("VersusTeams/{id}")] // /api/Events/VersusTeams/{id}
         public async Task<IActionResult> PutEventVersusTeams(int id, EventsDTO.EventVersusTeams updatedEvent)
         {
             var existingEvent = await _context.EventVersusTeams.FindAsync(id);
@@ -1153,27 +1234,38 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-
-        [HttpPost("VersusTeams")]
-        public async Task<ActionResult<EventVersus>> PostEventVersusTeams(EventsDTO.EventVersusTeams eventVersusTeams)
+        [HttpPatch("VersusTeams/{id}")] // /api/Events/VersusTeams/{id}
+        public async Task<IActionResult> PatchEventVersusTeams(int id, [FromBody] EventsDTO.EventVersusTeams updatedVersus)
         {
-            var eventVersusTeamsDTO = new EventVersusTeams
+            var existingVersus = await _context.EventVersusTeams.FindAsync(id);
+
+            if (existingVersus == null) return NotFound();
+
+            if (updatedVersus.Score != null) existingVersus.Score = updatedVersus.Score;
+            if (updatedVersus.SchoolRegionID != null) existingVersus.SchoolRegionID = updatedVersus.SchoolRegionID;
+            if (updatedVersus.EventID != null) existingVersus.EventID = updatedVersus.EventID;
+            if (updatedVersus.Rank != null) existingVersus.Rank = updatedVersus.Rank;
+            if (updatedVersus.RecentUpdateAt != null) existingVersus.RecentUpdateAt = updatedVersus.RecentUpdateAt;
+
+            try
             {
-                ID = eventVersusTeams.ID,
-                Score = eventVersusTeams.Score,
-                SchoolRegionID = eventVersusTeams.SchoolRegionID,
-                EventID = eventVersusTeams.EventID,
-                Rank = eventVersusTeams.Rank,
-                RecentUpdateAt = eventVersusTeams.RecentUpdateAt,
-            };
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventVersusTeamsExist(id)) return NotFound();
+                else throw;
+            }
+            catch (DbUpdateException)
+            {
+                if (EventVersusTeamsExist(updatedVersus.ID)) return Conflict();
+                else throw;
+            }
 
-            _context.EventVersusTeams.Add(eventVersusTeamsDTO);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetEventVersusTeams", new { id = eventVersusTeamsDTO.ID }, EventVersusTeamsDTOMapper(eventVersusTeamsDTO));
+            return NoContent();
         }
 
-        [HttpDelete("VersusTeams/{id}")]
+        [HttpDelete("VersusTeams/{id}")] // /api/Events/VersusTeams/{id}
         public async Task<IActionResult> DeleteEventVersusTeams(int id)
         {
             var eventVersusTeams = await _context.EventVersusTeams.FindAsync(id);
@@ -1188,16 +1280,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool EventVersusTeamsExists(int id)
+        // Check if Event Versus Teams exists
+        private bool EventVersusTeamsExist(int id)
         {
             return _context.EventVersusTeams.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
+        // Event Versus Team Players REST methods
 
-
-        // Event Versus Team Players
-
+        // Map EventVersusTeamPlayers entity to EventsDTO.EventVersusTeamPlayers
         private static EventsDTO.EventVersusTeamPlayers EventVersusTeamPlayersDTOMapper(EventVersusTeamPlayers eventVersusTeamPlayers) =>
            new EventsDTO.EventVersusTeamPlayers
            {
@@ -1206,11 +1299,11 @@ namespace Server.Palaro2026.Controller
                ProfilePlayerID = eventVersusTeamPlayers.ProfilePlayerID
            };
 
-        [HttpGet("VersusTeams/Players")]
+        [HttpGet("VersusTeams/Players")] // /api/Events/VersusTeams/Players
         public async Task<ActionResult<IEnumerable<EventsDTO.EventVersusTeamPlayers>>> GetEventVersusTeamPlayers(
         [FromQuery] int? ID = null,
         [FromQuery] int? eventVersusID = null,
-        [FromQuery] int? profilePlayerID = null)
+        [FromQuery] string? profilePlayerID = null)
         {
             var query = _context.EventVersusTeamPlayers.AsQueryable();
 
@@ -1220,8 +1313,8 @@ namespace Server.Palaro2026.Controller
             if (eventVersusID.HasValue)
                 query = query.Where(x => x.EventVersusID == eventVersusID.Value);
 
-            if (profilePlayerID.HasValue)
-                query = query.Where(x => x.ProfilePlayerID == profilePlayerID.Value);
+            if (!string.IsNullOrEmpty(profilePlayerID))
+                query = query.Where(x => x.ProfilePlayerID == profilePlayerID);
 
             return await query
                 .Select(x => EventVersusTeamPlayersDTOMapper(x))
@@ -1229,7 +1322,27 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("VersusTeams/Players/{id}")]
+        [HttpPost("VersusTeams/Players")] // /api/Events/VersusTeams/Players
+        public async Task<ActionResult<EventVersusTeamPlayers>> PostEventVersusTeamsPlayers([FromBody] List<EventsDTO.EventVersusTeamPlayers> eventVersusTeamPlayers)
+        {
+            if (eventVersusTeamPlayers == null || !eventVersusTeamPlayers.Any())
+            {
+                return BadRequest("No coaches provided.");
+            }
+
+            var eventVersusTeamPlayersList = eventVersusTeamPlayers.Select(player => new EventVersusTeamPlayers
+            {
+                EventVersusID = player.EventVersusID,
+                ProfilePlayerID = player.ProfilePlayerID
+            }).ToList();
+
+            _context.EventVersusTeamPlayers.AddRange(eventVersusTeamPlayersList);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = $"{eventVersusTeamPlayers.Count} player added successfully." });
+        }
+
+        [HttpPut("VersusTeams/Players/{id}")] // /api/Events/VersusTeams/Players/{id}
         public async Task<IActionResult> PutEventVersusTeamPlayers(int id, EventsDTO.EventVersusTeamPlayers eventVersusTeamPlayers)
         {
             if (id != eventVersusTeamPlayers.ID)
@@ -1253,7 +1366,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EventVersusTeamPlayersExists(id))
+                if (!EventVersusTeamPlayersExist(id))
                 {
                     return NotFound();
                 }
@@ -1263,28 +1376,35 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("VersusTeams/Players")]
-        public async Task<ActionResult<EventVersusTeamPlayers>> PostEventVersusTeamsPlayers([FromBody] List<EventsDTO.EventVersusTeamPlayers> eventVersusTeamPlayers)
+        [HttpPatch("VersusTeams/Players/{id}")] // /api/Events/VersusTeams/Players/{id}
+        public async Task<IActionResult> PatchEventVersusTeamPlayers(int id, [FromBody] EventsDTO.EventVersusTeamPlayers updatedPlayer)
         {
-            if (eventVersusTeamPlayers == null || !eventVersusTeamPlayers.Any())
+            var existingPlayer = await _context.EventVersusTeamPlayers.FindAsync(id);
+
+            if (existingPlayer == null) return NotFound();
+
+            if (updatedPlayer.EventVersusID != null) existingPlayer.EventVersusID = updatedPlayer.EventVersusID;
+            if (updatedPlayer.ProfilePlayerID != null) existingPlayer.ProfilePlayerID = updatedPlayer.ProfilePlayerID;
+
+            try
             {
-                return BadRequest("No coaches provided.");
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventVersusTeamPlayersExist(id)) return NotFound();
+                else throw;
+            }
+            catch (DbUpdateException)
+            {
+                if (EventVersusTeamPlayersExist(updatedPlayer.ID)) return Conflict();
+                else throw;
             }
 
-            var eventVersusTeamPlayersList = eventVersusTeamPlayers.Select(player => new EventVersusTeamPlayers
-            {
-                EventVersusID = player.EventVersusID,
-                ProfilePlayerID = player.ProfilePlayerID
-            }).ToList();
-
-            _context.EventVersusTeamPlayers.AddRange(eventVersusTeamPlayersList);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { Message = $"{eventVersusTeamPlayers.Count} player added successfully." });
+            return NoContent();
         }
 
-
-        [HttpDelete("VersusTeams/Players/{id}")]
+        [HttpDelete("VersusTeams/Players/{id}")] // /api/Events/VersusTeams/Players/{id}
         public async Task<IActionResult> DeleteEventVersus(int id)
         {
             var eventVersusTeamPlayers = await _context.EventVersusTeamPlayers.FindAsync(id);
@@ -1299,7 +1419,8 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpDelete("VersusTeams/Players/ByEventVersusTeam/{eventVersusTeamID}")]
+        // Delete Event Versus Team Players by Event Versus Team ID
+        [HttpDelete("VersusTeams/Players/ByEventVersusTeam/{eventVersusTeamID}")] // /api/Events/VersusTeams/Players/ByEventVersusTeam/{eventVersusTeamID}
         public async Task<IActionResult> DeleteByEventVersusTeamID(int eventVersusTeamID)
         {
             var recordsToDelete = _context.EventVersusTeamPlayers
@@ -1317,7 +1438,8 @@ namespace Server.Palaro2026.Controller
             return Ok(new { Message = $"{recordsToDelete.Count} records deleted successfully." });
         }
 
-        private bool EventVersusTeamPlayersExists(int id)
+        // Check if Event Versus Team Players exists
+        private bool EventVersusTeamPlayersExist(int id)
         {
             return _context.EventVersusTeamPlayers.Any(e => e.ID == id);
         }

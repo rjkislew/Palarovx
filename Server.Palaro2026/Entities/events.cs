@@ -6,7 +6,6 @@ namespace Server.Palaro2026.Entities;
 
 public partial class Events
 {
-
     public string ID { get; set; } = null!;
 
     public int? EventStageID { get; set; }

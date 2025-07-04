@@ -6,15 +6,16 @@
     It includes the app bar, drawer, and main content area.
     The layout is responsive and adapts to different screen sizes.
 -->
-@using System.Net.Http
-@using System.Text.Json
-@using System.Threading.Tasks
-@inject APIService apiService
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+@inject IDialogService dialogService
 @inject HttpClient httpClient
-@inject ThemeService ThemeService
+@inject ThemeService themeService
+@inject APIService apiService
+@inject CookieService cookieService
 
 @* Required *@
-<MudThemeProvider @ref="_mudThemeProvider" Theme="PalaroTheme" DefaultScrollbar="true" IsDarkMode="@(ThemeService.IsDarkMode ?? false)" />
+<MudThemeProvider @ref="_mudThemeProvider" Theme="PalaroTheme" DefaultScrollbar="true" IsDarkMode="@(themeService.IsDarkMode ?? false)" />
 <MudPopoverProvider />
 
 @* Needed for dialogs *@
@@ -46,41 +47,26 @@
     protected override async Task OnInitializedAsync()
     {
         // initialize the theme service
-        ThemeService.OnThemeChanged += StateHasChanged;
-        await ThemeService.LoadThemePreference();
-        isAPIAvailable = await CheckApiConnectionAsync("https://pgas.ph/palaro2026api/api/Status");
-    }
-
-    async Task<bool> CheckApiConnectionAsync(string apiUrl)
-    {
-        try
-        {
-            var response = await httpClient.GetAsync(apiUrl);
-            return response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Unauthorized;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"API check failed: {ex.Message}");
-            return false;
-        }
+        themeService.OnThemeChanged += StateHasChanged;
+        await themeService.LoadThemePreference();
     }
 
 
     // dark mode toggle: switches between dark and light mode
     private async Task ToggleDarkMode()
     {
-        await ThemeService.ToggleDarkModeAsync();
+        await themeService.ToggleDarkModeAsync();
     }
 
     // theme icon: returns the appropriate icon based on the current theme
     private string GetThemeIcon()
     {
         // if the user has not selected a theme, return the auto mode icon
-        if (!ThemeService.UserSelectedTheme)
+        if (!themeService.UserSelectedTheme)
             return Icons.Material.Filled.AutoMode;
 
         // if the user has selected a theme, return the appropriate icon
-        return ThemeService.IsDarkMode switch
+        return themeService.IsDarkMode switch
         {
             true => Icons.Material.Filled.DarkMode, // dark mode icon
             false => Icons.Material.Filled.LightMode, // light mode icon
@@ -91,10 +77,10 @@
     // theme tooltip: returns the appropriate tooltip based on the current theme
     private string GetThemeTooltip()
     {
-        if (!ThemeService.UserSelectedTheme)
+        if (!themeService.UserSelectedTheme)
             return "System Theme";
 
-        return ThemeService.IsDarkMode switch
+        return themeService.IsDarkMode switch
         {
             true => "Dark Mode",
             false => "Light Mode",

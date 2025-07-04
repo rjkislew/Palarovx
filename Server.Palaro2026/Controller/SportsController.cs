@@ -17,7 +17,10 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
-        [HttpGet("Details")]
+        // ------------------------------------------------------------------------------------------------------------------
+
+        // Sport Category Details view
+        [HttpGet("Details")] // /api/Sports/Details
         public async Task<ActionResult<List<SportsDTO.SportDetails.SportCategory>>> SportCategoryDetails()
         {
             try
@@ -81,10 +84,9 @@ namespace Server.Palaro2026.Controller
             }
         }
 
+        // Sports REST methods
 
-
-        // Sports
-
+        // Mapping for Sports entity to sportsDTO
         private static SportsDTO.Sports SportsDTOMapper(Sports sports) =>
            new SportsDTO.Sports
            {
@@ -94,8 +96,7 @@ namespace Server.Palaro2026.Controller
                SportCategoryID = sports.SportCategoryID,
            };
 
-
-        [HttpGet]
+        [HttpGet] // /api/Sports
         public async Task<ActionResult<IEnumerable<SportsDTO.Sports>>> GetSports(
         [FromQuery] string? id = null,
         [FromQuery] string? sport = null,
@@ -131,8 +132,38 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
+        [HttpPost] // /api/Sports
+        public async Task<ActionResult<Sports>> PostSports(SportsDTO.Sports sports)
+        {
+            var sportsDTO = new Sports
+            {
+                ID = sports.ID,
+                Sport = sports.Sport,
+                Description = sports.Description,
+                SportCategoryID = sports.SportCategoryID,
+            };
 
-        [HttpPut("{id}")]
+            _context.Sports.Add(sportsDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (SportsExist(sports.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetSports", new { id = sports.ID }, SportsDTOMapper(sportsDTO));
+        }
+
+        [HttpPut("{id}")] // /api/Sports/{id}
         public async Task<IActionResult> PutSports(int id, SportsDTO.Sports sports)
         {
             if (id != sports.ID)
@@ -156,7 +187,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!SportsExists(id))
+                if (!SportsExist(id))
                 {
                     return NotFound();
                 }
@@ -166,38 +197,30 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost]
-        public async Task<ActionResult<Sports>> PostSports(SportsDTO.Sports sports)
+        [HttpPatch("{id}")] // /api/Sports/{id}
+        public async Task<IActionResult> PatchSports(int id, [FromBody] SportsDTO.Sports updatedSport)
         {
-            var sportsDTO = new Sports
-            {
-                ID = sports.ID,
-                Sport = sports.Sport,
-                Description = sports.Description,
-                SportCategoryID = sports.SportCategoryID,
-            };
+            var existingSport = await _context.Sports.FindAsync(id);
+            if (existingSport == null) return NotFound();
 
-            _context.Sports.Add(sportsDTO);
+            if (updatedSport.Sport != null) existingSport.Sport = updatedSport.Sport;
+            if (updatedSport.Description != null) existingSport.Description = updatedSport.Description;
+            if (updatedSport.SportCategoryID != null) existingSport.SportCategoryID = updatedSport.SportCategoryID;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
-            catch (DbUpdateException)
+            catch (DbUpdateConcurrencyException)
             {
-                if (SportsExists(sports.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (!_context.Sports.Any(e => e.ID == id)) return NotFound();
+                else throw;
             }
 
-            return CreatedAtAction("GetSports", new { id = sports.ID }, SportsDTOMapper(sportsDTO));
+            return NoContent();
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id}")] // /api/Sports/{id}
         public async Task<IActionResult> DeleteSports(int id)
         {
             var sports = await _context.Sports.FindAsync(id);
@@ -212,15 +235,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool SportsExists(int id)
+        // Check if a sport exists by ID
+        private bool SportsExist(int id)
         {
             return _context.Sports.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
+        // Sport Categories REST methods
 
-
-        // Sport Categories
+        // Mapping for SportCategories entity to SportsDTO
         private static SportsDTO.SportCategories SportCategoriesDTOMapper(SportCategories sportCategories) =>
            new SportsDTO.SportCategories
            {
@@ -228,7 +253,7 @@ namespace Server.Palaro2026.Controller
                Category = sportCategories.Category
            };
 
-        [HttpGet("Categories")]
+        [HttpGet("Categories")] // /api/Sports/Categories
         public async Task<ActionResult<IEnumerable<SportsDTO.SportCategories>>> GetSportCategories(
         [FromQuery] int? id = null,
         [FromQuery] string? category = null)
@@ -247,7 +272,36 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Categories/{id}")]
+        [HttpPost("Categories")] // /api/Sports/Categories
+        public async Task<ActionResult<SportCategories>> PostSportCategories(SportsDTO.SportCategories sportCategories)
+        {
+            var sportCategoriesDTO = new SportCategories
+            {
+                ID = sportCategories.ID,
+                Category = sportCategories.Category
+            };
+
+            _context.SportCategories.Add(sportCategoriesDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (SportCategoriesExist(sportCategories.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetSportCategories", new { id = sportCategories.ID }, SportCategoriesDTOMapper(sportCategoriesDTO));
+        }
+
+        [HttpPut("Categories/{id}")] // /api/Sports/Categories/{id}
         public async Task<IActionResult> PutSportCategories(int id, SportsDTO.SportCategories sportCategories)
         {
             if (id != sportCategories.ID)
@@ -269,7 +323,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!SportCategoriesExists(id))
+                if (!SportCategoriesExist(id))
                 {
                     return NotFound();
                 }
@@ -279,36 +333,29 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Categories")]
-        public async Task<ActionResult<SportCategories>> PostSportCategories(SportsDTO.SportCategories sportCategories)
+        [HttpPatch("Categories/{id}")] // /api/Sports/Categories/{id}
+        public async Task<IActionResult> PatchSportCategories(int id, [FromBody] SportsDTO.SportCategories updatedCategory)
         {
-            var sportCategoriesDTO = new SportCategories
-            {
-                ID = sportCategories.ID,
-                Category = sportCategories.Category
-            };
+            var existingCategory = await _context.SportCategories.FindAsync(id);
+            if (existingCategory == null) return NotFound();
 
-            _context.SportCategories.Add(sportCategoriesDTO);
+            if (updatedCategory.Category != null)
+                existingCategory.Category = updatedCategory.Category;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
-            catch (DbUpdateException)
+            catch (DbUpdateConcurrencyException)
             {
-                if (SportCategoriesExists(sportCategories.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (!_context.SportCategories.Any(e => e.ID == id)) return NotFound();
+                else throw;
             }
 
-            return CreatedAtAction("GetSportCategories", new { id = sportCategories.ID }, SportCategoriesDTOMapper(sportCategoriesDTO));
+            return NoContent();
         }
 
-        [HttpDelete("Categories/{id}")]
+        [HttpDelete("Categories/{id}")] // /api/Sports/Categories/{id}
         public async Task<IActionResult> DeleteSportCategories(int id)
         {
             var sportCategories = await _context.SportCategories.FindAsync(id);
@@ -322,16 +369,18 @@ namespace Server.Palaro2026.Controller
 
             return NoContent();
         }
-        private bool SportCategoriesExists(int id)
+
+        // Check if a sport category exists by ID
+        private bool SportCategoriesExist(int id)
         {
             return _context.SportCategories.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
+        // Sport Gender Categories REST methods
 
-
-        // Sport Gender Categories
-
+        // Mapping for SportGenderCategories entity to SportsDTO
         private static SportsDTO.SportGenderCategories SportGenderCategoriesDTOMapper(SportGenderCategories sportGenderCategories) =>
            new SportsDTO.SportGenderCategories
            {
@@ -339,7 +388,7 @@ namespace Server.Palaro2026.Controller
                Gender = sportGenderCategories.Gender
            };
 
-        [HttpGet("GenderCategories")]
+        [HttpGet("GenderCategories")] // /api/Sports/GenderCategories
         public async Task<ActionResult<IEnumerable<SportsDTO.SportGenderCategories>>> GetSportGenderCategories(
         [FromQuery] int? id = null,
         [FromQuery] string? gender = null)
@@ -358,7 +407,35 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("GenderCategories/{id}")]
+        [HttpPost("GenderCategories")] // /api/Sports/GenderCategories
+        public async Task<ActionResult<SportGenderCategories>> PostSportGenderCategories(SportsDTO.SportGenderCategories sportGenderCategories)
+        {
+            var sportGenderCategoriesDTO = new SportGenderCategories
+            {
+                ID = sportGenderCategories.ID,
+                Gender = sportGenderCategories.Gender
+            };
+            _context.SportGenderCategories.Add(sportGenderCategoriesDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (SportGenderCategoriesExist(sportGenderCategories.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetSportGenderCategories", new { id = sportGenderCategories.ID }, SportGenderCategoriesDTOMapper(sportGenderCategoriesDTO));
+        }
+
+        [HttpPut("GenderCategories/{id}")] // /api/Sports/GenderCategories/{id}
         public async Task<IActionResult> PutSportGenderCategories(int id, SportsDTO.SportGenderCategories sportGenderCategories)
         {
             if (id != sportGenderCategories.ID)
@@ -380,7 +457,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!SportGenderCategoriesExists(id))
+                if (!SportGenderCategoriesExist(id))
                 {
                     return NotFound();
                 }
@@ -390,35 +467,29 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("GenderCategories")]
-        public async Task<ActionResult<SportGenderCategories>> PostSportGenderCategories(SportsDTO.SportGenderCategories sportGenderCategories)
+        [HttpPatch("GenderCategories/{id}")] // /api/Sports/GenderCategories/{id}
+        public async Task<IActionResult> PatchSportGenderCategories(int id, [FromBody] SportsDTO.SportGenderCategories updatedGenderCategory)
         {
-            var sportGenderCategoriesDTO = new SportGenderCategories
-            {
-                ID = sportGenderCategories.ID,
-                Gender = sportGenderCategories.Gender
-            };
-            _context.SportGenderCategories.Add(sportGenderCategoriesDTO);
+            var existingGenderCategory = await _context.SportGenderCategories.FindAsync(id);
+            if (existingGenderCategory == null) return NotFound();
+
+            if (updatedGenderCategory.Gender != null)
+                existingGenderCategory.Gender = updatedGenderCategory.Gender;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
-            catch (DbUpdateException)
+            catch (DbUpdateConcurrencyException)
             {
-                if (SportGenderCategoriesExists(sportGenderCategories.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (!_context.SportGenderCategories.Any(e => e.ID == id)) return NotFound();
+                else throw;
             }
 
-            return CreatedAtAction("GetSportGenderCategories", new { id = sportGenderCategories.ID }, SportGenderCategoriesDTOMapper(sportGenderCategoriesDTO));
+            return NoContent();
         }
 
-        [HttpDelete("GenderCategories/{id}")]
+        [HttpDelete("GenderCategories/{id}")] // /api/Sports/GenderCategories/{id}
         public async Task<IActionResult> DeleteSportGenderCategories(int id)
         {
             var sportGenderCategories = await _context.SportGenderCategories.FindAsync(id);
@@ -433,16 +504,17 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool SportGenderCategoriesExists(int id)
+        // Check if a SportGenderCategory exists by ID
+        private bool SportGenderCategoriesExist(int id)
         {
             return _context.SportGenderCategories.Any(e => e.ID == id);
         }
 
+        // ------------------------------------------------------------------------------------------------------------------
 
+        // Sport Subcategories REST methods
 
-
-        // Sport Subcategories
-
+        // Mapping for SportSubcategories entity to SportsDTO
         private static SportsDTO.SportSubcategories SportSubcategoriesDTOMapper(SportSubcategories sportSubcategories) =>
            new SportsDTO.SportSubcategories
            {
@@ -453,7 +525,7 @@ namespace Server.Palaro2026.Controller
                SchoolLevelID = sportSubcategories.SchoolLevelID
            };
 
-        [HttpGet("Subcategories")]
+        [HttpGet("Subcategories")] // /api/Sports/Subcategories
         public async Task<ActionResult<IEnumerable<SportsDTO.SportSubcategories>>> GetSportSubcategories(
         [FromQuery] int? ID = null,
         [FromQuery] string? subcategory = null,
@@ -484,7 +556,38 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpPut("Subcategories/{id}")]
+        [HttpPost("Subcategories")] // /api/Sports/Subcategories
+        public async Task<ActionResult<SportSubcategories>> PostSportSubcategories(SportsDTO.SportSubcategories sportSubcategories)
+        {
+            var sportSubcategoriesDTO = new SportSubcategories
+            {
+                ID = sportSubcategories.ID,
+                Subcategory = sportSubcategories.Subcategory,
+                SportID = sportSubcategories.SportID,
+                SportGenderCategoryID = sportSubcategories.SportGenderCategoryID,
+                SchoolLevelID = sportSubcategories.SchoolLevelID
+            };
+            _context.SportSubcategories.Add(sportSubcategoriesDTO);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (SportSubcategoriesExist(sportSubcategories.ID))
+                {
+                    return Conflict();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return CreatedAtAction("GetSportSubcategories", new { id = sportSubcategories.ID }, SportSubcategoriesDTOMapper(sportSubcategoriesDTO));
+        }
+
+        [HttpPut("Subcategories/{id}")] // /api/Sports/Subcategories/{id}
         public async Task<IActionResult> PutSportSubcategories(int id, SportsDTO.SportSubcategories sportSubcategories)
         {
             if (id != sportSubcategories.ID)
@@ -509,7 +612,7 @@ namespace Server.Palaro2026.Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!SportSubcategoriesExists(id))
+                if (!SportSubcategoriesExist(id))
                 {
                     return NotFound();
                 }
@@ -519,38 +622,38 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        [HttpPost("Subcategories")]
-        public async Task<ActionResult<SportSubcategories>> PostSportSubcategories(SportsDTO.SportSubcategories sportSubcategories)
+        [HttpPatch("Subcategories/{id}")] // /api/Sports/Subcategories/{id}
+        public async Task<IActionResult> PatchSportSubcategories(int id, [FromBody] SportsDTO.SportSubcategories updatedSubcategory)
         {
-            var sportSubcategoriesDTO = new SportSubcategories
-            {
-                ID = sportSubcategories.ID,
-                Subcategory = sportSubcategories.Subcategory,
-                SportID = sportSubcategories.SportID,
-                SportGenderCategoryID = sportSubcategories.SportGenderCategoryID,
-                SchoolLevelID = sportSubcategories.SchoolLevelID
-            };
-            _context.SportSubcategories.Add(sportSubcategoriesDTO);
+            var existingSubcategory = await _context.SportSubcategories.FindAsync(id);
+            if (existingSubcategory == null) return NotFound();
+
+            if (updatedSubcategory.Subcategory != null)
+                existingSubcategory.Subcategory = updatedSubcategory.Subcategory;
+
+            if (updatedSubcategory.SportID != null)
+                existingSubcategory.SportID = updatedSubcategory.SportID;
+
+            if (updatedSubcategory.SportGenderCategoryID != null)
+                existingSubcategory.SportGenderCategoryID = updatedSubcategory.SportGenderCategoryID;
+
+            if (updatedSubcategory.SchoolLevelID != null)
+                existingSubcategory.SchoolLevelID = updatedSubcategory.SchoolLevelID;
+
             try
             {
                 await _context.SaveChangesAsync();
             }
-            catch (DbUpdateException)
+            catch (DbUpdateConcurrencyException)
             {
-                if (SportSubcategoriesExists(sportSubcategories.ID))
-                {
-                    return Conflict();
-                }
-                else
-                {
-                    throw;
-                }
+                if (!_context.SportSubcategories.Any(e => e.ID == id)) return NotFound();
+                else throw;
             }
 
-            return CreatedAtAction("GetSportSubcategories", new { id = sportSubcategories.ID }, SportSubcategoriesDTOMapper(sportSubcategoriesDTO));
+            return NoContent();
         }
 
-        [HttpDelete("Subcategories/{id}")]
+        [HttpDelete("Subcategories/{id}")] // /api/Sports/Subcategories/{id}
         public async Task<IActionResult> DeleteSportSubcategories(int id)
         {
             var sportSubcategories = await _context.SportSubcategories.FindAsync(id);
@@ -565,7 +668,8 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
-        private bool SportSubcategoriesExists(int id)
+        // Check if a SportSubcategory exists by ID
+        private bool SportSubcategoriesExist(int id)
         {
             return _context.SportSubcategories.Any(e => e.ID == id);
         }

@@ -9,7 +9,7 @@ public partial class ProfilePlayerSportCoaches
 
     public int? ProfilePlayerSportID { get; set; }
 
-    public int? ProfileCoachID { get; set; }
+    public string? ProfileCoachID { get; set; }
 
     public virtual ProfileCoaches? ProfileCoach { get; set; }
 
