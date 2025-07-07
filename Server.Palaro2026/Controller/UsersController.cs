@@ -87,7 +87,7 @@ namespace Server.Palaro2026.Controller
         {
             var users = await _context.Users
                 .Include(r => r.Role)
-                .Where(user => user.Role != null && user.Role.Role == "Tally Clerk")
+                .Where(user => user.Role != null && user.Role.Role == "Tally Clerk" && user.Active == true)
                 .AsNoTracking()
                 .ToListAsync();
 
@@ -168,15 +168,12 @@ namespace Server.Palaro2026.Controller
         [HttpPost] // POST: api/Users
         public async Task<ActionResult<Users>> PostUsers(UsersDTO.Users users)
         {
-            // Generate username in lowercase
-            string username = $"{users.FirstName?.Replace(" ", "")}.{users.LastName}".ToLower();
-
             var usersDTO = new Users
             {
                 ID = users.ID,
                 FirstName = users.FirstName,
                 LastName = users.LastName,
-                Username = username,
+                Username = users.Username,
                 Affiliation = users.Affiliation,
                 EmailAddress = users.EmailAddress,
                 ContactNumber = users.ContactNumber,

@@ -70,8 +70,22 @@
                 <RowTemplate Context="user">
                     <MudTd DataLabel="Name">
                         <MudStack Spacing="1">
-                            <MudText Typo="Typo.body2">@user.FirstName @user.LastName</MudText>
-                            <MudText Style="font-size: 12px">@($"@{user.Username}")</MudText>
+                            <MudTooltip @onmouseover="() => OnHoverUser(user)">
+                                <ChildContent>
+                                    <MudText Typo="Typo.body2">@user.FirstName @user.LastName</MudText>
+                                    <MudText Style="font-size: 12px">@($"@{user.Username}")</MudText>
+                                </ChildContent>
+                                <TooltipContent>
+                                    @if (userQRCodes.TryGetValue(user.ID, out var qrCode))
+                                    {
+                                        <MudImage Class="mt-1 rounded" Src="@qrCode" Alt="QR Code" Style="width: 100px;" />
+                                    }
+                                    else
+                                    {
+                                        <MudText>Generating QR...</MudText>
+                                    }
+                                </TooltipContent>
+                            </MudTooltip>
                         </MudStack>
                     </MudTd>
                     <MudTd DataLabel="Contact Details">
@@ -163,6 +177,28 @@
             public bool? Active { get; set; }
             public string? Role { get; set; }
         }
+    }
+    
+    private string? qrBase64;
+    private Dictionary<string, string> userQRCodes = new();
+    private void OnHoverUser(UsersDTO.UsersDetails user)
+    {
+        if (user != null && !userQRCodes.ContainsKey(user.ID))
+        {
+            var qr = GenerateQrCodeBase64(user.ID.ToString());
+            userQRCodes[user.ID] = qr;
+            StateHasChanged(); // Force re-render to show QR code
+        }
+    }
+
+    private string GenerateQrCodeBase64(string text)
+    {
+        using var qrGenerator = new QRCoder.QRCodeGenerator();
+        using var qrCodeData = qrGenerator.CreateQrCode(text, QRCoder.QRCodeGenerator.ECCLevel.Q);
+        using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
+        byte[] qrCodeBytes = qrCode.GetGraphic(20);
+
+        return $"data:image/png;base64,{Convert.ToBase64String(qrCodeBytes)}";
     }
 
 

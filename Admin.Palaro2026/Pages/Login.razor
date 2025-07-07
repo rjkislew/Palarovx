@@ -5,13 +5,14 @@
 @using System.Text
 @using System.Net.Http.Headers;
 @using System.Text.Json.Serialization
+@using System.Text.RegularExpressions
+@using System.ComponentModel.DataAnnotations
 
-@inject HttpClient httpClient
-@inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
-@inject APIService apiService
 @inject CookieService cookieService
+@inject NavigationManager Navigation
+@inject APIService apiService
 @inject HttpClient httpClient
 
 <PageTitle>Sign in - PALARO 2026 | Management</PageTitle>
@@ -27,27 +28,80 @@
                                 <MudImage Src="media/logo/Logo with 2026.webp" Fluid Width="150" />
                             </MudItem>
                             <MudItem xs="12">
-                                <MudGrid>
+                                <MudGrid hidden="@loginField">
                                     <MudItem xs="12" md="6">
                                         <MudText Style="font-size: 40px">Sign in</MudText>
                                         <MudText Typo="Typo.caption">You are about to sign in to Palaro 2026 Management</MudText>
                                     </MudItem>
                                     <MudItem xs="12" md="6">
-                                        <MudStack Spacing="10" hidden="@usernameField">
+                                        <MudStack Spacing="10" hidden="@usernameLoginField">
                                             <MudStack AlignItems="AlignItems.Start" Spacing="0">
-                                                <MudTextField FullWidth T="string" Label="Username" ShrinkLabel Variant="Variant.Outlined" @bind-Value="_usernameValue" HelperText="@_errorMessage"/>
+                                                <MudTextField FullWidth T="string" Label="Username" ShrinkLabel Variant="Variant.Outlined" @bind-Value="_usernameValue" HelperText="@_errorMessage" />
                                                 <MudButton Size="Size.Small" Style="text-transform:none" Class="rounded-pill" Color="Color.Tertiary">Forgot account?</MudButton>
                                             </MudStack>
-                                            <MudStack Row Justify="Justify.FlexEnd">
+                                            <MudStack Row Justify="Justify.SpaceBetween">
+                                                <MudButton Style="text-transform:none" Class="rounded-pill" DropShadow="false" Variant="Variant.Filled" Color="Color.Default" OnClick="Signup">Sign up</MudButton>
                                                 <MudButton Style="text-transform:none" Class="rounded-pill" DropShadow="false" Variant="Variant.Filled" Color="Color.Tertiary" OnClick="CheckUsername">Next</MudButton>
                                             </MudStack>
                                         </MudStack>
-                                        <MudStack Spacing="10" hidden="@passwordField">
+                                        <MudStack Spacing="10" hidden="@passwordLoginField">
                                             <MudStack AlignItems="AlignItems.Start" Spacing="0">
                                                 <MudTextField FullWidth T="string" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" @bind-Value="_passwordValue" />
                                             </MudStack>
                                             <MudStack Row Justify="Justify.FlexEnd">
                                                 <MudButton Style="text-transform:none" Class="rounded-pill" DropShadow="false" Variant="Variant.Filled" Color="Color.Tertiary" OnClick="LoginUser">Log in</MudButton>
+                                            </MudStack>
+                                        </MudStack>
+                                    </MudItem>
+                                </MudGrid>
+                                <MudGrid hidden="@signupField">
+                                    <MudItem xs="12" md="6">
+                                        <MudText Style="font-size: 40px">Sign up</MudText>
+                                        <MudText Typo="Typo.caption">Create your account to manage team profiles, coaches, sports, and events</MudText>
+                                    </MudItem>
+                                    <MudItem xs="12" md="6">
+                                        <MudStack Spacing="10">
+                                            <MudForm @ref="form" @bind-IsValid="@success" @bind-Errors="@errors">
+                                                <MudFocusTrap>
+                                                    <MudGrid Spacing="1">
+                                                        <MudItem xs="12" md="6">
+                                                            <MudTextField T="string" @bind-Value="_firstnameValue" Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Required Clearable />
+                                                        </MudItem>
+                                                        <MudItem xs="12" md="6">
+                                                            <MudTextField T="string" @bind-Value="_lastnameValue" Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Required Clearable />
+                                                        </MudItem>
+                                                        <MudItem xs="12">
+                                                            <MudTextField @bind-Value="_emailAddress" Label="Email" Required Variant="Variant.Outlined" RequiredError="Email is required!"
+                                                                          Validation="@(new EmailAddressAttribute() { ErrorMessage = "The email address is invalid" })" />
+                                                        </MudItem>
+                                                        <MudItem xs="12">
+                                                            <MudTextField T="string" @bind-Value="_contactNumber" Margin="Margin.Dense" Label="Contact Number" MaxLength="11" ShrinkLabel Variant="Variant.Outlined" Required Clearable />
+                                                        </MudItem>
+                                                        <MudItem xs="12">
+                                                            @{
+                                                                string pgas = "Provincial Government of Agusan del Sur";
+                                                                string depedNational = "DepED National";
+                                                            }
+                                                            <MudSelect @bind-Value="_affiliationValue" Margin="Margin.Dense" Label="Affiliation" ShrinkLabel Variant="Variant.Outlined" Required Clearable>
+                                                                <MudSelectItem T="string" Value="@pgas">@pgas</MudSelectItem>
+                                                                <MudSelectItem T="string" Value="@depedNational">@depedNational</MudSelectItem>
+                                                                <MudVirtualize Items="_schoolRegions" Context="region">
+                                                                    <MudSelectItem T="string" Value="@region.Region">DepED @region.Region</MudSelectItem>
+                                                                </MudVirtualize>
+                                                            </MudSelect>
+                                                        </MudItem>
+                                                        <MudItem xs="12">
+                                                            <MudTextField T="string" @bind-Value="_passwordValue" Validation="@(new Func<string, IEnumerable<string>>(PasswordStrength))" @ref="textFieldChecker" Required Margin="Margin.Dense" Label="Password" ShrinkLabel Variant="Variant.Outlined" InputType="InputType.Password" />
+                                                        </MudItem>
+                                                        <MudItem xs="12">
+                                                            <MudTextField T="string" @bind-Value="_confirmPasswordValue" Validation="@(new Func<string, string>(PasswordMatch))" Required Margin="Margin.Dense" Label="Confirm Password" ShrinkLabel Variant="Variant.Outlined" InputType="InputType.Password" />
+                                                        </MudItem>
+                                                    </MudGrid>
+                                                </MudFocusTrap>
+                                            </MudForm>
+                                            <MudStack Row Justify="Justify.SpaceBetween">
+                                                <MudButton Style="text-transform:none" Class="rounded-pill" DropShadow="false" Variant="Variant.Filled" Color="Color.Default" OnClick="CancelSignup">Cancel</MudButton>
+                                                <MudButton Style="text-transform:none" Class="rounded-pill" DropShadow="false" Variant="Variant.Filled" Color="Color.Tertiary" OnClick="ConfirmSignUpAsync">Sign up</MudButton>
                                             </MudStack>
                                         </MudStack>
                                     </MudItem>
@@ -61,14 +115,42 @@
     </MudItem>
 </MudGrid>
 @code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+    private static readonly Random random = new(); // for random ID string generation
+
     private List<UsernameList>? _usernameLists;
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
 
-    private bool usernameField = false;
-    private bool passwordField = true;
+    private bool loginField = false; //false
+    private bool signupField = true; //true
+    private bool usernameLoginField = false; //false
+    private bool passwordLoginField = true; //true
 
-    private string? _usernameValue;
+    // Variables
+    private string? _firstnameValue;
+    private string? _lastnameValue;
+    private string? _emailAddress;
+    private string? _contactNumber;
     private string? _passwordValue;
+    private string? _confirmPasswordValue;
+    private string? _affiliationValue;
+    private string? _usernameValue;
     private string? _errorMessage;
+
+    private void ClearFields()
+    {
+        _firstnameValue = null;
+        _lastnameValue = null;
+        _emailAddress = null;
+        _contactNumber = null;
+        _passwordValue = null;
+        _confirmPasswordValue = null;
+        _affiliationValue = null;
+        _usernameValue = null;
+        _errorMessage = null;
+    }
 
     //DTO
     public class UserLogin
@@ -84,19 +166,102 @@
         public string? Role { get; set; }
     }
 
+    public class ErrorResponse
+    {
+        public string? Message { get; set; }
+    }
+
     public class UsernameList
     {
         public string? Username { get; set; }
     }
 
+    public class SchoolsDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    public class UsersDTO
+    {
+        public class UserRegistration
+        {
+            public string ID { get; set; } = null!;
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? Username { get; set; }
+            public string? Affiliation { get; set; }
+            public string? EmailAddress { get; set; }
+            public string? ContactNumber { get; set; }
+            public string? PasswordHash { get; set; }
+            public DateTime? CreatedAt { get; set; }
+            public bool? Active { get; set; }
+        }
+    }
+
+    bool success;
+    string[] errors = { };
+    MudTextField<string>? textFieldChecker;
+    MudForm? form;
+
+    private IEnumerable<string> PasswordStrength(string pw)
+    {
+        if (string.IsNullOrWhiteSpace(pw))
+        {
+            yield return "Password is required!";
+            yield break;
+        }
+        if (pw.Length < 8)
+            yield return "Password must be at least of length 8";
+        if (!Regex.IsMatch(pw, @"[A-Z]"))
+            yield return "Password must contain at least one capital letter";
+        if (!Regex.IsMatch(pw, @"[a-z]"))
+            yield return "Password must contain at least one lowercase letter";
+        if (!Regex.IsMatch(pw, @"[0-9]"))
+            yield return "Password must contain at least one digit";
+        if (!Regex.IsMatch(pw, @"[\W_]"))
+            yield return "Password must contain at least one special character (e.g. !, @, #, $, %, etc.)";
+    }
+
+    private string PasswordMatch(string arg)
+    {
+        if (textFieldChecker?.Value != arg)
+            return "Passwords don't match";
+        return null;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await GetUsernameListAsync();
+        await GetSchoolRegionsAsync();
     }
+
     private async Task GetUsernameListAsync()
     {
         string url = "/Users/Usernames";
         _usernameLists = await apiService.GetAsync<UsernameList>(url);
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(url);
+    }
+
+    private void Signup()
+    {
+        signupField = false;
+        loginField = true;
+    }
+
+    private void CancelSignup()
+    {
+        signupField = true;
+        loginField = false;
     }
 
     private void CheckUsername()
@@ -112,8 +277,8 @@
         if (exists)
         {
             // Proceed to password field
-            usernameField = true;
-            passwordField = false;
+            usernameLoginField = true;
+            passwordLoginField = false;
         }
         else
         {
@@ -130,35 +295,101 @@
         }
 
         var loginRequest = new UserLogin
-            {
-                Username = _usernameValue,
-                Password = _passwordValue
-            };
+        {
+            Username = _usernameValue,
+            Password = _passwordValue
+        };
 
         string url = "Authentication/Login";
-        var result = await apiService.PostAndReadAsync<LoginResponse>(url, loginRequest);
+        var response = await apiService.PostRawAsync(url, loginRequest);
 
-        if (result != null && !string.IsNullOrEmpty(result.Token))
+        if (response.IsSuccessStatusCode)
         {
-            // Store token and user info in cookies
-            await cookieService.SetCookie("authenticationToken", result.Token!, 43200, true, "Strict");
-            await cookieService.SetCookie("userID", result.ID!, 43200, true, "Strict");
+            var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
 
-            // Clear any existing Authorization headers (important for scoped services)
-            if (httpClient.DefaultRequestHeaders.Contains("Authorization"))
+            if (result != null && !string.IsNullOrEmpty(result.Token))
             {
-                httpClient.DefaultRequestHeaders.Remove("Authorization");
+                await cookieService.SetCookie("authenticationToken", result.Token!, 43200, true, "Strict");
+                await cookieService.SetCookie("userID", result.ID!, 43200, true, "Strict");
+
+                if (httpClient.DefaultRequestHeaders.Contains("Authorization"))
+                    httpClient.DefaultRequestHeaders.Remove("Authorization");
+
+                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result.Token!);
+
+                Navigation.NavigateTo("./");
+                return;
             }
-
-            // Set the new Authorization header
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result.Token!);
-
-            // Navigate to home
-            Navigation.NavigateTo("./");
         }
         else
         {
-            Snackbar.Add("Login failed. Please check your credentials.", Severity.Error);
+            var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+            Snackbar.Add(error?.Message ?? "Login failed. Please try again.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Unexpected error. Please try again.", Severity.Error);
+    }
+
+
+    private async Task ConfirmSignUpAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm your account registration?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await RegisterUserAsync();
+
+            loginField = false;
+            signupField = true;
+
+            ClearFields();
+            await GetUsernameListAsync();
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private string GenerateRandomString(int length)
+    {
+        const string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+        return new string(Enumerable.Range(0, length)
+            .Select(_ => chars[random.Next(chars.Length)])
+            .ToArray());
+    }
+
+    // add user
+    private async Task RegisterUserAsync()
+    {
+        var addUser = new UsersDTO.UserRegistration
+        {
+            ID = GenerateRandomString(20),
+            FirstName = _firstnameValue,
+            LastName = _lastnameValue,
+            Username = $"{_firstnameValue?.Replace(" ", "")}.{_lastnameValue?.Replace(" ", "")}".ToLower(),
+            Affiliation = _affiliationValue,
+            EmailAddress = _emailAddress,
+            ContactNumber = _contactNumber?.Replace(" ", ""),
+            PasswordHash = _passwordValue
+        };
+
+        string url = $"/Authentication/Register";
+        var success = await apiService.PostAsync(url, addUser);
+
+        if (success)
+        {
+            Snackbar.Add($"{_firstnameValue} {_lastnameValue} as a user added successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"Failed to add {_firstnameValue} {_lastnameValue}.", Severity.Error);
         }
     }
 }

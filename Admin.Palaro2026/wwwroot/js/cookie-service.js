@@ -6,7 +6,7 @@
         if (expirationInSeconds > 0) {
             const date = new Date();
             date.setTime(date.getTime() + (expirationInSeconds * 1000));
-            expiresText = "; expires=" + date.toUTCString();
+            expiresText = "; expires=" + date.toDateString();
         }
 
         // Initialize cookie string with the key and value

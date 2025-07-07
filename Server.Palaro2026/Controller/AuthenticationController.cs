@@ -39,25 +39,29 @@ namespace Server.Palaro2026.Controller
         {
             // Hash the password
             var hashedPassword = HashPassword(users.PasswordHash!);
-
-            // Generate username in lowercase
-            string username = $"{users.FirstName?.Replace(" ", "")}.{users.LastName}".ToLower();
-
             var usersDTO = new Users
             {
                 ID = users.ID,
                 FirstName = users.FirstName,
                 LastName = users.LastName,
-                Username = username,
+                Username = users.Username,
+                Affiliation = users.Affiliation,
+                EmailAddress = users.EmailAddress,
+                ContactNumber = users.ContactNumber,
                 PasswordHash = hashedPassword, // Make sure to store the hashed password
                 CreatedAt = DateTime.UtcNow,
-                Active = true,
+                Active = false,
             };
 
             // Check if the user exists before adding
             if (UserExist(users.ID))
             {
-                return Conflict();  // Return a conflict if the user already exists
+                return Conflict();  // User ID already exists
+            }
+
+            if (UsernameExists(users.Username!))
+            {
+                return Conflict(new { message = "Username already exists." });
             }
 
             _context.Users.Add(usersDTO);
@@ -80,6 +84,12 @@ namespace Server.Palaro2026.Controller
         private bool UserExist(string id)
         {
             return _context.Users.Any(e => e.ID == id);
+        }
+
+        // Check if username exists
+        private bool UsernameExists(string username)
+        {
+            return _context.Users.Any(u => u.Username == username);
         }
 
 
@@ -147,9 +157,15 @@ namespace Server.Palaro2026.Controller
                     return Unauthorized(new { message = "Invalid email address or password." });
                 }
 
+                // Check if user is active
+                if (user.Active == false)
+                {
+                    return Unauthorized(new { message = "Account is inactive. Please contact support." });
+                }
+
                 // Update last login timestamp
-                user.LastLogin = DateTime.UtcNow;
-                _context.Users.Update(user); 
+                user.LastLogin = DateTime.Now;
+                _context.Users.Update(user);
                 await _context.SaveChangesAsync();
 
                 // Map Users entity to UserDTO.JWTUserAuthentication.User
@@ -179,5 +195,6 @@ namespace Server.Palaro2026.Controller
                 });
             }
         }
+
     }
 }

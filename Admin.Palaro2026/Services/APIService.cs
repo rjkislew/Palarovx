@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 
 
@@ -29,6 +30,13 @@ public class APIService
         }
         return relativeUrl;
     }
+
+    public async Task<HttpResponseMessage> PostRawAsync<TRequest>(string relativeUrl, TRequest data)
+    {
+        string url = BuildUrl(relativeUrl);
+        return await _httpClient.PostAsJsonAsync(url, data);
+    }
+
 
     public async Task<List<T>?> GetAsync<T>(string relativeUrl)
     {
