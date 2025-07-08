@@ -1,0 +1,356 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@using System.Net.Http.Headers
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="2">
+            <MudItem xs="6">
+                <MudStack Style="width: 100%" AlignItems="AlignItems.Center" Class="pa-3">
+                    <MudFileUpload T="IBrowserFile" FilesChanged="HandleRegionLogoFileUpload">
+                        <ActivatorContent>
+                            <MudBadge Origin="Origin.BottomCenter" Overlap Bordered Content="_regionLogoUploadState" Color="Color.Primary" BadgeClass="pa-2">
+                                <MudImage ObjectFit="ObjectFit.Cover" Width="100" Height="100" Class="rounded-circle border mb-n2 cursor-pointer" Src="@(string.IsNullOrEmpty(_updateRegionLogoValue) ? $"/media/upload-icon.png" : _updateRegionLogoValue)" />
+                            </MudBadge>
+                        </ActivatorContent>
+                    </MudFileUpload>
+                </MudStack>
+            </MudItem>
+            <MudItem xs="6">
+                <MudStack Style="width: 100%" AlignItems="AlignItems.Center" Class="pa-3">
+                    <MudFileUpload T="IBrowserFile" FilesChanged="HandleRegionTeamLogoFileUpload">
+                        <ActivatorContent>
+                            <MudBadge Origin="Origin.BottomCenter" Overlap Bordered Content="_regionTeamLogoUploadState" Color="Color.Primary" BadgeClass="pa-2">
+                                <MudImage ObjectFit="ObjectFit.Cover" Width="100" Height="100" Class="rounded-circle border mb-n2 cursor-pointer" Src="@(string.IsNullOrEmpty(_updateRegionTeamLogoValue) ? $"/media/upload-icon.png" : _updateRegionTeamLogoValue)" />
+                            </MudBadge>
+                        </ActivatorContent>
+                    </MudFileUpload>
+                </MudStack>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField Immediate @bind-Value="_region" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField Immediate @bind-Value="_regionAbbreviation" Margin="Margin.Dense" Label="Abbreviation" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+            <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
+            <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
+                       Disabled="_addSchoolDisabled" OnClick="ConfirmAddRegionAsync">Add</MudButton>
+        </MudStack>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    // JSON storage
+    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
+
+    // Variables
+    private string? _region;
+    private string? _regionAbbreviation;
+    private string? _regionLogoValue;
+    private string? _updateRegionLogoValue;
+    private string? _updateRegionTeamLogoValue;
+    private string _regionLogoUploadState = "Upload region logo";
+    private string _regionTeamLogoUploadState = "Upload region team logo";
+
+
+    // Disable addition button if values are empty
+    private bool _addSchoolDisabled =>
+    _region == null ||
+    _regionAbbreviation == null;
+
+    // DTOs
+    public class SchoolDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSchoolRegionsAsync();
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+
+        _schoolRegions = await apiService.GetAsync<SchoolDTO.SchoolRegions>(url);
+    }
+
+    private async Task HandleRegionLogoFileUpload(IBrowserFile file)
+    {
+        try
+        {
+            // Define the maximum file size (in bytes)
+            const int maxFileSize = 10 * 1024 * 1024; // 10 MB
+
+            // Check if the file size exceeds the maximum allowed
+            if (file.Size > maxFileSize)
+            {
+                Snackbar.Add("File size exceeds the maximum allowed size of 10 MB.", Severity.Error);
+                return;
+            }
+
+            // Validate file type (image only)
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+            var fileExtension = Path.GetExtension(file.Name).ToLower();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                Snackbar.Add("Invalid file type. Only .jpg, .jpeg, .png, and .webp are allowed.", Severity.Error);
+                return;
+            }
+
+            // Open the file stream with the maxFileSize limit
+            using var stream = file.OpenReadStream(maxFileSize);
+
+            // Create a memory stream to store the file in memory
+            using var memoryStream = new MemoryStream();
+
+            // Copy the file data into the memory stream
+            await stream.CopyToAsync(memoryStream);
+
+            // Convert the memory stream to a base64 string for temporary storage
+            var base64File = Convert.ToBase64String(memoryStream.ToArray());
+
+            // Set the temporary variable to the base64 string of the file
+            _updateRegionLogoValue = $"data:{file.ContentType};base64,{base64File}";
+
+            // Optionally display a success message
+            var fileName = Path.GetFileName(file.Name);
+            _regionLogoUploadState = $"Selected: {fileName}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"File upload failed: {ex.Message}");
+            Snackbar.Add($"File upload failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task HandleRegionTeamLogoFileUpload(IBrowserFile file)
+    {
+        try
+        {
+            // Define the maximum file size (in bytes)
+            const int maxFileSize = 10 * 1024 * 1024; // 10 MB
+
+            // Check if the file size exceeds the maximum allowed
+            if (file.Size > maxFileSize)
+            {
+                Snackbar.Add("File size exceeds the maximum allowed size of 10 MB.", Severity.Error);
+                return;
+            }
+
+            // Validate file type (image only)
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+            var fileExtension = Path.GetExtension(file.Name).ToLower();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                Snackbar.Add("Invalid file type. Only .jpg, .jpeg, .png, and .webp are allowed.", Severity.Error);
+                return;
+            }
+
+            // Open the file stream with the maxFileSize limit
+            using var stream = file.OpenReadStream(maxFileSize);
+
+            // Create a memory stream to store the file in memory
+            using var memoryStream = new MemoryStream();
+
+            // Copy the file data into the memory stream
+            await stream.CopyToAsync(memoryStream);
+
+            // Convert the memory stream to a base64 string for temporary storage
+            var base64File = Convert.ToBase64String(memoryStream.ToArray());
+
+            // Set the temporary variable to the base64 string of the file
+            _updateRegionTeamLogoValue = $"data:{file.ContentType};base64,{base64File}";
+
+
+            // Store filename and extension somewhere
+            var fileName = Path.GetFileName(file.Name);
+            _regionTeamLogoUploadState = $"Selected: {fileName}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"File upload failed: {ex.Message}");
+            Snackbar.Add($"File upload failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // Dialog Actions
+    private void ClearFields()
+    {
+        _region = null;
+        _regionAbbreviation = null;
+    }
+
+    private async Task ConfirmAddRegionAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_region}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await AddRegionAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    // Add region
+    private async Task AddRegionAsync()
+    {
+        var addSchool = new SchoolDTO.SchoolRegions
+        {
+            Region = _region,
+            Abbreviation = _regionAbbreviation
+        };
+
+        // Step 1: Add the region first
+        string url = "/Schools/Regions";
+        var success = await apiService.PostAsync(url, addSchool); // ✅ uncommented
+
+        if (!success)
+        {
+            Snackbar.Add($"Failed to add region {_region}", Severity.Error);
+            return;
+        }
+
+        // Step 2: Upload region logo (only after region is created)
+        if (!string.IsNullOrEmpty(_updateRegionLogoValue) && _updateRegionLogoValue.Contains(","))
+        {
+            try
+            {
+                var regionLogoBase64 = _updateRegionLogoValue.Split(',')[1];
+                var regionLogoBytes = Convert.FromBase64String(regionLogoBase64);
+                var regionLogoContent = new ByteArrayContent(regionLogoBytes);
+
+                string fileType;
+                string fileExtension;
+
+                if (_updateRegionLogoValue.Contains("image/webp"))
+                {
+                    fileType = "image/webp";
+                    fileExtension = ".webp";
+                }
+                else if (_updateRegionLogoValue.Contains("image/jpeg"))
+                {
+                    fileType = "image/jpeg";
+                    fileExtension = ".jpg";
+                }
+                else if (_updateRegionLogoValue.Contains("image/png"))
+                {
+                    fileType = "image/png";
+                    fileExtension = ".png";
+                }
+                else
+                {
+                    Snackbar.Add("Unsupported image format.", Severity.Error);
+                    return;
+                }
+
+                regionLogoContent.Headers.ContentType = new MediaTypeHeaderValue(fileType);
+
+                var fileName = $"region_logo{fileExtension}";
+                using var formData = new MultipartFormDataContent();
+                formData.Add(regionLogoContent, "logoFile", fileName);
+
+                var logoUploadUrl = $"/Schools/Regions/RegionLogo/{_region}";
+                var uploadSuccess = await apiService.PutFormAsync(logoUploadUrl, formData);
+
+                if (!uploadSuccess)
+                {
+                    Snackbar.Add($"Region added, but logo upload failed.", Severity.Warning);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Region added, but logo upload threw an error: {ex.Message}", Severity.Warning);
+                return;
+            }
+        }
+
+        // Step 3: Upload region team logo (only after region is created)
+        if (!string.IsNullOrEmpty(_updateRegionTeamLogoValue) && _updateRegionTeamLogoValue.Contains(","))
+        {
+            try
+            {
+                var regionLogoBase64 = _updateRegionTeamLogoValue.Split(',')[1];
+                var regionLogoBytes = Convert.FromBase64String(regionLogoBase64);
+                var regionLogoContent = new ByteArrayContent(regionLogoBytes);
+
+                string fileType;
+                string fileExtension;
+
+                if (_updateRegionTeamLogoValue.Contains("image/webp"))
+                {
+                    fileType = "image/webp";
+                    fileExtension = ".webp";
+                }
+                else if (_updateRegionTeamLogoValue.Contains("image/jpeg"))
+                {
+                    fileType = "image/jpeg";
+                    fileExtension = ".jpg";
+                }
+                else if (_updateRegionTeamLogoValue.Contains("image/png"))
+                {
+                    fileType = "image/png";
+                    fileExtension = ".png";
+                }
+                else
+                {
+                    Snackbar.Add("Unsupported image format.", Severity.Error);
+                    return;
+                }
+
+                regionLogoContent.Headers.ContentType = new MediaTypeHeaderValue(fileType);
+
+                var fileName = $"region_logo{fileExtension}";
+                using var formData = new MultipartFormDataContent();
+                formData.Add(regionLogoContent, "logoFile", fileName);
+
+                var logoUploadUrl = $"/Schools/Regions/TeamLogo/{_region}";
+                var uploadSuccess = await apiService.PutFormAsync(logoUploadUrl, formData);
+
+                if (!uploadSuccess)
+                {
+                    Snackbar.Add($"Region added, but logo upload failed.", Severity.Warning);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Region added, but logo upload threw an error: {ex.Message}", Severity.Warning);
+                return;
+            }
+        }
+
+        Snackbar.Add($"Region {_region} added successfully", Severity.Success);
+    }
+}

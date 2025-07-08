@@ -1,0 +1,170 @@
+﻿@page "/regions"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudGrid Spacing="0">
+    @if (_schoolRegions != null && _schoolRegions.Any())
+    {
+        <MudItem xs="12">
+            <MudStack Row Spacing="0" Justify="Justify.FlexEnd">
+                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddSchoolDialog">Add School</MudButton>
+                <MudDivider Vertical="true" FlexItem="true" />
+                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetSchoolRegionsAsync">Refresh Table</MudButton>
+            </MudStack>
+        </MudItem>
+        <MudItem xs="12">
+            <MudTable Outlined Items="_schoolRegions" Context="school" Virtualize="true" Filter="FilterFunc" Elevation="0">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">Regions</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium" />
+                </ToolBarContent>
+                <ColGroup>
+                    <MudHidden Breakpoint="Breakpoint.Xs">
+                        <col style="width: 20%" />
+                        <col style="width: 20%" />
+                        <col style="width: 35%" />
+                        <col style="width: 20%" />
+                        <col style="width: 5%;" />
+                    </MudHidden>
+                </ColGroup>
+                <HeaderContent>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolRegions, object?>(x => x.Region)">
+                            Team Logo
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolRegions, object?>(x => x.Region)">
+                            Region Logo
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolRegions, object?>(x => x.Region)">
+                            Region
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolRegions, object?>(x => x.Abbreviation)">
+                            Abbreviation
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Team Logo"></MudTd>
+                    <MudTd>
+                        <MudImage Width="75" Height="75" Src="@($"http://palarongpambansa2026.com/attachments/media/region/region_logo/{school.Abbreviation}.webp")"></MudImage>
+                    </MudTd>
+                    <MudTd DataLabel="Region Logo">@school.Region</MudTd>
+                    <MudTd DataLabel="Abbreviation">@school.Abbreviation</MudTd>
+                    <MudTd Style="text-align: center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditRegionDialog(school.ID)" />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.caption">No matching records found.</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudItem>
+    }
+    else
+    {
+        <MudItem xs="12">
+            <MudProgressLinear Indeterminate="true" />
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // JSON storage
+    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
+
+
+    // DTOs
+    public class SchoolDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+
+    // Methods
+    private string _searchString = "";
+
+    private bool FilterFunc(SchoolDTO.SchoolRegions schoolDetails)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return schoolDetails.Region!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               schoolDetails.Abbreviation!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+
+
+    // Dialogs
+    private async Task OpenEditRegionDialog(int selectedID)
+    {
+        var parameter = new DialogParameters<EditRegionDialog>
+        {
+            {x => x.selectedSchoolID, selectedID}
+        };
+        var options = new DialogOptions {CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<EditRegionDialog>("Edit Region", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetSchoolRegionsAsync();
+        }
+    }    
+
+    private async Task OpenAddSchoolDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddRegionDialog>("Add Region", options);
+
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await GetSchoolRegionsAsync();
+        }
+    }
+
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSchoolRegionsAsync();
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+
+        _schoolRegions = await apiService.GetAsync<SchoolDTO.SchoolRegions>(url);
+    }
+}

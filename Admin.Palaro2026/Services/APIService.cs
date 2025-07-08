@@ -153,6 +153,23 @@ public class APIService
         }
     }
 
+    public async Task<bool> PutFormAsync(string relativeUrl, MultipartFormDataContent formData)
+    {
+        string url = BuildUrl(relativeUrl);
+        try
+        {
+            var response = await _httpClient.PutAsync(url, formData);
+            response.EnsureSuccessStatusCode();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+
+
     public async Task<bool> DeleteAsync(string relativeUrl)
     {
         string url = BuildUrl(relativeUrl);

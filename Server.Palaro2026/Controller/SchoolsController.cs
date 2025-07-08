@@ -761,6 +761,156 @@ namespace Server.Palaro2026.Controller
             return CreatedAtAction("GetSchoolRegions", new { id = schoolRegions.ID }, SchoolRegionsDTOMapper(schoolRegionsDTO));
         }
 
+        [HttpPut("Regions/RegionLogo/{region}")]
+        public async Task<IActionResult> UploadRegionLogo(string region, [FromForm] IFormFile? logoFile)
+        {
+            if (logoFile == null || logoFile.Length == 0)
+            {
+                return BadRequest("No logo file uploaded or file is empty.");
+            }
+
+            try
+            {
+                // 1. Find region
+                var regions = await _context.SchoolRegions
+                    .FirstOrDefaultAsync(r => r.Region != null && r.Region.ToLower() == region.ToLower());
+
+                if (regions == null)
+                {
+                    return NotFound($"Region with name '{region}' not found.");
+                }
+
+                // 2. Validate extension
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+                var fileExtension = Path.GetExtension(logoFile.FileName).ToLower();
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    return BadRequest("Invalid logo file type. Only .jpg, .jpeg, .png, and .webp are allowed.");
+                }
+
+                // 3. Validate file size
+                if (logoFile.Length > 5 * 1024 * 1024)
+                {
+                    return BadRequest("Logo file size exceeds the 5 MB limit.");
+                }
+
+                // 4. Path to logos
+                var basePath = @"\\192.168.2.210\pgas_attachment\palaro2026\media\region\region_logo";
+                if (!Directory.Exists(basePath))
+                {
+                    Directory.CreateDirectory(basePath);
+                }
+
+                // 5. Sanitize region name
+                var sanitizedRegionName = string.Concat(regions.Region!.Where(c => !Path.GetInvalidFileNameChars().Contains(c)));
+
+                // 6. Delete any files like Caraga.*
+                var wildcardPattern = $"{sanitizedRegionName}.*";
+                var matchingFiles = Directory.GetFiles(basePath, wildcardPattern);
+                foreach (var file in matchingFiles)
+                {
+                    System.IO.File.Delete(file);
+                }
+
+                // 7. Save new logo
+                var newFileName = $"{sanitizedRegionName}{fileExtension}";
+                var fullPath = Path.Combine(basePath, newFileName);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await logoFile.CopyToAsync(stream);
+                }
+
+                return Ok(new
+                {
+                    message = "Logo uploaded successfully.",
+                    fileName = newFileName,
+                    storagePath = fullPath
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error uploading logo: {ex.Message}");
+            }
+        }
+
+
+
+        [HttpPut("Regions/TeamLogo/{region}")]
+        public async Task<IActionResult> UploadRegionTeamLogo(string region, [FromForm] IFormFile? logoFile)
+        {
+            if (logoFile == null || logoFile.Length == 0)
+            {
+                return BadRequest("No logo file uploaded or file is empty.");
+            }
+
+            try
+            {
+                // 1. Find region
+                var regions = await _context.SchoolRegions
+                    .FirstOrDefaultAsync(r => r.Region != null && r.Region.ToLower() == region.ToLower());
+
+                if (regions == null)
+                {
+                    return NotFound($"Region with name '{region}' not found.");
+                }
+
+                // 2. Validate extension
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+                var fileExtension = Path.GetExtension(logoFile.FileName).ToLower();
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    return BadRequest("Invalid logo file type. Only .jpg, .jpeg, .png, and .webp are allowed.");
+                }
+
+                // 3. Validate file size
+                if (logoFile.Length > 5 * 1024 * 1024)
+                {
+                    return BadRequest("Logo file size exceeds the 5 MB limit.");
+                }
+
+                // 4. Path to logos
+                var basePath = @"\\192.168.2.210\pgas_attachment\palaro2026\media\region\team_logo";
+                if (!Directory.Exists(basePath))
+                {
+                    Directory.CreateDirectory(basePath);
+                }
+
+                // 5. Sanitize region name
+                var sanitizedRegionName = string.Concat(regions.Region!.Where(c => !Path.GetInvalidFileNameChars().Contains(c)));
+
+                // 6. Delete any files like Caraga.*
+                var wildcardPattern = $"{sanitizedRegionName}.*";
+                var matchingFiles = Directory.GetFiles(basePath, wildcardPattern);
+                foreach (var file in matchingFiles)
+                {
+                    System.IO.File.Delete(file);
+                }
+
+                // 7. Save new logo
+                var newFileName = $"{sanitizedRegionName}{fileExtension}";
+                var fullPath = Path.Combine(basePath, newFileName);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await logoFile.CopyToAsync(stream);
+                }
+
+                return Ok(new
+                {
+                    message = "Logo uploaded successfully.",
+                    fileName = newFileName,
+                    storagePath = fullPath
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error uploading logo: {ex.Message}");
+            }
+        }
+
+
+
         [HttpPut("Regions/{id}")] // /api/Schools/Regions/{id}  
         public async Task<IActionResult> PutSchoolRegions(int id, SchoolsDTO.SchoolRegions schoolRegions)
         {
