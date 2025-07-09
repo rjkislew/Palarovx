@@ -1,0 +1,229 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudTextField Immediate @bind-Value="_schoolDivisionValue" Margin="Margin.Dense" OnClearButtonClick="@(() => _selectedSchoolRegionIDValue = null)" Label="Division" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region/Agency" ShrinkLabel
+                               Variant="Variant.Outlined" Clearable>
+                        <MudVirtualize Items="_schoolRegions" Context="region">
+                            <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteSchoolDivisionAsync">Delete</MudButton>
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateSchoolDivisionAsync" Disabled="_editSchoolButtonDisabled">Update</MudButton>
+                </MudStack>
+            </MudStack>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // Passed data from page
+    [Parameter]
+    public int selectedSchoolDivisionID { get; set; }
+
+
+    // JSON storage
+    private List<SchoolDTO.SchoolDivisions>? _schoolDivisions;
+    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
+
+
+    // Variables
+    private string? _dialogHeader;
+    private int? _schoolDivisionIDValue;
+    private string? _schoolDivisionValue;
+    private int? _selectedSchoolRegionIDValue;
+
+    // Disable edit button if values are empty
+    private bool _editSchoolButtonDisabled =>
+    _schoolDivisionValue == null ||
+    _selectedSchoolRegionIDValue == null;
+
+
+    // Load dialog if true
+    private bool? _isLoaded = false;
+
+
+    // DTOs
+
+    public class SchoolDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+
+        public class SchoolDivisions
+        {
+            public int ID { get; set; }
+            public string? Division { get; set; }
+            public int? SchoolRegionID { get; set; }
+        }
+    }
+
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSchoolsDivisionOnDialogOpenAsync(selectedSchoolDivisionID);
+
+        if (_schoolDivisions?.Any() == true)
+        {
+            _isLoaded = true;
+        }
+    }
+
+    private async Task GetSchoolsDivisionOnDialogOpenAsync(int schoolID)
+    {
+        string url = $"/Schools/Divisions?id={schoolID}";
+
+        _schoolDivisions = await apiService.GetAsync<SchoolDTO.SchoolDivisions>(url);
+
+        if (_schoolDivisions != null)
+        {
+            var selectedSchoolDivision = _schoolDivisions.First();
+            // Title
+            _dialogHeader = $"{selectedSchoolDivision.Division}";
+
+            // Data
+            _schoolDivisionIDValue = selectedSchoolDivision.ID;
+            _schoolDivisionValue = selectedSchoolDivision.Division;
+            _selectedSchoolRegionIDValue = selectedSchoolDivision.SchoolRegionID;
+        }
+
+        await GetSchoolRegionsOnDialogOpenAsync();
+    }
+
+    // Load after GetSchoolsOnDialogOpenAsync
+    private async Task GetSchoolRegionsOnDialogOpenAsync()
+    {
+        string url = $"/Schools/Regions";
+
+        _schoolRegions = await apiService.GetAsync<SchoolDTO.SchoolRegions>(url);
+    }
+
+    // Load after GetSchoolRegionsOnDialogOpenAsync
+    private async Task GetSchoolDivisionsAsync()
+    {
+        string url = $"/Schools/Divisions?id={_schoolDivisionIDValue}";
+
+        _schoolDivisions = await apiService.GetAsync<SchoolDTO.SchoolDivisions>(url);
+    }
+
+
+    // Dialog Actions
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task ConfirmDeleteSchoolDivisionAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm deletion of {_schoolDivisionValue}?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await DeleteSchoolAsync();
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private async Task ConfirmUpdateSchoolDivisionAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm changes of {_schoolDivisionValue}?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await UpdateSchoolAsync();
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+
+    // Update School
+    private async Task UpdateSchoolAsync()
+    {
+        if (selectedSchoolDivisionID == 0) return;
+
+        var updateSchoolDivision = new SchoolDTO.SchoolDivisions
+            {
+                ID = selectedSchoolDivisionID,
+                Division = _schoolDivisionValue,
+                SchoolRegionID = _selectedSchoolRegionIDValue
+            };
+
+        string url = $"/Schools/Divisions/{selectedSchoolDivisionID}";
+
+        var success = await apiService.PutAsync(url, updateSchoolDivision);
+
+        if (success)
+        {
+            Snackbar.Add($"Division {_schoolDivisionValue} updated successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"Error updating division  {_schoolDivisionValue}.", Severity.Error);
+        }
+    }
+
+    // Delete School
+    private async Task DeleteSchoolAsync()
+    {
+        if (selectedSchoolDivisionID == 0) return;
+
+        string url = $"/Schools/Divisions/{selectedSchoolDivisionID}";
+
+        var success = await apiService.DeleteAsync(url);
+
+        if (success)
+        {
+            Snackbar.Add($"Division {_schoolDivisionValue} deleted successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"Error deleting division {_schoolDivisionValue}.", Severity.Error);
+        }
+    }
+}

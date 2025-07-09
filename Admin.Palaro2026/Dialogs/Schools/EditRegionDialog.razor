@@ -2,6 +2,7 @@
 @using System.Text.Json
 @using System.Threading.Tasks
 @using System.Text
+@using System.Net.Http.Headers
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject APIService apiService
@@ -11,49 +12,46 @@
 {
     <MudDialog>
         <DialogContent>
-            <MudStack Row>
-                <MudIcon Size="Size.Small" Icon="@Icons.Material.Filled.Edit" />
-                <MudText Typo="Typo.body2">@_dialogHeader</MudText>
-            </MudStack>
-            <MudDivider Class="mb-5" />
             <MudGrid Spacing="2">
-                <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel
-                               Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSchoolDivisionIDValue = null)"
-                               T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSchoolDivisionIDValue = null; await GetSchoolDivisionsAsync(); }))">
-                        <MudVirtualize Items="_schoolRegions" Context="region">
-                            <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
-                        </MudVirtualize>
-                    </MudSelect>
+                <MudItem xs="12">
+                    <MudText Typo="Typo.caption">Only WebP (.webp) files are allowed.</MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudStack Style="width: 100%" AlignItems="AlignItems.Center" Class="pa-3">
+                        <MudFileUpload T="IBrowserFile" FilesChanged="HandleRegionLogoFileUpload">
+                            <ActivatorContent>
+                                <MudBadge Origin="Origin.BottomCenter" Overlap Bordered Content="_regionLogoUploadState" Color="Color.Primary" BadgeClass="pa-2">
+                                    <MudImage ObjectFit="ObjectFit.Cover" Width="100" Height="100" Class="rounded-circle border mb-n2 cursor-pointer" Src="@(string.IsNullOrEmpty(_updateRegionLogoValue) ? $"https://palarongpambansa2026.com/attachments/media/region/region_logo/{selectedSchoolRegion}.webp" : _updateRegionLogoValue)" />
+                                </MudBadge>
+                            </ActivatorContent>
+                        </MudFileUpload>
+                    </MudStack>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudStack Style="width: 100%" AlignItems="AlignItems.Center" Class="pa-3">
+                        <MudFileUpload T="IBrowserFile" FilesChanged="HandleRegionTeamLogoFileUpload">
+                            <ActivatorContent>
+                                <MudBadge Origin="Origin.BottomCenter" Overlap Bordered Content="_regionTeamLogoUploadState" Color="Color.Primary" BadgeClass="pa-2">
+                                    <MudImage ObjectFit="ObjectFit.Cover" Width="100" Height="100" Class="rounded-circle border mb-n2 cursor-pointer" Src="@(string.IsNullOrEmpty(_updateRegionTeamLogoValue) ? $"https://palarongpambansa2026.com/attachments/media/region/team_logo/{selectedSchoolRegion}.webp" : _updateRegionTeamLogoValue)" />
+                                </MudBadge>
+                            </ActivatorContent>
+                        </MudFileUpload>
+                    </MudStack>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division"
-                               HelperText="@(_selectedSchoolRegionIDValue != null && !(_schoolDivisions?.Any() ?? false) ? "No divisions for this office/agency." : null)"
-                               ShrinkLabel Variant="Variant.Outlined" Clearable
-                               Disabled="@(_selectedSchoolRegionIDValue == null || !(_schoolDivisions?.Any() ?? false))">
-                        <MudVirtualize Items="_schoolDivisions" Context="division">
-                            <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
-                        </MudVirtualize>
-                    </MudSelect>
+                    <MudTextField Immediate @bind-Value="_region" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable>
-                        <MudVirtualize Items="_schoolLevels" Context="level">
-                            <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
-                        </MudVirtualize>
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="12" md="6">
-                    <MudTextField @bind-Value="_schoolValue" Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                    <MudTextField Immediate @bind-Value="_regionAbbreviation" Margin="Margin.Dense" Label="Abbreviation" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
                 </MudItem>
             </MudGrid>
         </DialogContent>
         <DialogActions>
             <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
-                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteSchoolAsync">Delete</MudButton>
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteSchoolRegionAsync">Delete</MudButton>
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
-                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateSchoolAsync" Disabled="_editSchoolButtonDisabled">Update</MudButton>
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateSchoolRegionAsync" Disabled="_editSchoolButtonDisabled">Update</MudButton>
                 </MudStack>
             </MudStack>
         </DialogActions>
@@ -76,28 +74,28 @@ else
 
     // Passed data from page
     [Parameter]
-    public int selectedSchoolID { get; set; }
-
+    public int selectedSchoolRegionID { get; set; }
+    [Parameter]
+    public string? selectedSchoolRegion { get; set; }
 
     // JSON storage
-    private List<SchoolDTO.Schools>? _school;
     private List<SchoolDTO.SchoolRegions>? _schoolRegions;
-    private List<SchoolDTO.SchoolDivisions>? _schoolDivisions;
-    private List<SchoolDTO.SchoolLevels>? _schoolLevels;
-
 
     // Variables
     private string? _dialogHeader;
-    private int? _selectedSchoolRegionIDValue;
-    private int? _selectedSchoolDivisionIDValue;
-    private string? _schoolValue;
-    private int? _selectedSchoolLevelIDValue;
+    private string? _region;
+    private string? _regionAbbreviation;
+    private string? _regionLogoValue;
+    private string? _updateRegionLogoValue;
+    private string? _updateRegionTeamLogoValue;
+    private string _regionLogoUploadState = "Upload region logo";
+    private string _regionTeamLogoUploadState = "Upload region team logo";
+
+
+    // Variables
     private bool _editSchoolButtonDisabled =>
-    // Disable addition button if values are empty
-    _selectedSchoolRegionIDValue == null ||
-    _selectedSchoolDivisionIDValue == null ||
-    _selectedSchoolLevelIDValue == null ||
-    string.IsNullOrEmpty(_schoolValue);
+    _region == null ||
+    _regionAbbreviation == null;
 
 
     // Load dialog if true
@@ -107,142 +105,175 @@ else
     // DTOs
     public class SchoolDTO
     {
-        public class Schools
-        {
-            public int ID { get; set; }
-            public string? School { get; set; }
-            public int? SchoolDivisionID { get; set; }
-            public int? SchoolLevelsID { get; set; }
-        }
-
         public class SchoolRegions
         {
             public int ID { get; set; }
             public string? Region { get; set; }
             public string? Abbreviation { get; set; }
         }
-
-        public class SchoolDivisions
-        {
-            public int ID { get; set; }
-            public string? Division { get; set; }
-            public int? SchoolRegionID { get; set; }
-            public virtual SchoolRegions? SchoolRegion { get; set; }
-        }
-
-        public class SchoolLevels
-        {
-            public int ID { get; set; }
-            public string? Level { get; set; }
-        }
     }
+
 
 
     // Initialization
     protected override async Task OnInitializedAsync()
     {
-        await GetSchoolsOnDialogOpenAsync(selectedSchoolID);
+        await GetSchoolsRegionOnDialogOpenAsync(selectedSchoolRegionID);
 
-        if (_school?.Any() == true)
+        if (_schoolRegions?.Any() == true)
         {
             _isLoaded = true;
         }
     }
 
-    private async Task GetSchoolsOnDialogOpenAsync(int schoolID)
+
+    private async Task HandleRegionLogoFileUpload(IBrowserFile file)
     {
-        string url = $"/Schools?id={schoolID}";
-
-        _school = await apiService.GetAsync<SchoolDTO.Schools>(url);
-
-        if (_school != null)
+        try
         {
-            var selectedSchool = _school.First();
-            // Title
-            _dialogHeader = $"{selectedSchool.School}";
+            // Define the maximum file size (in bytes)
+            const int maxFileSize = 10 * 1024 * 1024; // 10 MB
 
-            // Data
-            _selectedSchoolLevelIDValue = selectedSchool.SchoolLevelsID;
-            _selectedSchoolDivisionIDValue = selectedSchool.SchoolDivisionID;
-            _schoolValue = selectedSchool.School;
+            // Check if the file size exceeds the maximum allowed
+            if (file.Size > maxFileSize)
+            {
+                Snackbar.Add("File size exceeds the maximum allowed size of 10 MB.", Severity.Error);
+                return;
+            }
+
+            // Validate file type (image only)
+            var allowedExtensions = new[] { ".webp" };
+            var fileExtension = Path.GetExtension(file.Name).ToLower();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                Snackbar.Add("Invalid file type. Only .webp is allowed.", Severity.Error);
+                return;
+            }
+
+            // Open the file stream with the maxFileSize limit
+            using var stream = file.OpenReadStream(maxFileSize);
+
+            // Create a memory stream to store the file in memory
+            using var memoryStream = new MemoryStream();
+
+            // Copy the file data into the memory stream
+            await stream.CopyToAsync(memoryStream);
+
+            // Convert the memory stream to a base64 string for temporary storage
+            var base64File = Convert.ToBase64String(memoryStream.ToArray());
+
+            // Set the temporary variable to the base64 string of the file
+            _updateRegionLogoValue = $"data:{file.ContentType};base64,{base64File}";
+
+            // Optionally display a success message
+            var fileName = Path.GetFileName(file.Name);
+            _regionLogoUploadState = $"Selected: {fileName}";
         }
-
-        await GetSchoolLevelsOnDialogOpenAsync();
-        await GetSchoolDivisionsOnDialogOpenAsync();
-    }
-
-    // Load after GetSchoolsOnDialogOpenAsync
-    private async Task GetSchoolLevelsOnDialogOpenAsync()
-    {
-        string url = $"/Schools/Levels";
-
-        _schoolLevels = await apiService.GetAsync<SchoolDTO.SchoolLevels>(url);
-    }
-
-    private async Task GetSchoolDivisionsOnDialogOpenAsync()
-    {
-        string url = $"/Schools/Divisions?id={_selectedSchoolDivisionIDValue}";
-
-        _schoolDivisions = await apiService.GetAsync<SchoolDTO.SchoolDivisions>(url);
-
-        if (_schoolDivisions != null && _schoolDivisions.Any())
+        catch (Exception ex)
         {
-            var division = _schoolDivisions.First(); // Store values from the first school as an example
-
-            _selectedSchoolRegionIDValue = division.SchoolRegionID;
+            Console.WriteLine($"File upload failed: {ex.Message}");
+            Snackbar.Add($"File upload failed: {ex.Message}", Severity.Error);
         }
-
-        await GetSchoolRegionsOnDialogOpenAsync();
     }
 
-    private async Task GetSchoolRegionsOnDialogOpenAsync()
+    private async Task HandleRegionTeamLogoFileUpload(IBrowserFile file)
     {
-        string url = "/Schools/Regions";
+        try
+        {
+            // Define the maximum file size (in bytes)
+            const int maxFileSize = 10 * 1024 * 1024; // 10 MB
+
+            // Check if the file size exceeds the maximum allowed
+            if (file.Size > maxFileSize)
+            {
+                Snackbar.Add("File size exceeds the maximum allowed size of 10 MB.", Severity.Error);
+                return;
+            }
+
+            // Validate file type (image only)
+            var allowedExtensions = new[] { ".webp" };
+            var fileExtension = Path.GetExtension(file.Name).ToLower();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                Snackbar.Add("Invalid file type. Only .webp is allowed.", Severity.Error);
+                return;
+            }
+
+            // Open the file stream with the maxFileSize limit
+            using var stream = file.OpenReadStream(maxFileSize);
+
+            // Create a memory stream to store the file in memory
+            using var memoryStream = new MemoryStream();
+
+            // Copy the file data into the memory stream
+            await stream.CopyToAsync(memoryStream);
+
+            // Convert the memory stream to a base64 string for temporary storage
+            var base64File = Convert.ToBase64String(memoryStream.ToArray());
+
+            // Set the temporary variable to the base64 string of the file
+            _updateRegionTeamLogoValue = $"data:{file.ContentType};base64,{base64File}";
+
+
+            // Store filename and extension somewhere
+            var fileName = Path.GetFileName(file.Name);
+            _regionTeamLogoUploadState = $"Selected: {fileName}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"File upload failed: {ex.Message}");
+            Snackbar.Add($"File upload failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task GetSchoolsRegionOnDialogOpenAsync(int schoolRegionID)
+    {
+        string url = $"/Schools/Regions?id={schoolRegionID}";
 
         _schoolRegions = await apiService.GetAsync<SchoolDTO.SchoolRegions>(url);
 
-        await GetSchoolDivisionsAsync();
-    }
+        if (_schoolRegions != null)
+        {
+            var selectedSchoolRegion = _schoolRegions.First();
+            // Title
+            _dialogHeader = $"{selectedSchoolRegion.Region}";
 
-    // Load after GetSchoolRegionsOnDialogOpenAsync
-    private async Task GetSchoolDivisionsAsync()
-    {
-        string url = $"/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
-
-        _schoolDivisions = await apiService.GetAsync<SchoolDTO.SchoolDivisions>(url);
+            _region = selectedSchoolRegion.Region;
+            _regionAbbreviation = selectedSchoolRegion.Abbreviation;
+        }
     }
 
 
     // Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
 
-    private async Task ConfirmDeleteSchoolAsync()
+    private async Task ConfirmDeleteSchoolRegionAsync()
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: $"Do you confirm deletion of {_schoolValue}?",
+            message: $"Do you confirm deletion of {_region}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
         if (result == true)
         {
-            await DeleteSchoolAsync();
+            await DeleteSchoolRegionAsync();
 
             MudDialog?.Close(DialogResult.Ok(true));
         }
     }
 
-    private async Task ConfirmUpdateSchoolAsync()
+    private async Task ConfirmUpdateSchoolRegionAsync()
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: $"Do you confirm changes of {_schoolValue}?",
+            message: $"Do you confirm changes of {_region}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
         if (result == true)
         {
-            await UpdateSchoolAsync();
+            await UpdateSchoolRegionAsync();
 
             MudDialog?.Close(DialogResult.Ok(true));
         }
@@ -250,48 +281,155 @@ else
 
 
     // Update School
-    private async Task UpdateSchoolAsync()
+    private async Task UpdateSchoolRegionAsync()
     {
-        if (selectedSchoolID == 0) return;
+        if (selectedSchoolRegionID == 0) return;
 
-        var updateSchool = new SchoolDTO.Schools
+        var updateSchool = new SchoolDTO.SchoolRegions
             {
-                ID = selectedSchoolID,
-                School = _schoolValue,
-                SchoolDivisionID = _selectedSchoolDivisionIDValue,
-                SchoolLevelsID = _selectedSchoolLevelIDValue
+                ID = selectedSchoolRegionID,
+                Region = _region,
+                Abbreviation = _regionAbbreviation,
             };
 
-        string url = $"/Schools/{selectedSchoolID}";
+        string url = $"/Schools/Regions/{selectedSchoolRegionID}";
 
         var success = await apiService.PutAsync(url, updateSchool);
 
-        if (success)
+        if (!success)
         {
-            Snackbar.Add("School updated successfully.", Severity.Success);
+            Snackbar.Add("Error updating region.", Severity.Error);
         }
-        else
+
+        // Step 2: Upload region logo (only after region is created)
+        if (!string.IsNullOrEmpty(_updateRegionLogoValue) && _updateRegionLogoValue.Contains(","))
         {
-            Snackbar.Add("Error updating school.", Severity.Error);
+            try
+            {
+                var regionLogoBase64 = _updateRegionLogoValue.Split(',')[1];
+                var regionLogoBytes = Convert.FromBase64String(regionLogoBase64);
+                var regionLogoContent = new ByteArrayContent(regionLogoBytes);
+
+                string fileType;
+                string fileExtension;
+
+                if (_updateRegionLogoValue.Contains("image/webp"))
+                {
+                    fileType = "image/webp";
+                    fileExtension = ".webp";
+                }
+                else if (_updateRegionLogoValue.Contains("image/jpeg"))
+                {
+                    fileType = "image/jpeg";
+                    fileExtension = ".jpg";
+                }
+                else if (_updateRegionLogoValue.Contains("image/png"))
+                {
+                    fileType = "image/png";
+                    fileExtension = ".png";
+                }
+                else
+                {
+                    Snackbar.Add("Unsupported image format.", Severity.Error);
+                    return;
+                }
+
+                regionLogoContent.Headers.ContentType = new MediaTypeHeaderValue(fileType);
+
+                var fileName = $"region_logo{fileExtension}";
+                using var formData = new MultipartFormDataContent();
+                formData.Add(regionLogoContent, "logoFile", fileName);
+
+                var logoUploadUrl = $"/Schools/Regions/RegionLogo/{_region}";
+                var uploadSuccess = await apiService.PutFormAsync(logoUploadUrl, formData);
+
+                if (!uploadSuccess)
+                {
+                    Snackbar.Add($"Region added, but logo upload failed.", Severity.Warning);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Region added, but logo upload threw an error: {ex.Message}", Severity.Warning);
+                return;
+            }
         }
+
+        // Step 3: Upload region team logo (only after region is created)
+        if (!string.IsNullOrEmpty(_updateRegionTeamLogoValue) && _updateRegionTeamLogoValue.Contains(","))
+        {
+            try
+            {
+                var regionLogoBase64 = _updateRegionTeamLogoValue.Split(',')[1];
+                var regionLogoBytes = Convert.FromBase64String(regionLogoBase64);
+                var regionLogoContent = new ByteArrayContent(regionLogoBytes);
+
+                string fileType;
+                string fileExtension;
+
+                if (_updateRegionTeamLogoValue.Contains("image/webp"))
+                {
+                    fileType = "image/webp";
+                    fileExtension = ".webp";
+                }
+                else if (_updateRegionTeamLogoValue.Contains("image/jpeg"))
+                {
+                    fileType = "image/jpeg";
+                    fileExtension = ".jpg";
+                }
+                else if (_updateRegionTeamLogoValue.Contains("image/png"))
+                {
+                    fileType = "image/png";
+                    fileExtension = ".png";
+                }
+                else
+                {
+                    Snackbar.Add("Unsupported image format.", Severity.Error);
+                    return;
+                }
+
+                regionLogoContent.Headers.ContentType = new MediaTypeHeaderValue(fileType);
+
+                var fileName = $"region_logo{fileExtension}";
+                using var formData = new MultipartFormDataContent();
+                formData.Add(regionLogoContent, "logoFile", fileName);
+
+                var logoUploadUrl = $"/Schools/Regions/TeamLogo/{_region}";
+                var uploadSuccess = await apiService.PutFormAsync(logoUploadUrl, formData);
+
+                if (!uploadSuccess)
+                {
+                    Snackbar.Add($"Region added, but logo upload failed.", Severity.Warning);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Region added, but logo upload threw an error: {ex.Message}", Severity.Warning);
+                return;
+            }
+        }
+
+        Snackbar.Add("Region updated successfully.", Severity.Success);
     }
 
     // Delete School
-    private async Task DeleteSchoolAsync()
+    private async Task DeleteSchoolRegionAsync()
     {
-        if (selectedSchoolID == 0) return;
+        if (selectedSchoolRegionID == 0) return;
 
-        string url = $"/Schools/{selectedSchoolID}";
+        string url = $"/Schools/Regions/{selectedSchoolRegionID}";
 
         var success = await apiService.DeleteAsync(url);
 
         if (success)
         {
-            Snackbar.Add("School deleted successfully.", Severity.Success);
+            Snackbar.Add("Region deleted successfully.", Severity.Success);
         }
         else
         {
-            Snackbar.Add("Error deleting school.", Severity.Error);
+            Snackbar.Add("Error deleting region.", Severity.Error);
         }
     }
 }

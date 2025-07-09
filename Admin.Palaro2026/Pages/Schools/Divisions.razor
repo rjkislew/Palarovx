@@ -10,19 +10,19 @@
 @inject HttpClient httpClient
 
 <MudGrid Spacing="0">
-    @if (_schoolDetails != null && _schoolDetails.Any())
+    @if (_schoolDivisions != null && _schoolDivisions.Any())
     {
         <MudItem xs="12">
             <MudStack Row Spacing="0" Justify="Justify.FlexEnd">
-                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddSchoolDialog">Add School</MudButton>
+                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddSchoolDivisionDialog">Add Division</MudButton>
                 <MudDivider Vertical="true" FlexItem="true" />
-                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetSchoolDetailsAsync">Refresh Table</MudButton>
+                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetSchoolDivisionsDetailsAsync">Refresh Table</MudButton>
             </MudStack>
         </MudItem>
         <MudItem xs="12">
-            <MudTable Outlined Items="_schoolDetails" Context="school" Virtualize="true" Filter="FilterFunc" Elevation="0">
+            <MudTable Outlined Items="_schoolDivisions" Context="schoolDivision" FixedHeader Height="calc(100vh - 300px)" Virtualize="true" Filter="FilterFunc" Elevation="0">
                 <ToolBarContent>
-                    <MudText Typo="Typo.h6">Schools</MudText>
+                    <MudText Typo="Typo.h6">Divisions</MudText>
                     <MudSpacer />
                     <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
                                   Adornment="Adornment.Start"
@@ -31,50 +31,36 @@
                 </ToolBarContent>
                 <ColGroup>
                     <MudHidden Breakpoint="Breakpoint.Xs">
-                        <col style="width: 30%" />
-                        <col style="width: 20%" />
-                        <col style="width: 20%;" />
-                        <col style="width: 25%;" />
+                        <col style="width: 50%" />
+                        <col style="width: 45%" />
                         <col style="width: 5%;" />
                     </MudHidden>
                 </ColGroup>
                 <HeaderContent>
                     <MudTh>
-                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object?>(x=>x.School)">
-                            School
-                        </MudTableSortLabel>
-                    </MudTh>
-                    <MudTh>
-                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object?>(x=>x.Level)">
-                            School Level
-                        </MudTableSortLabel>
-                    </MudTh>
-                    <MudTh>
-                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object?>(x=>x.Division)">
+                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDivisionsDetails, object?>(x => x.Division)">
                             Division
                         </MudTableSortLabel>
                     </MudTh>
                     <MudTh>
-                        <MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<SchoolDTO.SchoolDetails.Schools, object?>(x=>x.Region)">
+                        <MudTableSortLabel SortBy="new Func<SchoolDTO.SchoolDivisionsDetails, object?>(x => (x.Region, x.Abbreviation))">
                             Region
                         </MudTableSortLabel>
                     </MudTh>
                     <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="School">@school.School</MudTd>
-                    <MudTd DataLabel="School Level">@school.Level</MudTd>
-                    <MudTd DataLabel="Division">@school.Division</MudTd>
-                    <MudTd DataLabel="Region">@school.Region (@school.Abbreviation)</MudTd>
+                    <MudTd DataLabel="Division">@schoolDivision.Division</MudTd>
+                    <MudTd DataLabel="Region">@schoolDivision.Region (@schoolDivision.Abbreviation)</MudTd>
                     <MudTd Style="text-align: center">
-                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditSchoolDialog(school.ID)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditSchoolDivisionDialog(schoolDivision.ID)" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent>
                     <MudText Typo="Typo.caption">No matching records found.</MudText>
                 </NoRecordsContent>
                 <PagerContent>
-                    <MudTablePager />
+                    <MudTablePager/>
                 </PagerContent>
             </MudTable>
         </MudItem>
@@ -94,23 +80,19 @@
 
 
     // JSON storage
-    private List<SchoolDTO.SchoolDetails.Schools>? _schoolDetails;
+    private List<SchoolDTO.SchoolDivisionsDetails>? _schoolDivisions;
 
 
     // DTOs
     public class SchoolDTO
     {
-        public class SchoolDetails
+        public class SchoolDivisionsDetails
         {
-            public class Schools
-            {
-                public int ID { get; set; }
-                public string? School { get; set; }
-                public string? Level { get; set; }
-                public string? Division { get; set; }
-                public string? Region { get; set; }
-                public string? Abbreviation { get; set; }
-            }
+            public int ID { get; set; }
+            public string? Division { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
         }
     }
 
@@ -118,47 +100,47 @@
     // Methods
     private string _searchString = "";
 
-    private bool FilterFunc(SchoolDTO.SchoolDetails.Schools schoolDetails)
+    private bool FilterFunc(SchoolDTO.SchoolDivisionsDetails schoolDivisions)
     {
         if (string.IsNullOrWhiteSpace(_searchString))
             return true;
-        return schoolDetails.School!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-               schoolDetails.Division!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-               schoolDetails.Region!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+        return schoolDivisions.Division!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) || 
+               schoolDivisions.Region!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) || 
+               schoolDivisions.Abbreviation!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
     }
 
 
     // Dialogs
-    private async Task OpenEditSchoolDialog(int selectedID)
+    private async Task OpenEditSchoolDivisionDialog(int selectedID)
     {
-        var parameter = new DialogParameters<EditSchoolDialog>
+        var parameter = new DialogParameters<EditDivisionDialog>
         {
-            {x => x.selectedSchoolID, selectedID}
+            {x => x.selectedSchoolDivisionID, selectedID}
         };
         var options = new DialogOptions {CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
 
-        var dialog = await DialogService.ShowAsync<EditSchoolDialog>("Edit School", parameter, options);
+        var dialog = await DialogService.ShowAsync<EditDivisionDialog>("Edit Divsion", parameter, options);
 
         var result = await dialog.Result;
 
         // Check if the dialog was closed with a positive result (e.g., "OK")
         if (!result!.Canceled)
         {
-            await GetSchoolDetailsAsync();
+            await GetSchoolDivisionsDetailsAsync();
         }
     }    
 
-    private async Task OpenAddSchoolDialog()
+    private async Task OpenAddSchoolDivisionDialog()
     {
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
 
-        var dialog = await DialogService.ShowAsync<AddSchoolDialog>("Add School", options);
+        var dialog = await DialogService.ShowAsync<AddDivisionDialog>("Add Division", options);
 
         var result = await dialog.Result;
 
         if (!result!.Canceled)
         {
-            await GetSchoolDetailsAsync();
+            await GetSchoolDivisionsDetailsAsync();
         }
     }
 
@@ -166,13 +148,13 @@
     // Initialization
     protected override async Task OnInitializedAsync()
     {
-        await GetSchoolDetailsAsync();
+        await GetSchoolDivisionsDetailsAsync();
     }
 
-    private async Task GetSchoolDetailsAsync()
+    private async Task GetSchoolDivisionsDetailsAsync()
     {
-        string url = "/Schools/Details";
+        string url = "/Schools/Divisions/Details";
 
-        _schoolDetails = await apiService.GetAsync<SchoolDTO.SchoolDetails.Schools>(url);
+        _schoolDivisions = await apiService.GetAsync<SchoolDTO.SchoolDivisionsDetails>(url);
     }
 }

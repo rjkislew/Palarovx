@@ -65,6 +65,15 @@ public class SchoolsDTO
         public int? SchoolRegionID { get; set; }
     }
 
+    public class SchoolDivisionsDetails
+    {
+        public int ID { get; set; }
+        public string? Division { get; set; }
+        public int? SchoolRegionID { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
     public class SchoolLevels
     {
         public int ID { get; set; }

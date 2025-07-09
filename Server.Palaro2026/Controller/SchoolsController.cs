@@ -417,6 +417,31 @@ namespace Server.Palaro2026.Controller
 
         // ------------------------------------------------------------------------------------------------------------------
 
+        // School Divisions view
+
+        [HttpGet("Divisions/Details")] // /api/Schools/Divisions/Details
+        public async Task<ActionResult<IEnumerable<SchoolsDTO.SchoolDivisionsDetails>>> GetSchoolDivisionsDetails()
+        {
+            var query = _context.SchoolDivisions
+                .Include(sd => sd.SchoolRegion)
+                .AsQueryable();
+
+            var result = await query
+                .AsNoTracking()
+                .Select(x => new SchoolsDTO.SchoolDivisionsDetails
+                {
+                    ID = x.ID,
+                    Division = x.Division,
+                    SchoolRegionID = x.SchoolRegionID,
+                    Region = x.SchoolRegion != null ? x.SchoolRegion.Region : null,
+                    Abbreviation = x.SchoolRegion != null ? x.SchoolRegion.Abbreviation : null
+                })
+                .ToListAsync();
+
+            return Ok(result);
+        }
+
+
         // School Divisions REST methods
 
         // Mapping SchoolDivisions entity to SchoolsDTO.SchoolDivisions
