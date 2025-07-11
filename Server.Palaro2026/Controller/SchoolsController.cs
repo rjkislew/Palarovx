@@ -806,11 +806,11 @@ namespace Server.Palaro2026.Controller
                 }
 
                 // 2. Validate extension
-                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+                var allowedExtensions = new[] { ".webp" };
                 var fileExtension = Path.GetExtension(logoFile.FileName).ToLower();
                 if (!allowedExtensions.Contains(fileExtension))
                 {
-                    return BadRequest("Invalid logo file type. Only .jpg, .jpeg, .png, and .webp are allowed.");
+                    return BadRequest("Invalid logo file type. Only .webp is allowed.");
                 }
 
                 // 3. Validate file size
@@ -881,11 +881,11 @@ namespace Server.Palaro2026.Controller
                 }
 
                 // 2. Validate extension
-                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+                var allowedExtensions = new[] { ".webp" };
                 var fileExtension = Path.GetExtension(logoFile.FileName).ToLower();
                 if (!allowedExtensions.Contains(fileExtension))
                 {
-                    return BadRequest("Invalid logo file type. Only .jpg, .jpeg, .png, and .webp are allowed.");
+                    return BadRequest("Invalid logo file type. Only .webp is allowed.");
                 }
 
                 // 3. Validate file size

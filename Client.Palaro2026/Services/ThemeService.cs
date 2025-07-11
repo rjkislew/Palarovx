@@ -1,6 +1,7 @@
 ﻿using Microsoft.JSInterop;
 using System;
 using System.Threading.Tasks;
+using static MudBlazor.Colors;
 
 namespace Client.Palaro2026.Services
 {
@@ -10,27 +11,19 @@ namespace Client.Palaro2026.Services
 
         public event Action? OnThemeChanged;
 
-        public bool? IsDarkMode { get; private set; } = null;
-        public bool UserSelectedTheme { get; private set; } = false;
+        public bool IsDarkMode { get; set; }
 
         public async Task LoadThemePreference()
         {
-            var storedValue = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "darkMode");
+            var storedValue = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "isDarkMode");
 
             if (!string.IsNullOrEmpty(storedValue) && storedValue != "null")
             {
                 IsDarkMode = storedValue switch
                 {
                     "true" => true,
-                    "false" => false,
-                    _ => null
+                    "false" => false
                 };
-                UserSelectedTheme = true;
-            }
-            else
-            {
-                IsDarkMode = null;
-                UserSelectedTheme = false;
             }
 
             NotifyStateChanged();
@@ -40,15 +33,20 @@ namespace Client.Palaro2026.Services
         {
             IsDarkMode = IsDarkMode switch
             {
-                null => true,   // Auto → Dark
                 true => false,  // Dark → Light
-                false => null   // Light → Auto
+                false => true   // Light → Auto
             };
 
-            UserSelectedTheme = IsDarkMode != null;
+            var value = IsDarkMode.ToString().ToLower();
+            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "isDarkMode", value);
 
-            var value = IsDarkMode?.ToString().ToLower() ?? "null";
-            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "darkMode", value);
+            NotifyStateChanged();
+        }
+
+        public async Task SystemThemeModeAsync(bool value)
+        {
+            IsDarkMode = value;
+            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "isDarkMode", value);
 
             NotifyStateChanged();
         }

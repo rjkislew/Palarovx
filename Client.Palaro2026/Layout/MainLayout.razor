@@ -10,7 +10,7 @@
 @inject FeaturesUnlockingService featuresUnlockingService
 
 <!-- Required -->
-<MudThemeProvider @ref="_mudThemeProvider" Theme="_palaroTheme" DefaultScrollbar="true" IsDarkMode="@(themeService.IsDarkMode ?? false)" />
+<MudThemeProvider @ref="_mudThemeProvider" Theme="_palaroTheme" DefaultScrollbar="true" IsDarkMode="@(themeService.IsDarkMode)" />
 <MudPopoverProvider />
 
 <!-- Required for dialogs, tooltips, and popovers -->
@@ -45,20 +45,28 @@
             <MudStack Row AlignItems="AlignItems.Center" Spacing="0">
 
                 <!-- Icon button for unlocking features -->
-                <MudIconButton OnClick="@(featuresUnlockingService.IsUnlocked? OpenLockFeaturesDialog : OpenUnlockFeaturesDialog)"
-                               Icon="@(featuresUnlockingService.IsUnlocked ? Icons.Material.Filled.Lock : Icons.Material.Filled.LockOpen)" />
-                               
+                <MudTooltip Arrow Text="Unlock Features">
+                    <MudIconButton OnClick="@(featuresUnlockingService.IsUnlocked? OpenLockFeaturesDialog : OpenUnlockFeaturesDialog)"
+                                   Icon="@(featuresUnlockingService.IsUnlocked ? Icons.Material.Filled.Lock : Icons.Material.Filled.LockOpen)" />
+                </MudTooltip>
+
                 <!-- Online grocery store link (Hatod) -->
-                <MudIconButton Icon="@Icons.Material.Filled.LocalGroceryStore" Href="https://serve.pgas.ph/hatud" Target="_Blank" />
+                <MudTooltip Arrow Text="Delivery Service">
+                    <MudIconButton Icon="@Icons.Material.Filled.LocalGroceryStore" Href="https://serve.pgas.ph/hatud" Target="_Blank" />
+                </MudTooltip>
 
                 <!-- Conditional install button, only shown if the app is not installed as a PWA -->
                 @if (_showInstallButton)
                 {
-                    <MudIconButton OnClick="@InstallApp" Icon="@Icons.Material.Filled.Download" />
+                    <MudTooltip Arrow Text="Download App">
+                        <MudIconButton OnClick="@InstallApp" Icon="@Icons.Material.Filled.Download" />
+                    </MudTooltip>
                 }
 
                 <!-- Icon button for toggling dark mode -->
-                <MudIconButton OnClick="ToggleDarkMode" Icon="@GetThemeIcon()" />
+                <MudTooltip Arrow Text="@GetThemeTooltipDescription()">
+                    <MudIconButton OnClick="ToggleDarkMode" Icon="@GetThemeIcon()" />
+                </MudTooltip>
             </MudStack>
 
         </MudAppBar>
@@ -85,15 +93,6 @@
                 <MudIconButton OnClick="@(featuresUnlockingService.IsUnlocked? OpenLockFeaturesDialog : OpenUnlockFeaturesDialog)"
                                Icon="@(featuresUnlockingService.IsUnlocked ? Icons.Material.Filled.Lock : Icons.Material.Filled.LockOpen)" />
 
-                <!-- Online grocery store link (Hatod) -->
-                <MudIconButton Icon="@Icons.Material.Filled.LocalGroceryStore" Href="https://serve.pgas.ph/hatud" Target="_Blank" />
-
-                <!-- Conditional install button, only shown if the app is not installed as a PWA -->
-                @if (_showInstallButton)
-                {
-                    <MudIconButton OnClick="@InstallApp" Icon="@Icons.Material.Filled.Download" />
-                }
-
                 <!-- Icon button for toggling dark mode -->
                 <MudIconButton OnClick="ToggleDarkMode" Icon="@GetThemeIcon()" />
             </MudStack>
@@ -115,7 +114,20 @@
 
             <!-- Navigation menu inside the drawer -->
             <MudDrawerContainer Class="mt-3">
-                <NavigationMenu />
+                <MudStack>
+                    <NavigationMenu />
+                    <MudDivider />
+                    <MudNavMenu Rounded>
+                        <MudStack>
+                            <MudNavLink Ripple="false" Href="https://serve.pgas.ph/hatud" Match="NavLinkMatch.All">Hatud (Delivery Service)</MudNavLink>
+                            @if (_showInstallButton)
+                            {
+                                <MudNavLink Ripple="false" OnClick="@InstallApp" Match="NavLinkMatch.All">Download App</MudNavLink>
+                            }
+                            <MudNavLink Ripple="false" Href="./policies" Match="NavLinkMatch.All">Policies</MudNavLink>
+                        </MudStack>
+                    </MudNavMenu>
+                </MudStack>
             </MudDrawerContainer>
         </MudDrawer>
     </MudHidden>
@@ -140,67 +152,73 @@
     // Flag to control the visibility of the install button
     private bool _showInstallButton = false;
 
-    // Flag to indicate if a new version is available
-    private bool _newVersionAvailable = false;
+    // Flag to indicate if the system preference mode is active
+    private bool _systemPreferenceMode;
 
 
     protected override async Task OnInitializedAsync()
     {
-        // Check if the app is running in a PWA context and register for update notifications
-        await RegisterForUpdateAvailableNotification();
-
         // remove this method if you don't want to unlock features on initialization or when governor cane is done checking
-
         //await featuresUnlockingService.UnlockFeaturesAsync(); // Ensure features are unlocked on initialization
 
+        // Handle system preferred theme from localStorage
+        var systemPreferred = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "systemPreferred");
+
+        if (string.IsNullOrEmpty(systemPreferred))
+        {
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "systemPreferred", "true");
+            _systemPreferenceMode = true;
+        }
+        else
+        {
+            _systemPreferenceMode = systemPreferred.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (_systemPreferenceMode)
+        {
+            await _mudThemeProvider.WatchSystemDarkModeAsync(OnSystemDarkModeChanged);
+        }
+        else
+        {
+            var darkModeValue = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "isDarkMode");
+            var isDark = darkModeValue?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+            themeService.IsDarkMode = isDark;
+            await themeService.SystemThemeModeAsync(isDark);
+        }
+
+
+        // Subscribe to theme and feature change events
         themeService.OnThemeChanged += StateHasChanged;
         featuresUnlockingService.OnLockChanged += StateHasChanged;
+
+        // Load user's theme preference
         await themeService.LoadThemePreference();
 
-        // Check if the app is running in standalone mode (PWA installed)
+        // Check PWA installation status
         var isStandalone = await JSRuntime.InvokeAsync<bool>("pwaHelper.isRunningStandalone");
-
         if (isStandalone)
         {
-            _showInstallButton = false; // Hide the button if the app is in standalone mode
-
-            StateHasChanged(); // Trigger a re-render to update the UI
+            _showInstallButton = false;
         }
         else
         {
             var canInstall = await JSRuntime.InvokeAsync<bool>("pwaHelper.isInstallPromptAvailable");
-
-            _showInstallButton = canInstall; // Show the button if install is available
-
-            StateHasChanged(); // Trigger a re-render to update the UI
+            _showInstallButton = canInstall;
         }
 
-        await CheckFeaturesUnlocked(); // Check if features are unlocked
-        await CheckNoticeAgreed(); // Check if notice is agreed
+        // Initial checks
+        await CheckFeaturesUnlocked();
+        await CheckNoticeAgreed();
 
         if (_isNoticeAgreed != true)
         {
-            await OpenNoticeDialog(); // Check if notice is agreed
+            await OpenNoticeDialog();
         }
 
-        StateHasChanged(); // Trigger a re-render after state change
+        StateHasChanged(); // Trigger UI update
     }
 
 
-
-
-    // Method to check if features are unlocked
-    private async Task CheckFeaturesUnlocked()
-    {
-        await featuresUnlockingService.LoadFromLocalStorageAsync();
-    }
-
-    // Method to check if the notice is agreed
-    private async Task CheckNoticeAgreed()
-    {
-        var isNoticeAgreedString = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "agreeNotice");
-        _isNoticeAgreed = bool.TryParse(isNoticeAgreedString, out var result) && result;
-    }
 
 
 
@@ -211,31 +229,98 @@
         await JSRuntime.InvokeVoidAsync("pwaHelper.installApp");
     }
 
+
+
+    // <summary>
+    // Method to handle the dark mode toggle
+    // This methods toggles between system preference, manual dark mode, and manual light mode.
+    // </summary>
+
+    // Method to handle system dark mode changes
+    private async Task OnSystemDarkModeChanged(bool newValue)
+    {
+        themeService.IsDarkMode = newValue;
+        await themeService.SystemThemeModeAsync(newValue);
+    }
+
     // Dark mode toggle method
     private async Task ToggleDarkMode()
     {
-        await themeService.ToggleDarkModeAsync();
+        if (_systemPreferenceMode)
+        {
+            // Step 1: System → Manual Dark
+            _systemPreferenceMode = false;
+            themeService.IsDarkMode = true;
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "systemPreferred", "false");
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "isDarkMode", "true");
+            await themeService.SystemThemeModeAsync(true);
+        }
+        else if (themeService.IsDarkMode)
+        {
+            // Step 2: Manual Dark → Manual Light
+            themeService.IsDarkMode = false;
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "isDarkMode", "false");
+            await themeService.SystemThemeModeAsync(false);
+        }
+        else
+        {
+            // Step 3: Manual Light → System
+            _systemPreferenceMode = true;
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "systemPreferred", "true");
+            await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "isDarkMode");
+
+            // 🔽 Get the current system theme mode immediately
+            var isSystemDark = await _mudThemeProvider.GetSystemPreference();
+            themeService.IsDarkMode = isSystemDark;
+            await themeService.SystemThemeModeAsync(isSystemDark);
+
+            // 🔽 Then start watching for changes
+            await _mudThemeProvider.WatchSystemDarkModeAsync(OnSystemDarkModeChanged);
+        }
+
+        StateHasChanged();
     }
 
+
+
+    // Get icon based on theme mode
     private string GetThemeIcon()
     {
-        if (!themeService.UserSelectedTheme)
-            return Icons.Material.Filled.AutoMode;
+        return _systemPreferenceMode
+            ? Icons.Material.Filled.AutoMode
+            : themeService.IsDarkMode
+                ? Icons.Material.Filled.DarkMode
+                : Icons.Material.Filled.LightMode;
+    }
 
-        return themeService.IsDarkMode switch
-        {
-            true => Icons.Material.Filled.DarkMode,
-            false => Icons.Material.Filled.LightMode,
-            _ => Icons.Material.Filled.Help // Fallback if something goes wrong
-        };
+    // Get tooltip text for current theme mode
+    private string GetThemeTooltipDescription()
+    {
+        return _systemPreferenceMode
+            ? "System preference mode"
+            : themeService.IsDarkMode
+                ? "Dark mode"
+                : "Light mode";
     }
 
 
 
 
-    // Dialog opening methods
 
-    // Notice dialog
+
+    // <summary>
+    // Dialog opening methods
+    // These methods handle the opening of various dialogs in the application.
+    // </summary>
+
+    // Method to check if the notice is agreed
+    private async Task CheckNoticeAgreed()
+    {
+        var isNoticeAgreedString = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "agreeNotice");
+        _isNoticeAgreed = bool.TryParse(isNoticeAgreedString, out var result) && result;
+    }
+
+    // Method to open the notice dialog
     private async Task OpenNoticeDialog()
     {
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, NoHeader = true };
@@ -245,10 +330,26 @@
         var result = await dialog.Result;
     }
 
+
+
+
+
+
+    // <summary>
+    // Lock features dialog
+    // This method opens a confirmation dialog to lock features.
+    // </summary>
+
+    // Method to check if features are unlocked
+    private async Task CheckFeaturesUnlocked()
+    {
+        await featuresUnlockingService.LoadFromLocalStorageAsync();
+    }
+
     // Unlock features dialog
     private async Task OpenUnlockFeaturesDialog()
     {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true, NoHeader = true};
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true, NoHeader = true };
 
         var dialog = await dialogService.ShowAsync<UnlockFeatures>("Unlock", options);
 
@@ -260,7 +361,7 @@
         }
     }
 
-    // Lock features dialog
+    // Method to open the lock features confirmation dialog
     private async Task OpenLockFeaturesDialog()
     {
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
@@ -280,36 +381,38 @@
 
 
 
-
+    // <summary>
     // Define the Palaro 2026 theme
+    // This theme is designed to be visually appealing and accessible, with a focus on usability.
+    // </summary>
     private MudTheme _palaroTheme = new MudTheme()
     {
         PaletteLight = new PaletteLight()
         {
-            Dark = Colors.Gray.Darken4,
-            White = Colors.Gray.Lighten5,
+            Dark = "#121212",
+            White = "#FFFFFF",
             Primary = "1E4CA1",
             Secondary = "EBB94D",
             Tertiary = "BA3535",
-            ActionDefault = Colors.Gray.Darken4,
-            AppbarBackground = Colors.Shades.White,
-            AppbarText = Colors.Shades.Black,
-            TextPrimary = Colors.Shades.Black,
+            ActionDefault = "#121212",
+            AppbarBackground = "#FFFFFF",
+            AppbarText = "#121212",
+            TextPrimary = "#121212",
         },
         PaletteDark = new PaletteDark()
         {
-            Dark = Colors.Gray.Lighten5,
-            White = Colors.Shades.Black,
+            Dark = "#FFFFFF",
+            White = "#121212",
             Primary = "7099E6",
             Secondary = "F0D498",
             Tertiary = "E77A7A",
-            Background = Colors.Shades.Black,
-            Surface = Colors.Shades.Black,
-            DrawerBackground = Colors.Shades.Black,
-            ActionDefault = Colors.Gray.Lighten5,
-            AppbarBackground = Colors.Shades.Black,
-            AppbarText = Colors.Gray.Lighten5,
-            TextPrimary = Colors.Shades.White,
+            Background = "#121212",
+            Surface = "#121212",
+            DrawerBackground = "#121212",
+            ActionDefault = "#FFFFFF",
+            AppbarBackground = "#121212",
+            AppbarText = "#FFFFFF",
+            TextPrimary = "#FFFFFF",
         },
         LayoutProperties = new LayoutProperties()
         {
@@ -401,41 +504,5 @@
     private void ToggleDrawer()
     {
         _isDrawOpen = !_isDrawOpen;
-    }
-
-
-    // Register for update available notification
-    private async Task RegisterForUpdateAvailableNotification()
-    {
-        await JSRuntime.InvokeAsync<object>(
-            identifier: "registerForUpdateAvailableNotification",
-            DotNetObjectReference.Create(this),
-            nameof(OnUpdateAvailable));
-    }
-
-    [JSInvokable(nameof(OnUpdateAvailable))]
-    public Task OnUpdateAvailable()
-    {
-        _newVersionAvailable = true;
-
-        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomCenter;
-        Snackbar.Add("A new version is available.", Severity.Info, config =>
-        {
-            config.RequireInteraction = true; // Prevent auto-dismiss
-            config.ShowCloseIcon = false;     // Hide close icon
-            config.VisibleStateDuration = int.MaxValue; // Keeps snackbar indefinitely
-
-            config.Action = "Update";
-            config.ActionColor = Color.Primary;
-            config.OnClick = snackbar =>
-            {
-                // Reload the page to get the latest version
-                JSRuntime.InvokeVoidAsync("location.reload", true);
-                return Task.CompletedTask;
-            };
-        });
-
-        StateHasChanged();
-        return Task.CompletedTask;
     }
 }

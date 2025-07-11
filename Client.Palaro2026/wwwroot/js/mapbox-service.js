@@ -21,15 +21,18 @@ function sendVenueToBlazor(id) {
 }
 
 // Map initialization
-window.initializeMap = (containerId, token, markers) => {
+window.initializeMap = (containerId, token, markers, isDarkMode) => {
     mapboxgl.accessToken = token;
+
+    const styleUrl = isDarkMode
+        ? 'mapbox://styles/mapbox/dark-v11'
+        : 'mapbox://styles/mapbox/light-v11';
 
     window.map = new mapboxgl.Map({
         container: containerId,
-        style: 'mapbox://styles/mapbox/outdoors-v12',
+        style: styleUrl,
         center: sportsComplex,
         zoom: 9,
-        textColor: "#ffffff",
         antialias: true
     });
 
