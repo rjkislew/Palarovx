@@ -188,11 +188,17 @@ public partial class Palaro2026Context : DbContext
         {
             entity.HasKey(e => e.ID).HasName("PK__News__3214EC27B5C04219");
 
+            entity.Property(e => e.ID)
+                .HasMaxLength(20)
+                .IsUnicode(false);
             entity.Property(e => e.AuthorID)
                 .HasMaxLength(20)
                 .IsUnicode(false);
             entity.Property(e => e.Content).IsUnicode(false);
-            entity.Property(e => e.DatePosted).HasColumnType("datetime");
+            entity.Property(e => e.DateCreated).HasColumnType("datetime");
+            entity.Property(e => e.DatePublished).HasColumnType("datetime");
+            entity.Property(e => e.Excerpt).IsUnicode(false);
+            entity.Property(e => e.Title).IsUnicode(false);
 
             entity.HasOne(d => d.Author).WithMany(p => p.News)
                 .HasForeignKey(d => d.AuthorID)
@@ -205,10 +211,10 @@ public partial class Palaro2026Context : DbContext
 
         modelBuilder.Entity<NewsCategories>(entity =>
         {
-            entity.Property(e => e.ID).ValueGeneratedNever();
             entity.Property(e => e.Category)
                 .HasMaxLength(50)
                 .IsUnicode(false);
+            entity.Property(e => e.Description).IsUnicode(false);
         });
 
         modelBuilder.Entity<ProfileCoaches>(entity =>

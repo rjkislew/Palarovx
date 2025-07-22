@@ -1,0 +1,193 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@using System.Net.Http.Headers
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudTextField Immediate @bind-Value="_category" Margin="Margin.Dense" Label="Category" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField Immediate @bind-Value="_description" AutoGrow Lines="3" Margin="Margin.Dense" Label="Description" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteNewsCategoryAsync">Delete</MudButton>
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateNewsCategoryAsync" Disabled="_editSchoolButtonDisabled">Update</MudButton>
+                </MudStack>
+            </MudStack>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // Passed data from page
+    [Parameter]
+    public int selectedNewsCategoryID { get; set; }
+    [Parameter]
+    public string? selectedSchoolRegion { get; set; }
+
+    // JSON storage
+    private List<NewsDTO.NewsCategories>? _newsCategories;
+
+    // Variables
+    private string? _category;
+    private string? _description;
+
+
+    // Variables
+    private bool _editSchoolButtonDisabled =>
+    _category == null ||
+    _description == null;
+
+
+    // Load dialog if true
+    private bool? _isLoaded = false;
+
+
+    // DTOs
+    public class NewsDTO
+    {
+        public class NewsCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+            public string? Description { get; set; }
+        }
+    }
+
+
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetNewsCategoriesOnDialogOpenAsync(selectedNewsCategoryID);
+
+        if (_newsCategories?.Any() == true)
+        {
+            _isLoaded = true;
+        }
+    }
+
+    private async Task GetNewsCategoriesOnDialogOpenAsync(int newsCategoriyID)
+    {
+        string url = $"/News/Categories?id={newsCategoriyID}";
+
+        _newsCategories = await apiService.GetAsync<NewsDTO.NewsCategories>(url);
+
+        if (_newsCategories != null)
+        {
+            var selectedNewsCategory = _newsCategories.First();
+            // Title
+            _category = $"{selectedNewsCategory.Category}";
+
+            _description = selectedNewsCategory.Description;
+        }
+    }
+
+
+    // Dialog Actions
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task ConfirmDeleteNewsCategoryAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm deletion of {_category}?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await DeleteNewsCategoryAsync();
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private async Task ConfirmUpdateNewsCategoryAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm changes of {_category}?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await UpdateNewsCategoryAsync();
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+
+    // Update School
+    private async Task UpdateNewsCategoryAsync()
+    {
+        if (selectedNewsCategoryID == 0) return;
+
+        var updateSchool = new NewsDTO.NewsCategories
+        {
+            ID = selectedNewsCategoryID,
+            Category = _category,
+            Description = _description,
+        };
+
+        string url = $"/News/Categories/{selectedNewsCategoryID}";
+
+        var success = await apiService.PutAsync(url, updateSchool);
+
+        if (!success)
+        {
+            Snackbar.Add("Error updating news category.", Severity.Error);
+        }
+
+        Snackbar.Add("News category updated successfully.", Severity.Success);
+    }
+
+    // Delete School
+    private async Task DeleteNewsCategoryAsync()
+    {
+        if (selectedNewsCategoryID == 0) return;
+
+        string url = $"/News/Categories/{selectedNewsCategoryID}";
+
+        var success = await apiService.DeleteAsync(url);
+
+        if (success)
+        {
+            Snackbar.Add("News category deleted successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Error deleting news category.", Severity.Error);
+        }
+    }
+}

@@ -41,6 +41,30 @@ window.initializeMap = (containerId, token, markers, isDarkMode) => {
     setupMapLayers(geojson);
     setupMapEvents();
 };
+window.refreshMapStyle = function (isDarkMode) {
+    const styleUrl = isDarkMode
+        ? 'mapbox://styles/mapbox/dark-v11'
+        : 'mapbox://styles/mapbox/light-v11';
+
+    if (window.map) {
+        window.map.setStyle(styleUrl);
+
+        window.map.on('style.load', () => {
+            // Re-add layers and markers
+            if (window.markers) {
+                window.markers.forEach(marker => marker.addTo(window.map));
+            }
+
+            if (window.lastGeoJSON) {
+                setupMapLayers(window.lastGeoJSON);
+            }
+
+            setupMapControls();
+            setupMapEvents();
+        });
+    }
+};
+
 
 // Helper functions for map initialization
 function createGeoJSON(markers) {

@@ -1,0 +1,191 @@
+﻿@page "/news"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudGrid Spacing="0">
+    @if (_newsContents != null && _newsContents.Any())
+    {
+        <MudItem xs="12">
+            <MudStack Row Spacing="0" Justify="Justify.FlexEnd">
+                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddNewsDialog">Add News</MudButton>
+                <MudDivider Vertical="true" FlexItem="true" />
+                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetNewsDetailsAsync">Refresh Table</MudButton>
+            </MudStack>
+        </MudItem>
+        <MudItem xs="12">
+            <MudTable Outlined Items="_newsContents" Context="news" FixedHeader Height="calc(100vh - 300px)" Virtualize="true" Filter="FilterFunc" Elevation="0">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">News</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium" />
+                </ToolBarContent>
+                <ColGroup>
+                    <MudHidden Breakpoint="Breakpoint.Xs">
+                        <col style="width: 60%" />
+                        <col style="width: 15%" />
+                        <col style="width: 10%" />
+                        <col style="width: 10%" />
+                        <col style="width: 5%;" />
+                    </MudHidden>
+                </ColGroup>
+                <HeaderContent>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<NewsDTO.NewsDetails.NewsContent, object?>(x => x.Title)">
+                            Content
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<NewsDTO.NewsDetails.NewsContent, object?>(x => x.Author)">
+                            Author
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>Date Created</MudTh>
+                    <MudTh>Published</MudTh>
+                    <MudTh>Archived</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Content">
+                        <MudStack>
+                            <MudText Typo="Typo.body2">@news.Title</MudText>
+                            <MudText Typo="Typo.caption">@news.Excerpt</MudText>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Author">@news.Author</MudTd>
+                    <MudTd DataLabel="Date Created">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.caption">@news.DateCreated?.ToString("MMMM d")</MudText>
+                            <MudText Typo="Typo.caption">@news.DateCreated?.ToString("hh:mm tt")</MudText>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Publish">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.caption">@((news.IsPublished == null) ? "N/A" : (news.IsPublished.Value ? "Published on" : "Pending"))</MudText>
+                            <MudText Typo="Typo.caption">@news.DatePublished?.ToString("MMMM d")</MudText>
+                            <MudText Typo="Typo.caption">@news.DatePublished?.ToString("hh:mm tt")</MudText>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Archived">@((news.IsArchived == null) ? "N/A" : (news.IsArchived.Value ? "Yes" : "No"))</MudTd>
+                    <MudTd Style="text-align: center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditNewsDialog(news.ID)" />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.caption">No matching records found.</MudText>
+                </NoRecordsContent>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        </MudItem>
+    }
+    else
+    {
+        <MudItem xs="12">
+            <MudProgressLinear Indeterminate="true" />
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // JSON storage
+    private List<NewsDTO.NewsDetails.NewsContent>? _newsContents;
+
+
+    // DTOs
+
+    public class NewsDTO
+    {
+        public class NewsDetails
+        {
+            public class NewsContent
+            {
+                public string? ID { get; set; }
+                public string? Category { get; set; }
+                public string? Author { get; set; }
+                public string? Title { get; set; }
+                public string? Content { get; set; }
+                public string? Excerpt { get; set; }
+                public DateTime? DateCreated { get; set; }
+                public bool? IsPublished { get; set; }
+                public DateTime? DatePublished { get; set; }
+                public bool? IsArchived { get; set; }
+            }
+        }
+    }
+
+    // Methods
+    private string _searchString = "";
+
+    private bool FilterFunc(NewsDTO.NewsDetails.NewsContent newsContent)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return newsContent.Title!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               newsContent.Content!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+
+
+    // Dialogs
+    private async Task OpenEditNewsDialog(string? selectedID)
+    {
+        var parameter = new DialogParameters<EditNewsDialog>
+        {
+            {x => x.selectedNewsID, selectedID}
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<EditNewsDialog>("Edit News", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetNewsDetailsAsync();
+        }
+    }
+
+    private async Task OpenAddNewsDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddNewsDialog>("Add News", options);
+
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await GetNewsDetailsAsync();
+        }
+    }
+
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetNewsDetailsAsync();
+    }
+
+    private async Task GetNewsDetailsAsync()
+    {
+        string url = "/News/Details";
+
+        _newsContents = await apiService.GetAsync<NewsDTO.NewsDetails.NewsContent>(url);
+    }
+}

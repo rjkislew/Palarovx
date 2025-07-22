@@ -3,8 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Server.Palaro2026.Context;
 using Server.Palaro2026.DTO;
 using Server.Palaro2026.Entities;
-using System.Text.Json;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace Server.Palaro2026.Controller
 {
@@ -23,14 +21,14 @@ namespace Server.Palaro2026.Controller
 
         // Event Views
 
-        [HttpGet("Details")] // /api/Events/Details
+        [HttpGet("Details")]
         public async Task<ActionResult<List<EventsDTO.EventDetails.Event>>> GetEventDetails(
         [FromQuery] string? id = null,
         [FromQuery] string? region = null,
         [FromQuery] string? firstName = null,
         [FromQuery] string? lastName = null,
         [FromQuery] string? category = null,
-        [FromQuery] string? sport = null, // Comma-separated string
+        [FromQuery] string? sport = null,
         [FromQuery] string? subcategory = null,
         [FromQuery] string? gender = null,
         [FromQuery] string? level = null,
@@ -39,8 +37,8 @@ namespace Server.Palaro2026.Controller
         [FromQuery] DateTime? endDate = null,
         [FromQuery] bool? onStream = null,
         [FromQuery] bool? isFinished = null,
-        [FromQuery] string? eventStage = null, // Comma-separated string
-        [FromQuery] string? streamService = null, // Comma-separated string
+        [FromQuery] string? eventStage = null,
+        [FromQuery] string? streamService = null,
         [FromQuery] string? userID = null)
         {
             try
@@ -66,121 +64,75 @@ namespace Server.Palaro2026.Controller
                     .Include(u => u.User)
                     .AsQueryable();
 
-                // Helper function to split comma-separated values into a list
+                // Helper to parse comma-separated strings
                 List<string> ParseCsv(string? input) =>
-                    string.IsNullOrWhiteSpace(input)
-                        ? new List<string>()
-                        : input.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList();
+                    string.IsNullOrWhiteSpace(input) ? [] : input.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList();
 
                 var sportList = ParseCsv(sport);
                 var eventStageList = ParseCsv(eventStage);
                 var streamServiceList = ParseCsv(streamService);
                 var regionList = ParseCsv(region);
 
-                // Apply filters
+                // Inline filters
+                if (!string.IsNullOrEmpty(id))
+                    query = query.Where(e => e.ID! == id);
 
                 if (!string.IsNullOrEmpty(firstName))
-                {
                     query = query.Where(e =>
                         e.EventVersusTeams!
                             .SelectMany(ev => ev.EventVersusTeamPlayers!)
                             .Any(p => p.ProfilePlayer != null && p.ProfilePlayer.FirstName!.Contains(firstName)));
-                }
 
                 if (!string.IsNullOrEmpty(lastName))
-                {
                     query = query.Where(e =>
                         e.EventVersusTeams!
                             .SelectMany(ev => ev.EventVersusTeamPlayers!)
                             .Any(p => p.ProfilePlayer != null && p.ProfilePlayer.LastName!.Contains(lastName)));
-                }
-
-
-                if (!string.IsNullOrEmpty(id))
-                {
-                    query = query.Where(e => e.ID! == id);
-                }
-
-                if (eventStageList.Any())
-                {
-                    query = query.Where(e => eventStageList.Contains(e.EventStage!.Stage!));
-                }
 
                 if (regionList.Any())
-                {
                     query = query.Where(e => e.EventVersusTeams!.Any(ev => ev.SchoolRegion != null && regionList.Contains(ev.SchoolRegion.Region!)));
-                }
 
                 if (!string.IsNullOrEmpty(category))
-                {
                     query = query.Where(e => e.SportSubcategory!.Sport!.SportCategory!.Category == category);
-                }
 
                 if (sportList.Any())
-                {
                     query = query.Where(e => sportList.Contains(e.SportSubcategory!.Sport!.Sport!));
-                }
 
                 if (!string.IsNullOrEmpty(subcategory))
-                {
                     query = query.Where(e => e.SportSubcategory!.Subcategory == subcategory);
-                }
 
                 if (!string.IsNullOrEmpty(gender))
-                {
                     query = query.Where(e => e.SportSubcategory!.SportGenderCategory!.Gender == gender);
-                }
 
                 if (!string.IsNullOrEmpty(level))
-                {
                     query = query.Where(e => e.SportSubcategory!.SchoolLevel!.Level == level);
-                }
 
                 if (!string.IsNullOrEmpty(venue))
-                {
-                    query = query.Where(e => e!.EventVenues!.Venue! == venue);
-                }
+                    query = query.Where(e => e.EventVenues!.Venue! == venue);
 
                 if (eventStageList.Any())
-                {
                     query = query.Where(e => eventStageList.Contains(e.EventStage!.Stage!));
-                }
 
                 if (streamServiceList.Any())
-                {
                     query = query.Where(e => streamServiceList.Contains(e.EventStream!.EventStreamService!.StreamService!));
-                }
 
-                // Filter by StartDate and EndDate range
                 if (startDate.HasValue && endDate.HasValue)
-                {
                     query = query.Where(e => e.Date >= startDate.Value.Date && e.Date <= endDate.Value.Date);
-                }
                 else if (startDate.HasValue)
-                {
                     query = query.Where(e => e.Date >= startDate.Value.Date);
-                }
                 else if (endDate.HasValue)
-                {
                     query = query.Where(e => e.Date <= endDate.Value.Date);
-                }
 
                 if (onStream.HasValue)
-                {
                     query = query.Where(e => e.OnStream == onStream.Value);
-                }
 
                 if (isFinished.HasValue)
-                {
                     query = query.Where(e => e.IsFinished == isFinished.Value);
-                }
 
                 if (!string.IsNullOrEmpty(userID))
-                {
                     query = query.Where(e => e.UserID == userID);
-                }
 
-                // Execute query
+                // Execute
                 var eventEntities = await query.AsNoTracking().ToListAsync();
 
                 // Map to DTO
@@ -189,34 +141,34 @@ namespace Server.Palaro2026.Controller
                     ID = eventEntity.ID,
                     EventStage = eventEntity.EventStage?.Stage,
                     EventVersusList = eventEntity.EventVersusTeams?
-                    .GroupBy(ev => new
-                    {
-                        ev.ID,
-                        ev.Score,
-                        ev.SchoolRegion?.Region,
-                        ev.SchoolRegion?.Abbreviation,
-                        ev.Rank,
-                        ev.RecentUpdateAt
-                    })
-                    .Select(evGroup => new EventsDTO.EventDetails.EventVersusTeams
-                    {
-                        ID = evGroup.Key.ID,
-                        Score = evGroup.Key.Score,
-                        Region = evGroup.Key.Region,
-                        Abbreviation = evGroup.Key.Abbreviation,
-                        Rank = evGroup.Key.Rank,
-                        RecentUpdateAt = evGroup.Key.RecentUpdateAt,
-                        EventVersusTeamPlayersList = evGroup
-                            .SelectMany(ev => ev.EventVersusTeamPlayers ?? new List<EventVersusTeamPlayers>())
-                            .Select(player => new EventsDTO.EventDetails.EventVersusTeamPlayers
-                            {
-                                ID = player.ID,
-                                EventVersusID = player.EventVersusID,
-                                FirstName = player.ProfilePlayer?.FirstName,
-                                LastName = player.ProfilePlayer?.LastName,
-                                School = player.ProfilePlayer?.School?.School
-                            }).ToList()
-                    }).ToList() ?? new List<EventsDTO.EventDetails.EventVersusTeams>(),
+                        .GroupBy(ev => new
+                        {
+                            ev.ID,
+                            ev.Score,
+                            ev.SchoolRegion?.Region,
+                            ev.SchoolRegion?.Abbreviation,
+                            ev.Rank,
+                            ev.RecentUpdateAt
+                        })
+                        .Select(evGroup => new EventsDTO.EventDetails.EventVersusTeams
+                        {
+                            ID = evGroup.Key.ID,
+                            Score = evGroup.Key.Score,
+                            Region = evGroup.Key.Region,
+                            Abbreviation = evGroup.Key.Abbreviation,
+                            Rank = evGroup.Key.Rank,
+                            RecentUpdateAt = evGroup.Key.RecentUpdateAt,
+                            EventVersusTeamPlayersList = evGroup
+                                .SelectMany(ev => ev.EventVersusTeamPlayers ?? new List<EventVersusTeamPlayers>())
+                                .Select(player => new EventsDTO.EventDetails.EventVersusTeamPlayers
+                                {
+                                    ID = player.ID,
+                                    EventVersusID = player.EventVersusID,
+                                    FirstName = player.ProfilePlayer?.FirstName,
+                                    LastName = player.ProfilePlayer?.LastName,
+                                    School = player.ProfilePlayer?.School?.School
+                                }).ToList()
+                        }).ToList() ?? new List<EventsDTO.EventDetails.EventVersusTeams>(),
 
                     Category = eventEntity.SportSubcategory?.Sport?.SportCategory?.Category,
                     Sport = eventEntity.SportSubcategory?.Sport?.Sport,
@@ -248,6 +200,7 @@ namespace Server.Palaro2026.Controller
                 return StatusCode(500, "Internal server error. Please try again later.");
             }
         }
+
 
         // ------------------------------------------------------------------------------------------------------------------
 
@@ -550,8 +503,6 @@ namespace Server.Palaro2026.Controller
             {
                 return NotFound();
             }
-
-            existingEventStages.Stage = eventStages.Stage;
 
             try
             {

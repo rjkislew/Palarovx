@@ -10,6 +10,8 @@ public partial class NewsCategories
 
     public string? Category { get; set; }
 
+    public string? Description { get; set; }
+
     [JsonIgnore]
     public virtual ICollection<News> News { get; set; } = new List<News>();
 }

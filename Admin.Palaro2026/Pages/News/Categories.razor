@@ -1,0 +1,158 @@
+﻿@page "/news/categories"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudGrid Spacing="0">
+    @if (_newsCategories != null && _newsCategories.Any())
+    {
+        <MudItem xs="12">
+            <MudStack Row Spacing="0" Justify="Justify.FlexEnd">
+                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddNewsCategoryDialog">Add News Categories</MudButton>
+                <MudDivider Vertical="true" FlexItem="true" />
+                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetNewsCategoriesAsync">Refresh Table</MudButton>
+            </MudStack>
+        </MudItem>
+        <MudItem xs="12">
+            <MudTable Outlined Items="_newsCategories" Context="newsCategory" FixedHeader Height="calc(100vh - 300px)" Virtualize="true" Filter="FilterFunc" Elevation="0">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">News Categories</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium" />
+                </ToolBarContent>
+                <ColGroup>
+                    <MudHidden Breakpoint="Breakpoint.Xs">
+                        <col style="width: 35%" />
+                        <col style="width: 60%" />
+                        <col style="width: 5%;" />
+                    </MudHidden>
+                </ColGroup>
+                <HeaderContent>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<NewsDTO.NewsCategories, object?>(x => x.Category)">
+                            Category
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<NewsDTO.NewsCategories, object?>(x => x.Description)">
+                            Description
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Category">@newsCategory.Category</MudTd>
+                    <MudTd DataLabel="Description">@newsCategory.Description</MudTd>
+                    <MudTd Style="text-align: center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditNewsCategoryDialog(newsCategory.ID)" />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.caption">No matching records found.</MudText>
+                </NoRecordsContent>
+                <PagerContent>
+                    <MudTablePager PageSizeOptions="new int[] { int.MaxValue }" />
+                </PagerContent>
+            </MudTable>
+        </MudItem>
+    }
+    else
+    {
+        <MudItem xs="12">
+            <MudProgressLinear Indeterminate="true" />
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // JSON storage
+    private List<NewsDTO.NewsCategories>? _newsCategories;
+
+
+    // DTOs
+
+    public class NewsDTO
+    {
+        public class NewsCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+            public string? Description { get; set; }
+        }
+    }
+
+
+
+    // Methods
+    private string _searchString = "";
+
+    private bool FilterFunc(NewsDTO.NewsCategories newCategories)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return newCategories.Category!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+
+
+    // Dialogs
+    private async Task OpenEditNewsCategoryDialog(int selectedID)
+    {
+        var parameter = new DialogParameters<EditNewsCategoryDialog>
+        {
+            {x => x.selectedNewsCategoryID, selectedID},
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<EditNewsCategoryDialog>("Edit News", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetNewsCategoriesAsync();
+        }
+    }
+
+    private async Task OpenAddNewsCategoryDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddNewsCategoryDialog>("Add News", options);
+
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await GetNewsCategoriesAsync();
+        }
+    }
+
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetNewsCategoriesAsync();
+    }
+
+    private async Task GetNewsCategoriesAsync()
+    {
+        string url = "/News/Categories";
+
+        _newsCategories = await apiService.GetAsync<NewsDTO.NewsCategories>(url);
+    }
+}

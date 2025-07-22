@@ -1,6 +1,7 @@
 ﻿using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 
 public class APIService
@@ -103,12 +104,25 @@ public class APIService
             return default;
         }
     }
+
     public async Task<bool> PatchAsync<T>(string relativeUrl, T data)
     {
         string url = BuildUrl(relativeUrl);
         try
         {
-            var jsonContent = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
+            var options = new JsonSerializerOptions
+            {
+                // Allow nulls to be included in JSON
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var jsonContent = new StringContent(
+                JsonSerializer.Serialize(data, options),
+                Encoding.UTF8,
+                "application/json"
+            );
+
             var response = await _httpClient.PatchAsync(url, jsonContent);
             response.EnsureSuccessStatusCode();
             return true;
@@ -118,6 +132,7 @@ public class APIService
             return false;
         }
     }
+
 
     public async Task<TResponse?> PatchAndReadAsync<TRequest, TResponse>(string relativeUrl, TRequest data)
     {

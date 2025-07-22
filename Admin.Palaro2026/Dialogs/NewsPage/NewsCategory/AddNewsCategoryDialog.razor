@@ -1,0 +1,119 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@using System.Net.Http.Headers
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="2">
+            <MudItem xs="12">
+                <MudTextField Immediate @bind-Value="_category" Margin="Margin.Dense" Label="Category" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField Immediate @bind-Value="_description" AutoGrow  Lines="3" Margin="Margin.Dense" Label="Description" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+            <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
+            <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
+                       Disabled="_addNewsCategoryDisabled" OnClick="ConfirmAddNewsCategoryAsync">Add</MudButton>
+        </MudStack>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    // JSON storage
+    private List<NewsDTO.NewsCategories>? _newsCategories;
+
+    // Variables
+    private string? _category;
+    private string? _description;
+
+
+    // Disable addition button if values are empty
+    private bool _addNewsCategoryDisabled =>
+    _category == null ||
+    _description == null;
+
+    // DTOs
+    public class NewsDTO
+    {
+        public class NewsCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+            public string? Description { get; set; }
+        }
+    }
+
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetNewsCategoriesAsync();
+    }
+
+    private async Task GetNewsCategoriesAsync()
+    {
+        string url = "/News/Categories";
+
+        _newsCategories = await apiService.GetAsync<NewsDTO.NewsCategories>(url);
+    }
+
+    // Dialog Actions
+    private void ClearFields()
+    {
+        _category = null;
+        _description = null;
+    }
+
+    private async Task ConfirmAddNewsCategoryAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_category}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await AddNewsCategoryAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    // Add region
+    private async Task AddNewsCategoryAsync()
+    {
+        var addNewsCategory = new NewsDTO.NewsCategories
+        {
+            Category = _category,
+            Description = _description
+        };
+
+        string url = "/News/Categories";
+        var success = await apiService.PostAsync(url, addNewsCategory);
+
+        if (!success)
+        {
+            Snackbar.Add($"Failed to add category {_category}", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add($"Category {_category} added successfully", Severity.Success);
+    }
+}

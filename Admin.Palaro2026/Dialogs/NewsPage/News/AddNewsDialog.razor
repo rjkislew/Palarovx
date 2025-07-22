@@ -1,0 +1,359 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@using System.Net.Http.Headers
+@inject ISnackbar Snackbar
+@inject CookieService cookieService
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="2">
+            <MudItem xs="12">
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudField Variant="Variant.Outlined" Style="width: 100%">
+                        @if (_imagesValues is not null && _imagesValues.Count > 0)
+                        {
+                            <MudGrid>
+                                @foreach (var image in _imagesValues)
+                                {
+                                    <MudItem xs="12" sm="6" md="4" lg="3">
+                                        <MudStack Style="position: relative;">
+                                            <MudImage Src="@image"
+                                                      Alt="Uploaded Image" Class="rounded"
+                                                      Style="max-width: 100%; height: auto;" />
+
+                                            <!-- Remove button at top-right -->
+                                            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                                           Color="Color.Dark"
+                                                           Class="pa-1"
+                                                           Style="position: absolute; top: 2px; right: 2px;"
+                                                           OnClick="@(() => RemoveImage(image))" />
+                                        </MudStack>
+                                    </MudItem>
+                                }
+                            </MudGrid>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption">No images uploaded yet.</MudText>
+                        }
+                    </MudField>
+                    <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="HandleNewsImagesFileUpload">
+                        <ActivatorContent>
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.CloudUpload">
+                                Upload Image/s
+                            </MudButton>
+                        </ActivatorContent>
+                    </MudFileUpload>
+                </MudStack>
+            </MudItem>
+            <MudItem xs="12">
+                <MudSelect @bind-Value="_selectedNewCategoriesIDValue" Margin="Margin.Dense" Label="Category" ShrinkLabel
+                           Variant="Variant.Outlined" Clearable>
+                    <MudVirtualize Items="_newsCategories" Context="category">
+                        <MudSelectItem T="int?" Value="@category.ID">@category.Category</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField Immediate @bind-Value="_titleValue" Margin="Margin.Dense" Label="Title" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField Immediate @bind-Value="_contentValue" AutoGrow Lines="3" Margin="Margin.Dense" Label="Content" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField Immediate @bind-Value="_excerptValue" AutoGrow Lines="2" Margin="Margin.Dense" Label="Excerpt" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+            </MudItem>
+            <MudItem xs="12">
+                <MudSelect @bind-Value="_selectedUserIDValue" Margin="Margin.Dense" Label="Author" ShrinkLabel
+                           Variant="Variant.Outlined" Clearable>
+                    <MudVirtualize Items="_users" Context="user">
+                        <MudSelectItem T="string" Value="@user.ID">@user.FirstName @user.LastName</MudSelectItem>
+                    </MudVirtualize>
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
+            <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="ClearFields">Clear</MudButton>
+            <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false"
+                       Disabled="_addNewsDisabled" OnClick="ConfirmAddNewsCategoryAsync">Add</MudButton>
+        </MudStack>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+    private static readonly Random random = new(); // for random ID string generation
+
+    // JSON storage
+    private List<NewsDTO.NewsCategories>? _newsCategories;
+    private List<UsersDTO.UsersDetails>? _users;
+
+    // Variables
+    private string? _titleValue;
+    private string? _contentValue;
+    private string? _excerptValue;
+    private string? _selectedUserIDValue;
+    private int? _selectedNewCategoriesIDValue;
+    private List<string> _imagesValues = new();
+
+
+    // Disable addition button if values are empty
+    private bool _addNewsDisabled =>
+    _titleValue == null ||
+    _contentValue == null ||
+    _excerptValue == null || 
+    _selectedUserIDValue == null;
+
+    // DTOs
+    public class UsersDTO
+    {
+        public class UsersDetails
+        {
+            public string ID { get; set; } = null!;
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? Username { get; set; }
+            public DateTime? CreatedAt { get; set; }
+            public DateTime? UpdateAt { get; set; }
+            public DateTime? LastLogin { get; set; }
+            public bool? Active { get; set; }
+            public string? Role { get; set; }
+        }
+    }
+
+    public class NewsDTO
+    {
+        public class News
+        {
+            public string? ID { get; set; }
+            public int? NewsCategoryID { get; set; }
+            public string? AuthorID { get; set; }
+            public string? Title { get; set; }
+            public string? Content { get; set; }
+            public string? Excerpt { get; set; }
+            public DateTime? DateCreated { get; set; }
+            public bool IsPublished { get; set; }
+            public DateTime? DatePublished { get; set; }
+            public bool IsArchived { get; set; }
+        }
+
+        public class NewsCategories
+        {
+            public int? ID { get; set; }
+            public string? Category { get; set; }
+            public string? Description { get; set; }
+        }
+    }
+
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+
+        await GetNewsCategoriesAsync();
+        await GetUsersDetails();
+    }
+
+    private async Task GetNewsCategoriesAsync()
+    {
+        string url = "/News/Categories";
+
+        _newsCategories = await apiService.GetAsync<NewsDTO.NewsCategories>(url);
+    }
+
+    private async Task GetUsersDetails()
+    {
+        string url = $"/Users/UsersDetails";
+        _users = await apiService.GetAsync<UsersDTO.UsersDetails>(url);
+        _selectedUserIDValue = await cookieService.GetCookie("userID");
+
+        // refresh the user list
+        StateHasChanged();
+    }
+
+    
+
+    private void RemoveImage(string image)
+    {
+        _imagesValues.Remove(image);
+    }
+
+    private async Task HandleNewsImagesFileUpload(IReadOnlyList<IBrowserFile> files)
+    {
+        try
+        {
+            const int maxFileSize = 10 * 1024 * 1024; // 10 MB
+            var allowedExtensions = new[] { ".png", ".jpeg", ".jpg", ".webp" };
+            var uploadedImages = new List<string>();
+
+            foreach (var file in files)
+            {
+                if (file.Size > maxFileSize)
+                {
+                    Snackbar.Add($"File {file.Name} exceeds the 10 MB size limit.", Severity.Error);
+                    continue;
+                }
+
+                var fileExtension = Path.GetExtension(file.Name).ToLower();
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    Snackbar.Add($"File {file.Name} has an invalid type. Allowed types: .png, .jpeg, .jpg, .webp", Severity.Error);
+                    continue;
+                }
+
+                using var stream = file.OpenReadStream(maxFileSize);
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+
+                var base64File = Convert.ToBase64String(memoryStream.ToArray());
+                uploadedImages.Add($"data:{file.ContentType};base64,{base64File}");
+            }
+
+            // ⬇️ Append new images to existing list
+            _imagesValues ??= new List<string>();
+            _imagesValues.AddRange(uploadedImages);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"File upload failed: {ex.Message}");
+            Snackbar.Add($"File upload failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // Dialog Actions
+    private void ClearFields()
+    {
+        _titleValue = null;
+        _contentValue = null;
+    }
+
+    private async Task ConfirmAddNewsCategoryAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_titleValue}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await AddNewsCategoryAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+
+    private string GenerateRandomString(int length)
+    {
+        const string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+        return new string(Enumerable.Range(0, length)
+            .Select(_ => chars[random.Next(chars.Length)])
+            .ToArray());
+    }
+
+    // Add region
+    private async Task AddNewsCategoryAsync()
+    {
+        var generatedID = GenerateRandomString(20);
+
+        var addNewsCategory = new NewsDTO.News
+        {
+            ID = generatedID,
+            NewsCategoryID = _selectedNewCategoriesIDValue,
+            AuthorID = _selectedUserIDValue,
+            Title = _titleValue,
+            Content = _contentValue,
+            Excerpt = _excerptValue,
+            DateCreated = DateTime.Now,
+            IsPublished = true,
+            DatePublished = DateTime.Now,
+            IsArchived = false
+        };
+
+        string url = "/News";
+        var success = await apiService.PostAsync(url, addNewsCategory);
+
+
+        // Step 2: Upload images (if any)
+        if (success && _imagesValues is not null && _imagesValues.Count > 0)
+        {
+            try
+            {
+                var formData = new MultipartFormDataContent(); // ✅ Required
+                int fileIndex = 0;
+
+                foreach (var base64Image in _imagesValues)
+                {
+                    if (!base64Image.Contains(",")) continue;
+
+                    var imageData = base64Image.Split(',')[1];
+                    var imageBytes = Convert.FromBase64String(imageData);
+                    var imageContent = new ByteArrayContent(imageBytes);
+
+                    string fileType;
+                    string fileExtension;
+
+                    if (base64Image.Contains("image/webp"))
+                    {
+                        fileType = "image/webp";
+                        fileExtension = ".webp";
+                    }
+                    else if (base64Image.Contains("image/jpeg"))
+                    {
+                        fileType = "image/jpeg";
+                        fileExtension = ".jpg";
+                    }
+                    else if (base64Image.Contains("image/png"))
+                    {
+                        fileType = "image/png";
+                        fileExtension = ".png";
+                    }
+                    else
+                    {
+                        Snackbar.Add("Unsupported image format detected.", Severity.Error);
+                        continue;
+                    }
+
+                    imageContent.Headers.ContentType = new MediaTypeHeaderValue(fileType);
+                    var fileName = $"news_image_{fileIndex}{fileExtension}";
+                    formData.Add(imageContent, "files", fileName);
+                    fileIndex++;
+                }
+
+                var uploadUrl = $"/News/UploadImages/{generatedID}";
+                var uploadSuccess = await apiService.PutFormAsync(uploadUrl, formData); // ✅ Assuming this supports MultipartFormDataContent
+
+                if (!uploadSuccess)
+                {
+                    Snackbar.Add("News updated, but image upload failed.", Severity.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"News updated, but image upload failed: {ex.Message}", Severity.Warning);
+            }
+        }
+
+        if (!success)
+        {
+            Snackbar.Add($"Failed to add news {_titleValue}", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add($"News {_titleValue} added successfully", Severity.Success);
+    }
+}
