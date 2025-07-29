@@ -121,50 +121,41 @@
                 <MudItem xs="12">
                     <MudStack>
                         <MudStack>
-                            <MudText Typo="Typo.h2">News</MudText>
-                            <MudText Typo="Typo.caption">Stay updated with the latest news and developments on Palarong Pambansa 2026, including event preparations, venue updates, and more.</MudText>
+                            <MudText Typo="Typo.h2">Featured News</MudText>
+                            <MudText Typo="Typo.caption">Catch up on the latest updates and highlights from Palarong Pambansa 2026, including event preparations, athlete profiles, and more.</MudText>
                         </MudStack>
                         <MudDivider />
                         <MudGrid>
-                            <MudItem xs="12" md="6">
-                                <MudLink Href="./Agusan del Sur to Host 66th Palarong Pambansa in 2026" Underline="Underline.None">
-                                    <MudPaper Outlined Style="height: 100%" Class="scale-up-center">
-                                        <MudStack Spacing="0" AlignItems="AlignItems.Start">
-                                            <MudImage ObjectFit="ObjectFit.Contain" Style="height: 100%; width: 100%" Src="media/images/DO-Plaza-Memorial-Sports-Complex.jpg" />
-                                            <MudStack Class="pa-3">
-                                                <MudText Typo="Typo.body1">
-                                                    <b>
-                                                        Agusan del Sur to Host 66th Palarong Pambansa in 2026
-                                                    </b>
-                                                </MudText>
-                                                <MudText Typo="Typo.caption">
-                                                    The 66th Palarong Pambansa is scheduled to be held in 2026 in Prosperidad, Agusan del Sur, marking the first time the province will host this national sporting event. This opportunity is considered a <i>"dream come true"</i> for the province, which has been aspiring to host the Palaro for about three decades.
-                                                </MudText>
-                                            </MudStack>
-                                        </MudStack>
-                                    </MudPaper>
-                                </MudLink>
-                            </MudItem>
-                            <MudItem xs="12" md="6">
-                                <MudLink Href="./CRAG 2024 Unveils Upgraded Facilities, Setting the Stage for Palaro 2026" Underline="Underline.None">
-                                    <MudPaper Outlined Style="height: 100%" Class="scale-up-center">
-                                        <MudStack Spacing="0" AlignItems="AlignItems.Start">
-                                            <MudImage ObjectFit="ObjectFit.Contain" Style="height: 100%; width: 100%" Src="media/images/CRAG 2024.jpg" />
-                                            <MudStack Class="pa-3">
-                                                <MudText Typo="Typo.body1">
-                                                    <b>
-                                                        CRAG 2024 Unveils Upgraded Facilities, Setting the Stage for Palaro 2026
-                                                    </b>
-                                                </MudText>
-                                                <MudText Typo="Typo.caption">
-                                                    The Agusan del Sur Sports Complex, with its newly upgraded facilities, hosted the Caraga Regional Athletic Games (CRAG) 2024 in Prosperidad, providing a top-tier venue for athletes across the region. Featuring modern sports amenities, the complex demonstrated the province’s commitment to sports development and its capability to host major competitions.
-                                                </MudText>
-                                            </MudStack>
-                                        </MudStack>
-                                    </MudPaper>
-                                </MudLink>
-                            </MudItem>
+                            @if (_newsContents?.Any() == true)
+                            {
+                                @foreach (var news in _newsContents.Take(3))
+                                {
+                                    <MudItem xs="12" md="4">
+                                        <MudLink Href="@($"news/{news.Category}/{news.Title}")" Underline="Underline.None">
+                                            <MudPaper Outlined Style="height: 100%" Class="scale-up-center">
+                                                <MudStack Spacing="0" AlignItems="AlignItems.Start">
+
+                                                    @if (_newsImageMap.TryGetValue(news.ID, out var images) && images?.Any() == true)
+                                                    {
+                                                        <MudImage ObjectFit="ObjectFit.Contain"
+                                                                  Style="height: 100%; width: 100%"
+                                                                  Src="@images.First()" />
+                                                    }
+
+                                                    <MudStack Class="pa-3">
+                                                        <MudText Typo="Typo.body1">
+                                                            <b>@news.Title</b>
+                                                        </MudText>
+                                                        <MudText Typo="Typo.caption">@news.Excerpt</MudText>
+                                                    </MudStack>
+                                                </MudStack>
+                                            </MudPaper>
+                                        </MudLink>
+                                    </MudItem>
+                                }
+                            }
                         </MudGrid>
+
                     </MudStack>
                 </MudItem>
 
@@ -249,6 +240,10 @@
     private List<SportsDTO.Sports>? _sports;
     private List<SportsDTO.Sports>? _randomSports;
     private List<SportsDTO.SportCategories>? _sportCategories;
+    private List<NewsDTO.NewsDetails.NewsContent>? _newsContents;
+    private List<string> _imagesValues = new();
+    private Dictionary<string, List<string>> _newsImageMap = new();
+
 
 
     public class SportsDTO
@@ -268,12 +263,34 @@
         }
     }
 
+    public class NewsDTO
+    {
+        public class NewsDetails
+        {
+            public class NewsContent
+            {
+                public string? ID { get; set; }
+                public string? Category { get; set; }
+                public string? Author { get; set; }
+                public string? Title { get; set; }
+                public string? Content { get; set; }
+                public string? Excerpt { get; set; }
+                public DateTime? DateCreated { get; set; }
+                public bool? IsPublished { get; set; }
+                public DateTime? DatePublished { get; set; }
+                public bool? IsArchived { get; set; }
+                public List<string> ImageUrls { get; set; } // or just string MainImageUrl
+            }
+        }
+    }
+
     // Initialization method to fetch data and update UI elements
     protected override async Task OnInitializedAsync()
     {
         ThemeService.OnThemeChanged += StateHasChanged;
         await ThemeService.LoadThemePreference();
         await StartCountdown();
+        await GetNewsDetailsAsync();
         await GetSportsAsync();
         await GetSportCategoriesAsync();
     }
@@ -308,6 +325,34 @@
         InvokeAsync(StateHasChanged); // Update UI
     }
 
+    private async Task LoadNewsImagesAsync(IEnumerable<string>? newsIDs)
+    {
+        var baseUrl = "https://palarongpambansa2026.com/attachments/media/news";
+
+        foreach (var newsID in newsIDs!)
+        {
+            try
+            {
+                var apiUrl = $"/News/NewsImages?newsID={newsID}";
+                var imageFiles = await apiService.GetAsync<string>(apiUrl);
+
+                if (imageFiles != null && imageFiles.Count > 0)
+                {
+                    var fullUrls = imageFiles
+                        .Where(file => !string.IsNullOrWhiteSpace(file))
+                        .Select(file => $"{baseUrl}/{newsID}/{file}")
+                        .ToList();
+
+                    _newsImageMap[newsID] = fullUrls;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading images for news {newsID}: {ex.Message}");
+            }
+        }
+    }
+
     private async Task GetSportsAsync()
     {
         string url = "/Sports";
@@ -321,5 +366,12 @@
     {
         string url = "/Sports/Categories";
         _sportCategories = await apiService.GetAsync<SportsDTO.SportCategories>(url);
+    }
+
+    private async Task GetNewsDetailsAsync()
+    {
+        string url = "/News/Details?isArchived=false&isPublished=false";
+        _newsContents = await apiService.GetAsync<NewsDTO.NewsDetails.NewsContent>(url);
+        await LoadNewsImagesAsync(_newsContents!.Select(n => n.ID));
     }
 }

@@ -5,6 +5,7 @@
 @using System.Net.Http.Headers
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject IJSRuntime  JS
 @inject APIService apiService
 @inject HttpClient httpClient
 
@@ -43,7 +44,7 @@
                                 <MudText Typo="Typo.caption">No images uploaded yet.</MudText>
                             }
                         </MudField>
-                        <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="HandleNewsImagesFileUpload">
+                        <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="HandleNewsImagesFileUpload" Accept=".png, .jpeg, .jpg, .webp">
                             <ActivatorContent>
                                 <MudButton Variant="Variant.Filled"
                                            Color="Color.Primary"
@@ -66,10 +67,12 @@
                     <MudTextField Immediate @bind-Value="_titleValue" Margin="Margin.Dense" Label="Title" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
                 </MudItem>
                 <MudItem xs="12">
-                    <MudTextField Immediate @bind-Value="_contentValue" Typo="Typo.caption" Style="line-height: 2" AutoGrow Lines="3" Margin="Margin.Dense" Label="Content" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+                    <MudField Label="Content" Variant="Variant.Outlined" InnerPadding="false">
+                        <QuillEditor InitialContent="@_contentValue" ContentChanged="OnContentChanged" @ref="quillEditor" />
+                    </MudField>
                 </MudItem>
                 <MudItem xs="12">
-                    <MudTextField Immediate @bind-Value="_excerptValue" Typo="Typo.caption" Style="line-height: 2" AutoGrow Lines="2" Margin="Margin.Dense" Label="Excerpt" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
+                    <MudTextField Immediate Typo="Typo.caption" @bind-Value="_excerptValue" AutoGrow Lines="2" Margin="Margin.Dense" Label="Excerpt" ShrinkLabel Variant="Variant.Outlined" Clearable></MudTextField>
                 </MudItem>
                 <MudItem xs="12">
                     <MudSelect @bind-Value="_selectedUserIDValue" Margin="Margin.Dense" Label="Author" ShrinkLabel
@@ -81,8 +84,8 @@
                 </MudItem>
                 <MudItem xs="12">
                     <MudStack Row Justify="Justify.FlexEnd" Style="width: 100%">
-                        <MudSwitch Size="Size.Large" @bind-Value="_isPublished" Label="@($"Published: {(_isPublished == true ? "Yes" : _isPublished == false ? "No" : "N/A")}")"></MudSwitch>
-                        <MudSwitch Size="Size.Large" @bind-Value="_isArchived" Label="@($"Archived: {(_isArchived == true ? "Yes" : _isArchived == false ? "No" : "N/A")}")"></MudSwitch>
+                        <MudSwitch LabelPlacement="Placement.Start" Color="Color.Success" UncheckedColor="Color.Warning" @bind-Value="_isPublished" Label="Published" />
+                        <MudSwitch LabelPlacement="Placement.Start" Color="Color.Error" UncheckedColor="Color.Default" @bind-Value="_isArchived" Label="Archived" />
                     </MudStack>
                 </MudItem>
             </MudGrid>
@@ -108,6 +111,12 @@ else
 }
 
 @code {
+    private QuillEditor? quillEditor;
+
+    private void OnContentChanged(string newContent)
+    {
+        _contentValue = newContent;
+    }
     // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
@@ -134,6 +143,7 @@ else
     private DateTime? _datePublished;
     private bool? _isArchived;
     private List<string> _imagesValues = new();
+    private List<string> _originalImages = new();
 
 
     // Variables
@@ -183,8 +193,8 @@ else
 
         public class NewsImage
         {
-            public string FileName { get; set; }  // optional, for display
-            public string Base64 { get; set; }    // MUST exist for Select(img => img.Base64)
+            public string? FileName { get; set; }  // optional, for display
+            public string? Base64 { get; set; }    // MUST exist for Select(img => img.Base64)
         }
 
         public class NewsCategories
@@ -246,28 +256,84 @@ else
         string url = $"/Users/UsersDetails";
         _users = await apiService.GetAsync<UsersDTO.UsersDetails>(url);
 
-        // refresh the user list
         StateHasChanged();
     }
 
     private async Task GetNewsImagesAsync(string? newsID)
     {
-        if (string.IsNullOrEmpty(newsID))
+        if (string.IsNullOrWhiteSpace(newsID))
             return;
 
-        string url = $"/News/NewsImages/{newsID}";
+        string apiUrl = $"/News/NewsImages?newsID={newsID}";
 
         try
         {
-            var images = await apiService.GetAsync<NewsDTO.NewsImage>(url);
+            // Step 1: Get image file names from the API
+            var imageFiles = await apiService.GetAsync<string>(apiUrl);
 
-            _imagesValues = images.Select(img => img.Base64).ToList();
+            if (imageFiles == null || imageFiles.Count == 0)
+            {
+                Console.WriteLine("No image filenames returned.");
+                return;
+            }
+
+            var baseUrl = "https://palarongpambansa2026.com/attachments/media/news";
+            var base64List = new List<string>();
+
+            foreach (var fileName in imageFiles)
+            {
+                if (string.IsNullOrWhiteSpace(fileName))
+                    continue;
+
+                // Step 2: Build full image URL
+                var fullUrl = $"{baseUrl}/{newsID}/{fileName}";
+
+                try
+                {
+                    // Step 3: Convert to base64
+                    string mimeType = GetMimeType(fileName);
+                    var base64 = await ConvertImageUrlToBase64Async(fullUrl);
+
+                    // Step 4: Create data URI and store it
+                    base64List.Add($"data:{mimeType};base64,{base64}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error converting {fullUrl}: {ex.Message}");
+                }
+            }
+
+            _imagesValues = base64List;
+            _originalImages = base64List.ToList(); // Save a copy for later comparison
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Failed to get images: {ex.Message}");
         }
     }
+
+    private async Task<string> ConvertImageUrlToBase64Async(string imageUrl)
+    {
+        using var httpClient = new HttpClient();
+        byte[] imageBytes = await httpClient.GetByteArrayAsync(imageUrl);
+        return Convert.ToBase64String(imageBytes);
+    }
+
+
+    private string GetMimeType(string fileName)
+    {
+        return Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".bmp" => "image/bmp",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream"
+        };
+    }
+
+
 
 
     private void RemoveImage(string image)
@@ -355,7 +421,7 @@ else
     }
 
 
-    // Update School
+    // Update News
     private async Task UpdateNewsAsync()
     {
         if (string.IsNullOrEmpty(selectedNewsID)) return;
@@ -405,16 +471,11 @@ else
         if (_isPublished != originalNews.IsPublished)
         {
             updateNews.IsPublished = _isPublished;
+            if (_isPublished == false)
+            {
+                updateNews.DatePublished = null; // Clear date if not published
+            }
             hasChanges = true;
-        }
-
-        if (_isPublished == true)
-        {
-            updateNews.DatePublished = DateTime.Now;
-        }
-        else
-        {
-            updateNews.DatePublished = null;
         }
 
         if (_isArchived != originalNews.IsArchived)
@@ -423,21 +484,39 @@ else
             hasChanges = true;
         }
 
-        // if (!hasChanges)
-        // {
-        //     Snackbar.Add("No changes detected.", Severity.Info);
-        //     return;
-        // }
-
         string url = $"/News/{selectedNewsID}";
         var success = await apiService.PatchAsync(url, updateNews);
 
-        // Step 2: Upload images (if any)
-        if (success && _imagesValues is not null && _imagesValues.Count > 0)
+        // ✅ Step 2: Check if images have changed before uploading
+        bool hasImageChanges = false;
+        if (_imagesValues != null && _originalImages != null)
+        {
+            if (_imagesValues.Count != _originalImages.Count)
+            {
+                hasImageChanges = true;
+            }
+            else
+            {
+                for (int i = 0; i < _imagesValues.Count; i++)
+                {
+                    if (_imagesValues[i] != _originalImages[i])
+                    {
+                        hasImageChanges = true;
+                        break;
+                    }
+                }
+            }
+        }
+        else if ((_imagesValues?.Count ?? 0) > 0 || (_originalImages?.Count ?? 0) > 0)
+        {
+            hasImageChanges = true;
+        }
+
+        if (success && hasImageChanges)
         {
             try
             {
-                var formData = new MultipartFormDataContent(); // ✅ Required
+                var formData = new MultipartFormDataContent();
                 int fileIndex = 0;
 
                 foreach (var base64Image in _imagesValues)
@@ -479,9 +558,14 @@ else
                 }
 
                 var uploadUrl = $"/News/UploadImages/{selectedNewsID}";
-                var uploadSuccess = await apiService.PutFormAsync(uploadUrl, formData); // ✅ Assuming this supports MultipartFormDataContent
+                var uploadSuccess = await apiService.PutFormAsync(uploadUrl, formData);
 
-                if (!uploadSuccess)
+                if (uploadSuccess)
+                {
+                    // ✅ Sync original images to prevent reupload on next update
+                    _originalImages = _imagesValues.ToList();
+                }
+                else
                 {
                     Snackbar.Add("News updated, but image upload failed.", Severity.Warning);
                 }
@@ -491,7 +575,6 @@ else
                 Snackbar.Add($"News updated, but image upload failed: {ex.Message}", Severity.Warning);
             }
         }
-
 
         if (!success)
         {
@@ -505,7 +588,8 @@ else
 
 
 
-    // Delete School
+
+    // Delete News
     private async Task DeleteNewsCategoryAsync()
     {
         if (string.IsNullOrEmpty(selectedNewsID)) return;

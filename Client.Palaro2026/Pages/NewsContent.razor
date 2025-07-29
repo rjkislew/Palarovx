@@ -1,0 +1,196 @@
+﻿@page "/news/{Category}/{Title}"
+
+@using System.Text.Json
+@using System.Threading.Tasks
+@using Client.Palaro2026.Services
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    <MudGrid>
+        <MudItem xs="12">
+            <MudText Typo="Typo.h2"><b>@_newsContent?.Title</b></MudText>
+            <MudText Typo="Typo.subtitle1">@_newsContent?.Category</MudText>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudBreadcrumbs Style="font-size: 15px" Class="pa-0" Items="_items"></MudBreadcrumbs>
+            <MudDivider />
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudGrid>
+                @if (_imagesValues?.Count == 1)
+                {
+                    <MudItem xs="12">
+                        <MudImage ObjectFit="ObjectFit.Cover" Style="height: 100%; width: 100%;" Src="@_imagesValues[0]" />
+                    </MudItem>
+                }
+                else if (_imagesValues?.Count == 2)
+                {
+                    @foreach (var image in _imagesValues)
+                    {
+                        <MudItem xs="12" md="6">
+                            <MudImage ObjectFit="ObjectFit.Cover" Style="height: 100%; width: 100%;" Src="@image" />
+                        </MudItem>
+                    }
+                }
+                else if (_imagesValues?.Count >= 3)
+                {
+                    <MudItem xs="12">
+                        <MudImage ObjectFit="ObjectFit.Cover" Style="height: 100%; width: 100%;" Src="@_imagesValues[0]" />
+                    </MudItem>
+                    @for (int i = 1; i < 3 && i < _imagesValues.Count; i++)
+                    {
+                        <MudItem xs="12" md="6">
+                            <MudImage ObjectFit="ObjectFit.Cover" Style="height: 100%; width: 100%;" Src="@_imagesValues[i]" />
+                        </MudItem>
+                    }
+                }
+            </MudGrid>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudText>@((MarkupString)_newsContent?.Content!)</MudText>
+            <MudStack AlignItems="AlignItems.End" Style="width: 100%" Spacing="0" Class="mt-10">
+                <MudText>By: @_newsContent?.Author</MudText>
+                <MudStack Spacing="0" AlignItems="AlignItems.End" Style="width: 100%">
+                    <MudText Typo="Typo.body2">
+                       on @_newsContent?.DatePublished?.ToString("MMMM dd, yyyy")
+                    </MudText>
+                    <MudText Typo="Typo.caption">
+                        @GetRelativeTime(_newsContent?.DatePublished)
+                    </MudText>
+                </MudStack>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+<FooterComponent />
+
+@code {
+    [Parameter] public string? Category { get; set; }
+    [Parameter] public string? Title { get; set; }
+
+    private NewsDTO.NewsDetails.NewsContent? _newsContent;
+    private List<string> _imagesValues = new();
+
+    private List<BreadcrumbItem> _items = new();
+
+    public class NewsDTO
+    {
+        public class NewsDetails
+        {
+            public class NewsContent
+            {
+                public string? ID { get; set; }
+                public string? Category { get; set; }
+                public string? Author { get; set; }
+                public string? Title { get; set; }
+                public string? Content { get; set; }
+                public string? Excerpt { get; set; }
+                public DateTime? DateCreated { get; set; }
+                public bool? IsPublished { get; set; }
+                public DateTime? DatePublished { get; set; }
+                public bool? IsArchived { get; set; }
+                public List<string>? ImageUrls { get; set; }
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetNewsDetailsAsync();
+        _items = new List<BreadcrumbItem>
+        {
+            new("Home", href: "./"),
+            new("News", href: "./news"),
+            new($"{Category}", href: $"./news/{Category}"),
+            new($"{Title}", href: null, disabled: true)
+        };
+    }
+
+    private string GetRelativeTime(DateTime? date)
+    {
+        if (date == null) return "";
+
+        var timeSpan = DateTime.Now - date.Value;
+
+        if (timeSpan.TotalSeconds < 60)
+            return "just now";
+
+        if (timeSpan.TotalMinutes < 60)
+        {
+            int minutes = (int)timeSpan.TotalMinutes;
+            return $"{minutes} minute{(minutes == 1 ? "" : "s")} ago";
+        }
+
+        if (timeSpan.TotalHours < 24)
+        {
+            int hours = (int)timeSpan.TotalHours;
+            return $"{hours} hour{(hours == 1 ? "" : "s")} ago";
+        }
+
+        if (timeSpan.TotalDays < 7)
+        {
+            int days = (int)timeSpan.TotalDays;
+            return $"{days} day{(days == 1 ? "" : "s")} ago";
+        }
+
+        if (timeSpan.TotalDays < 30)
+        {
+            int weeks = (int)(timeSpan.TotalDays / 7);
+            return $"{weeks} week{(weeks == 1 ? "" : "s")} ago";
+        }
+
+        if (timeSpan.TotalDays < 365)
+        {
+            int months = (int)(timeSpan.TotalDays / 30);
+            return $"{months} month{(months == 1 ? "" : "s")} ago";
+        }
+
+        int years = (int)(timeSpan.TotalDays / 365);
+        return $"{years} year{(years == 1 ? "" : "s")} ago";
+    }
+
+    private async Task GetNewsDetailsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Title))
+            return;
+
+        string url = $"/News/Details?title={Title}";
+
+        _newsContent = await apiService.GetSingleAsync<NewsDTO.NewsDetails.NewsContent>(url);
+
+        if (_newsContent?.ID != null)
+        {
+            await LoadNewsImagesAsync(_newsContent.ID);
+        }
+    }
+
+    private async Task LoadNewsImagesAsync(string newsID)
+    {
+        var baseUrl = "https://palarongpambansa2026.com/attachments/media/news";
+
+        try
+        {
+            var apiUrl = $"/News/NewsImages?newsID={newsID}";
+            var imageFiles = await apiService.GetAsync<string>(apiUrl);
+
+            if (imageFiles != null && imageFiles.Count > 0)
+            {
+                _imagesValues = imageFiles
+                    .Where(file => !string.IsNullOrWhiteSpace(file))
+                    .Select(file => $"{baseUrl}/{newsID}/{file}")
+                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading images for news {newsID}: {ex.Message}");
+        }
+    }
+}

@@ -51,10 +51,10 @@
             <MudDivider />
         </MudItem>
 
-        @if (apiService.NoData == false)
-        {
-            <MudItem xs="12">
-                <MudGrid Justify="Justify.Center">
+        <MudItem xs="12">
+            <MudGrid Justify="Justify.Center">
+                @if (_schoolRegions?.Any() == true)
+                {
                     <MudVirtualize Items="_schoolRegions" Context="region">
                         <MudItem xs="6" sm="4" lg="3" xl="2">
                             <MudLink Href="@(featuresUnlockingService.IsUnlocked == true ? $"./regional-teams/{region.Abbreviation}-{region.Region}" : null)" Underline="Underline.None">
@@ -73,15 +73,29 @@
                             </MudLink>
                         </MudItem>
                     </MudVirtualize>
-                </MudGrid>
-            </MudItem>
-        }
-        else
-        {
-            <MudProgressLinear/>
-        }
+                }
+                else
+                {
+                    @for (int i = 0; i < 19; i++)
+                    {
+                        <MudItem xs="6" sm="4" lg="3" xl="2">
+                            <MudPaper Outlined>
+                                <MudStack Spacing="0">
+                                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="150px" />
+                                    <MudStack Class="pa-3 mt-n2" Spacing="0">
+                                        <MudSkeleton Height="50px" />
+                                        <MudSkeleton />
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                }
+            </MudGrid>
+        </MudItem>
     </MudGrid>
 </MudContainer>
+
 <FooterComponent />
 @code {
     private List<BreadcrumbItem> _items = new();
@@ -101,18 +115,18 @@
     // Initialization method to fetch data and update UI elements
     protected override async Task OnInitializedAsync()
     {
+        _items = new List<BreadcrumbItem>
+        {
+            new("Home", href: "./"),
+            new("Regional Teams",  href: null, disabled: true)
+        };
+
         ThemeService.OnThemeChanged += StateHasChanged;
         await ThemeService.LoadThemePreference();
 
         featuresUnlockingService.OnLockChanged += StateHasChanged;
         await featuresUnlockingService.LoadFromLocalStorageAsync();
         await GetRegionsAsync();
-
-        _items = new List<BreadcrumbItem>
-        {
-            new("Home", href: "./"),
-            new("Regional Teams",  href: null, disabled: true)
-        };
     }
 
     private async Task GetRegionsAsync()

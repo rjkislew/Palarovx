@@ -1,0 +1,233 @@
+﻿@page "/news"
+
+@using System.Text.Json
+@using System.Threading.Tasks
+@using Client.Palaro2026.Services
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<PageTitle>News and updates | PALARO 2026 - Agusan del Sur</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    <MudGrid>
+        <MudItem xs="12">
+            <MudText Typo="Typo.h2">News and Updates</MudText>
+            <MudText Typo="Typo.subtitle1">Catch up on the latest updates and highlights.</MudText>
+        </MudItem>
+        <MudItem xs="12">
+            <MudBreadcrumbs Style="font-size: 15px" Class="pa-0" Items="_items"></MudBreadcrumbs>
+            <MudDivider />
+        </MudItem>
+        <MudItem xs="12">
+            <MudGrid>
+                @if (_newsContents?.Any() == true)
+                {
+                    @foreach (var news in _newsContents.Take(3))
+                    {
+                        <MudItem xs="12" md="4">
+                            <MudLink Href="@($"news/{news.Category}/{news.Title}")" Underline="Underline.None">
+                                <MudPaper Outlined Style="height: 100%; position: relative;" Class="scale-up-center">
+                                    <MudStack Spacing="0" AlignItems="AlignItems.Start" Style="height: 100%">
+
+                                        @if (_newsImageMap.TryGetValue(news.ID, out var images) && images?.Any() == true)
+                                        {
+                                            <MudImage ObjectFit="ObjectFit.Cover"
+                                                      Style="height: 100%; width: 100%"
+                                                      Src="@images.First()">
+                                            </MudImage>
+
+                                            <!-- Gradient Overlay from top to bottom -->
+                                            <MudStack Style="position: absolute;
+                                                                                                                                         top: 0;
+                                                                                                                                         left: 0;
+                                                                                                                                         width: 100%;
+                                                                                                                                         height: 40%;
+                                                                                                                                         background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+                                                                                                                                         z-index: 2;
+                                                                                                                                         padding: 8px;
+                                                                                                                                         ">
+                                                <MudText Typo="Typo.subtitle2" Style="color: white;">
+                                                    @news.Category
+                                                </MudText>
+                                            </MudStack>
+                                        }
+
+                                        <MudStack Class="pa-3" Style="height: 100%" Justify="Justify.SpaceBetween">
+                                            <MudStack Spacing="0">
+                                                <MudText Typo="Typo.body1">
+                                                    <b>@news.Title</b>
+                                                </MudText>
+                                                <MudText Typo="Typo.caption">@news.Excerpt</MudText>
+                                            </MudStack>
+
+                                            <MudSpacer />
+
+                                            <MudStack Spacing="0" Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                                                <MudText Typo="Typo.body2">
+                                                    @news?.DatePublished?.ToString("MMMM dd, yyyy")
+                                                </MudText>
+                                                <MudText Typo="Typo.caption">
+                                                    @GetRelativeTime(news?.DatePublished)
+                                                </MudText>
+                                            </MudStack>
+                                        </MudStack>
+                                    </MudStack>
+                                </MudPaper>
+                            </MudLink>
+                        </MudItem>
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < 12; i++)
+                    {
+                        <MudItem xs="12" md="4">
+                            <MudPaper Outlined>
+                                <MudStack Spacing="0">
+                                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" />
+                                    <MudStack Class="pa-3 mt-n2" Spacing="0">
+                                        <MudSkeleton Height="100px"></MudSkeleton>
+                                        <MudSkeleton></MudSkeleton>
+                                        <MudSkeleton></MudSkeleton>
+                                        <MudSkeleton></MudSkeleton>
+                                        <MudSkeleton></MudSkeleton>
+                                        <MudStack Row Justify="Justify.SpaceBetween" Class="mt-5">
+                                            <MudSkeleton Width="50px" />
+                                            <MudSkeleton Width="50px" />
+                                        </MudStack>
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                }
+            </MudGrid>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+<!-- Footer -->
+<FooterComponent />
+
+@code {
+    private List<NewsDTO.NewsDetails.NewsContent>? _newsContents;
+    private List<string> _imagesValues = new();
+    private Dictionary<string, List<string>> _newsImageMap = new();
+
+    private List<BreadcrumbItem> _items = new();
+
+    public class NewsDTO
+    {
+        public class NewsDetails
+        {
+            public class NewsContent
+            {
+                public string? ID { get; set; }
+                public string? Category { get; set; }
+                public string? Author { get; set; }
+                public string? Title { get; set; }
+                public string? Content { get; set; }
+                public string? Excerpt { get; set; }
+                public DateTime? DateCreated { get; set; }
+                public bool? IsPublished { get; set; }
+                public DateTime? DatePublished { get; set; }
+                public bool? IsArchived { get; set; }
+                public List<string> ImageUrls { get; set; } // or just string MainImageUrl
+            }
+        }
+    }
+
+
+
+    private string GetRelativeTime(DateTime? date)
+    {
+        if (date == null) return "";
+
+        var timeSpan = DateTime.Now - date.Value;
+
+        if (timeSpan.TotalSeconds < 60)
+            return "just now";
+
+        if (timeSpan.TotalMinutes < 60)
+        {
+            int minutes = (int)timeSpan.TotalMinutes;
+            return $"{minutes} minute{(minutes == 1 ? "" : "s")} ago";
+        }
+
+        if (timeSpan.TotalHours < 24)
+        {
+            int hours = (int)timeSpan.TotalHours;
+            return $"{hours} hour{(hours == 1 ? "" : "s")} ago";
+        }
+
+        if (timeSpan.TotalDays < 7)
+        {
+            int days = (int)timeSpan.TotalDays;
+            return $"{days} day{(days == 1 ? "" : "s")} ago";
+        }
+
+        if (timeSpan.TotalDays < 30)
+        {
+            int weeks = (int)(timeSpan.TotalDays / 7);
+            return $"{weeks} week{(weeks == 1 ? "" : "s")} ago";
+        }
+
+        if (timeSpan.TotalDays < 365)
+        {
+            int months = (int)(timeSpan.TotalDays / 30);
+            return $"{months} month{(months == 1 ? "" : "s")} ago";
+        }
+
+        int years = (int)(timeSpan.TotalDays / 365);
+        return $"{years} year{(years == 1 ? "" : "s")} ago";
+    }
+
+    // Initialization method to fetch data and update UI elements
+    protected override async Task OnInitializedAsync()
+    {
+        _items = new List<BreadcrumbItem>
+        {
+            new("Home", href: "./"),
+            new("News", href: null, disabled: true)
+        };
+
+        await GetNewsDetailsAsync();
+    }
+
+    private async Task LoadNewsImagesAsync(IEnumerable<string>? newsIDs)
+    {
+        var baseUrl = "https://palarongpambansa2026.com/attachments/media/news";
+
+        foreach (var newsID in newsIDs!)
+        {
+            try
+            {
+                var apiUrl = $"/News/NewsImages?newsID={newsID}";
+                var imageFiles = await apiService.GetAsync<string>(apiUrl);
+
+                if (imageFiles != null && imageFiles.Count > 0)
+                {
+                    var fullUrls = imageFiles
+                        .Where(file => !string.IsNullOrWhiteSpace(file))
+                        .Select(file => $"{baseUrl}/{newsID}/{file}")
+                        .ToList();
+
+                    _newsImageMap[newsID] = fullUrls;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading images for news {newsID}: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task GetNewsDetailsAsync()
+    {
+        string url = "/News/Details?isArchived=false&isPublished=false";
+        _newsContents = await apiService.GetAsync<NewsDTO.NewsDetails.NewsContent>(url);
+        await LoadNewsImagesAsync(_newsContents!.Select(n => n.ID));
+    }
+}

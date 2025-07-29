@@ -1,0 +1,42 @@
+﻿@inject IJSRuntime JS
+
+<div id="@EditorId" style="margin-left: -12px; margin-right: -12px; margin-top: 15px">
+</div>
+
+@code {
+    [Parameter] public string? InitialContent { get; set; }
+    [Parameter] public EventCallback<string> ContentChanged { get; set; }
+
+    private DotNetObjectReference<QuillEditor>? _objRef;
+    private string EditorId = $"quill-editor-{Guid.NewGuid()}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("quillInterop.initializeQuill", EditorId, _objRef, InitialContent);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnQuillContentChanged(string html)
+    {
+        await ContentChanged.InvokeAsync(html);
+    }
+
+    public async Task<string> GetContentAsync()
+    {
+        return await JS.InvokeAsync<string>("quillInterop.getContent", EditorId);
+    }
+
+    public async Task SetContentAsync(string content)
+    {
+        await JS.InvokeVoidAsync("quillInterop.setContent", EditorId, content);
+    }
+
+    public void Dispose()
+    {
+        _objRef?.Dispose();
+    }
+}

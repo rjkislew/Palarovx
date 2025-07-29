@@ -1,11 +1,32 @@
-﻿<MudContainer MaxWidth="MaxWidth.Large" Class="mt-20 mb-5">
+﻿@using QRCoder
+@using System.Drawing.Imaging
+@using System.IO
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager navigationManager
+
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-20 mb-5">
     <MudGrid>
-        <MudItem xs="12">
-            <MudStack Row AlignItems="AlignItems.Center">
+        <MudItem xs="6">
+            <MudStack Row AlignItems="AlignItems.End" Style="height: 100%; width: 100%">
                 <MudText Typo="Typo.caption">Follow us: </MudText>
                 <MudIcon Size="Size.Small" Color="Color.Primary" Icon="@Icons.Custom.Brands.Facebook" />
                 <MudIcon Size="Size.Small" Color="Color.Primary" Icon="@Icons.Custom.Brands.TikTok" />
                 <MudIcon Size="Size.Small" Color="Color.Primary" Icon="@Icons.Custom.Brands.YouTube" />
+            </MudStack>
+        </MudItem>
+        <MudItem xs="6">
+            <MudStack Row AlignItems="AlignItems.End" Justify=Justify.FlexEnd Style="height: 100%; width: 100%">
+                @if (!string.IsNullOrEmpty(qrCodeBase64))
+                {
+                    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="0">
+                        <MudText Style="font-size: 10px">QR to this page</MudText>
+                        <MudImage Src="@qrCodeBase64" alt="QR Code" style="height:100px;" />
+                        <MudElement HtmlTag="a" href="@qrCodeBase64" download="@fileName">
+                            <MudButton Size="Size.Small">Download</MudButton>
+                        </MudElement>
+                    </MudStack>
+                }
             </MudStack>
         </MudItem>
         <MudItem xs="12">
@@ -68,4 +89,33 @@
 @code
 {
     string currentYear = DateTime.Now.ToString("yyyy");
+
+    string? qrCodeBase64;
+    string? fileName;
+
+    protected override void OnInitialized()
+    {
+        var currentUrl = navigationManager.Uri;
+        qrCodeBase64 = GenerateQrCodeBase64(currentUrl);
+
+        // Extract full path from the URL and clean it for a safe filename
+        var uri = new Uri(currentUrl);
+        var path = uri.AbsolutePath.Trim('/').Replace("/", "-");
+
+        // Fallback if root page
+        if (string.IsNullOrWhiteSpace(path))
+            path = "homepage";
+
+        fileName = $"qr-code-{path}.png";
+    }
+
+    private string GenerateQrCodeBase64(string text)
+    {
+        using var qrGenerator = new QRCoder.QRCodeGenerator();
+        using var qrCodeData = qrGenerator.CreateQrCode(text, QRCoder.QRCodeGenerator.ECCLevel.Q);
+        using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
+        byte[] qrCodeBytes = qrCode.GetGraphic(20);
+
+        return $"data:image/png;base64,{Convert.ToBase64String(qrCodeBytes)}";
+    }
 }

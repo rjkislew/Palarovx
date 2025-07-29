@@ -88,6 +88,10 @@ Main layout structure:
                     <!-- Night mode button with tooltip -->
                     <MudButton StartIcon="@Icons.Material.Filled.Settings">Account Settings</MudButton>
                     <MudButton OnClick="ToggleDarkMode" StartIcon="@GetThemeIcon()">@GetThemeTitle()</MudButton>
+                    @if (_showInstallButton)
+                    {
+                        <MudButton OnClick="@InstallApp" StartIcon="@Icons.Material.Filled.Download">Download App</MudButton>
+                    }
                     <MudButton OnClick="Logout" StartIcon="@Icons.Material.Filled.Logout" Class="mt-5">Logout</MudButton>
                 </MudStack>
             </MudPaper>
@@ -115,7 +119,7 @@ Main layout structure:
     <MudHidden Breakpoint="Breakpoint.Xs">
         <MudDrawer @bind-Open="_DrawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0">
             <!-- NavMenu.razor component -->
-            <NavMenu/>
+            <NavMenu />
         </MudDrawer>
     </MudHidden>
 
@@ -164,16 +168,24 @@ Main layout structure:
     // initialization: sets the theme and subscribes to theme changes
     protected override async Task OnInitializedAsync()
     {
-        // Check if the app is running in a PWA context and register for update notifications
-        await RegisterForUpdateAvailableNotification();
-
-
         // initialize the theme service
         themeService.OnThemeChanged += StateHasChanged;
         await themeService.LoadThemePreference();
 
         token = await cookieService.GetCookie("authenticationToken");
         userID = await cookieService.GetCookie("userID");
+
+        // Check PWA installation status
+        var isStandalone = await JSRuntime.InvokeAsync<bool>("pwaHelper.isRunningStandalone");
+        if (isStandalone)
+        {
+            _showInstallButton = false;
+        }
+        else
+        {
+            var canInstall = await JSRuntime.InvokeAsync<bool>("pwaHelper.isInstallPromptAvailable");
+            _showInstallButton = canInstall;
+        }
 
         await CheckAuthenticationAsync();
         await GetUserDetails();
@@ -305,15 +317,11 @@ Main layout structure:
             AppbarText = Colors.Gray.Lighten5,
             TextPrimary = Colors.Shades.White
         },
-        LayoutProperties = new LayoutProperties()
-        {
-            DrawerWidthLeft = "300px"
-        },
         Typography = new Typography()
         {
             Default = new DefaultTypography()
             {
-                FontFamily = new[] { "Inter", "sans-serif" },
+                FontFamily = new[] { "Inter", "sans-serif" }
             },
             H1 = new H1Typography()
             {
@@ -382,45 +390,7 @@ Main layout structure:
                 FontWeight = "500",
                 TextTransform = "uppercase",
                 LetterSpacing = "0.1em"
-            }
+            },
         }
     };
-
-
-
-
-    // Register for update available notification
-    private async Task RegisterForUpdateAvailableNotification()
-    {
-        await JSRuntime.InvokeAsync<object>(
-            identifier: "registerForUpdateAvailableNotification",
-            DotNetObjectReference.Create(this),
-            nameof(OnUpdateAvailable));
-    }
-
-    [JSInvokable(nameof(OnUpdateAvailable))]
-    public Task OnUpdateAvailable()
-    {
-        _newVersionAvailable = true;
-
-        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomCenter;
-        Snackbar.Add("A new version is available.", Severity.Info, config =>
-        {
-            config.RequireInteraction = true; // Prevent auto-dismiss
-            config.ShowCloseIcon = false;     // Hide close icon
-            config.VisibleStateDuration = int.MaxValue; // Keeps snackbar indefinitely
-
-            config.Action = "Update";
-            config.ActionColor = Color.Primary;
-            config.OnClick = snackbar =>
-            {
-                // Reload the page to get the latest version
-                JSRuntime.InvokeVoidAsync("location.reload", true);
-                return Task.CompletedTask;
-            };
-        });
-
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
 }

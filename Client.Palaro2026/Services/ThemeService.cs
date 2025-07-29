@@ -29,20 +29,6 @@ namespace Client.Palaro2026.Services
             NotifyStateChanged();
         }
 
-        public async Task ToggleDarkModeAsync()
-        {
-            IsDarkMode = IsDarkMode switch
-            {
-                true => false,  // Dark → Light
-                false => true   // Light → Auto
-            };
-
-            var value = IsDarkMode.ToString().ToLower();
-            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "isDarkMode", value);
-
-            NotifyStateChanged();
-        }
-
         public async Task SystemThemeModeAsync(bool value)
         {
             IsDarkMode = value;

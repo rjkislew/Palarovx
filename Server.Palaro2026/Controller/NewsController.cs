@@ -122,58 +122,88 @@ namespace Server.Palaro2026.Controller
                 .ToListAsync();
         }
 
-        [HttpGet("NewsImages/{newsID}")]
-        public IActionResult GetNewsImages(string newsID)
+        //[HttpGet("NewsImages")]
+        //public IActionResult GetNewsImages([FromQuery] string newsID)
+        //{
+        //    if (string.IsNullOrWhiteSpace(newsID))
+        //        return BadRequest("NewsID is required.");
+
+        //    var folderPath = Path.Combine(@"\\192.168.2.210\pgas_attachment\palaro2026\media\news", newsID);
+
+        //    if (!Directory.Exists(folderPath))
+        //        return NotFound("Folder not found.");
+
+        //    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+
+        //    var imageDataList = new List<object>();
+
+        //    foreach (var filePath in Directory.GetFiles(folderPath))
+        //    {
+        //        var ext = Path.GetExtension(filePath).ToLower();
+        //        if (!allowedExtensions.Contains(ext)) continue;
+
+        //        try
+        //        {
+        //            var fileBytes = System.IO.File.ReadAllBytes(filePath);
+        //            var base64String = Convert.ToBase64String(fileBytes);
+        //            var mimeType = GetMimeType(ext);
+        //            var dataUrl = $"data:{mimeType};base64,{base64String}";
+
+        //            imageDataList.Add(new
+        //            {
+        //                //FileName = Path.GetFileName(filePath),
+        //                Base64 = dataUrl
+        //            });
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            Console.WriteLine($"Error reading file {filePath}: {ex.Message}");
+        //        }
+        //    }
+
+        //    return Ok(imageDataList);
+        //}
+
+        //private string GetMimeType(string extension)
+        //{
+        //    return extension switch
+        //    {
+        //        ".jpg" or ".jpeg" => "image/jpeg",
+        //        ".png" => "image/png",
+        //        ".webp" => "image/webp",
+        //        _ => "application/octet-stream"
+        //    };
+        //}
+
+
+        [HttpGet("NewsImages")]
+        public IActionResult GetNewsImages([FromQuery] string newsID)
         {
             if (string.IsNullOrWhiteSpace(newsID))
-                return BadRequest("NewsID is required.");
+                return BadRequest("Missing news ID.");
 
-            var folderPath = Path.Combine(@"\\192.168.2.210\pgas_attachment\palaro2026\media\news", newsID);
+            var baseFolder = @"\\192.168.2.210\pgas_attachment\palaro2026\media\news";
+            var safeFolder = Path.GetFileName(newsID); // sanitize
+            var folderPath = Path.Combine(baseFolder, safeFolder);
 
             if (!Directory.Exists(folderPath))
                 return NotFound("Folder not found.");
 
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+            var supportedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
 
-            var imageDataList = new List<object>();
+            // 👇 Get file names only (no full path)
+            var imageFiles = Directory
+                .GetFiles(folderPath)
+                .Where(f => supportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                .Select(f => Path.GetFileName(f))
+                .ToList();
 
-            foreach (var filePath in Directory.GetFiles(folderPath))
-            {
-                var ext = Path.GetExtension(filePath).ToLower();
-                if (!allowedExtensions.Contains(ext)) continue;
+            if (!imageFiles.Any())
+                return NotFound("No images found.");
 
-                try
-                {
-                    var fileBytes = System.IO.File.ReadAllBytes(filePath);
-                    var base64String = Convert.ToBase64String(fileBytes);
-                    var mimeType = GetMimeType(ext);
-                    var dataUrl = $"data:{mimeType};base64,{base64String}";
-
-                    imageDataList.Add(new
-                    {
-                        //FileName = Path.GetFileName(filePath),
-                        Base64 = dataUrl
-                    });
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error reading file {filePath}: {ex.Message}");
-                }
-            }
-
-            return Ok(imageDataList);
+            return Ok(imageFiles);
         }
 
-        private string GetMimeType(string extension)
-        {
-            return extension switch
-            {
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".png" => "image/png",
-                ".webp" => "image/webp",
-                _ => "application/octet-stream"
-            };
-        }
 
 
 
