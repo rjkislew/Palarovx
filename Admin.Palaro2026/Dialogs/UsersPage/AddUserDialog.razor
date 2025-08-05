@@ -2,6 +2,7 @@
 @using System.Text.Json
 @using System.Threading.Tasks
 @using System.Text
+@using System.Text.RegularExpressions
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject APIService apiService
@@ -11,46 +12,48 @@
 {
     <MudDialog>
         <DialogContent>
-            <MudGrid Spacing="2">
-                <MudItem xs="12" md="6">
-                    <MudTextField T="string" @bind-Value="_firstnameValue" Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                </MudItem>
-                <MudItem xs="12" md="6">
-                    <MudTextField T="string" @bind-Value="_lastnameValue" Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                </MudItem>
-                <MudItem xs="12" md="6">
-                    <MudTextField T="string" @bind-Value="_emailAddress" Margin="Margin.Dense" Label="Email Address" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                </MudItem>
-                <MudItem xs="12" md="6">
-                    <MudTextField T="string" @bind-Value="_contactNumber" Margin="Margin.Dense" Label="Contact Number" MaxLength="11" Mask="@(new PatternMask("0000 000 0000"))" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                </MudItem>
-                <MudItem xs="12" md="6">
-                    <MudTextField T="string" Margin="Margin.Dense" Label="Password" ShrinkLabel Variant="Variant.Outlined" InputType="InputType.Password" />
-                </MudItem>
-                <MudItem xs="12" md="6">
-                    <MudTextField T="string" @bind-Value="_passwordValue" Margin="Margin.Dense" Label="Confirm Password" ShrinkLabel Variant="Variant.Outlined" InputType="InputType.Password" />
-                </MudItem>
-                <MudItem xs="12" md="6">
-                    @{
-                        string pgas = "Provincial Government of Agusan del Sur";
-                        string depedNational = "DepED National";
-                    }
-                    <MudSelect @bind-Value="_affiliationValue" Margin="Margin.Dense" Label="Affiliation" ShrinkLabel Variant="Variant.Outlined" Clearable>
-                        <MudSelectItem T="string" Value="@pgas">@pgas</MudSelectItem>
-                        <MudSelectItem T="string" Value="@depedNational">@depedNational</MudSelectItem>
-                        <MudVirtualize Items="_schoolRegions" Context="region">
-                            <MudSelectItem T="string" Value="@region.Region">DepED @region.Region</MudSelectItem>
-                        </MudVirtualize>
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedUserRoleIDValue" Margin="Margin.Dense" Label="Role" ShrinkLabel Variant="Variant.Outlined" Clearable>
-                        <MudVirtualize Items="_userRoles" Context="role">
-                            <MudSelectItem T="int?" Value="role.ID">@role.Role</MudSelectItem>
-                        </MudVirtualize>
-                    </MudSelect>
-                </MudItem>
-            </MudGrid>
+            <MudForm @ref="form" @bind-IsValid="@success" @bind-Errors="@errors">
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string" @bind-Value="_firstnameValue" Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string" @bind-Value="_lastnameValue" Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string" @bind-Value="_emailAddress" Margin="Margin.Dense" Label="Email Address" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string" @bind-Value="_contactNumber" Margin="Margin.Dense" Label="Contact Number" MaxLength="11" Mask="@(new PatternMask("0000 000 0000"))" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string" @ref="_passwordValue" Validation="@(new Func<string, IEnumerable<string>>(PasswordStrength))" Margin="Margin.Dense" Label="Password" ShrinkLabel Variant="Variant.Outlined" InputType="InputType.Password" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string" Validation="@(new Func<string, string>(PasswordMatch))" Margin="Margin.Dense" Label="Confirm Password" ShrinkLabel Variant="Variant.Outlined" InputType="InputType.Password" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        @{
+                            string pgas = "Provincial Government of Agusan del Sur";
+                            string depedNational = "DepED National";
+                        }
+                        <MudSelect @bind-Value="_affiliationValue" Margin="Margin.Dense" Label="Affiliation" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                            <MudSelectItem T="string" Value="@pgas">@pgas</MudSelectItem>
+                            <MudSelectItem T="string" Value="@depedNational">@depedNational</MudSelectItem>
+                            <MudVirtualize Items="_schoolRegions" Context="region">
+                                <MudSelectItem T="string" Value="@region.Region">DepED @region.Region</MudSelectItem>
+                            </MudVirtualize>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudSelect @bind-Value="_selectedUserRoleIDValue" Margin="Margin.Dense" Label="Role" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                            <MudVirtualize Items="_userRoles" Context="role">
+                                <MudSelectItem T="int?" Value="role.ID">@role.Role</MudSelectItem>
+                            </MudVirtualize>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+            </MudForm>
         </DialogContent>
         <DialogActions>
             <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
@@ -85,7 +88,8 @@ else
     private string? _lastnameValue;
     private string? _emailAddress;
     private string? _contactNumber;
-    private string? _passwordValue;
+    private MudTextField<string>? _passwordValue;
+    private string? _confirmPasswordValue;
     private string? _affiliationValue;
     private int? _selectedUserRoleIDValue;
 
@@ -97,8 +101,36 @@ else
     string.IsNullOrEmpty(_contactNumber) ||
     !_selectedUserRoleIDValue.HasValue;
 
-    private bool? _isLoaded = false;
     // Load dialog if true
+    private bool? _isLoaded = false;
+
+    bool success;
+    string[] errors = { };
+    MudForm form;
+
+    private IEnumerable<string> PasswordStrength(string pw)
+    {
+        if (string.IsNullOrWhiteSpace(pw))
+        {
+            yield return "Password is required!";
+            yield break;
+        }
+        if (pw.Length < 8)
+            yield return "Password must be at least of length 8";
+        if (!Regex.IsMatch(pw, @"[A-Z]"))
+            yield return "Password must contain at least one capital letter";
+        if (!Regex.IsMatch(pw, @"[a-z]"))
+            yield return "Password must contain at least one lowercase letter";
+        if (!Regex.IsMatch(pw, @"[0-9]"))
+            yield return "Password must contain at least one digit";
+    }
+
+    private string PasswordMatch(string arg)
+    {
+        if (_passwordValue?.Value != arg)
+            return "Passwords don't match";
+        return null!;
+    }
 
     // DTOs
     public class UsersDTO
@@ -211,9 +243,9 @@ else
             Affiliation = _affiliationValue,
             EmailAddress = _emailAddress,
             ContactNumber = _contactNumber?.Replace(" ", ""),
-            PasswordHash = _passwordValue, // In a real application, ensure to hash the password securely
+            PasswordHash = _passwordValue!.Value,
             RoleID = _selectedUserRoleIDValue,
-            Active = true, // Assuming new users are active by default
+            Active = true,
             CreatedAt = DateTime.Now
         };
 

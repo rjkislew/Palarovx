@@ -171,6 +171,10 @@ public partial class Palaro2026Context : DbContext
                 .HasForeignKey(d => d.EventStreamID)
                 .HasConstraintName("FK_Events_EventStreams");
 
+            entity.Property(e => e.GamePhase)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+
             entity.HasOne(d => d.EventVenues).WithMany(p => p.Events)
                 .HasForeignKey(d => d.EventVenuesID)
                 .HasConstraintName("FK__Events_EventVenues");
@@ -281,6 +285,9 @@ public partial class Palaro2026Context : DbContext
                 .IsUnicode(false);
             entity.Property(e => e.LastName)
                 .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.Gender)
+                .HasMaxLength(6)
                 .IsUnicode(false);
 
             entity.HasOne(d => d.School).WithMany(p => p.ProfilePlayers)

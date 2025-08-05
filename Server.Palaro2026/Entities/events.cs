@@ -22,6 +22,8 @@ public partial class Events
 
     public int? EventStreamID { get; set; }
 
+    public string? GamePhase { get; set; }
+
     public bool? IsFinished { get; set; }
 
     public byte[]? Attachement { get; set; }

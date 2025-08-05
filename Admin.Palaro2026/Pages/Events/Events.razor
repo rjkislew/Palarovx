@@ -25,7 +25,7 @@
                     <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.PlayCircleOutline">Ongoing: @_eventDetails?.Where(x => x.IsFinished == false && x.EventVersusList?.Count()! < 2).Count()</MudChip>
                     <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircleOutline">Finished: @_eventDetails?.Where(x => x.IsFinished == true).Count()</MudChip>
                 </MudStack>
-                <MudSpacer/>
+                <MudSpacer />
                 <MudStack Row Spacing="0">
                     <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddEventDialog">Add Event</MudButton>
                     <MudDivider Vertical="true" FlexItem="true" />
@@ -141,8 +141,23 @@
                                     </MudTooltip>
                                 </MudVirtualize>
                             </MudItem>
+                            @if (@eventDetail.IsFinished != true)
+                            {
+                                <MudItem xs="12">
+                                    <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" FullWidth Style="text-transform: none" OnClick="() => OpenAddEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID)">Add Team & Players</MudButton>
+                                </MudItem>
+                            }
+
                             <MudItem xs="12">
-                                <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" FullWidth Style="text-transform: none" OnClick="() => OpenAddEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID)">Add Team Players</MudButton>
+                                @if (eventDetail.EventVersusList != null && eventDetail.EventVersusList.Any() && eventDetail.IsFinished != true)
+                                {
+                                    <MudStack>
+                                        <MudDivider />
+                                        <MudButton FullWidth Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" DropShadow="false" OnClick="() => ScoreBoardDialog(eventDetail.ID, eventDetail.SubCategoryID)">
+                                            Score Board
+                                        </MudButton>
+                                    </MudStack>
+                                }
                             </MudItem>
                         </MudGrid>
                     </MudTd>
@@ -295,7 +310,6 @@
     {
         public class EventDetails
         {
-
             public class Event
             {
                 public string ID { get; set; } = null!;
@@ -303,6 +317,7 @@
                 public List<EventVersusTeams>? EventVersusList { get; set; }
                 public string? Category { get; set; }
                 public string? Sport { get; set; }
+                public string? GamePhase { get; set; }
                 public int? SubCategoryID { get; set; }
                 public string? Subcategory { get; set; }
                 public string? Gender { get; set; }
@@ -439,5 +454,23 @@
         {
             await GetEventsAsync();
         }
+    }
+
+    private async Task ScoreBoardDialog(string? selectedEventID, int? selectedSubCategoryID)
+    {
+        var parameter = new DialogParameters<ScoreBoardDialog>
+        {
+            {x => x.SelectedEventID, selectedEventID},
+            {x => x.SelectedSubCategoryID, selectedSubCategoryID},
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<ScoreBoardDialog>("Score Board", parameter, options);
+
+        var result = await dialog.Result;
+
+        await dialog.Result;
+
+        await GetEventsAsync();
     }
 }

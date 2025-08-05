@@ -1,10 +1,12 @@
 ﻿@page "/news"
+@page "/news/{NewsCategory}"
 
 @using System.Text.Json
 @using System.Threading.Tasks
 @using Client.Palaro2026.Services
 @inject IJSRuntime JSRuntime
 @inject IDialogService DialogService
+@inject NavigationManager navigationManager
 @inject APIService apiService
 @inject HttpClient httpClient
 
@@ -21,89 +23,109 @@
             <MudDivider />
         </MudItem>
         <MudItem xs="12">
-            <MudGrid>
-                @if (_newsContents?.Any() == true)
-                {
-                    @foreach (var news in _newsContents.Take(3))
-                    {
-                        <MudItem xs="12" md="4">
-                            <MudLink Href="@($"news/{news.Category}/{news.Title}")" Underline="Underline.None">
-                                <MudPaper Outlined Style="height: 100%; position: relative;" Class="scale-up-center">
-                                    <MudStack Spacing="0" AlignItems="AlignItems.Start" Style="height: 100%">
+            @if (_newsContents != null)
+            {
+                <MudStack AlignItems="AlignItems.Start" Spacing="10">
+                    <MudSelect T="string"
+                               Label="Select News Category"
+                               Margin="Margin.Dense"
+                               FullWidth="true"
+                               Clearable="true"
+                               Value="_selectedNewsCategory"
+                               ValueChanged="OnNewsCategoryChangedAsync">
+                        @if (_newsCategories != null)
+                        {
+                            @foreach (var category in _newsCategories)
+                            {
+                                <MudSelectItem Value="@category">@category</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
 
-                                        @if (_newsImageMap.TryGetValue(news.ID, out var images) && images?.Any() == true)
-                                        {
-                                            <MudImage ObjectFit="ObjectFit.Cover"
-                                                      Style="height: 100%; width: 100%"
-                                                      Src="@images.First()">
-                                            </MudImage>
 
-                                            <!-- Gradient Overlay from top to bottom -->
-                                            <MudStack Style="position: absolute;
-                                                                                                                                         top: 0;
-                                                                                                                                         left: 0;
-                                                                                                                                         width: 100%;
-                                                                                                                                         height: 40%;
-                                                                                                                                         background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
-                                                                                                                                         z-index: 2;
-                                                                                                                                         padding: 8px;
-                                                                                                                                         ">
-                                                <MudText Typo="Typo.subtitle2" Style="color: white;">
-                                                    @news.Category
-                                                </MudText>
+                    <MudGrid>
+                        @if (_newsContents?.Any() == true)
+                        {
+                            @foreach (var news in _newsContents.Take(3))
+                            {
+                                <MudItem xs="12" md="4">
+                                    <MudLink Href="@($"news/{news.Category}/{news.Title}")" Underline="Underline.None">
+                                        <MudPaper Outlined Style="height: 100%; position: relative;" Class="scale-up-center">
+                                            <MudStack Spacing="0" AlignItems="AlignItems.Start" Style="height: 100%">
+
+                                                @if (_newsImageMap.TryGetValue(news.ID, out var images) && images?.Any() == true)
+                                                {
+                                                    <MudImage ObjectFit="ObjectFit.Cover"
+                                                              Style="height: 100%; width: 100%"
+                                                              Src="@images.First()">
+                                                    </MudImage>
+
+                                                    <!-- Gradient Overlay from top to bottom -->
+                                                    <MudStack Style="position: absolute; top: 0; left: 0;  width: 100%; height: 40%; background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent); z-index: 2; padding: 8px;">
+                                                        <MudLink Href="@($"./news/{news.Category}")" Underline="Underline.None">
+                                                            <MudText Typo="Typo.subtitle2" Style="color: white;">
+                                                                @news.Category
+                                                            </MudText>
+                                                        </MudLink>
+                                                    </MudStack>
+                                                }
+
+                                                <MudStack Class="pa-3" Style="height: 100%; width: 100%" Justify="Justify.SpaceBetween">
+                                                    <MudStack Spacing="0">
+                                                        <MudText Typo="Typo.body1">
+                                                            <b>@news.Title</b>
+                                                        </MudText>
+                                                        <MudText Typo="Typo.caption">@news.Excerpt</MudText>
+                                                    </MudStack>
+
+                                                    <MudSpacer />
+
+                                                    <MudStack Spacing="0" Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                                                        <MudText Typo="Typo.body2">
+                                                            @news?.DatePublished?.ToString("MMMM dd, yyyy")
+                                                        </MudText>
+                                                        <MudText Typo="Typo.caption">
+                                                            @GetRelativeTime(news?.DatePublished)
+                                                        </MudText>
+                                                    </MudStack>
+                                                </MudStack>
                                             </MudStack>
-                                        }
-
-                                        <MudStack Class="pa-3" Style="height: 100%" Justify="Justify.SpaceBetween">
-                                            <MudStack Spacing="0">
-                                                <MudText Typo="Typo.body1">
-                                                    <b>@news.Title</b>
-                                                </MudText>
-                                                <MudText Typo="Typo.caption">@news.Excerpt</MudText>
-                                            </MudStack>
-
-                                            <MudSpacer />
-
-                                            <MudStack Spacing="0" Row Justify="Justify.SpaceBetween" Style="width: 100%">
-                                                <MudText Typo="Typo.body2">
-                                                    @news?.DatePublished?.ToString("MMMM dd, yyyy")
-                                                </MudText>
-                                                <MudText Typo="Typo.caption">
-                                                    @GetRelativeTime(news?.DatePublished)
-                                                </MudText>
+                                        </MudPaper>
+                                    </MudLink>
+                                </MudItem>
+                            }
+                        }
+                        else
+                        {
+                            for (int i = 0; i < 12; i++)
+                            {
+                                <MudItem xs="12" md="4">
+                                    <MudPaper Outlined>
+                                        <MudStack Spacing="0">
+                                            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" />
+                                            <MudStack Class="pa-3 mt-n2" Spacing="0">
+                                                <MudSkeleton Height="100px"></MudSkeleton>
+                                                <MudSkeleton></MudSkeleton>
+                                                <MudSkeleton></MudSkeleton>
+                                                <MudSkeleton></MudSkeleton>
+                                                <MudSkeleton></MudSkeleton>
+                                                <MudStack Row Justify="Justify.SpaceBetween" Class="mt-5">
+                                                    <MudSkeleton Width="50px" />
+                                                    <MudSkeleton Width="50px" />
+                                                </MudStack>
                                             </MudStack>
                                         </MudStack>
-                                    </MudStack>
-                                </MudPaper>
-                            </MudLink>
-                        </MudItem>
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < 12; i++)
-                    {
-                        <MudItem xs="12" md="4">
-                            <MudPaper Outlined>
-                                <MudStack Spacing="0">
-                                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" />
-                                    <MudStack Class="pa-3 mt-n2" Spacing="0">
-                                        <MudSkeleton Height="100px"></MudSkeleton>
-                                        <MudSkeleton></MudSkeleton>
-                                        <MudSkeleton></MudSkeleton>
-                                        <MudSkeleton></MudSkeleton>
-                                        <MudSkeleton></MudSkeleton>
-                                        <MudStack Row Justify="Justify.SpaceBetween" Class="mt-5">
-                                            <MudSkeleton Width="50px" />
-                                            <MudSkeleton Width="50px" />
-                                        </MudStack>
-                                    </MudStack>
-                                </MudStack>
-                            </MudPaper>
-                        </MudItem>
-                    }
-                }
-            </MudGrid>
+                                    </MudPaper>
+                                </MudItem>
+                            }
+                        }
+                    </MudGrid>
+                </MudStack>
+            }
+            else
+            {
+                <MudText>Loading categories...</MudText>
+            }
         </MudItem>
     </MudGrid>
 </MudContainer>
@@ -112,9 +134,15 @@
 <FooterComponent />
 
 @code {
+    [Parameter]
+    public string? NewsCategory { get; set; }
+
     private List<NewsDTO.NewsDetails.NewsContent>? _newsContents;
     private List<string> _imagesValues = new();
     private Dictionary<string, List<string>> _newsImageMap = new();
+    private List<string>? _newsCategories = new();
+    private string? _selectedNewsCategory = null;
+
 
     private List<BreadcrumbItem> _items = new();
 
@@ -139,7 +167,11 @@
         }
     }
 
-
+    protected override async Task OnParametersSetAsync()
+    {
+        _selectedNewsCategory = NewsCategory;
+        await GetNewsDetailsBySelectedCategoryAsync();
+    }
 
     private string GetRelativeTime(DateTime? date)
     {
@@ -226,8 +258,38 @@
 
     private async Task GetNewsDetailsAsync()
     {
-        string url = "/News/Details?isArchived=false&isPublished=false";
+        string url = $"/News/Details?&isArchived=false&isPublished=false";
         _newsContents = await apiService.GetAsync<NewsDTO.NewsDetails.NewsContent>(url);
         await LoadNewsImagesAsync(_newsContents!.Select(n => n.ID));
+
+        _newsCategories = _newsContents?
+            .Select(n => n.Category)
+            .Distinct()
+            .OrderBy(c => c)
+            .ToList();
     }
+
+    private async Task OnNewsCategoryChangedAsync(string? category)
+    {
+        _selectedNewsCategory = category;
+
+        if (!string.IsNullOrWhiteSpace(category))
+            navigationManager.NavigateTo($"/news/{Uri.EscapeDataString(category)}");
+        else
+            navigationManager.NavigateTo("/news");
+
+        await GetNewsDetailsBySelectedCategoryAsync();
+    }
+
+    private async Task GetNewsDetailsBySelectedCategoryAsync()
+    {
+        var categoryEncoded = Uri.EscapeDataString(_selectedNewsCategory ?? string.Empty);
+        string url = $"/News/Details?category={categoryEncoded}&isArchived=false&isPublished=false";
+
+        _newsContents = await apiService.GetAsync<NewsDTO.NewsDetails.NewsContent>(url);
+        await LoadNewsImagesAsync(_newsContents!.Select(n => n.ID));
+
+        NewsCategory = _selectedNewsCategory;
+    }
+
 }

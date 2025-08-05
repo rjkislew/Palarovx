@@ -12,27 +12,38 @@
     <MudDialog>
         <DialogContent>
             <MudGrid Justify="Justify.Center">
-                <MudVirtualize Items="_events" Context="eventDetails">
-                    <MudVirtualize Items="eventDetails.EventVersusList" Context="team">
+                <MudItem xs="6" md="3">
+                    <MudStack Spacing="0" AlignItems="AlignItems.Center">
+                        <MudTextField T="string?" Value="_event.GamePhase" ValueChanged="@(value => UpdateEventAsync())"></MudTextField>
+                        <MudText Typo="Typo.caption">@Phase</MudText>
+                    </MudStack>
+                </MudItem>
+                <MudFlexBreak />
+                    <MudVirtualize Items="_event.EventVersusList" Context="team">
                         <MudItem xs="6" sm="4" md="3">
                             <MudPaper Class="pa-3" Outlined Style="height: 100%">
-                                <MudStack Justify="Justify.SpaceBetween" Style="height: 100%">
-                                    <MudStack Row Spacing="1" Style="height: 100%" AlignItems="AlignItems.Center">
-                                        <MudImage Src="@($"media/regions/{team.Abbreviation}.webp")" Height="50" />
-                                        <MudStack Spacing="0" Style="height: 100%">
+                                <MudStack>
+                                    <MudStack>
+                                        <MudStack Spacing="0" Style="width: 100%" AlignItems="AlignItems.Center">
                                             <MudText Class="text-center" Style="font-weight: bold">@team.Abbreviation</MudText>
                                             <MudText Class="text-center" Style="font-size: 10px">@team.Region</MudText>
                                         </MudStack>
+                                        <MudStack Row Style="width: 100%" Justify="Justify.Center">
+                                            <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{team.Region}.webp")" Height="50" />
+                                            <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/region_logo/{team.Region}.webp")" Height="50" />
+                                        </MudStack>
                                     </MudStack>
-                                    <MudNumericField T="int" Style="font-size: 50px" Disabled="@(team.ID == _updatingTeamId)"
-                                                     Value="@(int.TryParse(team.Score, out int val) ? val : 0)"
-                                                     ValueChanged="@(value => UpdateTeamScoreAsync(team.ID, value.ToString()))">
-                                    </MudNumericField>
+                                    <MudStack Style="width: 100%" AlignItems="AlignItems.Center">
+                                        <MudTextField T="string" Style="font-size: 50px" Disabled="@(team.ID == _updatingTeamId)"
+                                                      Value="team.Score"
+                                                      ValueChanged="@(value => UpdateTeamScoreAsync(team.ID, value.ToString()))">
+                                        </MudTextField>
+                                        <MudText Typo="Typo.caption">@Unit</MudText>
+                                    </MudStack>
                                     <MudProgressLinear Indeterminate="true" Style="margin-top: -14px" hidden="@(team.ID != _updatingTeamId)" />
                                 </MudStack>
                             </MudPaper>
                         </MudItem>
-                    </MudVirtualize>
                 </MudVirtualize>
             </MudGrid>
         </DialogContent>
@@ -57,18 +68,25 @@ else
     // Passed data from page
     [Parameter]
     public string? SelectedEventID { get; set; }
+    [Parameter]
+    public int? SelectedSubCategoryID { get; set; }
 
+    private string? Unit;
+    private string? Phase;
+
+    private string? _GamePhaseValue;
 
     // Variables
-    private List<EventsDTO.EventDetails.Event>? _events;
+    private EventsDTO.EventDetails.Event? _event;
 
     // Dialog actions// Dialog Actions
     private void Cancel() => MudDialog?.Cancel();
 
     // Disable numeric field if update is in progress
+    private bool _eventIsUpdating = false;
+
     private bool _scoreIsUpdating = false;
     private int? _updatingTeamId = null;
-
 
     // Load dialog if true
     private bool? _isLoaded = false;
@@ -85,6 +103,7 @@ else
                 public List<EventVersusTeams>? EventVersusList { get; set; }
                 public string? Category { get; set; }
                 public string? Sport { get; set; }
+                public string? GamePhase { get; set; }
                 public int? SubCategoryID { get; set; }
                 public string? Subcategory { get; set; }
                 public string? Gender { get; set; }
@@ -126,19 +145,95 @@ else
                 public string? School { get; set; }
             }
         }
+        public class Events
+        {
+            public string ID { get; set; } = null!;
+            public int? EventStageID { get; set; }
+            public int? SportSubcategoryID { get; set; }
+            public int? EventVenuesID { get; set; }
+            public DateTime? Date { get; set; }
+            public TimeSpan? Time { get; set; }
+            public bool? OnStream { get; set; }
+            public int? EventStreamID { get; set; }
+            public string? GamePhase { get; set; }
+            public bool? IsFinished { get; set; }
+            public byte[]? Attachement { get; set; }
+            public bool? Archived { get; set; }
+            public bool? Deleted { get; set; }
+            public string? UserID { get; set; }
+        }
     }
 
+    public class SportMetric
+    {
+        public int ID { get; set; }
+        public string Sport { get; set; } = string.Empty;
+        public string Unit { get; set; } = string.Empty;
+        public string Phase { get; set; } = string.Empty;
+    }
+
+    public static List<SportMetric> Metrics() => new()
+    {
+        new() { ID = 1, Sport = "Archery",         Unit = "Points",                    Phase = "End / Round" },
+        new() { ID = 2, Sport = "Arnis",           Unit = "Points",                    Phase = "Round" },
+        new() { ID = 3, Sport = "Athletics",       Unit = "Time / Distance / Points",  Phase = "Heat / Final" },
+        new() { ID = 4, Sport = "Badminton",       Unit = "Points",                    Phase = "Game" },
+        new() { ID = 5, Sport = "Baseball",        Unit = "Runs",                      Phase = "Inning" },
+        new() { ID = 6, Sport = "Basketball",      Unit = "Points",                    Phase = "Quarter" },
+        new() { ID = 7, Sport = "Billiard",        Unit = "Points / Frames",           Phase = "Round" },
+        new() { ID = 8, Sport = "Boxing",          Unit = "Points / KO",               Phase = "Round" },
+        new() { ID = 9, Sport = "Chess",           Unit = "Points",                    Phase = "Round" },
+        new() { ID = 10, Sport = "Dancesport",     Unit = "Points",                    Phase = "Round" },
+        new() { ID = 11, Sport = "Football",       Unit = "Goals",                     Phase = "Half" },
+        new() { ID = 12, Sport = "Futsal",         Unit = "Goals",                     Phase = "Half" },
+        new() { ID = 13, Sport = "Gymnastics",     Unit = "Points",                    Phase = "Round" },
+        new() { ID = 14, Sport = "Sepak Takraw",   Unit = "Points",                    Phase = "Set" },
+        new() { ID = 15, Sport = "Softball",       Unit = "Runs",                      Phase = "Inning" },
+        new() { ID = 16, Sport = "Swimming",       Unit = "Time",                      Phase = "Heat / Final" },
+        new() { ID = 17, Sport = "Table Tennis",   Unit = "Points",                    Phase = "Game" },
+        new() { ID = 18, Sport = "Taekwondo",      Unit = "Points",                    Phase = "Round" },
+        new() { ID = 19, Sport = "Tennis",         Unit = "Points / Games / Sets",     Phase = "Set" },
+        new() { ID = 20, Sport = "Volleyball",     Unit = "Points",                    Phase = "Set" },
+        new() { ID = 21, Sport = "Wrestling",      Unit = "Points / Fall",             Phase = "Round" },
+        new() { ID = 22, Sport = "Wushu",          Unit = "Points",                    Phase = "Round" },
+        new() { ID = 23, Sport = "Pencak Silat",   Unit = "Points",                    Phase = "Round" },
+        new() { ID = 24, Sport = "Athletics",      Unit = "Time / Distance / Points",  Phase = "Heat / Final" },
+        new() { ID = 25, Sport = "Bocce",          Unit = "Points",                    Phase = "End / Round" },
+        new() { ID = 26, Sport = "Goal Ball",      Unit = "Goals",                     Phase = "Half" },
+        new() { ID = 27, Sport = "Swimming",       Unit = "Time",                      Phase = "Heat / Final" },
+    };
 
     // Initialization
     protected override async Task OnInitializedAsync()
     {
+        await GetEventsAsync();
         await GetEventsOnDialogOpenAsync();
+
+        if (SelectedSubCategoryID.HasValue)
+        {
+            var metric = Metrics().FirstOrDefault(m => m.ID == SelectedSubCategoryID.Value);
+            if (metric != null)
+            {
+                Unit = metric.Unit;
+                Phase = metric.Phase;
+            }
+        }
+    }
+
+    private async Task GetEventsAsync()
+    {
+        string url = "/Events/Details";
+        var _eventDetailsContent = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+
+        _event = _eventDetailsContent.FirstOrDefault(e => e.ID == SelectedEventID);
     }
 
     private async Task GetEventsOnDialogOpenAsync()
     {
         string url = $"/Events/Details?id={SelectedEventID}";
-        _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+        var _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+        
+        _event = _events.FirstOrDefault();
 
         if (_events != null)
         {
@@ -178,5 +273,35 @@ else
         }
 
         _updatingTeamId = null;
+    }
+
+    private async Task UpdateEventAsync()
+    {
+        _eventIsUpdating = true;
+
+        if (SelectedEventID == null) return;
+
+        var updateEvent = new EventsDTO.Events
+            {
+                ID = SelectedEventID,
+                GamePhase = _GamePhaseValue
+            };
+
+        string url = $"/Events/{SelectedEventID}";
+
+        var success = await apiService.PatchAsync(url, updateEvent);
+
+        if (success)
+        {
+            // add task delay to mitigate rapid updates
+            await Task.Delay(500);
+            _eventIsUpdating = false;
+            await GetEventsOnDialogOpenAsync();
+            Snackbar.Add($"Event Phase updated successfully", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to update event phase", Severity.Error);
+        }
     }
 }

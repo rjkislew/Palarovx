@@ -12,6 +12,8 @@ public partial class ProfilePlayers
 
     public string? LastName { get; set; }
 
+    public string? Gender { get; set; }
+
     public int? SchoolID { get; set; }
 
     public int? SportID { get; set; }

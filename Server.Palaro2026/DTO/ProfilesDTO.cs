@@ -26,6 +26,7 @@ public class ProfilesDTO
         public string? ID { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
+        public string? Gender { get; set; }
         public int? RegionID { get; set; }
         public int? SubCategoryID { get; set; }
     }
@@ -37,6 +38,7 @@ public class ProfilesDTO
             public string ID { get; set; } = null!;
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
+            public string? Gender { get; set; }
             public string? School { get; set; }
             public int? SchoolLevelID { get; set; }
             public string? Level { get; set; }
@@ -70,6 +72,7 @@ public class ProfilesDTO
         public string ID { get; set; } = null!;
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
+        public string? Gender { get; set; }
         public int? SchoolID { get; set; }
         public int? SportID { get; set; }
     }

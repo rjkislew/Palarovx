@@ -40,6 +40,9 @@
                                     <MudSelectItem T="bool?" Value="false">Ongoing</MudSelectItem>
                                 </MudSelect>
                             </MudItem>
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudTextField Variant="Variant.Outlined" Margin="Margin.Dense" Label="@($"Phase({Phase})")" @bind-Value="_GamePhaseValue">@_GamePhaseValue</MudTextField>
+                            </MudItem>
                         </MudGrid>
                     </MudStack>
                 </MudItem>
@@ -244,8 +247,11 @@ else
     private byte[]? _attachementValue = null;
     private bool? _isArchived = false;
     private bool? _isDeleted = false;
+    private string? _GamePhaseValue;
     private int[]? _versusTeamsIDs;
     private List<int?> selectedRegions { get; set; } = new() { null };
+
+    private string? Phase;
 
     private void AddTeam()
     {
@@ -293,6 +299,7 @@ else
             public TimeSpan? Time { get; set; }
             public bool? OnStream { get; set; }
             public int? EventStreamID { get; set; }
+            public string? GamePhase { get; set; }
             public bool? IsFinished { get; set; }
             public byte[]? Attachement { get; set; }
             public bool? Archived { get; set; }
@@ -407,12 +414,50 @@ else
     {
         public class UserList
         {
-            public string ID { get; set; } = null!;
+            public string? ID { get; set; } = null!;
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
             public string? Role { get; set; }
         }
     }
+
+    public class SportMetric
+    {
+        public int ID { get; set; }
+        public string Sport { get; set; } = string.Empty;
+        public string Phase { get; set; } = string.Empty;
+    }
+
+    public static List<SportMetric> Metrics() => new()
+    {
+        new() { ID = 1, Sport = "Archery",      Phase = "End / Round" },
+        new() { ID = 2, Sport = "Arnis",        Phase = "Round" },
+        new() { ID = 3, Sport = "Athletics",    Phase = "Heat / Final" },
+        new() { ID = 4, Sport = "Badminton",    Phase = "Game" },
+        new() { ID = 5, Sport = "Baseball",     Phase = "Inning" },
+        new() { ID = 6, Sport = "Basketball",   Phase = "Quarter" },
+        new() { ID = 7, Sport = "Billiard",     Phase = "Round" },
+        new() { ID = 8, Sport = "Boxing",       Phase = "Round" },
+        new() { ID = 9, Sport = "Chess",        Phase = "Round" },
+        new() { ID = 10, Sport = "Dancesport",  Phase = "Round" },
+        new() { ID = 11, Sport = "Football",    Phase = "Half" },
+        new() { ID = 12, Sport = "Futsal",      Phase = "Half" },
+        new() { ID = 13, Sport = "Gymnastics",  Phase = "Round" },
+        new() { ID = 14, Sport = "Sepak Takraw",Phase = "Set" },
+        new() { ID = 15, Sport = "Softball",    Phase = "Inning" },
+        new() { ID = 16, Sport = "Swimming",    Phase = "Heat / Final" },
+        new() { ID = 17, Sport = "Table Tennis",Phase = "Game" },
+        new() { ID = 18, Sport = "Taekwondo",   Phase = "Round" },
+        new() { ID = 19, Sport = "Tennis",      Phase = "Set" },
+        new() { ID = 20, Sport = "Volleyball",  Phase = "Set" },
+        new() { ID = 21, Sport = "Wrestling",   Phase = "Round" },
+        new() { ID = 22, Sport = "Wushu",       Phase = "Round" },
+        new() { ID = 23, Sport = "Pencak Silat",Phase = "Round" },
+        new() { ID = 24, Sport = "Athletics",   Phase = "Heat / Final" },
+        new() { ID = 25, Sport = "Bocce",       Phase = "End / Round" },
+        new() { ID = 26, Sport = "Goal Ball",   Phase = "Half" },
+        new() { ID = 27, Sport = "Swimming",    Phase = "Heat / Final" },
+    };
 
     // Initialization
     protected override async Task OnInitializedAsync()
@@ -431,6 +476,15 @@ else
         await GetSportCategoriesAsync();
         await GetStreamServicesAsync();
         await GetStreamsAsync();
+
+        if (_selectedSportSubcategoryIDValue.HasValue)
+        {
+            var metric = Metrics().FirstOrDefault(m => m.ID == _selectedSportSubcategoryIDValue.Value);
+            if (metric != null)
+            {
+                Phase = metric.Phase;
+            }
+        }
 
         // this is where we check if all the data is loaded
         if (_eventStages?.Any() == true
@@ -466,6 +520,7 @@ else
             _selectedEventVenueIDValue = eventDetail.EventVenuesID;
             _isOnStream = eventDetail.OnStream;
             _selectedEventStreamIDValue = eventDetail.EventStreamID;
+            _GamePhaseValue = eventDetail.GamePhase;
             _isFinished = eventDetail.IsFinished;
             _attachementValue = eventDetail.Attachement;
             _isArchived = eventDetail.Archived;
@@ -664,6 +719,7 @@ else
                 Date = _selectedDateValue,
                 Time = _selectedTimeValue,
                 OnStream = _isOnStream,
+                GamePhase = _GamePhaseValue,
                 EventStreamID = _selectedEventStreamIDValue,
                 IsFinished = _selectedIsEventFinishedValue,
                 Attachement = null,

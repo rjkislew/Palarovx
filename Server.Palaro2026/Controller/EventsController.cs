@@ -174,6 +174,7 @@ namespace Server.Palaro2026.Controller
                     Sport = eventEntity.SportSubcategory?.Sport?.Sport,
                     SubCategoryID = eventEntity.SportSubcategory?.ID,
                     Subcategory = eventEntity.SportSubcategory?.Subcategory,
+                    GamePhase = eventEntity.GamePhase,
                     Gender = eventEntity.SportSubcategory?.SportGenderCategory?.Gender,
                     Level = eventEntity.SportSubcategory?.SchoolLevel?.Level,
                     Venue = eventEntity.EventVenues?.Venue,
@@ -218,6 +219,7 @@ namespace Server.Palaro2026.Controller
                Time = events.Time,
                OnStream = events.OnStream,
                EventStreamID = events.EventStreamID,
+               GamePhase = events.GamePhase,
                IsFinished = events.IsFinished,
                Attachement = events.Attachement,
                Archived = events.Archived,
@@ -298,6 +300,7 @@ namespace Server.Palaro2026.Controller
                 Time = events.Time,
                 OnStream = events.OnStream,
                 EventStreamID = events.EventStreamID,
+                GamePhase = events.GamePhase,
                 IsFinished = events.IsFinished,
                 Attachement = events.Attachement,
                 Archived = events.Archived,
@@ -340,6 +343,7 @@ namespace Server.Palaro2026.Controller
             }
 
             existingEvent.EventStageID = events.EventStageID;
+            existingEvent.GamePhase = events.GamePhase;
             existingEvent.SportSubcategoryID = events.SportSubcategoryID;
             existingEvent.EventVenuesID = events.EventVenuesID;
             existingEvent.Date = events.Date;
@@ -385,6 +389,7 @@ namespace Server.Palaro2026.Controller
             if (updatedEvent.Time != null) existingEvent.Time = updatedEvent.Time;
             if (updatedEvent.OnStream != null) existingEvent.OnStream = updatedEvent.OnStream;
             if (updatedEvent.EventStreamID != null) existingEvent.EventStreamID = updatedEvent.EventStreamID;
+            if (updatedEvent.GamePhase != null) existingEvent.GamePhase = updatedEvent.GamePhase;
             if (updatedEvent.IsFinished != null) existingEvent.IsFinished = updatedEvent.IsFinished;
             if (updatedEvent.Attachement != null) existingEvent.Attachement = updatedEvent.Attachement;
             if (updatedEvent.Archived != null) existingEvent.Archived = updatedEvent.Archived;

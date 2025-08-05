@@ -2,6 +2,26 @@
 
 public class EventsDTO
 {
+    public class EventCount
+    {
+        public int? NumberOfEvents { get; set; }
+        public int? NumberOfFinishedEvents { get; set; }
+        public int? NumberofOngoingEvents { get; set; }
+        public int? NumberOfEventsThatLacksPlayers { get; set; }
+        public int? NumberOfNewsPublished { get; set; }
+        public int? NumberOfEventStreamServices { get; set; }
+        public int? NumberOfEventStreams { get; set; }
+        public int? NumberOfVenues { get; set; }
+        public int? NumberOfBilletingQuarters { get; set; }
+        public int? NumberOfRegionalTeamsParticipating { get; set; }
+        public int? NumberOfSchoolDivisionsParticipating { get; set; }
+        public int? NumberOfSchoolsParticipating { get; set; }
+        public int? NumberOfPlayers { get; set; }
+        public int? NumberOfMalePlayers { get; set; }
+        public int? NumberOfFemalePlayers { get; set; }
+        public int? NumberOfCoaches { get; set; }
+    }
+
     public class EventDetails
     {
         public class Event
@@ -11,6 +31,7 @@ public class EventsDTO
             public List<EventVersusTeams>? EventVersusList { get; set; }
             public string? Category { get; set; }
             public string? Sport { get; set; }
+            public string? GamePhase { get; set; }
             public int? SubCategoryID { get; set; }
             public string? Subcategory { get; set; }
             public string? Gender { get; set; }
@@ -94,6 +115,7 @@ public class EventsDTO
         public TimeSpan? Time { get; set; }
         public bool? OnStream { get; set; }
         public int? EventStreamID { get; set; }
+        public string? GamePhase { get; set; }
         public bool? IsFinished { get; set; }
         public byte[]? Attachement { get; set; }
         public bool? Archived { get; set; }

@@ -12,843 +12,238 @@ as the dashboard for the palaro 2026 management system
 @inject HttpClient httpClient
 
 <MudGrid>
-    <!--
-    Filter and Search Section
-    - Filter button to expand/collapse the filter section
-    - Various filter options for events
-    -->
-    <MudItem xs="12">
-
-        <!-- filter button: this will trigger the collapse effect under -->
-        <MudButton OnClick="OnExpandFilterCollapseClick" StartIcon="@(_expandedFilter? @Icons.Material.Filled.FilterAltOff : @Icons.Material.Filled.FilterAlt)">Filter</MudButton>
-
-        <!-- filter section -->
-        <MudCollapse Expanded="_expandedFilter">
-            <MudStack Row Wrap="Wrap.Wrap" Class="mt-3">
-                <MudStack Style="width: 100%">
-                    <MudStack Row Wrap="Wrap.Wrap">
-
-                        <MudSelect @bind-Value="_selectedSportCategory" Margin="Margin.Dense" Label="Sport Category" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetSportsAsync">
-                            <MudVirtualize Items="_sportCategories" Context="sportCategory">
-                                <MudSelectItem Value="new SelectedSportCategory { ID = sportCategory.ID, Category = sportCategory.Category }">@sportCategory.Category</MudSelectItem>
-                            </MudVirtualize>
-                        </MudSelect>
-
-                        @* Sports *@
-                        <MudSelect @bind-Value="_selectedSport" Margin="Margin.Dense" Label="Sport" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetEventsAsync">
-                            <MudVirtualize Items="_sports" Context="sport">
-                                <MudSelectItem Value="new SelectedSport { ID = sport.ID, Sport = sport.Sport }">@sport.Sport</MudSelectItem>
-                            </MudVirtualize>
-                        </MudSelect>
-
-                        @* Gender Categories *@
-                        <MudSelect @bind-Value="_selectedGenderCategories" Margin="Margin.Dense" Label="Gender" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetEventsAsync">
-                            <MudVirtualize Items="_sportGenderCategories" Context="gender">
-                                <MudSelectItem Value="new SelectedGenderCategories { ID = gender.ID, Gender = gender.Gender }">@gender.Gender</MudSelectItem>
-                            </MudVirtualize>
-                        </MudSelect>
-
-                        @* School Levels *@
-                        <MudSelect @bind-Value="_selectedSchoolLevels" Margin="Margin.Dense" Label="School Level" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetSportSubcategoriesAsync">
-                            <MudVirtualize Items="_schoolLevels" Context="level">
-                                <MudSelectItem Value="new SelectedSchoolLevels { ID = level.ID, Level = level.Level }">@level.Level</MudSelectItem>
-                            </MudVirtualize>
-                        </MudSelect>
-
-                        @* Sport Subcategory *@
-                        <MudSelect @bind-Value="_selectedSubcategories" Margin="Margin.Dense" Label="Sport Subcategory" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetEventsAsync">
-                            <MudVirtualize Items="_sportSubcategories" Context="subCategories">
-                                <MudSelectItem Value="new SelectedSubcategories { ID = subCategories.ID, Subcategory = subCategories.Subcategory }">@subCategories.Subcategory</MudSelectItem>
-                            </MudVirtualize>
-                        </MudSelect>
+    @* Sports Events *@
+    <MudItem xs="12" sm="6" lg="4">
+        <MudLink Href="./events" Underline="Underline.None">
+            <MudPaper Outlined Class="scale-up-center">
+                <MudStack Class="pa-5" Style="width: 100%" AlignItems="AlignItems.Center">
+                    <MudStack Row Style="height: 100%; width: 100%" AlignItems="AlignItems.Center" Justify="Justify.SpaceEvenly">
+                        <MudStack Row>
+                            <MudText Style="font-size: 75px">
+                                @_eventCounts?.NumberOfEvents
+                            </MudText>
+                            <MudDivider Vertical="true" FlexItem="true" />
+                            <MudStack Justify="Justify.Center" AlignItems="AlignItems.Start" Spacing="0">
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small">
+                                    Finished: @_eventCounts?.NumberOfFinishedEvents
+                                </MudChip>
+                                <MudChip T="string" Color="Color.Warning" Size="Size.Small">
+                                    Ongoing: @_eventCounts?.NumberofOngoingEvents
+                                </MudChip>
+                                <MudChip T="string" Color="Color.Dark" Size="Size.Small">
+                                    Lacking Player/s: @_eventCounts?.NumberOfEventsThatLacksPlayers
+                                </MudChip>
+                            </MudStack>
+                        </MudStack>
+                        <MudIcon Icon="@Icons.Material.Filled.Event" Style="font-size: 75px" Color="Color.Dark" />
                     </MudStack>
-                    <MudStack Row Wrap="Wrap.Wrap">
-                        @* Venue *@
-                        <MudSelect @bind-Value="_selectedEventVenue" Margin="Margin.Dense" Label="Venues" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetEventsAsync">
-                            <MudVirtualize Items="_eventVenues" Context="venues">
-                                <MudSelectItem Value="venues.Venue">@venues.Venue</MudSelectItem>
-                            </MudVirtualize>
-                        </MudSelect>
-
-                        @* Date *@
-                        <MudDateRangePicker DateRange="@_dateRange" DateRangeChanged="OnDateRangeChanged" Margin="Margin.Dense" Clearable Variant="Variant.Outlined" PlaceholderStart="Start Date" PlaceholderEnd="End Date" Label="Date" />
-
-                        @* User *@
-                        <MudSelect @bind-Value="_selectedTallyClerk" Margin="Margin.Dense" Label="Designated Person" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetEventsAsync">
-                            <MudVirtualize Items="_userLists" Context="user">
-                                <MudSelectItem Value="new SelectedUser { ID = user.ID }">@user.FirstName @user.LastName</MudSelectItem>
-                            </MudVirtualize>
-                        </MudSelect>
-
-                        @* Region *@
-                        <MudSelect @bind-Value="_selectedRegion" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable TextChanged="GetEventsAsync">
-                            <MudVirtualize Items="_schoolRegions" Context="region">
-                                <MudSelectItem Value="new SelectedRegion { ID = region.ID, Region = region.Region, Abbreviation = region.Abbreviation }">@region.Region (@region.Abbreviation)</MudSelectItem>
-                            </MudVirtualize>
-                        </MudSelect>
-                    </MudStack>
-                    <MudStack Row Wrap="Wrap.Wrap">
-                        @* Stream *@
-                        <MudCheckBox Value="_isOnStream" ValueChanged="@((bool? onStream) => OnStreamBoolChanged(onStream))" Color="@Color.Secondary" TriState="true">On Stream</MudCheckBox>
-
-                        @* Status *@
-                        <MudCheckBox Value="_isFinished" ValueChanged="@((bool? finished) => OnFinishedBoolChanged(finished))" Color="@Color.Secondary" TriState="true">Finished</MudCheckBox>
-                    </MudStack>
+                    <MudText>Sport Events</MudText>
                 </MudStack>
-            </MudStack>
-            <MudDivider />
-        </MudCollapse>
+            </MudPaper>
+        </MudLink>
     </MudItem>
-    @if (_eventDetails == null || !_eventDetails.Any())
-    {
-        for (int i = 0; i < 12; i++)
-        {
-            <MudItem xs="12" sm="6" lg="3">
-                <MudPaper Outlined Class="pa-3" Style="height: 100%">
-                    <MudStack Spacing="2">
-                        <MudSkeleton Height="70px" />
-                        <MudSkeleton />
-                        <MudStack Row Wrap="Wrap.Wrap">
-                            <MudSkeleton Width="100px" />
-                            <MudSkeleton Width="100px" />
+
+    @* Players *@
+    <MudItem xs="12" sm="6" lg="4">
+        <MudLink Href="./profiles/players" Underline="Underline.None">
+            <MudPaper Outlined Class="scale-up-center">
+                <MudStack Class="pa-5" Style="width: 100%" AlignItems="AlignItems.Center">
+                    <MudStack Row Style="height: 100%; width: 100%" AlignItems="AlignItems.Center" Justify="Justify.SpaceEvenly">
+                        <MudStack Row Style="height: 100%">
+                            <MudText Style="font-size: 75px">
+                                @_eventCounts?.NumberOfPlayers
+                            </MudText>
+                            <MudDivider Vertical="true" FlexItem="true" />
+                            <MudStack Justify="Justify.Center" AlignItems="AlignItems.Start" Spacing="0">
+                                <MudChip T="string" Color="Color.Info" Size="Size.Small">
+                                    Male: @_eventCounts?.NumberOfMalePlayers
+                                </MudChip>
+                                <MudChip T="string" Color="Color.Error" Size="Size.Small">
+                                    Female: @_eventCounts?.NumberOfFemalePlayers
+                                </MudChip>
+                            </MudStack>
                         </MudStack>
-                        <MudDivider />
-                        <MudSkeleton />
-                        <MudSkeleton />
-                        <MudSkeleton />
-                        <MudDivider />
-                        <MudPaper Outlined Class="pa-3">
-                            <MudStack Row Wrap="Wrap.Wrap">
-                                <MudSkeleton Width="100px" />
-                                <MudSkeleton Width="100px" />
-                                <MudSkeleton Width="100px" />
-                            </MudStack>
-                        </MudPaper>
-                        <MudSkeleton Width="150px" />
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Style="font-size: 75px" Color="Color.Dark" />
                     </MudStack>
-                </MudPaper>
-            </MudItem>
-        }
-    }
-    else
-    {
-        <MudVirtualize Items="_eventDetails" Context="eventDetail">
-            <MudItem xs="12" sm="6" lg="3">
-                <MudPaper Outlined Class="pa-3" Style="height: 100%">
-                    <MudStack Style="height: 100%" Justify="Justify.SpaceBetween">
-                        <MudStack>
-                            @* Sport Details *@
-                            <MudStack AlignItems="AlignItems.Start" Row Justify="Justify.SpaceBetween">
-                                <MudStack>
-                                    <MudStack Spacing="0">
-                                        <MudStack Row>
-                                            @* Subcategory / Gender *@
+                    <MudText>Players</MudText>
+                </MudStack>
+            </MudPaper>
+        </MudLink>
+    </MudItem>
 
-                                            @{
-                                                string genderCategory;
-                                                if (eventDetail.Gender == "Male")
-                                                {
-                                                    genderCategory = "♂️";
-                                                }
-                                                else if (eventDetail.Gender == "Female")
-                                                {
-                                                    genderCategory = "♀️";
-                                                }
-                                                else
-                                                {
-                                                    genderCategory = "♂️♀️";
-                                                }
-                                            }
-                                            <MudText>@eventDetail.Sport ∙ @eventDetail.Subcategory @genderCategory</MudText>
-                                        </MudStack>
-
-                                        @* Category / Level *@
-                                        <MudText Typo="Typo.caption">@eventDetail.Category • @eventDetail.Level</MudText>
-                                    </MudStack>
-
-                                    <MudStack Row Spacing="0">
-                                        @if (@eventDetail.IsFinished == true)
-                                        {
-                                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircleOutline">Finished</MudChip>
-                                        }
-                                        else if (eventDetail.IsFinished == false && eventDetail.EventVersusList?.Count() < 2)
-                                        {
-                                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Icon="@Icons.Material.Filled.NotificationImportant">Add Players</MudChip>
-                                        }
-                                        else
-                                        {
-                                            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Icon="@Icons.Material.Filled.PlayCircleOutline">Ongoing</MudChip>
-                                        }
-                                        <MudChip T="string" Color="Color.Default" Size="Size.Small" Icon="@Icons.Material.Filled.WorkspacePremium">@eventDetail.EventStage</MudChip>
-                                    </MudStack>
-                                </MudStack>
-
-                                @* Event Settings *@
-                                <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditEventDialog(eventDetail.ID)" />
+    @* Regional Teams *@
+    <MudItem xs="12" sm="6" lg="4">
+        <MudLink Href="./schools/regions" Underline="Underline.None">
+            <MudPaper Outlined Class="scale-up-center">
+                <MudStack Class="pa-5" Style="width: 100%" AlignItems="AlignItems.Center">
+                    <MudStack Row Style="height: 100%; width: 100%" AlignItems="AlignItems.Center" Justify="Justify.SpaceEvenly">
+                        <MudStack Row Style="height: 100%">
+                            <MudText Style="font-size: 75px">
+                                @_eventCounts?.NumberOfRegionalTeamsParticipating
+                            </MudText>
+                            <MudDivider Vertical="true" FlexItem="true" />
+                            <MudStack Justify="Justify.Center" AlignItems="AlignItems.Start" Spacing="0">
+                                <MudChip T="string" Color="Color.Dark" Size="Size.Small">
+                                    Divisions: @_eventCounts?.NumberOfSchoolDivisionsParticipating
+                                </MudChip>
+                                <MudChip T="string" Color="Color.Dark" Size="Size.Small">
+                                    Schools: @_eventCounts?.NumberOfSchoolsParticipating
+                                </MudChip>
+                                <MudChip T="string" Color="Color.Dark" Size="Size.Small">
+                                    Coaches: @_eventCounts?.NumberOfCoaches
+                                </MudChip>
                             </MudStack>
-
-                            <MudDivider />
-
-                            <MudStack Spacing="0">
-                                @* Address *@
-                                <MudStack Row AlignItems="AlignItems.Center">
-                                    <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" />
-                                    <MudText Typo="Typo.caption">@eventDetail.Venue</MudText>
-                                </MudStack>
-
-                                @* Date Time *@
-                                <MudStack Row AlignItems="AlignItems.Center">
-                                    <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" />
-                                    <MudText Typo="Typo.caption">@(eventDetail.Date?.ToString("dddd - MMMM d") ?? "No Date") [@(eventDetail.Time.HasValue? DateTime.Today.Add(eventDetail.Time.Value).ToString("hh:mm tt") : "No Time")]</MudText>
-                                </MudStack>
-
-                                @* Stream *@
-                                <MudStack>
-                                    @if (eventDetail.OnStream != true)
-                                    {
-                                        <MudStack Row AlignItems="AlignItems.Center">
-                                            <MudIcon Icon="@Icons.Material.Filled.Podcasts" Size="Size.Small" />
-                                            <MudText Typo="Typo.caption">No stream available.</MudText>
-                                            <MudIconButton Class="pa-o" Icon="@Icons.Material.Filled.Error" Size="Size.Small" Disabled="true" />
-                                        </MudStack>
-                                    }
-                                    else
-                                    {
-                                        <MudStack Row AlignItems="AlignItems.Center">
-                                            <MudIcon Icon="@Icons.Material.Filled.Podcasts" Size="Size.Small" />
-                                            <MudText Typo="Typo.caption">@eventDetail.StreamService</MudText>
-                                            <MudIconButton Class="pa-o" Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Href="@($"{@eventDetail.StreamURL}")" Target="_blank" />
-                                        </MudStack>
-                                    }
-                                </MudStack>
-                            </MudStack>
-
-                            <MudDivider />
-
-                            @* Teams *@
-                            <MudField Label="Opposing Team/s" Variant="Variant.Outlined" InnerPadding="false">
-                                <MudStack Class="py-1" Row Wrap="Wrap.Wrap" Spacing="0">
-                                    @if (eventDetail.EventVersusList == null || !eventDetail.EventVersusList.Any())
-                                    {
-                                        <MudText Typo="Typo.caption">Players are to be assigned.</MudText>
-                                    }
-                                    else if (eventDetail.IsFinished == true && eventDetail.EventStage == "Championship")
-                                    {
-                                        @foreach (var (team, index) in eventDetail!.EventVersusList!.OrderByDescending(e => int.TryParse(e.Score, out var s) ? s : 0).Select((team, index) => (team, index)))
-                                        {
-                                            @if (index < 3)
-                                            {
-                                                <MudTooltip Duration="0" Arrow="true">
-                                                    <ChildContent>
-                                                        <MudChip Variant="Variant.Outlined" Size="Size.Small" Class="pa-0 pl-1" T="string" Style="@($"border-color: {GetMedalColor(index)}")">
-                                                            <MudIcon Class="mr-2" Icon="@Icons.Material.Filled.WorkspacePremium" Style="@($"color: {GetMedalColor(index)}")" />
-                                                            @team.Abbreviation - [ @team.Score ]
-                                                            <MudIconButton Class="ml-2" Icon="@Icons.Material.Filled.Settings" Size="Size.Small" OnClick="() => OpenEditEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID, team.ID, eventDetail.EventStage)" />
-                                                        </MudChip>
-                                                    </ChildContent>
-                                                    <TooltipContent>
-                                                        <MudVirtualize Items="@team.EventVersusTeamPlayersList" Context="players">
-                                                            <MudStack Spacing="0">
-                                                                <MudText Typo="Typo.caption">@players.FirstName @players.LastName</MudText>
-                                                                <MudText style="font-size: 10px">@players.School</MudText>
-                                                                @if (players != team.EventVersusTeamPlayersList?.Last())
-                                                                {
-                                                                    <MudDivider />
-                                                                }
-                                                            </MudStack>
-                                                        </MudVirtualize>
-                                                    </TooltipContent>
-                                                </MudTooltip>
-                                            }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        <MudVirtualize Items="eventDetail.EventVersusList" Context="team">
-                                            <MudTooltip Duration="0" Arrow="true">
-                                                <ChildContent>
-                                                    <MudChip Variant="Variant.Outlined" Size="Size.Small" Class="pa-0 pl-2" T="string">
-                                                        @team.Abbreviation - [ @team.Score ]
-                                                        <MudIconButton Class="ml-2" Icon="@Icons.Material.Filled.Settings" Size="Size.Small" OnClick="() => OpenEditEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID, team.ID, eventDetail.EventStage)" />
-                                                    </MudChip>
-                                                </ChildContent>
-                                                <TooltipContent>
-                                                    <MudVirtualize Items="@team.EventVersusTeamPlayersList" Context="players">
-                                                        <MudStack Spacing="0">
-                                                            <MudText Typo="Typo.caption">@players.FirstName @players.LastName</MudText>
-                                                            <MudText style="font-size: 10px">@players.School</MudText>
-                                                            @if (players != team.EventVersusTeamPlayersList?.Last())
-                                                            {
-                                                                <MudDivider />
-                                                            }
-                                                        </MudStack>
-                                                    </MudVirtualize>
-                                                </TooltipContent>
-                                            </MudTooltip>
-                                        </MudVirtualize>
-                                    }
-                                </MudStack>
-                            </MudField>
                         </MudStack>
-
-                        <MudText Typo="Typo.caption">Tally Clerk: @eventDetail.FirstName @eventDetail.LastName</MudText>
-
-                        @* Designate *@
-                        @if (eventDetail.EventVersusList != null && eventDetail.EventVersusList.Any() && eventDetail.IsFinished != true)
-                        {
-                            <MudButton FullWidth Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" OnClick="() => ScoreBoardDialog(eventDetail.ID)">
-                                Score Board
-                            </MudButton>
-                        }
-
+                        <MudIcon Icon="@Icons.Material.Filled.School" Style="font-size: 75px" Color="Color.Dark" />
                     </MudStack>
-                </MudPaper>
-            </MudItem>
-        </MudVirtualize>
-    }
+                    <MudText>Regional Teams</MudText>
+                </MudStack>
+            </MudPaper>
+        </MudLink>
+    </MudItem>
+
+    @* Event Venues *@
+    <MudItem xs="12" sm="6" lg="3">
+        <MudLink Href="./events/venues" Underline="Underline.None">
+            <MudPaper Outlined Class="scale-up-center">
+                <MudStack Class="pa-5" Style="width: 100%" AlignItems="AlignItems.Center">
+                    <MudStack Row Style="height: 100%; width: 100%" AlignItems="AlignItems.Center" Justify="Justify.SpaceEvenly">
+                        <MudText Style="font-size: 75px">
+                            @_eventCounts?.NumberOfVenues
+                        </MudText>
+                        <MudDivider Vertical="true" FlexItem="true" />
+                        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Style="font-size: 75px" Color="Color.Dark" />
+                    </MudStack>
+                    <MudText>Event Venues</MudText>
+                </MudStack>
+            </MudPaper>
+        </MudLink>
+    </MudItem>
+
+    @* Billeting Quarters *@
+    <MudItem xs="12" sm="6" lg="3">
+        <MudLink Href="./schools/billeting-quarters" Underline="Underline.None">
+            <MudPaper Outlined Class="scale-up-center">
+                <MudStack Class="pa-5" Style="width: 100%" AlignItems="AlignItems.Center">
+                    <MudStack Row Style="height: 100%; width: 100%" AlignItems="AlignItems.Center" Justify="Justify.SpaceEvenly">
+                        <MudText Style="font-size: 75px">
+                            @_eventCounts?.NumberOfBilletingQuarters
+                        </MudText>
+                        <MudDivider Vertical="true" FlexItem="true" />
+                        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Style="font-size: 75px" Color="Color.Dark" />
+                    </MudStack>
+                    <MudText>Billeting Quarters</MudText>
+                </MudStack>
+            </MudPaper>
+        </MudLink>
+    </MudItem>
+
+    @* News Published *@
+    <MudItem xs="12" sm="6" lg="3">
+        <MudLink Href="./news" Underline="Underline.None">
+            <MudPaper Outlined Class="scale-up-center">
+                <MudStack Class="pa-5" Style="width: 100%" AlignItems="AlignItems.Center">
+                    <MudStack Row Style="height: 100%; width: 100%" AlignItems="AlignItems.Center" Justify="Justify.SpaceEvenly">
+                        <MudText Style="font-size: 75px">
+                            @_eventCounts?.NumberOfNewsPublished
+                        </MudText>
+                        <MudDivider Vertical="true" FlexItem="true" />
+                        <MudIcon Icon="@Icons.Material.Filled.Newspaper" Style="font-size: 75px" Color="Color.Dark" />
+                    </MudStack>
+                    <MudText>News Published</MudText>
+                </MudStack>
+            </MudPaper>
+        </MudLink>
+    </MudItem>
+
+    @* Event Streams *@
+    <MudItem xs="12" sm="6" lg="3">
+        <MudLink Href="./events/streams" Underline="Underline.None">
+            <MudPaper Outlined Class="scale-up-center">
+                <MudStack Class="pa-5" Style="width: 100%" AlignItems="AlignItems.Center">
+                    <MudStack Row Style="height: 100%; width: 100%" AlignItems="AlignItems.Center" Justify="Justify.SpaceEvenly">
+                        <MudStack Row Style="height: 100%">
+                            <MudText Style="font-size: 75px">
+                                @_eventCounts?.NumberOfEventStreams
+                            </MudText>
+                            <MudDivider Vertical="true" FlexItem="true" />
+                            <MudStack Justify="Justify.Center" AlignItems="AlignItems.Start" Spacing="0">
+                                <MudChip T="string" Color="Color.Dark" Size="Size.Small">
+                                    Stream Services: @_eventCounts?.NumberOfEventStreamServices
+                                </MudChip>
+                            </MudStack>
+                        </MudStack>
+                        <MudIcon Icon="@Icons.Material.Filled.Stream" Style="font-size: 75px" Color="Color.Dark" />
+                    </MudStack>
+                    <MudText>Event Streams</MudText>
+                </MudStack>
+            </MudPaper>
+        </MudLink>
+    </MudItem>
+
+    <MudItem xs="12">
+        <MudDivider/>
+    </MudItem>
+
+    <MudItem xs="12">
+        <MudPaper Outlined Style="height: 35vh">
+            <MudStack Row Style="background-color: #212121;height: 50px;" Class="rounded-t pa-3">
+                <MudText Style="color: white">Logs</MudText>
+                <MudSpacer/>
+                <MudButton StartIcon="@Icons.Material.Filled.Refresh" Style="color: white"></MudButton>
+            </MudStack>
+            <MudStack Style="height: 100%" Class="pa-3">
+            </MudStack>
+        </MudPaper>
+    </MudItem>
 </MudGrid>
 
 @code
 {
     private IMudDialogInstance? MudDialog { get; set; }
 
-    private List<EventsDTO.EventDetails.Event>? _eventDetails;
-    private List<SportsDTO.SportCategories>? _sportCategories;
-    private List<SportsDTO.Sports>? _sports;
-    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
-    private List<SchoolDTO.SchoolLevels>? _schoolLevels;
-    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
-    private List<EventsDTO.EventVenues>? _eventVenues;
-    private List<UsersDTO.UserList>? _userLists;
-    private List<SchoolDTO.SchoolRegions>? _schoolRegions;
-
-    private DateRange _dateRange = new DateRange(DateTime.Now.Date, DateTime.Now.Date);
-    private DateTime? _startDate;
-    private DateTime? _endDate;
-
-    private string? _selectedEventVenue;
-    private bool? _isOnStream = null;
-    private bool? _isFinished = null;
-
-    private string GetMedalColor(int index)
-    {
-        return index switch
-        {
-            0 => Colors.Amber.Accent4,   // First place (Gold)
-            1 => Colors.BlueGray.Lighten4, // Second place (Silver)
-            2 => Colors.DeepOrange.Lighten1, // Third place (Bronze)
-            _ => "transparent" // Default color for others
-        };
-    }
-
-    private async void OnDateRangeChanged(DateRange range)
-    {
-        _dateRange = range;
-        _startDate = range.Start;
-        _endDate = range.End;
-
-        await GetEventsAsync();
-        StateHasChanged();
-    }
-
-    private async Task OnStreamBoolChanged(bool? onStream)
-    {
-        _isOnStream = onStream;
-
-        await GetEventsAsync();
-        StateHasChanged();
-    }
-
-    private async Task OnFinishedBoolChanged(bool? finished)
-    {
-        _isFinished = finished;
-
-        await GetEventsAsync();
-        StateHasChanged();
-    }
-
-    private SelectedSportCategory? _selectedSportCategory;
-    public class SelectedSportCategory
-    {
-        public int ID { get; set; }
-        public string? Category { get; set; }
-
-        public override string ToString() => Category ?? string.Empty;
-    }
-
-    private SelectedSport? _selectedSport;
-    public class SelectedSport
-    {
-        public int ID { get; set; }
-        public string? Sport { get; set; }
-
-        public override string ToString() => Sport ?? string.Empty;
-    }
-
-    private SelectedGenderCategories? _selectedGenderCategories;
-    public class SelectedGenderCategories
-    {
-        public int ID { get; set; }
-        public string? Gender { get; set; }
-
-        public override string ToString() => Gender ?? string.Empty;
-    }
-
-    private SelectedSchoolLevels? _selectedSchoolLevels;
-    public class SelectedSchoolLevels
-    {
-        public int ID { get; set; }
-        public string? Level { get; set; }
-
-        public override string ToString() => Level ?? string.Empty;
-    }
-
-    private SelectedSubcategories? _selectedSubcategories;
-    public class SelectedSubcategories
-    {
-        public int ID { get; set; }
-        public string? Subcategory { get; set; }
-
-        public override string ToString() => Subcategory ?? string.Empty;
-    }
-
-    private SelectedUser? _selectedTallyClerk;
-    public class SelectedUser
-    {
-        public string ID { get; set; } = null!;
-        public string? FirstName { get; set; }
-        public string? LastName { get; set; }
-        public string? Role { get; set; }
-
-        public override string ToString() => FirstName ?? string.Empty;
-    }
-
-    private SelectedRegion? _selectedRegion;
-    public class SelectedRegion
-    {
-        public int ID { get; set; }
-        public string? Region { get; set; }
-        public string? Abbreviation { get; set; }
-
-        public override string ToString() => Region ?? string.Empty;
-    }
+    private EventsDTO.EventCount? _eventCounts;
 
     public class EventsDTO
     {
-        public class EventDetails
+        public class EventCount
         {
-            public class Event
-            {
-                public string ID { get; set; } = null!;
-                public string? EventStage { get; set; }
-                public List<EventVersusTeams>? EventVersusList { get; set; }
+            // Events
+            public int? NumberOfEvents { get; set; }
+            public int? NumberOfFinishedEvents { get; set; }
+            public int? NumberofOngoingEvents { get; set; }
+            public int? NumberOfEventsThatLacksPlayers { get; set; }
 
-                //public int? SportSubcategoryID { get; set; }
-                public string? Category { get; set; }
-                public string? Sport { get; set; }
-                public int? SubCategoryID { get; set; }
-                public string? Subcategory { get; set; }
-                public string? Gender { get; set; }
-                public string? Level { get; set; }
-                //
+            // News
+            public int? NumberOfNewsPublished { get; set; }
 
-                // public int? EventVenuesID { get; set; }
-                public string? Venue { get; set; }
-                public decimal? Latitude { get; set; }
-                public decimal? Longitude { get; set; }
-                //
+            // Streams
+            public int? NumberOfEventStreamServices { get; set; }
+            public int? NumberOfEventStreams { get; set; }
 
-                public DateTime? Date { get; set; }
-                public TimeSpan? Time { get; set; }
-                public bool? OnStream { get; set; }
+            // Venues and Billeting Quarters
+            public int? NumberOfVenues { get; set; }
+            public int? NumberOfBilletingQuarters { get; set; }
 
-
-                // public int? StreamID { get; set; }
-                public string? StreamService { get; set; }
-                public string? StreamURL { get; set; }
-                //
-
-                public bool? IsFinished { get; set; }
-                public byte[]? Attachement { get; set; }
-                public bool? Archived { get; set; }
-                public bool? Deleted { get; set; }
-
-                //public string? UserID { get; set; }
-                public string? FirstName { get; set; }
-                public string? LastName { get; set; }
-            }
-
-            public class EventVersusTeams
-            {
-                public int ID { get; set; }
-                public string? Score { get; set; }
-                // public int? SchoolRegionID { get; set; }
-                public string? Region { get; set; }
-                public string? Abbreviation { get; set; }
-                //
-
-                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
-                public DateTime? RecentUpdateAt { get; set; }
-            }
-
-            public class EventVersusTeamPlayers
-            {
-                public int ID { get; set; }
-                public int? EventVersusID { get; set; }
-                public string? FirstName { get; set; }
-                public string? LastName { get; set; }
-                public string? School { get; set; }
-            }
+            // Participants
+            public int? NumberOfRegionalTeamsParticipating { get; set; }
+            public int? NumberOfSchoolDivisionsParticipating { get; set; }
+            public int? NumberOfSchoolsParticipating { get; set; }
+            public int? NumberOfPlayers { get; set; }
+            public int? NumberOfMalePlayers { get; set; }
+            public int? NumberOfFemalePlayers { get; set; }
+            public int? NumberOfCoaches { get; set; }
         }
-
-        public class EventStreams
-        {
-            public int ID { get; set; }
-            public string? StreamService { get; set; }
-            public string? StreamURL { get; set; }
-        }
-
-        public class EventVenues
-        {
-            public int ID { get; set; }
-            public string? Venue { get; set; }
-            public decimal? Latitude { get; set; }
-            public decimal? Longitude { get; set; }
-        }
-    }
-
-    public class SportsDTO
-    {
-        public class Sports
-        {
-            public int ID { get; set; }
-            public string? Sport { get; set; }
-            public string? Description { get; set; }
-            public int? SportCategoryID { get; set; }
-        }
-
-        public class SportCategories
-        {
-            public int ID { get; set; }
-            public string? Category { get; set; }
-        }
-
-        public class SportGenderCategories
-        {
-            public int ID { get; set; }
-            public string? Gender { get; set; }
-        }
-
-        public class SportSubcategories
-        {
-            public int ID { get; set; }
-            public string? Subcategory { get; set; }
-            public int? SportID { get; set; }
-            public int? SportGenderCategoryID { get; set; }
-            public int? SchoolLevelID { get; set; }
-        }
-    }
-
-    public class SchoolDTO
-    {
-        public class SchoolLevels
-        {
-            public int ID { get; set; }
-            public string? Level { get; set; }
-        }
-
-        public class SchoolRegions
-        {
-            public int ID { get; set; }
-            public string? Region { get; set; }
-            public string? Abbreviation { get; set; }
-        }
-    }
-
-    public class UsersDTO
-    {
-        public class UserList
-        {
-            public string ID { get; set; } = null!;
-            public string? FirstName { get; set; }
-            public string? LastName { get; set; }
-            public string? Role { get; set; }
-        }
-    }
-
-    bool _expandedFilter = false;
-
-    private void OnExpandFilterCollapseClick()
-    {
-        _expandedFilter = !_expandedFilter;
     }
 
     protected override async Task OnInitializedAsync()
     {
-        await GetEventsAsync();
-        await GetSportCategoriesAsync();
-        await GetSportGenderCategoriesAsync();
-        await GetSchoolLevelsAsync();
-        await GetVenuesAsync();
-        await GetTallyClerksAsync();
-        await GetSchoolRegionsAsync();
+        await GetCounterAsync();
     }
 
-    private async Task GetEventsAsync()
+    private async Task GetCounterAsync()
     {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Events/Details?" +
-            $"region={_selectedRegion?.Region}" +
-            $"&category={_selectedSportCategory?.Category}" +
-            $"&sport={_selectedSport?.Sport}" +
-            $"&subcategory={_selectedSubcategories?.Subcategory}" +
-            $"&gender={_selectedGenderCategories?.Gender}" +
-            $"&level={_selectedSchoolLevels?.Level}" +
-            $"&venue={_selectedEventVenue}" +
-            $"&startDate={_startDate?.ToString("yyyy-MM-dd")}" +
-            $"&endDate={_endDate?.ToString("yyyy-MM-dd")}" +
-            $"&onStream={_isOnStream}" +
-            $"&isFinished={_isFinished}" +
-            $"&userID={_selectedTallyClerk?.ID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _eventDetails = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventDetails.Event>>(responseStream, options);
-        }
-        catch (HttpRequestException)
-        {
-            _eventDetails = null;
-        }
+        string url = "/Counter";
+        _eventCounts = await apiService.GetSingleAsync<EventsDTO.EventCount>(url);
     }
-
-    private async Task GetSportCategoriesAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Sports/Categories?";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sportCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportCategories>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSportsAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Sports?sportCategoryID={_selectedSportCategory?.ID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sports = await JsonSerializer.DeserializeAsync<List<SportsDTO.Sports>>(responseStream, options);
-
-            await GetEventsAsync();
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSportGenderCategoriesAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Sports/GenderCategories?";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sportGenderCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportGenderCategories>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSchoolLevelsAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Levels";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolLevels = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolLevels>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSportSubcategoriesAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Sports/Subcategories?" +
-            $"sportID={_selectedSport?.ID}" +
-            $"&sportGenderCategoryID={_selectedGenderCategories?.ID}" +
-            $"&schoolLevelID={_selectedSchoolLevels?.ID}";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sportSubcategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportSubcategories>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetVenuesAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Events/Venues";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _eventVenues = await JsonSerializer.DeserializeAsync<List<EventsDTO.EventVenues>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetTallyClerksAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Users/TallyClerkList";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _userLists = await JsonSerializer.DeserializeAsync<List<UsersDTO.UserList>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-    private async Task GetSchoolRegionsAsync()
-    {
-        try
-        {
-            string url = $"{apiService.Palaro2026API}/Schools/Regions";
-
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _schoolRegions = await JsonSerializer.DeserializeAsync<List<SchoolDTO.SchoolRegions>>(responseStream, options);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Handle exception, log, or display an error message
-            Console.WriteLine($"Error fetching data: {ex.Message}");
-        }
-    }
-
-
-    // Dialog Action
-
-
-    private async Task OpenEditEventDialog(string? selectedEventID)
-    {
-        var parameter = new DialogParameters<EditEventDialog>
-        {
-            {x => x.SelectedEventID, selectedEventID},
-        };
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
-
-        var dialog = await DialogService.ShowAsync<EditEventDialog>("Edit Event", parameter, options);
-
-        var result = await dialog.Result;
-
-        if (!result!.Canceled)
-        {
-            await GetEventsAsync();
-        }
-    }
-
-    private async Task OpenEditEventTeamsDialog(string? selectedEventID, int? selectedSubSportID, int? selectedEventTeamsID, string? selectedEventStage)
-    {
-        var parameter = new DialogParameters<EditEventTeamsDialog>
-        {
-            {x => x.SelectedEventID, selectedEventID},
-            {x => x.SelectedSubCategoryID, selectedSubSportID},
-            {x => x.SelectedEventVersusTeamsID, selectedEventTeamsID},
-            {x => x.SelectedEventStage, selectedEventStage}
-        };
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
-
-        var dialog = await DialogService.ShowAsync<EditEventTeamsDialog>("Edit Team for the Event", parameter, options);
-
-        var result = await dialog.Result;
-
-        // Check if the dialog was closed with a positive result (e.g., "OK")
-        if (!result!.Canceled)
-        {
-            await GetEventsAsync();
-        }
-    }
-
-    private async Task ScoreBoardDialog(string? selectedEventID)
-    {
-        var parameter = new DialogParameters<ScoreBoardDialog>
-        {
-            {x => x.SelectedEventID, selectedEventID},
-        };
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
-
-        var dialog = await DialogService.ShowAsync<ScoreBoardDialog>("Score Board", parameter, options);
-
-        var result = await dialog.Result;
-
-        await dialog.Result;
-
-        await GetEventsAsync();
-    }
-
 }
