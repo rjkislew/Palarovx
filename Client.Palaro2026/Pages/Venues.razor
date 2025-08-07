@@ -1,5 +1,5 @@
 ﻿@page "/venues"
-@page "/venues/@{SelectedLongitude:decimal},{SelectedLatitude:decimal}/{SelectedID:int}/{SelectedVenue}, {SelectedAddress}"
+@page "/venues/@{Longitude:decimal},{Latitude:decimal}/{ID:int}/{Venue}, {Address}"
 
 @using System.Text.Json
 @using System.Text.RegularExpressions
@@ -19,29 +19,27 @@
         <MudStack Class="px-3 responsive-width" Style="z-index: 1; position: absolute;">
             <MudPaper Outlined Class="py-2 px-3 mt-3">
                 <MudStack Row AlignItems="AlignItems.Center" Spacing="1" Style="width: 100%">
-                    <MudSelect Margin="Margin.Dense" Clearable T="int?" Variant="Variant.Outlined"
-                               @bind-Value="triggerSelectLocation"
-                               FullWidth Label="Venue"
-                               OnClearButtonClick="ClearSelection"
-                               Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.LocationOn" AdornmentColor="Color.Primary">
-                        <MudVirtualize Items="_venues" Context="venue">
-                            <MudSelectItem T="int?" Value="@venue.ID">
-                                <MudStack Spacing="0">
-                                    <MudText Typo="Typo.body2" Style="line-height: 1.3;">
-                                        @venue.Venue,
-                                        <MudElement>
-                                            <MudText Typo="Typo.caption">
-                                                @venue.Address
-                                            </MudText>
-                                        </MudElement>
-                                    </MudText>
-                                </MudStack>
-                            </MudSelectItem>
-                        </MudVirtualize>
-                    </MudSelect>
+                    <MudAutocomplete T="EventsDTO.EventVenues"
+                                     CoerceText="true"
+                                     Margin="Margin.Dense"
+                                     Label="Venue" Value="SelectedVenue"
+                                     HelperText="Search for Venue, Address, Sport Event"
+                                     ValueChanged="async venue => {SelectedVenue = venue; await HandleLocationChange();}"
+                                     SearchFunc="SearchVenuesAsync"
+                                     ToStringFunc="@(v => v is null ? string.Empty : $"{v.Venue} ({v.Address})")"
+                                     Clearable="true"
+                                     AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                                     AdornmentColor="Color.Primary"
+                                     OnClearButtonClick="ClearSelection"
+                                     Variant="Variant.Outlined"
+                                     ShowProgressIndicator="true">
+                        <ItemTemplate Context="venue">
+                            <MudText>@venue.Venue (@venue.Address)</MudText>
+                        </ItemTemplate>
+                    </MudAutocomplete>
                 </MudStack>
             </MudPaper>
-            @if (_events?.Any() == true && !string.IsNullOrEmpty(SelectedVenue) && _toggleEventView == true)
+            @if (_events?.Any() == true && Venue is not null && _toggleEventView == true)
             {
                 <MudGrid>
                     <MudItem xs="12">
@@ -151,18 +149,19 @@
                     </MudItem>
                 </MudGrid>
             }
-            @if (_events?.Any() == true && !string.IsNullOrEmpty(SelectedVenue))
+
+            @if (_events?.Any() == true && Venue is not null)
             {
                 <MudStack Row Justify="Justify.FlexEnd" Style="width: 100%">
                     <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@(_toggleEventView == true ? @Icons.Material.Filled.ArrowUpward : @Icons.Material.Filled.ArrowDownward)" OnClick="toggleSelectedLocationView" />
-                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.FmdGood" OnClick="() => FlyToLocation(SelectedLongitude, SelectedLatitude)" />
+                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.FmdGood" OnClick="() => FlyToLocation(Longitude, Latitude)" />
                     <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.OpenInFull" OnClick="SetAndFitBounds" />
                 </MudStack>
             }
-            else if (!string.IsNullOrEmpty(SelectedVenue))
+            else if (Venue is not null)
             {
                 <MudStack Row Justify="Justify.FlexEnd" Style="width: 100%">
-                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.FmdGood" OnClick="() => FlyToLocation(SelectedLongitude, SelectedLatitude)" />
+                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.FmdGood" OnClick="() => FlyToLocation(Longitude, Latitude)" />
                     <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.OpenInFull" OnClick="SetAndFitBounds" />
                 </MudStack>
             }
@@ -177,67 +176,62 @@
                 </MudElement>
             </MudStack>
         }
-        <MudStack id="map" Class="absolute"Style="width: 100%; height: 100%; overflow: hidden"/>
+        <MudStack id="map" Class="absolute" Style="width: 100%; height: 100%; overflow: hidden" />
     </MudStack>
 </MudContainer>
 
 @code {
-    [Parameter]
-    public string? SelectedVenue { get; set; } = null!;
-    [Parameter]
-    public string? SelectedAddress { get; set; } = null!;
-    [Parameter]
-    public int SelectedID { get; set; }
-    [Parameter]
-    public decimal? SelectedLongitude { get; set; } = null!;
-    [Parameter]
-    public decimal? SelectedLatitude { get; set; } = null!;
+    // ------------------------------
+    // Parameters
+    // ------------------------------
+    [Parameter] public decimal Longitude { get; set; }
+    [Parameter] public decimal Latitude { get; set; }
+    [Parameter] public int ID { get; set; }
+    [Parameter] public string? Venue { get; set; }
+    [Parameter] public string? Address { get; set; }
+
+    // ------------------------------
+    // Fields and Properties
+    // ------------------------------
+    public EventsDTO.EventVenues? SelectedVenue { get; set; }
+
+    private List<EventsDTO.EventVenues>? _venues;
+    private List<EventsDTO.EventDetails.Event>? _events;
 
     private bool? _toggleEventView = true;
 
-    private int? triggerSelectLocation
-    {
-        get => _selectedVenue?.ID;
-        set
-        {
-            if (value.HasValue)
-            {
-                var venue = _venues?.FirstOrDefault(v => v.ID == value.Value);
-                if (venue != null && venue.Longitude.HasValue && venue.Latitude.HasValue)
-                {
-                    _selectedVenue = venue;
-                    SelectedVenue = venue.Venue;
-                    SelectedAddress = venue.Address;
-                    SelectedLongitude = venue.Longitude;
-                    SelectedLatitude = venue.Latitude;
-                    SelectedID = venue.ID;
-
-                    _ = HandleLocationChange(SelectedVenue, SelectedAddress, SelectedID, SelectedLongitude, SelectedLatitude);
-                    // Clear stored value to avoid re-processing same ID again
-                    triggerSelectLocation = null;  // Clear backing field directly to avoid recursion
-                    StateHasChanged();
-                }
-            }
-        }
-    }
-
     private DotNetObjectReference<Venues>? objRef;
-
     string? qrCodeBase64;
     string? fileName;
 
+    // ------------------------------
+    // Lifecycle Methods
+    // ------------------------------
     protected override void OnInitialized()
     {
         objRef = DotNetObjectReference.Create(this);
         _ = JSRuntime.InvokeVoidAsync("registerDotNetReference", objRef);
     }
 
-    [JSInvokable]
-    public void OnCoordinateSelected(int id)
+    protected override async Task OnInitializedAsync()
     {
-        // This will trigger your setter and location logic
-        triggerSelectLocation = id;
-        StateHasChanged();
+        themeService.OnThemeChanged += StateHasChanged;
+        await themeService.LoadThemePreference();
+
+        await GetVenuesAsync();
+        SelectedVenue = _venues?.FirstOrDefault(v => v.ID == ID);
+
+        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapBoxService.MapboxToken, _venues, themeService.IsDarkMode);
+
+        await Task.Delay(2000);
+
+        await HandleLocationChange();
+
+        navigationManager.LocationChanged += OnLocationChanged;
+
+        GenerateQRCode(navigationManager.Uri);
+
+        await JSRuntime.InvokeVoidAsync("setUserLocationFromGeolocation");
     }
 
     public void Dispose()
@@ -247,12 +241,159 @@
             objRef.Dispose();
             objRef = null;
         }
+        navigationManager.LocationChanged -= OnLocationChanged;
     }
 
-    private EventsDTO.EventVenues? _selectedVenue;
-    private List<EventsDTO.EventVenues>? _venues;
-    private List<EventsDTO.EventDetails.Event>? _events;
+    // ------------------------------
+    // JS Invokable Method
+    // ------------------------------
+    [JSInvokable]
+    public async Task OnCoordinateSelected(int id)
+    {
+        // Set the selected venue by matching the marker ID
+        SelectedVenue = _venues?.FirstOrDefault(v => v.ID == id);
 
+        if (SelectedVenue != null)
+        {
+            await HandleLocationChange();
+        }
+
+        StateHasChanged();
+    }
+
+
+    // ------------------------------
+    // Navigation and Location Logic
+    // ------------------------------
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        GenerateQRCode(e.Location);
+        StateHasChanged();
+    }
+
+    private async Task HandleLocationChange()
+    {
+        _events = null;
+        _toggleEventView = true;
+
+        if (SelectedVenue is not null && SelectedVenue.Longitude.HasValue && SelectedVenue.Latitude.HasValue)
+        {
+            await JSRuntime.InvokeVoidAsync("showDirections", new object?[] {
+                new decimal?[] { SelectedVenue.Longitude, SelectedVenue.Latitude }
+            });
+
+            var url = string.IsNullOrWhiteSpace(SelectedVenue.Venue)
+                ? "./venues"
+                : $"./venues/@{SelectedVenue.Longitude},{SelectedVenue.Latitude}/{SelectedVenue.ID}/{SelectedVenue.Venue}, {SelectedVenue.Address}";
+
+            navigationManager.NavigateTo(url);
+        }
+
+        await GetEventsAsync();
+    }
+
+    private async Task FlyToLocation(decimal? lng, decimal? lat)
+    {
+        await JSRuntime.InvokeVoidAsync("flyToLocation", lng, lat);
+    }
+
+    private async Task SetAndFitBounds()
+    {
+        await JSRuntime.InvokeVoidAsync("setSelectedLocation", Longitude, Latitude);
+        await JSRuntime.InvokeVoidAsync("fitUserAndSelectedBounds");
+    }
+
+    private void toggleSelectedLocationView()
+    {
+        _toggleEventView = !_toggleEventView;
+    }
+
+    // ------------------------------
+    // Venue and Event Data
+    // ------------------------------
+    private async Task GetVenuesAsync()
+    {
+        string url = "/Events/Venues";
+        var eventVenuesData = await apiService.GetAsync<EventsDTO.EventVenues>(url);
+
+        _venues = eventVenuesData?
+            .OrderBy(v => v.Address ?? string.Empty)
+            .ToList();
+    }
+
+    private async Task GetEventsAsync()
+    {
+        string url = $"/Events/Details?venue={SelectedVenue?.Venue}&isFinished=false";
+        _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+    }
+
+    private async Task<IEnumerable<EventsDTO.EventVenues>> SearchVenuesAsync(string value, CancellationToken token)
+    {
+        await Task.Delay(100); // simulate delay
+
+        if (string.IsNullOrWhiteSpace(value))
+            return _venues ?? Enumerable.Empty<EventsDTO.EventVenues>();
+
+        return _venues?
+        .Where(e =>
+            (!string.IsNullOrWhiteSpace(e.Venue) && e.Venue.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(e.Address) && e.Address.Contains(value, StringComparison.OrdinalIgnoreCase))
+        )
+        .ToList()
+        ?? Enumerable.Empty<EventsDTO.EventVenues>();
+    }
+
+    private async Task ClearSelection()
+    {
+        SelectedVenue = null;
+
+        navigationManager.NavigateTo("./venues");
+        await JSRuntime.InvokeVoidAsync("clearRoute");
+        await JSRuntime.InvokeVoidAsync("centerMap", null);
+    }
+
+    // ------------------------------
+    // QR Code Generation
+    // ------------------------------
+    private void GenerateQRCode(string url)
+    {
+        qrCodeBase64 = GenerateQrCodeBase64(url);
+
+        var uri = new Uri(navigationManager.ToAbsoluteUri(url).ToString());
+        var path = uri.AbsolutePath.Trim('/').Replace("/", "-");
+
+        if (string.IsNullOrWhiteSpace(path))
+            path = "homepage";
+
+        fileName = $"qr-code-{path}.png";
+    }
+
+    private string GenerateQrCodeBase64(string text)
+    {
+        using var qrGenerator = new QRCoder.QRCodeGenerator();
+        using var qrCodeData = qrGenerator.CreateQrCode(text, QRCoder.QRCodeGenerator.ECCLevel.Q);
+        using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
+        byte[] qrCodeBytes = qrCode.GetGraphic(20);
+
+        return $"data:image/png;base64,{Convert.ToBase64String(qrCodeBytes)}";
+    }
+
+    private string GetThumbnailUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
+
+        if (url.Contains("youtube.com/watch?v="))
+        {
+            var videoId = url.Split("v=")[1].Split('&')[0];
+            return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
+        }
+
+        return "media/images/no-thumbnail-default.webp";
+    }
+
+    // ------------------------------
+    // DTO Classes
+    // ------------------------------
     public class EventsDTO
     {
         public class EventDetails
@@ -263,37 +404,29 @@
                 public string? EventStage { get; set; }
                 public List<EventVersusTeams>? EventVersusList { get; set; }
 
-                //public int? SportSubcategoryID { get; set; }
                 public string? Category { get; set; }
                 public string? Sport { get; set; }
                 public int? SubCategoryID { get; set; }
                 public string? Subcategory { get; set; }
                 public string? Gender { get; set; }
                 public string? Level { get; set; }
-                //
 
-                // public int? EventVenuesID { get; set; }
                 public string? Venue { get; set; }
                 public decimal? Latitude { get; set; }
                 public decimal? Longitude { get; set; }
-                //
 
                 public DateTime? Date { get; set; }
                 public TimeSpan? Time { get; set; }
                 public bool? OnStream { get; set; }
 
-
-                // public int? StreamID { get; set; }
                 public string? StreamService { get; set; }
                 public string? StreamURL { get; set; }
-                //
 
                 public bool? IsFinished { get; set; }
                 public byte[]? Attachement { get; set; }
                 public bool? Archived { get; set; }
                 public bool? Deleted { get; set; }
 
-                //public string? UserID { get; set; }
                 public string? FirstName { get; set; }
                 public string? LastName { get; set; }
             }
@@ -302,11 +435,8 @@
             {
                 public int ID { get; set; }
                 public string? Score { get; set; }
-                // public int? SchoolRegionID { get; set; }
                 public string? Region { get; set; }
                 public string? Abbreviation { get; set; }
-                //
-
                 public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
                 public DateTime? RecentUpdateAt { get; set; }
             }
@@ -330,136 +460,4 @@
             public decimal? Longitude { get; set; }
         }
     }
-
-    private string GetThumbnailUrl(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
-
-        if (url.Contains("youtube.com/watch?v="))
-        {
-            var videoId = url.Split("v=")[1].Split('&')[0];
-            return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
-        }
-
-        return "media/images/no-thumbnail-default.webp";
-    }
-
-    // Method to clear the selection
-    private async Task ClearSelection()
-    {
-        SelectedVenue = null;
-        _selectedVenue = null;
-
-        navigationManager.NavigateTo("./venues");
-
-        // Clear the route from the map via JS interop
-        await JSRuntime.InvokeVoidAsync("clearRoute");
-
-        // Center the map back to user location or default location
-        await JSRuntime.InvokeVoidAsync("centerMap", null); // Pass null to center on the default location
-
-        GenerateQRCode(navigationManager.Uri);
-    }
-
-    private void toggleSelectedLocationView()
-    {
-        _toggleEventView = !_toggleEventView; // Toggle the view state
-    }
-
-
-    private async Task HandleLocationChange(string? selectedVenue, string? selectedAddress, int selectedID, decimal? selectedLongitude, decimal? selectedLatitude)
-    {
-        _events = null; // Clear events when changing location
-        _toggleEventView = true; // Reset event view toggle
-
-        await GetEventsAsync();
-
-        await JSRuntime.InvokeVoidAsync("showDirections", new object[] { new decimal?[] { selectedLongitude, selectedLatitude } });
-
-        var url = string.IsNullOrWhiteSpace(selectedVenue) ? "./venues" : $"./venues/@{selectedLongitude},{selectedLatitude}/{selectedID}/{selectedVenue}, {selectedAddress}";
-
-        navigationManager.NavigateTo(url);
-        GenerateQRCode(navigationManager.Uri);
-    }
-
-    private async Task FlyToLocation(decimal? lng, decimal? lat)
-    {
-        await JSRuntime.InvokeVoidAsync("flyToLocation", lng, lat);
-    }
-
-    private async Task SetAndFitBounds()
-    {
-        // Step 1: Set selectedLocation in JavaScript
-        await JSRuntime.InvokeVoidAsync("setSelectedLocation", SelectedLongitude, SelectedLatitude);
-
-        // Step 2: Call fitUserAndSelectedBounds from JavaScript
-        await JSRuntime.InvokeVoidAsync("fitUserAndSelectedBounds");
-    }
-
-
-    // Method to initialize the map on the first render
-    protected override async Task OnInitializedAsync()
-    {
-        themeService.OnThemeChanged += StateHasChanged;
-        await themeService.LoadThemePreference();
-
-        await GetVenuesAsync();
-        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapBoxService.MapboxToken, _venues, themeService.IsDarkMode);
-
-        await Task.Delay(2000);
-
-        if (!string.IsNullOrEmpty(SelectedVenue))
-        {
-            await HandleLocationChange(SelectedVenue, SelectedAddress, SelectedID, SelectedLongitude, SelectedLatitude);
-
-            StateHasChanged();
-        }
-
-        await JSRuntime.InvokeVoidAsync("setUserLocationFromGeolocation");
-
-        GenerateQRCode(navigationManager.Uri);
-    }
-
-
-    private async Task GetVenuesAsync()
-    {
-        string url = "/Events/Venues";
-        var eventVenuesData = await apiService.GetAsync<EventsDTO.EventVenues>(url);
-
-        _venues = eventVenuesData?
-            .OrderBy(v => v.Address ?? string.Empty)
-            .ToList();
-
-        _selectedVenue = _venues?.FirstOrDefault(b => b.ID == SelectedID);
-    }
-
-    private async Task GetEventsAsync()
-    {
-        string url = $"/Events/Details?venue={SelectedVenue}&isFinished=false";
-        _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
-    }
-
-    private void GenerateQRCode(string url)
-    {
-        qrCodeBase64 = GenerateQrCodeBase64(url);
-
-        var uri = new Uri(navigationManager.ToAbsoluteUri(url).ToString());
-        var path = uri.AbsolutePath.Trim('/').Replace("/", "-");
-
-        if (string.IsNullOrWhiteSpace(path))
-            path = "homepage";
-
-        fileName = $"qr-code-{path}.png";
-    }
-
-    private string GenerateQrCodeBase64(string text)
-    {
-        using var qrGenerator = new QRCoder.QRCodeGenerator();
-        using var qrCodeData = qrGenerator.CreateQrCode(text, QRCoder.QRCodeGenerator.ECCLevel.Q);
-        using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
-        byte[] qrCodeBytes = qrCode.GetGraphic(20);
-
-        return $"data:image/png;base64,{Convert.ToBase64String(qrCodeBytes)}";
-    }
 }
-

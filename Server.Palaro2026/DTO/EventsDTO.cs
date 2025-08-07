@@ -37,6 +37,7 @@ public class EventsDTO
             public string? Gender { get; set; }
             public string? Level { get; set; }
             public string? Venue { get; set; }
+            public string? Address { get; set; }
             public decimal? Latitude { get; set; }
             public decimal? Longitude { get; set; }
             public DateTime? Date { get; set; }
