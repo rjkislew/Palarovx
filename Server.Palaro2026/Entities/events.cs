@@ -26,8 +26,6 @@ public partial class Events
 
     public bool? IsFinished { get; set; }
 
-    public byte[]? Attachement { get; set; }
-
     public bool? Archived { get; set; }
 
     public bool? Deleted { get; set; }

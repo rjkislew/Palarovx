@@ -1,5 +1,5 @@
 ﻿@page "/regional-teams/billeting-quarters"
-@page "/regional-teams/billeting-quarters/@{SelectedLongitude:decimal},{SelectedLatitude:decimal}/{SelectedID:int}/{SelectedRegion},{SelectedAddress}"
+@page "/regional-teams/billeting-quarters/@{Longitude:decimal},{Latitude:decimal}/{ID:int}/{Region}, {Address}"
 
 @using System.Text.Json
 @using System.Threading.Tasks
@@ -18,72 +18,74 @@
         <MudStack Class="px-3 responsive-width" Style="z-index: 1; position: absolute;">
             <MudPaper Outlined Class="py-2 px-3 mt-3">
                 <MudStack Row AlignItems="AlignItems.Center" Spacing="1" Style="width: 100%">
-                    <MudSelect Margin="Margin.Dense" Clearable T="int?" Variant="Variant.Outlined"
-                               @bind-Value="triggerSelectLocation"
-                               FullWidth Label="Regional Teams"
-                               OnClearButtonClick="ClearSelection"
-                               Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.LocationOn" AdornmentColor="Color.Primary">
-                        <MudVirtualize Items="_billetingQuarters" Context="quarter">
-                            <MudSelectItem T="int?" Value="@quarter.ID">
-                                <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
-                                    <MudImage Src="@($"media/regions/{quarter.Abbreviation}.webp")" Height="20" Class="mr-1" />
-                                    <MudText Typo="Typo.body2" Style="line-height: 1.5;">
-                                        @quarter.Region (@quarter.Abbreviation)
-                                    </MudText>
-                                </MudStack>
-                            </MudSelectItem>
-                        </MudVirtualize>
-                    </MudSelect>
+                    <MudAutocomplete T="SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters"
+                                     CoerceText="true"
+                                     Margin="Margin.Dense"
+                                     Label="Region"
+                                     Value="BilletingQuarter"
+                                     HelperText="Search for Region or Address"
+                                     ValueChanged="async quarter => {BilletingQuarter = quarter; await HandleLocationChange();}"
+                                     SearchFunc="SearchQuartersAsync"
+                                     ToStringFunc="@(q => q is null ? string.Empty : $"{q.Region} ({q.Address}) - {@q.Address}")"
+                                     Clearable="true"
+                                     AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                                     AdornmentColor="Color.Primary"
+                                     OnClearButtonClick="ClearSelection"
+                                     Variant="Variant.Outlined"
+                                     ShowProgressIndicator="true">
+                        <ItemTemplate Context="quarter">
+                            <MudStack Spacing="0">
+                                <MudText>@quarter.Region (@quarter.Abbreviation)</MudText>
+                                <MudText Typo="Typo.caption">@quarter.Address</MudText>
+                            </MudStack>
+                        </ItemTemplate>
+                    </MudAutocomplete>
                 </MudStack>
             </MudPaper>
-            @if (_billetingQuarters?.Any() == true && !string.IsNullOrEmpty(SelectedRegion) && _toggleEventView == true)
+
+            @if (_billetingQuarters?.Any() == true && BilletingQuarter is not null && _toggleBilletingQuarterView == true)
             {
                 <MudPaper Outlined>
                     <MudStack Spacing="5" Class="pa-3">
                         <MudStack Spacing="1">
-                            <MudStack Spacing="0">
-                                <MudText><b>Quarter</b></MudText>
-                                <MudDivider />
+                            <MudText><b>Quarter</b></MudText>
+                            <MudDivider />
+                            <MudStack Row AlignItems="AlignItems.Center">
+                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.School" />
+                                <MudText Typo="Typo.body2">@BilletingQuarter?.BilletingQuarter</MudText>
                             </MudStack>
-                            <MudStack Spacing="0">
-                                <MudStack Row AlignItems="AlignItems.Center">
-                                    <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.School"></MudIcon>
-                                    <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters?.BilletingQuarter</MudText>
-                                </MudStack>
-                                <MudStack Row AlignItems="AlignItems.Center">
-                                    <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.LocationOn"></MudIcon>
-                                    <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters?.Address</MudText>
-                                </MudStack>
+                            <MudStack Row AlignItems="AlignItems.Center">
+                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.LocationOn" />
+                                <MudText Typo="Typo.body2">@BilletingQuarter?.Address</MudText>
                             </MudStack>
                         </MudStack>
+
                         <MudStack Spacing="1">
-                            <MudStack Spacing="0">
-                                <MudText><b>Contact Person</b></MudText>
-                                <MudDivider />
+                            <MudText><b>Contact Person</b></MudText>
+                            <MudDivider />
+                            <MudStack Row AlignItems="AlignItems.Center">
+                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person" />
+                                <MudText Typo="Typo.body2">@BilletingQuarter?.ContactPerson</MudText>
                             </MudStack>
-                            <MudStack Spacing="0">
-                                <MudStack Row AlignItems="AlignItems.Center">
-                                    <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person"></MudIcon>
-                                    <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters?.ContactPerson</MudText>
-                                </MudStack>
-                                <MudStack Row AlignItems="AlignItems.Center">
-                                    <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Phone"></MudIcon>
-                                    <MudText Typo="Typo.body2">@_selectedRegionBilletingQuarters?.ContactPersonNumber</MudText>
-                                </MudStack>
+                            <MudStack Row AlignItems="AlignItems.Center">
+                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Phone" />
+                                <MudText Typo="Typo.body2">@BilletingQuarter?.ContactPersonNumber</MudText>
                             </MudStack>
                         </MudStack>
                     </MudStack>
                 </MudPaper>
             }
-            @if (_billetingQuarters?.Any() == true && !string.IsNullOrEmpty(SelectedRegion))
+
+            @if (_billetingQuarters?.Any() == true && BilletingQuarter is not null)
             {
                 <MudStack Row Justify="Justify.FlexEnd">
-                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@(_toggleEventView == true ? @Icons.Material.Filled.ArrowUpward : @Icons.Material.Filled.ArrowDownward)" OnClick="toggleSelectedLocationView" />
-                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.FmdGood" OnClick="() => FlyToLocation(SelectedLongitude, SelectedLatitude)" />
-                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Icon="@Icons.Material.Filled.OpenInFull" OnClick="SetAndFitBounds" />
+                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" Icon="@(_toggleBilletingQuarterView == true ? @Icons.Material.Filled.ArrowUpward : @Icons.Material.Filled.ArrowDownward)" OnClick="toggleLocationView" />
+                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" Icon="@Icons.Material.Filled.FmdGood" OnClick="() => FlyToLocation(BilletingQuarter?.Longitude, BilletingQuarter?.Latitude)" />
+                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" Icon="@Icons.Material.Filled.OpenInFull" OnClick="SetAndFitBounds" />
                 </MudStack>
             }
         </MudStack>
+
         @if (!string.IsNullOrEmpty(qrCodeBase64))
         {
             <MudStack Spacing="0" AlignItems="AlignItems.Center" Class="absolute z-10 mb-7" Style="left: 0; bottom: 0;">
@@ -94,52 +96,23 @@
                 </MudElement>
             </MudStack>
         }
-        <MudStack id="map" Style="width: 100%; height: calc(100vh - 64px); overflow: hidden"/>
+
+        <MudStack id="map" Style="width: 100%; height: calc(100vh - 64px); overflow: hidden" />
     </MudStack>
 </MudContainer>
 
 @code {
-    [Parameter]
-    public string? SelectedRegion { get; set; }
-    [Parameter]
-    public string? SelectedAddress { get; set; }
-    [Parameter]
-    public int SelectedID { get; set; }
-    [Parameter]
-    public decimal? SelectedLongitude { get; set; }
-    [Parameter]
-    public decimal? SelectedLatitude { get; set; }
+    [Parameter] public string? Region { get; set; }
+    [Parameter] public string? Address { get; set; }
+    [Parameter] public int ID { get; set; }
+    [Parameter] public decimal? Longitude { get; set; }
+    [Parameter] public decimal? Latitude { get; set; }
 
-    private bool? _toggleEventView = true;
+    public SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters? BilletingQuarter { get; set; }
+    private List<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>? _billetingQuarters;
 
-    private int? triggerSelectLocation
-    {
-        get => _selectedRegionBilletingQuarters?.ID;
-        set
-        {
-            if (value.HasValue)
-            {
-                var venue = _billetingQuarters?.FirstOrDefault(v => v.ID == value.Value);
-                if (venue != null && venue.Longitude.HasValue && venue.Latitude.HasValue)
-                {
-                    _selectedRegionBilletingQuarters = venue;
-                    SelectedRegion = venue.Region;
-                    SelectedAddress = venue.Address;
-                    SelectedLongitude = venue.Longitude;
-                    SelectedLatitude = venue.Latitude;
-                    SelectedID = venue.ID;
-
-                    _ = HandleLocationChange(SelectedRegion, SelectedAddress, SelectedID, SelectedLongitude, SelectedLatitude);
-                    // Clear stored value to avoid re-processing same ID again
-                    triggerSelectLocation = null;  // Clear backing field directly to avoid recursion
-                    StateHasChanged();
-                }
-            }
-        }
-    }
-
+    private bool? _toggleBilletingQuarterView = true;
     private DotNetObjectReference<BilletingQuarters>? objRef;
-
     string? qrCodeBase64;
     string? fileName;
 
@@ -149,25 +122,105 @@
         _ = JSRuntime.InvokeVoidAsync("registerDotNetReference", objRef);
     }
 
-    [JSInvokable]
-    public void OnCoordinateSelected(int id)
+    protected override async Task OnInitializedAsync()
     {
-        // This will trigger your setter and location logic
-        triggerSelectLocation = id;
+        themeService.OnThemeChanged += StateHasChanged;
+        await themeService.LoadThemePreference();
+
+        await GetBilletingQuartersAsync();
+        BilletingQuarter = _billetingQuarters?.FirstOrDefault(b => b.ID == ID);
+
+        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapBoxService.MapboxToken, _billetingQuarters, themeService.IsDarkMode);
+
+        if (BilletingQuarter is not null)
+            await HandleLocationChange();
+
+        GenerateQRCode(navigationManager.Uri);
+        await JSRuntime.InvokeVoidAsync("setUserLocationFromGeolocation");
+    }
+
+    [JSInvokable]
+    public async Task OnCoordinate(int id)
+    {
+        BilletingQuarter = _billetingQuarters?.FirstOrDefault(v => v.ID == id);
+        if (BilletingQuarter is not null)
+            await HandleLocationChange();
         StateHasChanged();
     }
 
-    public void Dispose()
+    private async Task HandleLocationChange()
     {
-        if (objRef != null)
+        if (BilletingQuarter is not null && BilletingQuarter.Longitude.HasValue && BilletingQuarter.Latitude.HasValue)
         {
-            objRef.Dispose();
-            objRef = null;
+            await JSRuntime.InvokeVoidAsync("showDirections", new object?[] {
+                new decimal?[] { BilletingQuarter.Longitude, BilletingQuarter.Latitude }
+            });
+
+            var url = string.IsNullOrWhiteSpace(BilletingQuarter.Region)
+                ? "./regional-teams/billeting-quarters"
+                : $"./regional-teams/billeting-quarters/@{BilletingQuarter.Longitude},{BilletingQuarter.Latitude}/{BilletingQuarter.ID}/{BilletingQuarter.Region}, {BilletingQuarter.Address}";
+
+            navigationManager.NavigateTo(url);
         }
+        GenerateQRCode(navigationManager.Uri);
     }
 
-    private List<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>? _billetingQuarters;
-    private SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters? _selectedRegionBilletingQuarters;
+    private async Task<IEnumerable<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>> SearchQuartersAsync(string value, CancellationToken token)
+    {
+        await Task.Delay(100);
+        if (string.IsNullOrWhiteSpace(value))
+            return _billetingQuarters ?? Enumerable.Empty<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>();
+
+        return _billetingQuarters?.Where(q =>
+            (!string.IsNullOrWhiteSpace(q.Region) && q.Region.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(q.Address) && q.Address.Contains(value, StringComparison.OrdinalIgnoreCase))
+        ) ?? Enumerable.Empty<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>();
+    }
+
+    private async Task ClearSelection()
+    {
+        BilletingQuarter = null;
+        navigationManager.NavigateTo("./regional-teams/billeting-quarters");
+        await JSRuntime.InvokeVoidAsync("clearRoute");
+        await JSRuntime.InvokeVoidAsync("centerMap", null);
+        GenerateQRCode(navigationManager.Uri);
+    }
+
+    private void toggleLocationView() =>
+        _toggleBilletingQuarterView = !_toggleBilletingQuarterView;
+
+    private async Task FlyToLocation(decimal? lng, decimal? lat) =>
+        await JSRuntime.InvokeVoidAsync("flyToLocation", lng, lat);
+
+    private async Task SetAndFitBounds()
+    {
+        await JSRuntime.InvokeVoidAsync("setLocation", BilletingQuarter?.Longitude, BilletingQuarter?.Latitude);
+        await JSRuntime.InvokeVoidAsync("fitUserAndBounds");
+    }
+
+    private async Task GetBilletingQuartersAsync()
+    {
+        string url = "/Schools/BilletingQuarters/Details";
+        _billetingQuarters = await apiService.GetAsync<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>(url);
+    }
+
+    private void GenerateQRCode(string url)
+    {
+        qrCodeBase64 = GenerateQrCodeBase64(url);
+        var uri = new Uri(navigationManager.ToAbsoluteUri(url).ToString());
+        var path = uri.AbsolutePath.Trim('/').Replace("/", "-");
+        if (string.IsNullOrWhiteSpace(path))
+            path = "homepage";
+        fileName = $"qr-code-{path}.png";
+    }
+
+    private string GenerateQrCodeBase64(string text)
+    {
+        using var qrGenerator = new QRCoder.QRCodeGenerator();
+        using var qrCodeData = qrGenerator.CreateQrCode(text, QRCoder.QRCodeGenerator.ECCLevel.Q);
+        using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
+        return $"data:image/png;base64,{Convert.ToBase64String(qrCode.GetGraphic(20))}";
+    }
 
     public class SchoolsDTO
     {
@@ -186,99 +239,5 @@
                 public string? ContactPersonNumber { get; set; }
             }
         }
-    }
-
-    private async Task ClearSelection()
-    {
-        SelectedRegion = null;
-        _selectedRegionBilletingQuarters = null;
-
-        navigationManager.NavigateTo("./regional-teams/billeting-quarters");
-
-        await JSRuntime.InvokeVoidAsync("clearRoute");
-
-        await JSRuntime.InvokeVoidAsync("centerMap", null);
-
-        GenerateQRCode(navigationManager.Uri);
-    }
-
-    private void toggleSelectedLocationView()
-    {
-        _toggleEventView = !_toggleEventView; // Toggle the view state
-    }
-
-    private async Task HandleLocationChange(string? selectedRegion, string? selectedAddress, int selectedID, decimal? selectedLongitude, decimal? selectedLatitude)
-    {
-        await JSRuntime.InvokeVoidAsync("showDirections", new object[] { new decimal?[] { selectedLongitude, selectedLatitude } });
-
-        var url = string.IsNullOrWhiteSpace(selectedRegion) ? "./regional-teams/billeting-quarters" : $"./regional-teams/billeting-quarters/@{selectedLongitude},{selectedLatitude}/{selectedID}/{selectedRegion}, {selectedAddress}";
-
-        navigationManager.NavigateTo(url);
-        GenerateQRCode(navigationManager.Uri);
-    }
-
-    private async Task FlyToLocation(decimal? lng, decimal? lat)
-    {
-        await JSRuntime.InvokeVoidAsync("flyToLocation", lng, lat);
-    }
-
-    private async Task SetAndFitBounds()
-    {
-        // Step 1: Set selectedLocation in JavaScript
-        await JSRuntime.InvokeVoidAsync("setSelectedLocation", SelectedLongitude, SelectedLatitude);
-
-        // Step 2: Call fitUserAndSelectedBounds from JavaScript
-        await JSRuntime.InvokeVoidAsync("fitUserAndSelectedBounds");
-    }
-
-
-    protected override async Task OnInitializedAsync()
-    {
-        themeService.OnThemeChanged += StateHasChanged;
-        await themeService.LoadThemePreference();
-
-        await GetBilletingQuartersAsync();
-        await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapBoxService.MapboxToken, _billetingQuarters, themeService.IsDarkMode);
-
-        if (!string.IsNullOrEmpty(SelectedRegion))
-        {
-            await HandleLocationChange(SelectedRegion, SelectedAddress, SelectedID, SelectedLongitude, SelectedLatitude);
-
-            StateHasChanged();
-        }
-
-        await JSRuntime.InvokeVoidAsync("setUserLocationFromGeolocation");
-
-        GenerateQRCode(navigationManager.Uri);
-    }
-
-    private async Task GetBilletingQuartersAsync()
-    {
-        string url = "/Schools/BilletingQuarters/Details";
-        _billetingQuarters = await apiService.GetAsync<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>(url);
-        _selectedRegionBilletingQuarters = _billetingQuarters?.FirstOrDefault(b => b.ID == SelectedID);
-    }
-
-    private void GenerateQRCode(string url)
-    {
-        qrCodeBase64 = GenerateQrCodeBase64(url);
-
-        var uri = new Uri(navigationManager.ToAbsoluteUri(url).ToString());
-        var path = uri.AbsolutePath.Trim('/').Replace("/", "-");
-
-        if (string.IsNullOrWhiteSpace(path))
-            path = "homepage";
-
-        fileName = $"qr-code-{path}.png";
-    }
-
-    private string GenerateQrCodeBase64(string text)
-    {
-        using var qrGenerator = new QRCoder.QRCodeGenerator();
-        using var qrCodeData = qrGenerator.CreateQrCode(text, QRCoder.QRCodeGenerator.ECCLevel.Q);
-        using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
-        byte[] qrCodeBytes = qrCode.GetGraphic(20);
-
-        return $"data:image/png;base64,{Convert.ToBase64String(qrCodeBytes)}";
     }
 }

@@ -47,7 +47,6 @@ public class EventsDTO
             public string? StreamURL { get; set; }
             public string? StreamTitle { get; set; }
             public bool? IsFinished { get; set; }
-            public byte[]? Attachement { get; set; }
             public bool? Archived { get; set; }
             public bool? Deleted { get; set; }
             public string? FirstName { get; set; }
@@ -118,7 +117,6 @@ public class EventsDTO
         public int? EventStreamID { get; set; }
         public string? GamePhase { get; set; }
         public bool? IsFinished { get; set; }
-        public byte[]? Attachement { get; set; }
         public bool? Archived { get; set; }
         public bool? Deleted { get; set; }
         public string? UserID { get; set; }

@@ -25,7 +25,6 @@ namespace Server.Palaro2026.Controller
                EventStreamID = events.EventStreamID,
                GamePhase = events.GamePhase,
                IsFinished = events.IsFinished,
-               Attachement = events.Attachement,
                Archived = events.Archived,
                Deleted = events.Deleted,
                UserID = events.UserID,
@@ -106,7 +105,6 @@ namespace Server.Palaro2026.Controller
                 EventStreamID = events.EventStreamID,
                 GamePhase = events.GamePhase,
                 IsFinished = events.IsFinished,
-                Attachement = events.Attachement,
                 Archived = events.Archived,
                 Deleted = events.Deleted,
                 UserID = events.UserID,
@@ -155,7 +153,6 @@ namespace Server.Palaro2026.Controller
             existingEvent.OnStream = events.OnStream;
             existingEvent.EventStreamID = events.EventStreamID;
             existingEvent.IsFinished = events.IsFinished;
-            existingEvent.Attachement = events.Attachement;
             existingEvent.Archived = events.Archived;
             existingEvent.Deleted = events.Deleted;
             existingEvent.UserID = events.UserID;
@@ -179,6 +176,76 @@ namespace Server.Palaro2026.Controller
             return NoContent();
         }
 
+        [HttpPut("UploadAttachment/{id}")]
+        public async Task<IActionResult> UploadRegionLogo(string id, [FromForm] IFormFile? attachmentFile)
+        {
+            if (attachmentFile == null || attachmentFile.Length == 0)
+            {
+                return BadRequest("No file uploaded or file is empty.");
+            }
+
+            try
+            {
+                // 1. Check if event exists
+                var events = await _context.Events.FirstOrDefaultAsync(e => e.ID == id);
+                if (events == null)
+                {
+                    return NotFound($"Event with ID '{id}' not found.");
+                }
+
+                // 2. Validate extension
+                var allowedExtensions = new[] { ".jpeg", ".jpg", ".png", ".pdf", ".doc", ".docx" };
+                var fileExtension = Path.GetExtension(attachmentFile.FileName).ToLower();
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    return BadRequest("Invalid file type. Allowed types: .jpeg, .jpg, .png, .pdf, .doc, .docx");
+                }
+
+                // 3. Validate file size (max 5 MB)
+                if (attachmentFile.Length > 5 * 1024 * 1024)
+                {
+                    return BadRequest("File size exceeds the 5 MB limit.");
+                }
+
+                // 4. Path to save
+                var basePath = @"\\192.168.2.210\pgas_attachment\palaro2026\media\events\official event records";
+                if (!Directory.Exists(basePath))
+                {
+                    Directory.CreateDirectory(basePath);
+                }
+
+                // 5. File name is just the Event ID
+                string Sanitize(string value) =>
+                    string.Concat(value.Where(c => !Path.GetInvalidFileNameChars().Contains(c)));
+
+                var sanitizedFileName = $"{Sanitize(events.ID)}{fileExtension}";
+                var fullPath = Path.Combine(basePath, sanitizedFileName);
+
+                // 6. Delete old file if exists
+                foreach (var file in Directory.GetFiles(basePath, $"{Sanitize(events.ID)}.*"))
+                {
+                    System.IO.File.Delete(file);
+                }
+
+                // 7. Save new file
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await attachmentFile.CopyToAsync(stream);
+                }
+
+                return Ok(new
+                {
+                    message = "Attachment uploaded successfully.",
+                    fileName = sanitizedFileName,
+                    storagePath = fullPath
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error uploading attachment: {ex.Message}");
+            }
+        }
+
         [HttpPatch("{id}")] // /api/Events/{id}
         public async Task<IActionResult> PatchEvents(string id, [FromBody] EventsDTO.Events updatedEvent)
         {
@@ -195,7 +262,6 @@ namespace Server.Palaro2026.Controller
             if (updatedEvent.EventStreamID != null) existingEvent.EventStreamID = updatedEvent.EventStreamID;
             if (updatedEvent.GamePhase != null) existingEvent.GamePhase = updatedEvent.GamePhase;
             if (updatedEvent.IsFinished != null) existingEvent.IsFinished = updatedEvent.IsFinished;
-            if (updatedEvent.Attachement != null) existingEvent.Attachement = updatedEvent.Attachement;
             if (updatedEvent.Archived != null) existingEvent.Archived = updatedEvent.Archived;
             if (updatedEvent.Deleted != null) existingEvent.Deleted = updatedEvent.Deleted;
             if (updatedEvent.UserID != null) existingEvent.UserID = updatedEvent.UserID;

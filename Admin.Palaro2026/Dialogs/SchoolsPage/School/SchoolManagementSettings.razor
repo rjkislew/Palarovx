@@ -1,0 +1,225 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12">
+                <MudStack Spacing="0">
+                    <MudField Class="pa-3" Variant="Variant.Outlined" Label="Levels" HelperText="Select a school level you want to edit/remove.">
+                        <MudChipSet T="SchoolDTO.SchoolLevels" @bind-SelectedValue="_selectedSchoolLevelValue" SelectionMode="SelectionMode.ToggleSelection" CheckMark>
+                            <MudVirtualize Items="_schoolLevels" Context="level">
+                                <MudChip Value="@(new SchoolDTO.SchoolLevels { ID = level.ID, Level = level.Level })">
+                                    @level.Level
+                                </MudChip>
+                            </MudVirtualize>
+                        </MudChipSet>
+                    </MudField>
+                    <MudDivider />
+                    @if (_selectedSchoolLevelValue is not null)
+                    {
+                        <MudStack Row AlignItems="AlignItems.Center">
+                            <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Large"/>
+                            <MudTextField Style="width: 75px" @bind-Value="_selectedSchoolLevelValue.ID" Margin="Margin.Dense" Variant="Variant.Outlined" Label="ID" ReadOnly="true" />
+                            <MudTextField FullWidth="true" Immediate Class="flex-grow-1" @bind-Value="_selectedSchoolLevelValue.Level" Margin="Margin.Dense" Variant="Variant.Outlined" Label="Selected Level" Clearable OnClearButtonClick="() => _selectedSchoolLevelValue = null" />
+                            @if (string.IsNullOrEmpty(_selectedSchoolLevelValue.Level) == false)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Check" Color="Color.Success" OnClick="ConfirmUpdateSchoolLevelAsync" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="ConfirmDeleteSchoolLevelAsync" />
+                            }
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudStack Row AlignItems="AlignItems.Center">
+                            <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Large" />
+                            <MudTextField @bind-Value="_schoolLevelValue" Immediate Variant="Variant.Outlined" Margin="Margin.Dense" Label="Level" Clearable />
+                            @if (string.IsNullOrEmpty(_schoolLevelValue) == false)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Check" Color="Color.Success" OnClick="ConfirmAddSchoolLevelAsync" />
+                            }
+                        </MudStack>
+                    }
+
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudStack Row Style="width: 100%" Justify="Justify.FlexEnd">
+            <MudButton Style="text-transform: none" Variant="Variant.Filled" DropShadow="false" OnClick="() => MudDialog?.Close(DialogResult.Ok(true))">Done</MudButton>
+        </MudStack>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    // JSON storage
+    private List<SchoolDTO.SchoolLevels>? _schoolLevels;
+
+    // Variables
+    private SchoolDTO.SchoolLevels? _selectedSchoolLevelValue;
+    private string? _schoolLevelValue;
+
+    // DTOs
+    public class SchoolDTO
+    {
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+    }
+
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSchoolLevelsAsync();
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        string url = $"/Schools/Levels";
+
+        _schoolLevels = await apiService.GetAsync<SchoolDTO.SchoolLevels>(url);
+    }
+
+
+
+    // Dialog Actions
+    private void ClearFields()
+    {
+        _selectedSchoolLevelValue = null;
+        _schoolLevelValue = null;
+    }
+
+    private async Task ConfirmAddSchoolLevelAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_schoolLevelValue}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await AddSchoolLevelAsync();
+            ClearFields();
+            await GetSchoolLevelsAsync();
+        }
+    }
+
+    private async Task ConfirmUpdateSchoolLevelAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm update for {_selectedSchoolLevelValue?.Level}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await UpdateSchoolLevelAsync();
+            ClearFields();
+            await GetSchoolLevelsAsync();
+        }
+    }
+
+    private async Task ConfirmDeleteSchoolLevelAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm deletion of {_selectedSchoolLevelValue?.Level}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await DeleteSchoolLevelAsync();
+            ClearFields();
+            await GetSchoolLevelsAsync();
+        }
+    }
+
+    // Add school level
+    private async Task AddSchoolLevelAsync()
+    {
+        var addSchool = new SchoolDTO.SchoolLevels
+        {
+            Level = _schoolLevelValue,
+        };
+
+        string url = "/Schools/Levels";
+        var success = await apiService.PostAsync(url, addSchool);
+
+        if (success)
+        {
+            Snackbar.Add($"School level {_schoolLevelValue} added successfully", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"Failed to add school level {_schoolLevelValue}", Severity.Error);
+        }
+    }
+
+    private async Task UpdateSchoolLevelAsync()
+    {
+        if (_selectedSchoolLevelValue?.ID == 0) return;
+
+        var updateSchool = new SchoolDTO.SchoolLevels
+        {
+            ID = _selectedSchoolLevelValue!.ID,
+            Level = _selectedSchoolLevelValue?.Level
+        };
+
+        string url = $"/Schools/Levels/{_selectedSchoolLevelValue?.ID}";
+
+        var success = await apiService.PutAsync(url, updateSchool);
+
+        if (success)
+        {
+            Snackbar.Add("School level updated successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Error updating school level.", Severity.Error);
+        }
+    }
+
+    private async Task DeleteSchoolLevelAsync()
+    {
+        if (_selectedSchoolLevelValue?.ID == 0) return;
+
+        string url = $"/Schools/Levels/{_selectedSchoolLevelValue?.ID}";
+
+        var success = await apiService.DeleteAsync(url);
+
+        if (success)
+        {
+            Snackbar.Add("School level deleted successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Error level deleting school.", Severity.Error);
+        }
+    }
+}

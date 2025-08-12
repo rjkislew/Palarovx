@@ -188,7 +188,6 @@ namespace Server.Palaro2026.Controller
                     StreamTitle = eventEntity.EventStream?.StreamTitle,
                     StreamURL = eventEntity.EventStream?.StreamURL,
                     IsFinished = eventEntity.IsFinished,
-                    Attachement = eventEntity.Attachement,
                     Archived = eventEntity.Archived,
                     Deleted = eventEntity.Deleted,
                     FirstName = eventEntity.User?.FirstName,
@@ -202,7 +201,5 @@ namespace Server.Palaro2026.Controller
                 return StatusCode(500, "Internal server error. Please try again later.");
             }
         }
-
-        
     }
 }
