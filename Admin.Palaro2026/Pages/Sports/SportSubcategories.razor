@@ -1,0 +1,252 @@
+﻿@page "/sports/subcategories"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+<PageTitle>Sports Management | PALARO 2026</PageTitle>
+
+<MudGrid Spacing="0">
+    @if (_sportsDisplay != null && _sportsDisplay.Any())
+    {
+        <MudItem xs="12">
+            <MudStack Row Spacing="0" Justify="Justify.FlexEnd">
+                <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddSportSubcategoryDialog">Add Sport Subcategory</MudButton>
+                <MudDivider Vertical="true" FlexItem="true" />
+                <MudButton Size="Size.Large" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetSportsDetailsAsync">Refresh Data</MudButton>
+            </MudStack>
+        </MudItem>
+        <MudItem xs="12">
+            <MudTable Outlined Items="_sportsDisplay" Context="sport" FixedHeader FixedFooter Height="calc(87vh - 150px)" Virtualize="true" Filter="FilterFunc" Elevation="0">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">Sports Subcategories</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_searchString" Immediate Placeholder="Search"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium" Clearable/>
+                </ToolBarContent>
+                <ColGroup>
+                    <MudHidden Breakpoint="Breakpoint.Xs">
+                        <col style="width: 20%" />
+                        <col style="width: 15%" />
+                        <col style="width: 20%;" />
+                        <col style="width: 20%;" />
+                        <col style="width: 20%;" />
+                        <col style="width: 5%;" />
+                    </MudHidden>
+                </ColGroup>
+                <HeaderContent>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SportDisplayRow, object?>(x => x.Subcategory)">
+                            Subcategories
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SportDisplayRow, object?>(x => x.Gender)">
+                            Gender
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SportDisplayRow, object?>(x => x.Level)">
+                            Level
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SportDisplayRow, object?>(x => x.Sport)">
+                            Sport
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<SportDisplayRow, object?>(x => x.Category)">
+                            Category
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Subcategories">@sport.Subcategory</MudTd>
+                    <MudTd DataLabel="Gender">@sport.Gender</MudTd>
+                    <MudTd DataLabel="Level">@sport.Level</MudTd>
+                    <MudTd DataLabel="Sport">@sport.Sport</MudTd>
+                    <MudTd DataLabel="Category">@sport.Category</MudTd>
+                    <MudTd Style="text-align: center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditSportSubcategoryDialog(sport.ID)" />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.caption">No matching records found.</MudText>
+                </NoRecordsContent>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        </MudItem>
+    }
+    else
+    {
+        <MudItem xs="12">
+            <MudProgressLinear Indeterminate="true" />
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+
+    // JSON storage
+    private List<SportDisplayRow> _sportsDisplay = new();
+
+    // Methods
+    private string _searchString = "";
+
+    private bool FilterFunc(SportDisplayRow sportDetails)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return sportDetails.Subcategory!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               sportDetails.Gender!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               sportDetails.Level!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               sportDetails.Sport!.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               sportDetails.Category!.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // DTOs
+
+    public class SportsDTO
+    {
+        public class SportDetails
+        {
+            public class SportCategory
+            {
+                public int ID { get; set; }
+                public string? Category { get; set; }
+                public List<Sports>? SportsList { get; set; }
+            }
+
+            public class Sports
+            {
+                public int ID { get; set; }
+                public string? Sport { get; set; }
+                public string? Description { get; set; }
+                public List<SchoolLevels>? SchoolLevelsList { get; set; }
+            }
+
+            public class SchoolLevels
+            {
+                public int ID { get; set; }
+                public string? Level { get; set; }
+                public List<SportGenderCategories>? SportGenderCategoriesList { get; set; }
+            }
+
+            public class SportGenderCategories
+            {
+                public int ID { get; set; }
+                public string? Gender { get; set; }
+                public List<SportSubcategories>? SportSubcategoriesList { get; set; }
+            }
+
+            public class SportSubcategories
+            {
+                public int ID { get; set; }
+                public string? Subcategory { get; set; }
+            }
+        }
+    }
+
+    public class SportDisplayRow
+    {
+        public int ID { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Gender { get; set; }
+        public string? Level { get; set; }
+        public string? Sport { get; set; }
+        public string? Category { get; set; }
+    }
+
+
+    // Dialogs
+    private async Task OpenEditSportSubcategoryDialog(int selectedID)
+    {
+        var parameter = new DialogParameters<EditSportSubcategoryDialog>
+        {
+            {x => x.SelectedSportSubcategoryID, selectedID}
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<EditSportSubcategoryDialog>("Edit Sport Subcategory", parameter, options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetSportsDetailsAsync();
+        }
+    }
+
+    private async Task OpenAddSportSubcategoryDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<AddSportSubcategoryDialog>("Add Sport Subcategory", options);
+
+        var result = await dialog.Result;
+
+        // Check if the dialog was closed with a positive result (e.g., "OK")
+        if (!result!.Canceled)
+        {
+            await GetSportsDetailsAsync();
+        }
+    }
+
+    // Initialization
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSportsDetailsAsync();
+    }
+
+    private async Task GetSportsDetailsAsync()
+    {
+        string url = "/Sports/Details";
+
+        var sports = await apiService.GetAsync<SportsDTO.SportDetails.SportCategory>(url);
+        _sportsDisplay.Clear();
+
+        if (sports != null)
+        {
+            foreach (var category in sports)
+            {
+                foreach (var sport in category.SportsList ?? new())
+                {
+                    foreach (var level in sport.SchoolLevelsList ?? new())
+                    {
+                        foreach (var gender in level.SportGenderCategoriesList ?? new())
+                        {
+                            foreach (var subcat in gender.SportSubcategoriesList ?? new())
+                            {
+                                _sportsDisplay.Add(new SportDisplayRow
+                                {
+                                    ID = subcat.ID,
+                                    Subcategory = subcat.Subcategory,
+                                    Gender = gender.Gender,
+                                    Level = level.Level,
+                                    Sport = sport.Sport,
+                                    Category = category.Category,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

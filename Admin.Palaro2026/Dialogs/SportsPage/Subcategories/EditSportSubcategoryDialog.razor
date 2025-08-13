@@ -1,0 +1,304 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@using System.Text.RegularExpressions
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudGrid Spacing="1">
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Category" T="int?"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable
+                               SelectedValuesChanged="() => InvokeAsync(async () => { _selectedSportIDValue = null; _selectedSchoolLevelIDValue = null; _selectedSportGenderCategoryIDValue = null; _sportSubcategoryValue = null; await GetSportsAsync();}) ">
+                        <MudVirtualize Items="_sportCategories" Context="category">
+                            <MudSelectItem T="int?" Value="category.ID">@category.Category</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport" T="int?"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSportCategoryIDValue == null"
+                               SelectedValuesChanged="() => { _selectedSchoolLevelIDValue = null; _selectedSportGenderCategoryIDValue = null; _sportSubcategoryValue = null; }">
+                        <MudVirtualize Items="_sports" Context="sport">
+                            <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" T="int?"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSportIDValue == null"
+                               SelectedValuesChanged="() => { _selectedSportGenderCategoryIDValue = null; _sportSubcategoryValue = null; }">
+                        <MudVirtualize Items="_schoolLevels" Context="schoolLevel">
+                            <MudSelectItem T="int?" Value="schoolLevel.ID">@schoolLevel.Level</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect @bind-Value="_selectedSportGenderCategoryIDValue" Margin="Margin.Dense" Label="Gender" T="int?"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolLevelIDValue == null"
+                               SelectedValuesChanged="() => _sportSubcategoryValue = null">
+                        <MudVirtualize Items="_sportGenderCategories" Context="gender">
+                            <MudSelectItem T="int?" Value="gender.ID">@gender.Gender</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="8">
+                    <MudTextField @bind-Value="_sportSubcategoryValue" Margin="Margin.Dense" Disabled="_selectedSportGenderCategoryIDValue == null"
+                                  Label="Subcategory" ShrinkLabel Variant="Variant.Outlined" Immediate Clearable></MudTextField>
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteSportSubcategoryAsync">Delete</MudButton>
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmEditSportSubcategoryAsync" Disabled="_editSportSubcategorytButtonDisabled">Update</MudButton>
+                </MudStack>
+            </MudStack>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
+
+@code {
+    // Requirement for Dialog to work
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    // Passed data from page
+    [Parameter]
+    public int SelectedSportSubcategoryID { get; set; }
+
+    private List<SportsDTO.SportCategories>? _sportCategories;
+    private List<SportsDTO.Sports>? _sports;
+    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
+
+    private int? _selectedSportCategoryIDValue;
+    private int? _selectedSportIDValue;
+    private int? _selectedSchoolLevelIDValue;
+    private int? _selectedSportGenderCategoryIDValue;
+    private string? _sportSubcategoryValue;
+
+    // Load dialog if true
+    private bool? _isLoaded = false;
+
+    private bool _editSportSubcategorytButtonDisabled =>
+    !_selectedSportCategoryIDValue.HasValue ||
+    !_selectedSportIDValue.HasValue ||
+    !_selectedSchoolLevelIDValue.HasValue ||
+    !_selectedSportGenderCategoryIDValue.HasValue ||
+    string.IsNullOrEmpty(_sportSubcategoryValue);
+
+
+    public class SportsDTO
+    {
+        public class SportCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+        }
+
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+    }
+
+    private void ClearFields()
+    {
+        _selectedSportCategoryIDValue = null;
+        _selectedSportIDValue = null;
+        _selectedSchoolLevelIDValue = null;
+        _selectedSportGenderCategoryIDValue = null;
+        _sportSubcategoryValue = null;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSportsAsync();
+        await GetSportCategoriesAsync();
+        await GetSportGenderCategoriesAsync();
+        await GetSchoolLevelsAsync();
+
+        await GetSportSubcategoriesAsync();
+
+        if (_sports != null ||
+            _sportSubcategories != null ||
+            _sportCategories != null ||
+            _sportGenderCategories != null ||
+            _schoolLevels != null)
+        {
+            _isLoaded = true;
+        }
+        else
+        {
+            Snackbar.Add("Failed to load data. Please try again later.", Severity.Error);
+            _isLoaded = false;
+        }
+    }
+
+    private async Task GetSportSubcategoriesAsync()
+    {
+        string url = $"/Sports/Subcategories?id={SelectedSportSubcategoryID}";
+
+        var sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
+        if (sportSubcategories != null && sportSubcategories.Count > 0)
+        {
+            var subcategory = sportSubcategories.FirstOrDefault();
+            if (subcategory != null)
+            {
+                _selectedSportCategoryIDValue = subcategory.ID;
+                _selectedSportIDValue = subcategory.SportID;
+                _selectedSchoolLevelIDValue = subcategory.SchoolLevelID;
+                _selectedSportGenderCategoryIDValue = subcategory.SportGenderCategoryID;
+                _sportSubcategoryValue = subcategory.Subcategory;
+            }
+        }
+    }
+
+    private async Task GetSportsAsync()
+    {
+        string url = $"/Sports?sportCategoryID={_selectedSportCategoryIDValue}";
+
+        _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
+    }
+
+    private async Task GetSportCategoriesAsync()
+    {
+        string url = "/Sports/Categories";
+        _sportCategories = await apiService.GetAsync<SportsDTO.SportCategories>(url);
+    }
+
+    private async Task GetSportGenderCategoriesAsync()
+    {
+        string url = "/Sports/GenderCategories";
+        _sportGenderCategories = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url);
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        string url = "/Schools/Levels";
+        _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
+    }
+
+    // Dialog Actions
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task ConfirmEditSportSubcategoryAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm addition of {_sportSubcategoryValue}?",
+            yesText: "Yes",
+            cancelText: "Cancel",
+            options: options);
+
+        if (result == true)
+        {
+            await UpdateSportSubcategoryAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private async Task ConfirmDeleteSportSubcategoryAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: $"Do you confirm deletion of {_sportSubcategoryValue}?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await DeleteSportSubcategoryAsync();
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private async Task UpdateSportSubcategoryAsync()
+    {
+        var addEvent = new SportsDTO.SportSubcategories
+        {
+            ID = SelectedSportSubcategoryID,
+            Subcategory = _sportSubcategoryValue,
+            SportID = _selectedSportIDValue,
+            SportGenderCategoryID = _selectedSportGenderCategoryIDValue,
+            SchoolLevelID = _selectedSchoolLevelIDValue
+        };
+
+        string url = $"/Sports/Subcategories/{SelectedSportSubcategoryID}";
+
+        var success = await apiService.PutAsync(url, addEvent);
+
+        if (success)
+            Snackbar.Add($"{_sportSubcategoryValue} added successfully.", Severity.Success);
+        else
+            Snackbar.Add($"Failed to add {_sportSubcategoryValue}.", Severity.Error);
+    }
+
+
+    private async Task DeleteSportSubcategoryAsync()
+    {
+        if (SelectedSportSubcategoryID == 0) return;
+
+        string url = $"/Sports/Subcategories/{SelectedSportSubcategoryID}";
+
+        var success = await apiService.DeleteAsync(url);
+
+        if (success)
+        {
+            Snackbar.Add($"{_sportSubcategoryValue} deleted successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"Error deleting {_sportSubcategoryValue}.", Severity.Error);
+        }
+    }
+}
