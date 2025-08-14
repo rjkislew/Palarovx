@@ -13,6 +13,7 @@
 @inject ThemeService themeService
 @inject APIService apiService
 @inject CookieService cookieService
+@inject NavigationManager navigationManager
 
 @* Required *@
 <MudThemeProvider @ref="_mudThemeProvider" Theme="PalaroTheme" DefaultScrollbar="true" IsDarkMode="@(themeService.IsDarkMode ?? false)" />
@@ -38,6 +39,9 @@
     // null = Auto, true = Night, false = Light
     private bool? _isDarkMode = null;
 
+    public string? token { get; set; }
+    public string? userID { get; set; }
+
     bool isAPIAvailable;
 
     // ThemeService: handles theme management
@@ -49,6 +53,11 @@
         // initialize the theme service
         themeService.OnThemeChanged += StateHasChanged;
         await themeService.LoadThemePreference();
+
+        token = await cookieService.GetCookie("authenticationToken");
+        userID = await cookieService.GetCookie("userID");
+
+        CheckAuthenticationAsync();
     }
 
 
@@ -96,6 +105,17 @@
     private void ToggleDrawer()
     {
         _DrawerOpen = !_DrawerOpen;
+    }
+
+
+    private void CheckAuthenticationAsync()
+    {
+        var currentUri = navigationManager.ToBaseRelativePath(navigationManager.Uri).ToLower();
+        // Ensure the token and user ID were retrieved from cookies
+        if (!string.IsNullOrWhiteSpace(token) || !string.IsNullOrWhiteSpace(userID) || currentUri == "./login")
+        {
+            navigationManager.NavigateTo("./");
+        }
     }
 
 

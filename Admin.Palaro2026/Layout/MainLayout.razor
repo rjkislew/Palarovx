@@ -67,6 +67,14 @@ Main layout structure:
 
         <MudSpacer />
 
+        @if (_progress > 0 && _progress < 100)
+        {
+            <MudProgressCircular Color="Color.Primary" Value="@_progress">
+                <ChildContent>
+                    <MudText Typo="Typo.caption">@_progress %</MudText>
+                </ChildContent>
+            </MudProgressCircular>
+        }
 
         <MudButton Size="Size.Large" DropShadow="false" Variant="Variant.Filled" OnClick="@ToggleOpen">
             @_userDetails?.FirstName @_userDetails?.LastName
@@ -97,6 +105,7 @@ Main layout structure:
             </MudPaper>
         </MudPopover>
         <MudOverlay @bind-Visible="_toggleProfile" LockScroll="false" AutoClose="true" />
+
     </MudAppBar>
 
     <!-- Drawer -->
@@ -198,6 +207,23 @@ Main layout structure:
         await JSRuntime.InvokeVoidAsync("pwaHelper.installApp");
     }
 
+    private int _progress = 0;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && await JSRuntime.InvokeAsync<bool>("swInterop.hasServiceWorker"))
+        {
+            await JSRuntime.InvokeVoidAsync("swInterop.listenForProgress",
+                DotNetObjectReference.Create(this));
+        }
+    }
+
+    [JSInvokable]
+    public void UpdateProgress(int value)
+    {
+        _progress = value;
+        StateHasChanged();
+    }
 
     private async Task GetUserDetails()
     {
@@ -219,14 +245,6 @@ Main layout structure:
             // Redirect to login page
             navigationManager.NavigateTo("./login");
             return;
-        }
-
-        // Optional: redirect away from login page if already authenticated
-        var currentUri = navigationManager.ToBaseRelativePath(navigationManager.Uri).ToLower();
-
-        if (currentUri == "login")
-        {
-            navigationManager.NavigateTo("./");
         }
     }
 

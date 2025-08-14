@@ -45,6 +45,16 @@
             <!-- Stack for icons on the right side of the AppBar -->
             <MudStack Row AlignItems="AlignItems.Center" Spacing="0">
 
+                @* display the background progress bar if the app is loading or updating *@
+                @if (_progress > 0 && _progress < 100)
+                {
+                    <MudProgressCircular Color="Color.Primary" Value="@_progress">
+                        <ChildContent>
+                            <MudText Typo="Typo.caption">@_progress %</MudText>
+                        </ChildContent>
+                    </MudProgressCircular>
+                }
+
                 <!-- Icon button for unlocking features -->
                 <MudTooltip Arrow Text="Unlock Features">
                     <MudIconButton OnClick="@(featuresUnlockingService.IsUnlocked? OpenLockFeaturesDialog : OpenUnlockFeaturesDialog)"
@@ -87,6 +97,15 @@
 
             <MudSpacer />
 
+            @* display the background progress bar if the app is loading or updating *@
+            @if (_progress > 0 && _progress < 100)
+            {
+                <MudProgressCircular Color="Color.Primary" Value="@_progress">
+                    <ChildContent>
+                        <MudText Typo="Typo.caption">@_progress %</MudText>
+                    </ChildContent>
+                </MudProgressCircular>
+            }
             <!-- Stack for icons on the right side of the AppBar -->
             <MudStack Row AlignItems="AlignItems.Center" Spacing="0">
 
@@ -219,8 +238,23 @@
         StateHasChanged(); // Trigger UI update
     }
 
+    private int _progress = 0;
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && await JSRuntime.InvokeAsync<bool>("swInterop.hasServiceWorker"))
+        {
+            await JSRuntime.InvokeVoidAsync("swInterop.listenForProgress",
+                DotNetObjectReference.Create(this));
+        }
+    }
 
+    [JSInvokable]
+    public void UpdateProgress(int value)
+    {
+        _progress = value;
+        StateHasChanged();
+    }
 
 
 
