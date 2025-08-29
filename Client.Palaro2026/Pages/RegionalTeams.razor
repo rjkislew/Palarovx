@@ -7,7 +7,6 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject ThemeService ThemeService
-@inject FeaturesUnlockingService featuresUnlockingService
 
 <PageTitle>Regional teams | PALARO 2026 - Agusan del Sur</PageTitle>
 
@@ -21,20 +20,17 @@
             <MudBreadcrumbs Style="font-size: 15px" Class="pa-0" Items="_items"></MudBreadcrumbs>
             <MudDivider />
         </MudItem>
-        @if (featuresUnlockingService.IsUnlocked == true)
-        {
-            <MudItem xs="12" md="6">
-                <MudLink Href="./events/medal-tally" Underline="Underline.None">
-                    <MudPaper Outlined Class="scale-up-center">
-                        <MudStack Spacing="0" Class="pa-3">
-                            <MudText Typo="Typo.h3">Medal Tally 🎖️</MudText>
-                            <MudText>View the performance of each region.</MudText>
-                            <MudText Typo="Typo.caption">This section displays the official medal tally of participating regions, helping you track gold, silver, and bronze standings in real-time.</MudText>
-                        </MudStack>
-                    </MudPaper>
-                </MudLink>
-            </MudItem>
-        }
+        <MudItem xs="12" md="6">
+            <MudLink Href="./medal-tally" Underline="Underline.None">
+                <MudPaper Outlined Class="scale-up-center">
+                    <MudStack Spacing="0" Class="pa-3">
+                        <MudText Typo="Typo.h3">Medal Tally 🎖️</MudText>
+                        <MudText>View the performance of each region.</MudText>
+                        <MudText Typo="Typo.caption">This section displays the official medal tally of participating regions, helping you track gold, silver, and bronze standings in real-time.</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudLink>
+        </MudItem>
         <MudItem xs="12" md="6">
             <MudLink Href="./regional-teams/billeting-quarters" Underline="Underline.None">
                 <MudPaper Outlined Class="scale-up-center">
@@ -57,7 +53,7 @@
                 {
                     <MudVirtualize Items="_schoolRegions" Context="region">
                         <MudItem xs="6" sm="4" lg="3" xl="2">
-                            <MudLink Href="@(featuresUnlockingService.IsUnlocked == true ? $"./regional-teams/{region.Abbreviation}-{region.Region}" : null)" Underline="Underline.None">
+                            <MudLink Href="@($"./regional-teams/{region.Abbreviation}-{region.Region}")" Underline="Underline.None">
                                 <MudPaper Outlined Style="height: 100%" Class="scale-up-center">
                                     <MudStack Class="pa-3" Style="height: 100%">
                                         <MudStack>
@@ -98,10 +94,67 @@
 
 <FooterComponent />
 @code {
-    private List<BreadcrumbItem> _items = new();
+    /* ---------------------------
+       Variables
 
+       - manages and stores and data coming from API calls
+
+    --------------------------- */
+
+    // storage for regions data from API call
     private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
 
+    // Breadcrumb items
+    private List<BreadcrumbItem> _items = new();
+
+    /* ---------------------------
+        Lifecycle Methods
+
+        - methods that manage the component's lifecycle and state
+
+    --------------------------- */
+
+    // Initialize component and load initial data
+    protected override async Task OnInitializedAsync()
+    {
+        // subscribe to theme changes
+        ThemeService.OnThemeChanged += StateHasChanged;
+        await ThemeService.LoadThemePreference();
+
+        // Fetch regions data
+        await GetRegionsAsync();
+
+        // Setup breadcrumb items
+        _items = new List<BreadcrumbItem>
+        {
+            new("Home", href: "./"),
+            new("Regional Teams", href: null, disabled: true)
+        };
+    }
+
+    /* ---------------------------
+       API Calls
+
+       - methods for fetching data from APIs
+
+    --------------------------- */
+
+    // Fetch regions data from the API
+    private async Task GetRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(url);
+    }
+
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // DTO for regions
     public class SchoolsDTO
     {
         public class SchoolRegions
@@ -111,27 +164,5 @@
             public string? Abbreviation { get; set; }
         }
     }
-
-    // Initialization method to fetch data and update UI elements
-    protected override async Task OnInitializedAsync()
-    {
-        _items = new List<BreadcrumbItem>
-        {
-            new("Home", href: "./"),
-            new("Regional Teams",  href: null, disabled: true)
-        };
-
-        ThemeService.OnThemeChanged += StateHasChanged;
-        await ThemeService.LoadThemePreference();
-
-        featuresUnlockingService.OnLockChanged += StateHasChanged;
-        await featuresUnlockingService.LoadFromLocalStorageAsync();
-        await GetRegionsAsync();
-    }
-
-    private async Task GetRegionsAsync()
-    {
-        string url = "/Schools/Regions";
-        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(url);
-    }
 }
+

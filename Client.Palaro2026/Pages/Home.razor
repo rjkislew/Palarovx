@@ -135,7 +135,7 @@
                                             <MudPaper Outlined Style="height: 100%" Class="scale-up-center">
                                                 <MudStack Spacing="0" AlignItems="AlignItems.Start">
 
-                                                    @if (_newsImageMap.TryGetValue(news.ID, out var images) && images?.Any() == true)
+                                                    @if (_newsImageMap.TryGetValue(news.ID!, out var images) && images?.Any() == true)
                                                     {
                                                         <MudImage ObjectFit="ObjectFit.Contain"
                                                                   Style="height: 100%; width: 100%"
@@ -225,80 +225,69 @@
 </MudGrid>
 <FooterComponent />
 
-@code
-{
-    // mud dialog instance: required for dialogs to work
+@code {
+    /* ---------------------------
+       Injected Services, Variables, and Data Mapping
+
+       - handles dialogs and modals
+       - manages and stores and data coming from API calls
+
+    --------------------------- */
+
+    // Dialog instance
     private IMudDialogInstance? MudDialog { get; set; }
 
+    // Countdown variables
     private string eventStarted = string.Empty;
     private string days = string.Empty;
     private string hours = string.Empty;
     private string min = string.Empty;
     private string sec = string.Empty;
-    private DateTime targetDate = new DateTime(2026, 7, 10, 0, 0, 0);
+
+    // use target date to the selected date and time for the palaro 2026 event
+    private readonly DateTime targetDate = new(2026, 7, 10, 0, 0, 0);
     private Timer? timer;
+
+    // stored data from API calls
     private List<SportsDTO.Sports>? _sports;
     private List<SportsDTO.Sports>? _randomSports;
     private List<SportsDTO.SportCategories>? _sportCategories;
     private List<NewsDTO.NewsDetails.NewsContent>? _newsContents;
-    private List<string> _imagesValues = new();
+
+    // Maps newsID → list of image URLs
     private Dictionary<string, List<string>> _newsImageMap = new();
 
+    /* ---------------------------
+        Lifecycle Methods
 
+        - methods that manage the component's lifecycle and state
 
-    public class SportsDTO
-    {
-        public class SportCategories
-        {
-            public int ID { get; set; }
-            public string? Category { get; set; }
-        }
+    --------------------------- */
 
-        public class Sports
-        {
-            public int ID { get; set; }
-            public string? Sport { get; set; }
-            public string? Description { get; set; }
-            public int? SportCategoryID { get; set; }
-        }
-    }
-
-    public class NewsDTO
-    {
-        public class NewsDetails
-        {
-            public class NewsContent
-            {
-                public string? ID { get; set; }
-                public string? Category { get; set; }
-                public string? Author { get; set; }
-                public string? Title { get; set; }
-                public string? Content { get; set; }
-                public string? Excerpt { get; set; }
-                public DateTime? DateCreated { get; set; }
-                public bool? IsPublished { get; set; }
-                public DateTime? DatePublished { get; set; }
-                public bool? IsArchived { get; set; }
-                public List<string> ImageUrls { get; set; } // or just string MainImageUrl
-            }
-        }
-    }
-
-    // Initialization method to fetch data and update UI elements
+    // loads theme preference and fetches initial data
     protected override async Task OnInitializedAsync()
     {
+        // load theme preference
         ThemeService.OnThemeChanged += StateHasChanged;
         await ThemeService.LoadThemePreference();
+
+        // start countdown and fetch data
         await StartCountdown();
+        
+        // load data from API
         await GetNewsDetailsAsync();
         await GetSportsAsync();
         await GetSportCategoriesAsync();
     }
 
+    /* ---------------------------
+        Countdown Logic
 
+        - manages the countdown timer to the event date
+    --------------------------- */
     private Task StartCountdown()
     {
-        // Set up a timer to trigger every second
+        // trigger every second
         timer = new Timer(UpdateCountdown, null, 0, 1000);
         return Task.CompletedTask;
     }
@@ -316,43 +305,22 @@
         }
         else
         {
-            // Event has started
             eventStarted = "The event has started!";
-            timer?.Dispose(); // Stop the timer when the countdown is over
-            timer = null; // Clear the reference to the disposed timer
+            timer?.Dispose();
+            timer = null;
         }
 
-        InvokeAsync(StateHasChanged); // Update UI
+        InvokeAsync(StateHasChanged);
     }
 
-    private async Task LoadNewsImagesAsync(IEnumerable<string>? newsIDs)
-    {
-        var baseUrl = "https://palarongpambansa2026.com/attachments/media/news";
+    /* ---------------------------
+       API Calls
 
-        foreach (var newsID in newsIDs!)
-        {
-            try
-            {
-                var apiUrl = $"/News/NewsImages?newsID={newsID}";
-                var imageFiles = await apiService.GetAsync<string>(apiUrl);
+       - methods for fetching data from APIs
 
-                if (imageFiles != null && imageFiles.Count > 0)
-                {
-                    var fullUrls = imageFiles
-                        .Where(file => !string.IsNullOrWhiteSpace(file))
-                        .Select(file => $"{baseUrl}/{newsID}/{file}")
-                        .ToList();
+    --------------------------- */
 
-                    _newsImageMap[newsID] = fullUrls;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading images for news {newsID}: {ex.Message}");
-            }
-        }
-    }
-
+    // Fetches sports data and randomizes the order for display
     private async Task GetSportsAsync()
     {
         string url = "/Sports";
@@ -362,16 +330,97 @@
         _randomSports = _sports?.OrderBy(_ => random.Next()).ToList();
     }
 
+    // Fetches sport categories data
     private async Task GetSportCategoriesAsync()
     {
         string url = "/Sports/Categories";
         _sportCategories = await apiService.GetAsync<SportsDTO.SportCategories>(url);
     }
 
+    // Fetches news details and associated images
     private async Task GetNewsDetailsAsync()
     {
         string url = "/News/Details?isArchived=false&isPublished=false";
         _newsContents = await apiService.GetAsync<NewsDTO.NewsDetails.NewsContent>(url);
-        await LoadNewsImagesAsync(_newsContents!.Select(n => n.ID));
+
+        if (_newsContents is not null)
+            await LoadNewsImagesAsync(_newsContents.Select(n => n.ID));
+    }
+
+    // Loads images for each news item based on its ID
+    private async Task LoadNewsImagesAsync(IEnumerable<string?> newsIDs)
+    {
+        var baseUrl = "https://palarongpambansa2026.com/attachments/media/news";
+
+        foreach (var newsID in newsIDs.Where(id => !string.IsNullOrWhiteSpace(id))!)
+        {
+            try
+            {
+                var apiUrl = $"/News/NewsImages?newsID={newsID}";
+                var imageFiles = await apiService.GetAsync<string>(apiUrl);
+
+                if (imageFiles?.Count > 0)
+                {
+                    var fullUrls = imageFiles
+                        .Where(file => !string.IsNullOrWhiteSpace(file))
+                        .Select(file => $"{baseUrl}/{newsID}/{file}")
+                        .ToList();
+
+                    _newsImageMap[newsID!] = fullUrls;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading images for news {newsID}: {ex.Message}");
+            }
+        }
+    }
+
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // DTO for Sports data
+    public class SportsDTO
+    {
+        public class SportCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+        }
+
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+    }
+
+    // DTO for News data
+    public class NewsDTO
+    {
+        public class NewsDetails
+        {
+            public class NewsContent
+            {
+                public string? ID { get; set; }
+                public string? Category { get; set; }
+                public string? Author { get; set; }
+                public string? Title { get; set; }
+                public string? Content { get; set; }
+                public string? Excerpt { get; set; }
+                public DateTime? DateCreated { get; set; }
+                public bool? IsPublished { get; set; }
+                public DateTime? DatePublished { get; set; }
+                public bool? IsArchived { get; set; }
+                public List<string> ImageUrls { get; set; } = new();
+            }
+        }
     }
 }

@@ -17,8 +17,6 @@ namespace Server.Palaro2026.Controller
             _context = context;
         }
 
-        // ------------------------------------------------------------------------------------------------------------------
-
         // Event Views
 
         [HttpGet("Details")]

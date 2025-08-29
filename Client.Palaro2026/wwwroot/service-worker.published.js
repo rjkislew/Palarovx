@@ -10,7 +10,7 @@ const offlineAssetsInclude = [
 ];
 
 const CRITICAL_FILES = [
-    '/css', '/font', '/js', '/media/icon', 'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'pwa-helper.js', 'service-worker.js',
+    '/css', '/font', '/js', '/media', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest', '/pwa-helper.js', '/service-worker.js',
     '/index.html'
 ];
 

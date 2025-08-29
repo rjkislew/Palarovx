@@ -1,7 +1,4 @@
 ﻿using Microsoft.JSInterop;
-using System;
-using System.Threading.Tasks;
-using static MudBlazor.Colors;
 
 namespace Client.Palaro2026.Services
 {
@@ -22,7 +19,8 @@ namespace Client.Palaro2026.Services
                 IsDarkMode = storedValue switch
                 {
                     "true" => true,
-                    "false" => false
+                    "false" => false,
+                    _ => throw new NotImplementedException()
                 };
             }
 

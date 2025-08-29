@@ -8,7 +8,6 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject NavigationManager navigationManager
-@inject FeaturesUnlockingService featuresUnlockingService
 
 <PageTitle>@($"{FirstName} {LastName} - {Region} ({Abbreviation}) | Palaro 2026")</PageTitle>
 
@@ -43,7 +42,7 @@
     <MudGrid>
         <MudVirtualize Items="@_profilePlayers?.ProfilePlayerSportsList" Context="sport">
             <MudItem xs="6" md="4" lg="3">
-                <MudPaper Outlined Out Style="height: 100%">
+                <MudPaper Outlined Style="height: 100%">
                     <MudStack Class="pa-3" Style="height: 100%" Justify="Justify.Center">
                         <MudStack Row Justify="Justify.SpaceBetween">
                             <MudText Typo="Typo.body2">
@@ -111,20 +110,95 @@
 <FooterComponent />
 
 @code {
-    [Parameter]
-    public string? Region { get; set; }
-    [Parameter]
-    public string? Abbreviation { get; set; }
-    [Parameter]
-    public string? FirstName { get; set; }
-    [Parameter]
-    public string? LastName { get; set; }
+    /* ---------------------------
+       Parameters, & Variables
 
-    private List<BreadcrumbItem> _items = new();
+       - stores parameters passed to the component - URL parameters
+       - manages and stores and data coming from API calls
 
+    --------------------------- */
+
+    // parameters passed via URL
+    [Parameter] public string? Region { get; set; }
+    [Parameter] public string? Abbreviation { get; set; }
+    [Parameter] public string? FirstName { get; set; }
+    [Parameter] public string? LastName { get; set; }
+
+    // variables to store data from API calls
     private ProfilesDTO.ProfilePlayersDetails.ProfilePlayers? _profilePlayers;
     private List<EventsDTO.EventDetails.Event>? _events;
 
+    // Breadcrumb items for navigation
+    private List<BreadcrumbItem> _items = new();
+
+    // Method to determine medal color based on rank
+    private string GetMedalColor(string? rank)
+    {
+        return rank switch
+        {
+            "Champion" => Colors.Amber.Accent4,               // Champion - Gold
+            "First Runner-Up" => Colors.BlueGray.Lighten4,    // 1st Runner-Up - Silver
+            "Second Runner-Up" => Colors.DeepOrange.Lighten1, // 2nd Runner-Up - Bronze
+            _ => "transparent"
+        };
+    }
+
+
+    /* ---------------------------
+        Lifecycle Methods
+
+        - methods that manage the component's lifecycle and state
+
+    --------------------------- */
+
+    // On component initialization, fetch player profile and events data
+    protected override async Task OnInitializedAsync()
+    {
+        // Fetch player profile and events data
+        await GetPlayersProfileAsync();
+        await GetEventsAsync();
+
+        // Set up breadcrumb items
+        _items = new List<BreadcrumbItem>
+        {
+            new("Home", href: "./"),
+            new("Regional Teams", href: "./regional-teams"),
+            new($"{Region}", href: $"./regional-teams/{Abbreviation}-{Region}"),
+            new("Players", href: $"./regional-teams/{Abbreviation}-{Region}/players"),
+            new($"{FirstName} {LastName}", href: null, disabled: true)
+        };
+    }
+
+    /* ---------------------------
+       API Calls
+
+       - methods for fetching data from APIs
+
+    --------------------------- */
+
+    // Fetch player profile details based on URL parameters
+    private async Task GetPlayersProfileAsync()
+    {
+        string url = $"/Profiles/Player/Details?region={Region}&firstName={FirstName}&lastName={LastName}";
+        _profilePlayers = await apiService.GetSingleAsync<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>(url);
+    }
+
+    // Fetch events associated with the player based on URL parameters
+    private async Task GetEventsAsync()
+    {
+        string url = $"/Events/Details?region={Region}&firstName={FirstName}&lastName={LastName}&isFinished=true&eventStage=Championship";
+        _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+    }
+
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // DTO for Profiles
     public class ProfilesDTO
     {
         public class ProfilePlayersDetails
@@ -172,6 +246,7 @@
         }
     }
 
+    // DTO for Events
     public class EventsDTO
     {
         public class EventDetails
@@ -224,72 +299,5 @@
             }
         }
     }
-
-    private string GetMedalColor(string? rank)
-{
-    return rank switch
-    {
-        "Champion" => Colors.Amber.Accent4,         // Champion - Gold
-        "First Runner-Up" => Colors.BlueGray.Lighten4,     // 1st Runner-Up - Silver
-        "Second Runner-Up" => Colors.DeepOrange.Lighten1,   // 2nd Runner-Up - Bronze
-        _ => "transparent"
-    };
 }
 
-
-
-    // Initialization
-    protected override async Task OnInitializedAsync()
-    {
-        featuresUnlockingService.OnLockChanged += HandleLockChanged;
-        await featuresUnlockingService.LoadFromLocalStorageAsync();
-
-        if (!featuresUnlockingService.IsUnlocked)
-        {
-            navigationManager.NavigateTo("./");
-            return;
-        }
-
-        await GetPlayersProfileAsync();
-        await GetEventsAsync();
-
-        _items = new List<BreadcrumbItem>
-        {
-            new("Home", href: "./"),
-            new("Regional Teams", href: "./regional-teams"),
-            new($"{Region}", href: $"./regional-teams/{Abbreviation}-{Region}"),
-            new("Players", href: $"./regional-teams/{Abbreviation}-{Region}/players"),
-            new($"{FirstName} {LastName}", href: null, disabled: true)
-        };
-    }
-
-    private void HandleLockChanged()
-    {
-        if (!featuresUnlockingService.IsUnlocked)
-        {
-            navigationManager.NavigateTo("./");
-        }
-        else
-        {
-            StateHasChanged();
-        }
-    }
-
-    public void Dispose()
-    {
-        featuresUnlockingService.OnLockChanged -= HandleLockChanged;
-    }
-
-    private async Task GetPlayersProfileAsync()
-    {
-        string url = $"/Profiles/Player/Details?region={Region}&firstName={FirstName}&lastName={LastName}";
-
-        _profilePlayers = await apiService.GetSingleAsync<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>(url);
-    }
-
-    private async Task GetEventsAsync()
-    {
-        string url = $"/Events/Details?region={Region}&firstName={FirstName}&lastName={LastName}&isFinished=true&eventStage=Championship";
-        _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
-    }
-}

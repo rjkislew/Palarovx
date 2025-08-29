@@ -122,51 +122,58 @@
 <FooterComponent />
 
 @code {
-    [Parameter]
-    public string? Category { get; set; }
+    /* ---------------------------
+       Parameters, & Variables
 
+       - stores parameters passed to the component - URL parameters
+       - manages and stores and data coming from API calls
+
+    --------------------------- */
+
+    // parameter passed from URL
+    [Parameter] public string? Category { get; set; }
+
+    // variables to store data from API calls
     private List<SportsDTO.Sports>? _sports;
     private List<SportsDTO.SportCategories>? _sportCategories;
 
+    // breadcrumb items
     private List<BreadcrumbItem> _items = new();
 
+    // active tab index for MudTabs
     private int _activeTabIndex = 0;
 
-    public class SportsDTO
-    {
-        public class SportCategories
-        {
-            public int ID { get; set; }
-            public string? Category { get; set; }
-        }
+    /* ---------------------------
+        Lifecycle Methods
 
-        public class Sports
-        {
-            public int ID { get; set; }
-            public string? Sport { get; set; }
-            public string? Description { get; set; }
-            public int? SportCategoryID { get; set; }
-        }
-    }
+        - methods that manage the component's lifecycle and state
 
-    // Initialization method to fetch data and update UI elements
+    --------------------------- */
+
+    // On component initialization
     protected override async Task OnInitializedAsync()
     {
+        // subscribe to theme changes
+        themeService.OnThemeChanged += StateHasChanged;
+        await themeService.LoadThemePreference();
+
+        // Fetch initial data
+        await GetSportCategoriesAsync();
+        await GetSportsAsync();
+
+        // Set active tab index based on URL parameter
+        SetActiveTabIndexFromUrl();
+
+        // Set up breadcrumb items
         _items = new List<BreadcrumbItem>
         {
             new("Home", href: "./"),
             new("Sports", href: null, disabled: true)
         };
 
-        themeService.OnThemeChanged += StateHasChanged;
-        await themeService.LoadThemePreference();
-
-        await GetSportCategoriesAsync(); // <-- Moved up to ensure it's populated first
-        await GetSportsAsync();          // <-- Optional: call after
-
-        SetActiveTabIndexFromUrl();      // <-- Call after categories are loaded
     }
 
+    // Set active tab index based on URL parameter
     private void SetActiveTabIndexFromUrl()
     {
         var uri = new Uri(navigationManager.Uri);
@@ -186,16 +193,51 @@
         }
     }
 
+    /* ---------------------------
+       API Calls
 
+       - methods for fetching data from APIs
+
+    --------------------------- */
+
+    // Fetch sports data from API
     private async Task GetSportsAsync()
     {
         string url = $"/Sports";
         _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
     }
 
+    // Fetch sport categories data from API
     private async Task GetSportCategoriesAsync()
     {
         string url = $"/Sports/Categories";
         _sportCategories = await apiService.GetAsync<SportsDTO.SportCategories>(url);
     }
+
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // DTO for Sports and Sport Categories
+    public class SportsDTO
+    {
+        public class SportCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+        }
+
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+    }
 }
+

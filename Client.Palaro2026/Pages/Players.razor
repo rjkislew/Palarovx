@@ -9,7 +9,6 @@
 @inject HttpClient httpClient
 @inject ThemeService ThemeService
 @inject NavigationManager navigationManager
-@inject FeaturesUnlockingService featuresUnlockingService
 
 <PageTitle>@($"Players for {Region} | Palaro 2026")</PageTitle>
 
@@ -63,21 +62,74 @@
 <FooterComponent />
 
 @code {
-    [Parameter]
-    public string? Region { get; set; }
-    [Parameter]
-    public string? Abbreviation { get; set; }
+    /* ---------------------------
+       Parameters, & Variables
 
-    private string? _selectedLevel;
+       - stores parameters passed to the component - URL parameters
+       - manages and stores and data coming from API calls
 
-    private string? _selectedSport;
+    --------------------------- */
 
-    private string? _selectedCategory;
+    // parameters passed from the URL
+    [Parameter] public string? Region { get; set; }
+    [Parameter] public string? Abbreviation { get; set; }
 
-    private List<BreadcrumbItem> _items = new();
-
+    // variables to store data from API calls
     private List<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>? _profilePlayers;
 
+    // breadcrumb items
+    private List<BreadcrumbItem> _items = new();
+
+    /* ---------------------------
+        Lifecycle Methods
+
+        - methods that manage the component's lifecycle and state
+
+    --------------------------- */
+
+    // loads theme preference and fetches players' profile data when the component is initialized
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe to theme changes to update the UI accordingly
+        ThemeService.OnThemeChanged += StateHasChanged;
+        await ThemeService.LoadThemePreference();
+
+        // Fetch players' profile data for the specified region
+        await GetPlayersProfileAsync();
+
+        // Set up breadcrumb navigation items
+        _items = new List<BreadcrumbItem>
+        {
+            new("Home", href: "./"),
+            new("Regional Teams", href: "./regional-teams"),
+            new($"{Region}", href: $"./regional-teams/{Abbreviation}-{Region}"),
+            new("Players", href: null, disabled: true)
+        };
+    }
+
+    /* ---------------------------
+       API Calls
+
+       - methods for fetching data from APIs
+
+    --------------------------- */
+
+    // Fetches player profile data for the specified region from the API
+    private async Task GetPlayersProfileAsync()
+    {
+        string url = $"/Profiles/Player/Details?region={Region}";
+        _profilePlayers = await apiService.GetAsync<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>(url);
+    }
+
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // DTO for player profiles and their associated sports and coaches
     public class ProfilesDTO
     {
         public class ProfilePlayersDetails
@@ -124,54 +176,5 @@
             public int? SportID { get; set; }
         }
     }
-
-    // Initialization
-    protected override async Task OnInitializedAsync()
-    {
-        featuresUnlockingService.OnLockChanged += HandleLockChanged;
-        await featuresUnlockingService.LoadFromLocalStorageAsync();
-
-        if (!featuresUnlockingService.IsUnlocked)
-        {
-            navigationManager.NavigateTo("./");
-            return;
-        }
-
-        ThemeService.OnThemeChanged += StateHasChanged;
-        await ThemeService.LoadThemePreference();
-
-        _items = new List<BreadcrumbItem>
-        {
-            new("Home", href: "./"),
-            new("Regional Teams", href: "./regional-teams"),
-            new($"{Region}", href: $"./regional-teams/{Abbreviation}-{Region}"),
-            new("Players", href: null, disabled: true)
-        };
-
-        await GetPlayersProfileAsync();
-    }
-
-    private void HandleLockChanged()
-    {
-        if (!featuresUnlockingService.IsUnlocked)
-        {
-            navigationManager.NavigateTo("./");
-        }
-        else
-        {
-            StateHasChanged();
-        }
-    }
-
-    public void Dispose()
-    {
-        featuresUnlockingService.OnLockChanged -= HandleLockChanged;
-    }
-
-    private async Task GetPlayersProfileAsync()
-    {
-        string url = $"/Profiles/Player/Details?region={Region}";
-
-        _profilePlayers = await apiService.GetAsync<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>(url);
-    }
 }
+

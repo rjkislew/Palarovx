@@ -9,7 +9,6 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject NavigationManager navigationManager
-@inject FeaturesUnlockingService featuresUnlockingService
 
 <PageTitle>Watch events | PALARO 2026 - Agusan del Sur</PageTitle>
 
@@ -184,16 +183,117 @@
 <FooterComponent />
 
 @code {
-    [Parameter]
-    public string? EventStatus { get; set; }
+    /* ---------------------------
+       Parameters, States, & Variables
 
+       - stores parameters passed to the component - URL parameters
+       - manages and stores and data coming from API calls
+
+    --------------------------- */
+
+    // parameter passed from URL
+    [Parameter] public string? EventStatus { get; set; }
+
+    // storage for events data fetched from API
     private List<EventsDTO.EventDetails.Event>? _events;
 
+    // breadcrumb items
     private List<BreadcrumbItem> _items = new();
 
+    // array to hold distinct event statuses (true for finished, false for ongoing)
     private bool?[]? eventStatus;
     private int _activeTabIndex = 0;
 
+    /* ---------------------------
+        Lifecycle Methods
+
+        - methods that manage the component's lifecycle and state
+
+    --------------------------- */
+
+    // On component initialization, fetch events and set active tab based on URL
+    protected override async Task OnInitializedAsync()
+    {
+        // Fetch events data from API
+        await GetEventsAsync();
+
+        // Determine active tab based on URL segment
+        SetActiveTabIndexFromUrl();
+
+        _items = new List<BreadcrumbItem>
+        {
+            new("Home", href: "./"),
+            new("Events", href: null, disabled: true)
+        };
+    }
+
+    /* ---------------------------
+       Methods
+
+       - methods for handling data and events
+
+    --------------------------- */
+
+    // Set the active tab index based on the URL segment - mudtabs binding
+    private void SetActiveTabIndexFromUrl()
+    {
+        var uri = new Uri(navigationManager.Uri);
+        var lastSegment = uri.Segments.LastOrDefault()?.TrimEnd('/').ToLower();
+
+        _activeTabIndex = lastSegment switch
+        {
+            "finished" => 1,
+            "ongoing" => 0,
+            _ => 0
+        };
+    }
+
+
+    // Generate thumbnail URL based on the provided stream URL
+    private string GetThumbnailUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return "media/images/no-thumbnail-default.webp";
+
+        if (url.Contains("youtube.com/watch?v="))
+        {
+            var videoId = url.Split("v=")[1].Split('&')[0];
+            return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
+        }
+
+        return "media/images/no-thumbnail-default.webp";
+    }
+
+    /* ---------------------------
+       API Calls
+
+       - methods for fetching data from APIs
+
+    --------------------------- */
+
+    // Fetch events data from the API and process event statuses
+    private async Task GetEventsAsync()
+    {
+        string url = "/Events/Details";
+        _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+
+        eventStatus = _events!
+            .Where(e => e.IsFinished.HasValue) // Skip nulls
+            .Select(e => e.IsFinished)
+            .Distinct()
+            .OrderBy(status => status) // false before true
+            .ToArray();
+    }
+
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // DTO for Events API response
     public class EventsDTO
     {
         public class EventDetails
@@ -246,95 +346,5 @@
             }
         }
     }
-
-    private string GetThumbnailUrl(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
-
-        if (url.Contains("youtube.com/watch?v="))
-        {
-            var videoId = url.Split("v=")[1].Split('&')[0];
-            return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
-        }
-
-        return "media/images/no-thumbnail-default.webp";
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        featuresUnlockingService.OnLockChanged += HandleLockChanged;
-        await featuresUnlockingService.LoadFromLocalStorageAsync();
-
-        if (!featuresUnlockingService.IsUnlocked)
-        {
-            navigationManager.NavigateTo("./");
-            return;
-        }
-
-        await GetEventsAsync();
-
-        SetActiveTabIndexFromUrl();
-
-        _items = new List<BreadcrumbItem>
-        {
-            new("Home", href: "./"),
-            new("Events", href: null, disabled: true)
-        };
-    }
-
-    private void SetActiveTabIndexFromUrl()
-    {
-        var uri = new Uri(navigationManager.Uri);
-        var lastSegment = uri.Segments.LastOrDefault()?.TrimEnd('/').ToLower();
-
-        if (!string.IsNullOrWhiteSpace(lastSegment))
-        {
-            switch (lastSegment)
-            {
-                case "finished":
-                    _activeTabIndex = 1;
-                    break;
-                case "ongoing":
-                    _activeTabIndex = 0;
-                    break;
-                default:
-                    _activeTabIndex = 0;
-                    break;
-            }
-        }
-        else
-        {
-            _activeTabIndex = 0;
-        }
-    }
-
-    private void HandleLockChanged()
-    {
-        if (!featuresUnlockingService.IsUnlocked)
-        {
-            navigationManager.NavigateTo("./");
-        }
-        else
-        {
-            StateHasChanged();
-        }
-    }
-
-    public void Dispose()
-    {
-        featuresUnlockingService.OnLockChanged -= HandleLockChanged;
-    }
-
-    private async Task GetEventsAsync()
-    {
-        string url = "/Events/Details";
-        _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
-
-        eventStatus = _events!
-                      .Where(e => e.IsFinished.HasValue) // Optional: skip nulls
-                      .Select(e => e.IsFinished)
-                      .Distinct()
-                      .OrderBy(status => status) // false comes before true
-                      .ToArray();
-    }
 }
+

@@ -19,8 +19,8 @@
             <MudGrid Spacing="2">
                 <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedGenderCategoryIDValue" Margin="Margin.Dense" Label="Gender Category"
-                    ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSportSubcategoryIDValue = null)"
-                    T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSportSubcategoryIDValue = null; await GetSportSubcategoryOnDialogOpenAsync(); }))">
+                               ShrinkLabel Variant="Variant.Outlined" Clearable OnClearButtonClick="@(() => _selectedSportSubcategoryIDValue = null)"
+                               T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSportSubcategoryIDValue = null; await GetSportSubcategoryOnDialogOpenAsync(); }))">
                         <MudVirtualize Items="_sportGenderCategories" Context="gender">
                             <MudSelectItem T="int?" Value="gender.ID">@gender.Gender</MudSelectItem>
                         </MudVirtualize>
@@ -39,9 +39,9 @@
                 </MudItem>
                 <MudItem xs="12">
                     <MudSelect @bind-SelectedValues="_selectedCoachIDs" ToStringFunc="@(id => _profileCoaches?.FirstOrDefault(c => c.ID == id) is { } coach ? $"{coach.FirstName} {coach.LastName}" : string.Empty)"
-                    T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Coach" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                               MultiSelection="true" Margin="Margin.Dense" Label="Coach" ShrinkLabel Variant="Variant.Outlined" Clearable>
                         <MudVirtualize Items="_profileCoaches" Context="coach">
-                            <MudSelectItem T="int?" Value="coach.ID">@coach.FirstName @coach.LastName</MudSelectItem>
+                            <MudSelectItem Value="coach.ID">@coach.FirstName @coach.LastName</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
@@ -93,7 +93,7 @@ else
     private int? _addedPlayerSportEventID;
     private int? _selectedGenderCategoryIDValue;
     private int? _selectedSportSubcategoryIDValue;
-    private IEnumerable<int?>? _selectedCoachIDs;
+    private IEnumerable<string?>? _selectedCoachIDs;
 
     // Disable addition button if values are empty
     private bool _editPlayerButtonDisabled =>
@@ -109,7 +109,7 @@ else
     {
         public class ProfilePlayers
         {
-            public int ID { get; set; }
+            public string? ID { get; set; }
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
             public int? SchoolID { get; set; }
@@ -127,12 +127,12 @@ else
         {
             public int ID { get; set; }
             public int? ProfilePlayerSportID { get; set; }
-            public int? ProfileCoachID { get; set; }
+            public string? ProfileCoachID { get; set; }
         }
 
         public class ProfileCoaches
         {
-            public int ID { get; set; }
+            public string? ID { get; set; }
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
             public int? SchoolRegionID { get; set; }
@@ -185,7 +185,7 @@ else
 
     private async Task GetProfilePlayerOnDialogOpenAsync(string? profilePlayerID)
     {
-        string url = "/Schools/Regions";
+        string url = "/Profiles/Player";
         _profilePlayers = await apiService.GetAsync<ProfilesDTO.ProfilePlayers>(url);
 
         if (_profilePlayers != null)
@@ -256,10 +256,10 @@ else
     private async Task AddPlayerSportEventAsync()
     {
         var addPlayerSportEvent = new ProfilesDTO.ProfilePlayerSports
-            {
-                ProfilePlayerID = selectedPlayerID,
-                SportSubcategoryID = _selectedSportSubcategoryIDValue,
-            };
+        {
+            ProfilePlayerID = selectedPlayerID,
+            SportSubcategoryID = _selectedSportSubcategoryIDValue,
+        };
 
         string url = "/Profiles/Player/Sports";
 
@@ -283,12 +283,12 @@ else
 
     private async Task AddPlayerSportEventCoachesAsync()
     {
-        var addPlayerSportEvent = _selectedCoachIDs?.Where(id => id.HasValue)
+        var addPlayerSportEvent = _selectedCoachIDs?.Where(id => string.IsNullOrEmpty(id))
             .Select(coachID => new ProfilesDTO.ProfilePlayerSportCoaches
-                {
-                    ProfileCoachID = coachID!.Value,
-                    ProfilePlayerSportID = _addedPlayerSportEventID,
-                }).ToList();
+            {
+                ProfileCoachID = coachID!,
+                ProfilePlayerSportID = _addedPlayerSportEventID,
+            }).ToList();
 
         string url = "/Profiles/Player/Sports/Coaches";
         var success = await apiService.PostAsync(url, addPlayerSportEvent);

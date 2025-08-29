@@ -14,36 +14,42 @@
             <MudGrid Justify="Justify.Center">
                 <MudItem xs="6" md="3">
                     <MudStack Spacing="0" AlignItems="AlignItems.Center">
-                        <MudTextField T="string?" Value="_event.GamePhase" ValueChanged="@(value => UpdateEventAsync())"></MudTextField>
+                        <MudStack>
+                            <MudTextField @bind-Value="_GamePhaseValue" Immediate Disabled="!_eventIsUpdating" />
+                            <MudProgressLinear Indeterminate="true" Style="margin-top: -14px" hidden="@(_eventIsUpdating)" />
+                            <MudIconButton Variant="Variant.Filled" Size="Size.Small" DropShadow="false" OnClick="UpdateEventAsync" Icon="@Icons.Material.Filled.Check" />
+                        </MudStack>
                         <MudText Typo="Typo.caption">@Phase</MudText>
                     </MudStack>
                 </MudItem>
                 <MudFlexBreak />
-                    <MudVirtualize Items="_event.EventVersusList" Context="team">
-                        <MudItem xs="6" sm="4" md="3">
-                            <MudPaper Class="pa-3" Outlined Style="height: 100%">
+                <MudVirtualize Items="_event!.EventVersusList" Context="team">
+                    <MudItem xs="6" sm="4" md="3">
+                        <MudPaper Class="pa-3" Outlined Style="height: 100%">
+                            <MudStack>
                                 <MudStack>
-                                    <MudStack>
-                                        <MudStack Spacing="0" Style="width: 100%" AlignItems="AlignItems.Center">
-                                            <MudText Class="text-center" Style="font-weight: bold">@team.Abbreviation</MudText>
-                                            <MudText Class="text-center" Style="font-size: 10px">@team.Region</MudText>
-                                        </MudStack>
-                                        <MudStack Row Style="width: 100%" Justify="Justify.Center">
-                                            <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{team.Region}.webp")" Height="50" />
-                                            <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/region_logo/{team.Region}.webp")" Height="50" />
-                                        </MudStack>
+                                    <MudStack Spacing="0" Style="width: 100%" AlignItems="AlignItems.Center">
+                                        <MudText Class="text-center" Style="font-weight: bold">@team.Abbreviation</MudText>
+                                        <MudText Class="text-center" Style="font-size: 10px">@team.Region</MudText>
                                     </MudStack>
-                                    <MudStack Style="width: 100%" AlignItems="AlignItems.Center">
-                                        <MudTextField T="string" Style="font-size: 50px" Disabled="@(team.ID == _updatingTeamId)"
-                                                      Value="team.Score"
-                                                      ValueChanged="@(value => UpdateTeamScoreAsync(team.ID, value.ToString()))">
-                                        </MudTextField>
-                                        <MudText Typo="Typo.caption">@Unit</MudText>
+                                    <MudStack Row Style="width: 100%" Justify="Justify.Center">
+                                        <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{team.Region}.webp")" Height="50" />
+                                        <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/region_logo/{team.Region}.webp")" Height="50" />
                                     </MudStack>
-                                    <MudProgressLinear Indeterminate="true" Style="margin-top: -14px" hidden="@(team.ID != _updatingTeamId)" />
                                 </MudStack>
-                            </MudPaper>
-                        </MudItem>
+                                <MudStack Style="width: 100%" AlignItems="AlignItems.Center">
+                                    <MudStack>
+                                        <MudTextField T="string" Style="font-size: 50px" Disabled="@(team.ID == _updatingTeamId)"
+                                                      @bind-Value="team.Score">
+                                        </MudTextField>
+                                        <MudProgressLinear Indeterminate="true" Style="margin-top: -14px" hidden="@(team.ID != _updatingTeamId)" />
+                                        <MudIconButton Variant="Variant.Filled" Size="Size.Small" DropShadow="false" OnClick="@(() => UpdateTeamScoreAsync(team.ID, team.Score))" Icon="@Icons.Material.Filled.Check" />
+                                    </MudStack>
+                                    <MudText Typo="Typo.caption">@Unit</MudText>
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
                 </MudVirtualize>
             </MudGrid>
         </DialogContent>
@@ -83,9 +89,7 @@ else
     private void Cancel() => MudDialog?.Cancel();
 
     // Disable numeric field if update is in progress
-    private bool _eventIsUpdating = false;
-
-    private bool _scoreIsUpdating = false;
+    private bool _eventIsUpdating = true;
     private int? _updatingTeamId = null;
 
     // Load dialog if true
@@ -216,6 +220,7 @@ else
                 Phase = metric.Phase;
             }
         }
+        _GamePhaseValue = _event?.GamePhase;
     }
 
     private async Task GetEventsAsync()
@@ -223,15 +228,15 @@ else
         string url = "/Events/Details";
         var _eventDetailsContent = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
 
-        _event = _eventDetailsContent.FirstOrDefault(e => e.ID == SelectedEventID);
+        _event = _eventDetailsContent!.FirstOrDefault(e => e.ID == SelectedEventID);
     }
 
     private async Task GetEventsOnDialogOpenAsync()
     {
         string url = $"/Events/Details?id={SelectedEventID}";
         var _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
-        
-        _event = _events.FirstOrDefault();
+
+        _event = _events!.FirstOrDefault();
 
         if (_events != null)
         {
@@ -244,10 +249,9 @@ else
         }
     }
 
-    private async Task UpdateTeamScoreAsync(int? id, string score)
+    private async Task UpdateTeamScoreAsync(int? id, string? score)
     {
         _updatingTeamId = id;
-        _scoreIsUpdating = true;
 
         if (id == null) return;
 
@@ -261,7 +265,6 @@ else
         {
             // add task delay to mitigate rapid updates
             await Task.Delay(500);
-            _scoreIsUpdating = false;
             await GetEventsOnDialogOpenAsync();
             Snackbar.Add("Score updated successfully", Severity.Success);
         }
@@ -275,15 +278,15 @@ else
 
     private async Task UpdateEventAsync()
     {
-        _eventIsUpdating = true;
+        _eventIsUpdating = false;
 
         if (SelectedEventID == null) return;
 
         var updateEvent = new EventsDTO.Events
-            {
-                ID = SelectedEventID,
-                GamePhase = _GamePhaseValue
-            };
+        {
+            ID = SelectedEventID,
+            GamePhase = _GamePhaseValue
+        };
 
         string url = $"/Events/{SelectedEventID}";
 
@@ -293,7 +296,7 @@ else
         {
             // add task delay to mitigate rapid updates
             await Task.Delay(500);
-            _eventIsUpdating = false;
+            _eventIsUpdating = true;
             await GetEventsOnDialogOpenAsync();
             Snackbar.Add($"Event Phase updated successfully", Severity.Success);
         }

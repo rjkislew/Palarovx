@@ -8,7 +8,6 @@
 @inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
-@inject FeaturesUnlockingService featuresUnlockingService
 
 <PageTitle>@Sports, @Category Category | PALARO 2026 - Agusan del Sur</PageTitle>
 
@@ -41,7 +40,7 @@
                     <MudStack AlignItems="AlignItems.Center" Style="width: 100%">
                         <MudText Typo="Typo.body2">@_sportDescription</MudText>
                         <MudTabs KeepPanelsAlive Elevation="0" ApplyEffectsToContainer="true" PanelClass="pt-6" Centered Style="width: 100%">
-                            @if (_sportSubcategories != null && _sportSubcategories.Any())
+                            @if (_sportSubcategories != null && _sportSubcategories.Any() == true)
                             {
                                 @foreach (var group in _sportSubcategories.GroupBy(s => s.SchoolLevelID))
                                 {
@@ -132,158 +131,201 @@
                             }
                             else
                             {
+                                <MudPaper Outlined>
+                                    <MudStack Class="pa-3">
+                                        <MudSkeleton Width="100px" Height="50px" />
+                                        <MudDivider />
+                                        <MudStack Row>
+                                            @for (int i = 0; i < 10; i++)
+                                            {
+                                                <MudSkeleton Width="150px" />
+                                            }
+                                        </MudStack>
+                                        <MudSkeleton Width="100px" Height="50px" />
+                                        <MudDivider />
+                                        <MudStack Row>
+                                            @for (int i = 0; i < 10; i++)
+                                            {
+                                                <MudSkeleton Width="150px" />
+                                            }
+                                        </MudStack>
+                                        <MudSkeleton Width="100px" Height="50px" />
+                                        <MudDivider />
+                                        <MudStack Row>
+                                            @for (int i = 0; i < 5; i++)
+                                            {
+                                                <MudSkeleton Width="150px" />
+                                            }
+                                        </MudStack>
+                                    </MudStack>
+                                </MudPaper>
                                 <MudText>No sports categories available.</MudText>
                             }
                         </MudTabs>
                     </MudStack>
                 </MudItem>
-
-                @if (featuresUnlockingService.IsUnlocked == true)
+                @if (_eventDetails != null && _eventDetails.Any() == true)
                 {
-                    if (_eventDetails?.Any() == true)
-                    {
-                        <MudItem xs="12">
-                            <MudSwitch @bind-Value="_dateOrder" Color="Color.Primary">
-                                Sort by Date: @(_dateOrder ? "Newest First" : "Oldest First")
-                            </MudSwitch>
+                    <MudItem xs="12">
+                        <MudSwitch @bind-Value="_dateOrder" Color="Color.Primary">
+                            Sort by Date: @(_dateOrder ? "Newest First" : "Oldest First")
+                        </MudSwitch>
 
-                            <MudTimeline TimelineAlign="TimelineAlign.Start"
-                                         TimelinePosition="TimelinePosition.Start"
-                                         TimelineOrientation="TimelineOrientation.Vertical" Class="ml-n5">
-                                @{
-                                    var groupedEvents = _dateOrder
-                                    ? groupedEventsDescendingDate
-                                    : groupedEventsAscendingDate;
-                                }
+                        <MudTimeline TimelineAlign="TimelineAlign.Start"
+                                     TimelinePosition="TimelinePosition.Start"
+                                     TimelineOrientation="TimelineOrientation.Vertical" Class="ml-n5">
+                            @{
+                                var groupedEvents = _dateOrder
+                                ? groupedEventsDescendingDate
+                                : groupedEventsAscendingDate;
+                            }
 
-                                @foreach (var group in groupedEvents)
-                                {
-                                    <MudTimelineItem Color="Color.Primary">
-                                        <ItemContent>
-                                            <MudStack Class="mt-n1">
-                                                <MudText Typo="Typo.h6">
-                                                    @{
-                                                        var displayDate = group.Key == DateTime.Today ? "Today"
-                                                        : group.Key == DateTime.Today.AddDays(1) ? "Tomorrow"
-                                                        : group.Key!.ToString("dddd - MMMM d") ?? "No Date";
-                                                    }
-                                                    @displayDate
-                                                </MudText>
-                                                <MudDivider />
-                                                <MudGrid>
-                                                    @foreach (var eventDetail in group)
-                                                    {
-                                                        <MudItem xs="12" sm="6" md="4">
-                                                            <MudPaper Outlined Style="height: 100%" Class="scale-up-center">
-                                                                <MudLink Href="@($"./events/{(eventDetail.IsFinished == true ? "Finished" : "Ongoing")}/{eventDetail.ID}")"
-                                                                         Underline="Underline.None"
-                                                                         Color="Color.Dark"
-                                                                         Style="height: 100%; user-select: text;"
-                                                                         draggable="auto">
+                            @foreach (var group in groupedEvents)
+                            {
+                                <MudTimelineItem Color="Color.Primary">
+                                    <ItemContent>
+                                        <MudStack Class="mt-n1">
+                                            <MudText Typo="Typo.h6">
+                                                @{
+                                                    var displayDate = group.Key == DateTime.Today ? "Today"
+                                                    : group.Key == DateTime.Today.AddDays(1) ? "Tomorrow"
+                                                    : group.Key!.ToString("dddd - MMMM d") ?? "No Date";
+                                                }
+                                                @displayDate
+                                            </MudText>
+                                            <MudDivider />
+                                            <MudGrid>
+                                                @foreach (var eventDetail in group)
+                                                {
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudPaper Outlined Style="height: 100%" Class="scale-up-center">
+                                                            <MudLink Href="@($"./events/{(eventDetail.IsFinished == true ? "Finished" : "Ongoing")}/{eventDetail.ID}")"
+                                                                     Underline="Underline.None"
+                                                                     Color="Color.Dark"
+                                                                     Style="height: 100%; user-select: text;"
+                                                                     draggable="auto">
 
-                                                                    <MudStack Style="height: 100%" Spacing="0">
-                                                                        @* Image Section *@
-                                                                        @if (eventDetail.OnStream == true && eventDetail.IsFinished == false)
-                                                                        {
-                                                                            <MudStack Class="relative">
-                                                                                <MudChip Icon="@Icons.Material.Filled.FiberManualRecord"
-                                                                                         Variant="Variant.Filled"
-                                                                                         Color="Color.Error"
-                                                                                         Size="Size.Small"
-                                                                                         Class="absolute ml-3 mt-3 animate-blink"
-                                                                                         T="String">
-                                                                                    Live
-                                                                                </MudChip>
-                                                                                <MudImage Src="@GetThumbnailUrl(eventDetail.StreamURL)"
-                                                                                          Style="width: 100%; height: 200px"
-                                                                                          Class="rounded-t"
-                                                                                          ObjectFit="ObjectFit.Cover" />
-                                                                            </MudStack>
-                                                                        }
-                                                                        else if (eventDetail.OnStream == true && eventDetail.IsFinished == true)
-                                                                        {
-                                                                            <MudStack Class="relative">
-                                                                                <MudChip Icon="@Icons.Material.Filled.PlayCircleFilled"
-                                                                                         Variant="Variant.Filled"
-                                                                                         Color="Color.Info"
-                                                                                         Size="Size.Small"
-                                                                                         Class="absolute ml-3 mt-3"
-                                                                                         T="String">
-                                                                                    Was Live
-                                                                                </MudChip>
-                                                                                <MudImage Src="@GetThumbnailUrl(eventDetail.StreamURL)"
-                                                                                          Style="width: 100%; height: 200px"
-                                                                                          Class="rounded-t"
-                                                                                          ObjectFit="ObjectFit.Cover" />
-                                                                            </MudStack>
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            <MudStack Class="relative">
-                                                                                <MudChip Icon="@Icons.Material.Filled.CircleNotifications"
-                                                                                         Variant="Variant.Filled"
-                                                                                         Color="Color.Warning"
-                                                                                         Size="Size.Small"
-                                                                                         Style="z-index: 10"
-                                                                                         Class="absolute ml-3 mt-3"
-                                                                                         T="String">
-                                                                                    Not on live
-                                                                                </MudChip>
-                                                                                <MudImage Src="@($"media/sports/icons/white/{eventDetail.Sport}.webp")"
-                                                                                          Style="width: 50px; height: 50px; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10"
-                                                                                          Class="rounded-t absolute"
-                                                                                          ObjectFit="ObjectFit.Cover" />
-                                                                                <MudStack Style="background-color: rgba(0,0,0,0.5); width: 100%; height: 200px"
-                                                                                          Class="rounded-t absolute" />
-                                                                                <MudImage Src="@($"media/sports/images/{eventDetail.Sport}.webp")"
-                                                                                          Style="width: 100%; height: 200px"
-                                                                                          Class="rounded-t"
-                                                                                          ObjectFit="ObjectFit.Cover" />
-                                                                            </MudStack>
-                                                                        }
-
-                                                                        @* Event Info *@
-                                                                        <MudStack Justify="Justify.SpaceBetween" Style="height: 100%" Class="pa-3">
-                                                                            <MudStack Spacing="0">
-                                                                                <MudText Style="font-weight: bold">@eventDetail.Subcategory</MudText>
-                                                                                <MudText Typo="Typo.caption">@eventDetail.EventStage ∙ @eventDetail.Sport</MudText>
-                                                                                <MudText Typo="Typo.caption">@eventDetail.Venue</MudText>
-                                                                            </MudStack>
-
-                                                                            <MudText Typo="Typo.caption" Class="mt-3">
-                                                                                #@eventDetail.Category?.Replace(" ", "")
-                                                                                #@eventDetail.Level?.Replace(" ", "")
-                                                                                #@eventDetail.EventStage?.Replace(" ", "")
-                                                                                <MudElement>
-                                                                                    #
-                                                                                    @if (eventDetail.Gender == "Male")
-                                                                                    {
-                                                                                        <MudText Typo="Typo.caption">Male♂️</MudText>
-                                                                                    }
-                                                                                    else if (eventDetail.Gender == "Female")
-                                                                                    {
-                                                                                        <MudText Typo="Typo.caption">Female♀️</MudText>
-                                                                                    }
-                                                                                    else
-                                                                                    {
-                                                                                        <MudText Typo="Typo.caption">Mixed♂️♀️</MudText>
-                                                                                    }
-                                                                                </MudElement>
-                                                                            </MudText>
+                                                                <MudStack Style="height: 100%" Spacing="0">
+                                                                    @* Image Section *@
+                                                                    @if (eventDetail.OnStream == true && eventDetail.IsFinished == false)
+                                                                    {
+                                                                        <MudStack Class="relative">
+                                                                            <MudChip Icon="@Icons.Material.Filled.FiberManualRecord"
+                                                                                     Variant="Variant.Filled"
+                                                                                     Color="Color.Error"
+                                                                                     Size="Size.Small"
+                                                                                     Class="absolute ml-3 mt-3 animate-blink"
+                                                                                     T="String">
+                                                                                Live
+                                                                            </MudChip>
+                                                                            <MudImage Src="@GetThumbnailUrl(eventDetail.StreamURL)"
+                                                                                      Style="width: 100%; height: 200px"
+                                                                                      Class="rounded-t"
+                                                                                      ObjectFit="ObjectFit.Cover" />
                                                                         </MudStack>
+                                                                    }
+                                                                    else if (eventDetail.OnStream == true && eventDetail.IsFinished == true)
+                                                                    {
+                                                                        <MudStack Class="relative">
+                                                                            <MudChip Icon="@Icons.Material.Filled.PlayCircleFilled"
+                                                                                     Variant="Variant.Filled"
+                                                                                     Color="Color.Info"
+                                                                                     Size="Size.Small"
+                                                                                     Class="absolute ml-3 mt-3"
+                                                                                     T="String">
+                                                                                Was Live
+                                                                            </MudChip>
+                                                                            <MudImage Src="@GetThumbnailUrl(eventDetail.StreamURL)"
+                                                                                      Style="width: 100%; height: 200px"
+                                                                                      Class="rounded-t"
+                                                                                      ObjectFit="ObjectFit.Cover" />
+                                                                        </MudStack>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <MudStack Class="relative">
+                                                                            <MudChip Icon="@Icons.Material.Filled.CircleNotifications"
+                                                                                     Variant="Variant.Filled"
+                                                                                     Color="Color.Warning"
+                                                                                     Size="Size.Small"
+                                                                                     Style="z-index: 10"
+                                                                                     Class="absolute ml-3 mt-3"
+                                                                                     T="String">
+                                                                                Not on live
+                                                                            </MudChip>
+                                                                            <MudImage Src="@($"media/sports/icons/white/{eventDetail.Sport}.webp")"
+                                                                                      Style="width: 50px; height: 50px; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10"
+                                                                                      Class="rounded-t absolute"
+                                                                                      ObjectFit="ObjectFit.Cover" />
+                                                                            <MudStack Style="background-color: rgba(0,0,0,0.5); width: 100%; height: 200px"
+                                                                                      Class="rounded-t absolute" />
+                                                                            <MudImage Src="@($"media/sports/images/{eventDetail.Sport}.webp")"
+                                                                                      Style="width: 100%; height: 200px"
+                                                                                      Class="rounded-t"
+                                                                                      ObjectFit="ObjectFit.Cover" />
+                                                                        </MudStack>
+                                                                    }
+
+                                                                    @* Event Info *@
+                                                                    <MudStack Justify="Justify.SpaceBetween" Style="height: 100%" Class="pa-3">
+                                                                        <MudStack Spacing="0">
+                                                                            <MudText Style="font-weight: bold">@eventDetail.Subcategory</MudText>
+                                                                            <MudText Typo="Typo.caption">@eventDetail.EventStage ∙ @eventDetail.Sport</MudText>
+                                                                            <MudText Typo="Typo.caption">@eventDetail.Venue</MudText>
+                                                                        </MudStack>
+
+                                                                        <MudText Typo="Typo.caption" Class="mt-3">
+                                                                            #@eventDetail.Category?.Replace(" ", "")
+                                                                            #@eventDetail.Level?.Replace(" ", "")
+                                                                            #@eventDetail.EventStage?.Replace(" ", "")
+                                                                            <MudElement>
+                                                                                #
+                                                                                @if (eventDetail.Gender == "Male")
+                                                                                {
+                                                                                    <MudText Typo="Typo.caption">Male♂️</MudText>
+                                                                                }
+                                                                                else if (eventDetail.Gender == "Female")
+                                                                                {
+                                                                                    <MudText Typo="Typo.caption">Female♀️</MudText>
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    <MudText Typo="Typo.caption">Mixed♂️♀️</MudText>
+                                                                                }
+                                                                            </MudElement>
+                                                                        </MudText>
                                                                     </MudStack>
-                                                                </MudLink>
-                                                            </MudPaper>
-                                                        </MudItem>
-                                                    }
-                                                </MudGrid>
-                                            </MudStack>
-                                        </ItemContent>
-                                    </MudTimelineItem>
-                                }
-                            </MudTimeline>
-                        </MudItem>
-                    }
+                                                                </MudStack>
+                                                            </MudLink>
+                                                        </MudPaper>
+                                                    </MudItem>
+                                                }
+                                            </MudGrid>
+                                        </MudStack>
+                                    </ItemContent>
+                                </MudTimelineItem>
+                            }
+                        </MudTimeline>
+                    </MudItem>
+                }
+                else
+                {
+                    <MudGrid>
+                        @for (int i = 0; i < 10; i++)
+                        {
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudPaper Outlined>
+                                    <MudStack Spacing="0">
+                                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="150px" />
+                                        <MudStack Class="pa-3 mt-n2" Spacing="0">
+                                            <MudSkeleton Height="50px" />
+                                            <MudSkeleton />
+                                        </MudStack>
+                                    </MudStack>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
                 }
             </MudGrid>
         </MudContainer>
@@ -292,22 +334,34 @@
 <FooterComponent />
 
 @code {
-    [Parameter]
-    public string? Category { get; set; }
+    /* ---------------------------
+       Parameters, & Variables
 
-    [Parameter]
-    public string? Sports { get; set; }
+       - stores parameters passed to the component - URL parameters
+       - manages and stores and data coming from API calls
 
+    --------------------------- */
+
+    // parameters passed via URL
+    [Parameter] public string? Category { get; set; }
+    [Parameter] public string? Sports { get; set; }
+
+    // Breadcrumb items
     private List<BreadcrumbItem> _items = new();
 
+    // variables to store data from API calls
     private List<SportsDTO.SportSubcategories>? _sportSubcategories;
     private List<EventsDTO.EventDetails.Event>? _eventDetails;
+
+    // Grouped Events by Date
     private IEnumerable<IGrouping<DateTime, EventsDTO.EventDetails.Event>> groupedEventsAscendingDate =>
         _eventDetails?
             .Where(e => e.Date.HasValue)
             .GroupBy(e => e.Date!.Value.Date)
             .OrderBy(g => g.Key)
         ?? Enumerable.Empty<IGrouping<DateTime, EventsDTO.EventDetails.Event>>();
+
+    // Grouped Events by Date Descending
     private IEnumerable<IGrouping<DateTime, EventsDTO.EventDetails.Event>> groupedEventsDescendingDate =>
         _eventDetails?
             .Where(e => e.Date.HasValue)
@@ -316,10 +370,175 @@
         ?? Enumerable.Empty<IGrouping<DateTime, EventsDTO.EventDetails.Event>>();
 
 
+    // storage for sport categories data from API call
     private string? _sportDescription;
     private int? _selectedSportCategoryID;
     private bool _dateOrder = true; // Default to ascending order
 
+    // Utility to get YouTube thumbnail or default image
+    private string GetThumbnailUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
+
+        if (url.Contains("youtube.com/watch?v="))
+        {
+            var videoId = url.Split("v=")[1].Split('&')[0];
+            return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
+        }
+
+        return "media/images/no-thumbnail-default.webp";
+    }
+
+    // Utility to get medal color based on index
+    private string GetMedalColor(int index)
+    {
+        return index switch
+        {
+            0 => Colors.Amber.Accent4,   // First place (Gold)
+            1 => Colors.BlueGray.Lighten4, // Second place (Silver)
+            2 => Colors.DeepOrange.Lighten1, // Third place (Bronze)
+            _ => "transparent" // Default color for others
+        };
+    }
+
+    /* ---------------------------
+        Lifecycle Methods
+
+        - methods that manage the component's lifecycle and state
+
+    --------------------------- */
+
+    // On component initialization, fetch sport categories, sports, and event details and set up breadcrumb items
+    protected override async Task OnInitializedAsync()
+    {
+        // Fetch sport categories, sports, and event details based on URL parameters
+        await GetSportCategoriesAsync();
+        await GetSportsAsync();
+        await GetEventsAsync();
+
+        // Setup breadcrumb items
+        _items = new List<BreadcrumbItem>
+        {
+            new("Home", href: "./"),
+            new("Sports", href: "./sports"),
+            new($"{Category}", href: $"./sports/{Category}"),
+            new($"{Sports}", href: null, disabled: true)
+        };
+    }
+
+    /* ---------------------------
+       API Calls
+
+       - methods for fetching data from APIs
+
+    --------------------------- */
+
+    // Fetch sport categories data from the API based on the Category parameter
+    private async Task GetSportCategoriesAsync()
+    {
+        string url = $"/Sports/Categories?category={Category}";
+        var sportCategories = await apiService.GetAsync<SportsDTO.SportCategories>(url);
+
+        if (sportCategories != null)
+        {
+            var sportCategory = sportCategories.First();
+
+            _selectedSportCategoryID = sportCategory.ID;
+        }
+    }
+
+    // Fetch sports data from the API based on the Sports parameter and selected sport category ID
+    private async Task GetSportsAsync()
+    {
+        string url = $"/Sports?sport={Sports}&sportCategoryID={_selectedSportCategoryID}";
+        var sports = await apiService.GetAsync<SportsDTO.Sports>(url);
+
+        if (sports != null)
+        {
+            var sport = sports.First();
+
+            _sportDescription = sport.Description;
+
+            await GetSportSubcategoriesAsync(sport.ID);
+        }
+    }
+
+    // Fetch sport subcategories data from the API based on the sport ID
+    private async Task GetSportSubcategoriesAsync(int sportID)
+    {
+        string url = $"/Sports/Subcategories?sportID={sportID}";
+        _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
+    }
+
+    // Fetch event details data from the API based on the Category and Sports parameters
+    private async Task GetEventsAsync()
+    {
+        string url = $"/Events/Details?category={Category}&sport={Sports}";
+        _eventDetails = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+    }
+
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // Events DTO
+    public class EventsDTO
+    {
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public bool? IsFinished { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
+    }
+
+    // Sports DTO
     public class SportsDTO
     {
         public class SportCategories
@@ -346,154 +565,4 @@
         }
     }
 
-    public class EventsDTO
-    {
-        public class EventDetails
-        {
-            public class Event
-            {
-                public string ID { get; set; } = null!;
-                public string? EventStage { get; set; }
-                public List<EventVersusTeams>? EventVersusList { get; set; }
-
-                //public int? SportSubcategoryID { get; set; }
-                public string? Category { get; set; }
-                public string? Sport { get; set; }
-                public int? SubCategoryID { get; set; }
-                public string? Subcategory { get; set; }
-                public string? Gender { get; set; }
-                public string? Level { get; set; }
-                //
-
-                // public int? EventVenuesID { get; set; }
-                public string? Venue { get; set; }
-                public decimal? Latitude { get; set; }
-                public decimal? Longitude { get; set; }
-                //
-
-                public DateTime? Date { get; set; }
-                public TimeSpan? Time { get; set; }
-                public bool? OnStream { get; set; }
-
-
-                // public int? StreamID { get; set; }
-                public string? StreamService { get; set; }
-                public string? StreamURL { get; set; }
-                //
-
-                public bool? IsFinished { get; set; }
-                public bool? Archived { get; set; }
-                public bool? Deleted { get; set; }
-
-                //public string? UserID { get; set; }
-                public string? FirstName { get; set; }
-                public string? LastName { get; set; }
-            }
-
-            public class EventVersusTeams
-            {
-                public int ID { get; set; }
-                public string? Score { get; set; }
-                // public int? SchoolRegionID { get; set; }
-                public string? Region { get; set; }
-                public string? Abbreviation { get; set; }
-                //
-
-                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
-                public DateTime? RecentUpdateAt { get; set; }
-            }
-
-            public class EventVersusTeamPlayers
-            {
-                public int ID { get; set; }
-                public int? EventVersusID { get; set; }
-                public string? FirstName { get; set; }
-                public string? LastName { get; set; }
-                public string? School { get; set; }
-            }
-        }
-    }
-
-
-    private string GetThumbnailUrl(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
-
-        if (url.Contains("youtube.com/watch?v="))
-        {
-            var videoId = url.Split("v=")[1].Split('&')[0];
-            return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
-        }
-
-        return "media/images/no-thumbnail-default.webp";
-    }
-
-    private string GetMedalColor(int index)
-    {
-        return index switch
-        {
-            0 => Colors.Amber.Accent4,   // First place (Gold)
-            1 => Colors.BlueGray.Lighten4, // Second place (Silver)
-            2 => Colors.DeepOrange.Lighten1, // Third place (Bronze)
-            _ => "transparent" // Default color for others
-        };
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        featuresUnlockingService.OnLockChanged += StateHasChanged;
-        await featuresUnlockingService.LoadFromLocalStorageAsync();
-
-        await GetSportCategoriesAsync();
-        await GetSportsAsync();
-        await GetEventsAsync();
-
-        _items = new List<BreadcrumbItem>
-        {
-            new("Home", href: "./"),
-            new("Sports", href: "./sports"),
-            new($"{Category}", href: $"./sports/{Category}"),
-            new($"{Sports}", href: null, disabled: true)
-        };
-    }
-
-    private async Task GetSportCategoriesAsync()
-    {
-        string url = $"/Sports/Categories?category={Category}";
-        var sportCategories = await apiService.GetAsync<SportsDTO.SportCategories>(url);
-
-        if (sportCategories != null)
-        {
-            var sportCategory = sportCategories.First();
-
-            _selectedSportCategoryID = sportCategory.ID;
-        }
-    }
-
-    private async Task GetSportsAsync()
-    {
-        string url = $"/Sports?sport={Sports}&sportCategoryID={_selectedSportCategoryID}";
-        var sports = await apiService.GetAsync<SportsDTO.Sports>(url);
-
-        if (sports != null)
-        {
-            var sport = sports.First();
-
-            _sportDescription = sport.Description;
-
-            await GetSportSubcategoriesAsync(sport.ID);
-        }
-    }
-
-    private async Task GetSportSubcategoriesAsync(int sportID)
-    {
-        string url = $"/Sports/Subcategories?sportID={sportID}";
-        _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
-    }
-
-    private async Task GetEventsAsync()
-    {
-        string url = $"/Events/Details?category={Category}&sport={Sports}";
-        _eventDetails = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
-    }
 }

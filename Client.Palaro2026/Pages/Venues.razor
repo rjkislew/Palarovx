@@ -184,59 +184,86 @@
 </MudContainer>
 
 @code {
-    // ------------------------------
-    // Parameters
-    // ------------------------------
+    /* ---------------------------
+       Parameters, & Variables
+
+       - stores parameters passed to the component - URL parameters
+       - manages and stores and data coming from API calls
+
+    --------------------------- */
+
+    // parameters passed via URL
     [Parameter] public decimal Longitude { get; set; }
     [Parameter] public decimal Latitude { get; set; }
     [Parameter] public int ID { get; set; }
     [Parameter] public string? Venue { get; set; }
     [Parameter] public string? Address { get; set; }
 
-    // ------------------------------
-    // Fields and Properties
-    // ------------------------------
+    // selected venue from autocomplete or map click
     public EventsDTO.EventVenues? SelectedVenue { get; set; }
 
+    // variables to store data from API calls
     private List<EventsDTO.EventVenues>? _venues;
     private List<EventsDTO.EventDetails.Event>? _events;
 
+    // toggle for event view
     private bool? _toggleEventView = true;
 
+    // JS Interop
     private DotNetObjectReference<Venues>? objRef;
+
+    // QR Code
     string? qrCodeBase64;
     string? fileName;
 
-    // ------------------------------
-    // Lifecycle Methods
-    // ------------------------------
+    /* ---------------------------
+        Lifecycle Methods
+
+        - methods that manage the component's lifecycle and state
+
+    --------------------------- */
+
+    // Initialize JS Interop
     protected override void OnInitialized()
     {
         objRef = DotNetObjectReference.Create(this);
         _ = JSRuntime.InvokeVoidAsync("registerDotNetReference", objRef);
     }
 
+    // Load theme preference, fetch venues, initialize map, handle location changes, and generate QR code
     protected override async Task OnInitializedAsync()
     {
+        // Load theme preference
         themeService.OnThemeChanged += StateHasChanged;
         await themeService.LoadThemePreference();
 
+        // Fetch venues
         await GetVenuesAsync();
         SelectedVenue = _venues?.FirstOrDefault(v => v.ID == ID);
 
+        // Initialize map
         await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapBoxService.MapboxToken, _venues, themeService.IsDarkMode);
 
+        // Delay to ensure map is fully loaded
         await Task.Delay(2000);
 
-        await HandleLocationChange();
+        // Handle location changes if a venue is selected
+        if (SelectedVenue is not null)
+        {
+            await HandleLocationChange();
+        }
 
+        // Subscribe to location changes
         navigationManager.LocationChanged += OnLocationChanged;
 
+        // Generate QR code for the current URL
         GenerateQRCode(navigationManager.Uri);
 
+        // Set user location using Geolocation API
         await JSRuntime.InvokeVoidAsync("setUserLocationFromGeolocation");
     }
 
+    // Dispose of resources and unsubscribe from events
     public void Dispose()
     {
         if (objRef != null)
@@ -247,13 +274,10 @@
         navigationManager.LocationChanged -= OnLocationChanged;
     }
 
-    // ------------------------------
-    // JS Invokable Method
-    // ------------------------------
+    // JS Invokable method to handle coordinate selection from the map
     [JSInvokable]
     public async Task OnCoordinateSelected(int id)
     {
-        // Set the selected venue by matching the marker ID
         SelectedVenue = _venues?.FirstOrDefault(v => v.ID == id);
 
         if (SelectedVenue != null)
@@ -264,16 +288,14 @@
         StateHasChanged();
     }
 
-
-    // ------------------------------
-    // Navigation and Location Logic
-    // ------------------------------
+    // Handle location changes in the URL
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         GenerateQRCode(e.Location);
         StateHasChanged();
     }
 
+    // Handle changes when a new venue is selected
     private async Task HandleLocationChange()
     {
         _events = null;
@@ -289,31 +311,41 @@
                 ? "./venues"
                 : $"./venues/@{SelectedVenue.Longitude},{SelectedVenue.Latitude}/{SelectedVenue.ID}/{SelectedVenue.Venue}, {SelectedVenue.Address}";
 
+            // navigate to the new URL
             navigationManager.NavigateTo(url);
         }
 
+        // Fetch events for the selected venue
         await GetEventsAsync();
     }
 
+    // JS Interop methods to interact with the map
     private async Task FlyToLocation(decimal? lng, decimal? lat)
     {
         await JSRuntime.InvokeVoidAsync("flyToLocation", lng, lat);
     }
 
+    // Set selected location and fit bounds to include user location and selected venue
     private async Task SetAndFitBounds()
     {
         await JSRuntime.InvokeVoidAsync("setSelectedLocation", Longitude, Latitude);
         await JSRuntime.InvokeVoidAsync("fitUserAndSelectedBounds");
     }
 
+    // Toggle the event view visibility
     private void toggleSelectedLocationView()
     {
         _toggleEventView = !_toggleEventView;
     }
 
-    // ------------------------------
-    // Venue and Event Data
-    // ------------------------------
+    /* ---------------------------
+       API Calls
+
+       - methods for fetching data from APIs
+
+    --------------------------- */
+
+    // Fetch the list of event venues from the API
     private async Task GetVenuesAsync()
     {
         string url = "/Events/Venues";
@@ -324,12 +356,14 @@
             .ToList();
     }
 
+    // Fetch events for the selected venue from the API
     private async Task GetEventsAsync()
     {
         string url = $"/Events/Details?venue={SelectedVenue?.Venue}&isFinished=false";
         _events = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
     }
 
+    // Search for venues based on user input
     private async Task<IEnumerable<EventsDTO.EventVenues>> SearchVenuesAsync(string value, CancellationToken token)
     {
         await Task.Delay(100); // simulate delay
@@ -346,6 +380,7 @@
         ?? Enumerable.Empty<EventsDTO.EventVenues>();
     }
 
+    // Clear the selected venue and reset the map view
     private async Task ClearSelection()
     {
         SelectedVenue = null;
@@ -355,9 +390,7 @@
         await JSRuntime.InvokeVoidAsync("centerMap", null);
     }
 
-    // ------------------------------
-    // QR Code Generation
-    // ------------------------------
+    // Generate QR code for the current URL
     private void GenerateQRCode(string url)
     {
         qrCodeBase64 = GenerateQrCodeBase64(url);
@@ -371,6 +404,7 @@
         fileName = $"qr-code-{path}.png";
     }
 
+    // Generate a base64-encoded QR code image from the given text
     private string GenerateQrCodeBase64(string text)
     {
         using var qrGenerator = new QRCoder.QRCodeGenerator();
@@ -381,6 +415,7 @@
         return $"data:image/png;base64,{Convert.ToBase64String(qrCodeBytes)}";
     }
 
+    // Get thumbnail URL for a YouTube video or return a default image
     private string GetThumbnailUrl(string? url)
     {
         if (string.IsNullOrWhiteSpace(url)) return string.Empty;
@@ -394,9 +429,15 @@
         return "media/images/no-thumbnail-default.webp";
     }
 
-    // ------------------------------
-    // DTO Classes
-    // ------------------------------
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // DTO classes for event details and venues
     public class EventsDTO
     {
         public class EventDetails
@@ -463,3 +504,4 @@
         }
     }
 }
+

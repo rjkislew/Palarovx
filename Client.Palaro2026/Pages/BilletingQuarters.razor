@@ -48,30 +48,49 @@
                 <MudPaper Outlined>
                     <MudStack Spacing="5" Class="pa-3">
                         <MudStack Spacing="1">
+                            <MudStack Row Spacing="1">
+                                <MudImage Height="25" Width="25" Src="@($"https://palarongpambansa2026.com/attachments/media/regions/region_logo/{BilletingQuarter?.Region}.webp")" />
+                                <MudImage Height="25" Width="25" Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{BilletingQuarter?.Region}.webp")" />
+                                <MudText><b>@BilletingQuarter?.Region (@BilletingQuarter?.Abbreviation)</b></MudText>
+                            </MudStack>
+                            <MudDivider />
+                            <MudText Typo="Typo.caption">Billeting quarter for the team @BilletingQuarter?.Region</MudText>
+                        </MudStack>
+                        <MudStack Spacing="1">
                             <MudText><b>Quarter</b></MudText>
                             <MudDivider />
-                            <MudStack Row AlignItems="AlignItems.Center">
-                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.School" />
-                                <MudText Typo="Typo.body2">@BilletingQuarter?.BilletingQuarter</MudText>
-                            </MudStack>
-                            <MudStack Row AlignItems="AlignItems.Center">
-                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.LocationOn" />
-                                <MudText Typo="Typo.body2">@BilletingQuarter?.Address</MudText>
+                            <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width: 100%">
+                                <MudStack Justify="Justify.Center">
+                                    <MudStack Row AlignItems="AlignItems.Center">
+                                        <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.School" />
+                                        <MudText Typo="Typo.body2">@BilletingQuarter?.BilletingQuarter</MudText>
+                                    </MudStack>
+                                    <MudStack Row AlignItems="AlignItems.Center">
+                                        <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.LocationOn" />
+                                        <MudText Typo="Typo.body2">@BilletingQuarter?.Address</MudText>
+                                    </MudStack>
+                                </MudStack>
+                                <MudTooltip Text="Go to location using Google Maps Service">
+                                    <MudIconButton Href="@($"https://www.google.com/maps/@{BilletingQuarter?.Latitude},{BilletingQuarter?.Longitude},17z")" Target="_blank" Icon="@Icons.Material.Filled.Map" Size="Size.Large" />
+                                </MudTooltip>
                             </MudStack>
                         </MudStack>
 
-                        <MudStack Spacing="1">
-                            <MudText><b>Contact Person</b></MudText>
-                            <MudDivider />
-                            <MudStack Row AlignItems="AlignItems.Center">
-                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person" />
-                                <MudText Typo="Typo.body2">@BilletingQuarter?.ContactPerson</MudText>
+                        @if (BilletingQuarter?.ContactPerson != null || BilletingQuarter?.ContactPersonNumber != null)
+                        {
+                            <MudStack Spacing="1">
+                                <MudText><b>Contact Person</b></MudText>
+                                <MudDivider />
+                                <MudStack Row AlignItems="AlignItems.Center">
+                                    <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person" />
+                                    <MudText Typo="Typo.body2">@BilletingQuarter?.ContactPerson</MudText>
+                                </MudStack>
+                                <MudStack Row AlignItems="AlignItems.Center">
+                                    <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Phone" />
+                                    <MudText Typo="Typo.body2">@BilletingQuarter?.ContactPersonNumber</MudText>
+                                </MudStack>
                             </MudStack>
-                            <MudStack Row AlignItems="AlignItems.Center">
-                                <MudIcon Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Phone" />
-                                <MudText Typo="Typo.body2">@BilletingQuarter?.ContactPersonNumber</MudText>
-                            </MudStack>
-                        </MudStack>
+                        }
                     </MudStack>
                 </MudPaper>
             }
@@ -79,7 +98,7 @@
             @if (_billetingQuarters?.Any() == true && BilletingQuarter is not null)
             {
                 <MudStack Row Justify="Justify.FlexEnd">
-                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" Icon="@(_toggleBilletingQuarterView == true ? @Icons.Material.Filled.ArrowUpward : @Icons.Material.Filled.ArrowDownward)" OnClick="toggleLocationView" />
+                    <MudIconButton Variant="Variant.Filled" Color="Color.Primary" Icon="@(_toggleBilletingQuarterView == true ? @Icons.Material.Filled.ArrowUpward : @Icons.Material.Filled.ArrowDownward)" OnClick="ToggleLocationView" />
                     <MudIconButton Variant="Variant.Filled" Color="Color.Primary" Icon="@Icons.Material.Filled.FmdGood" OnClick="() => FlyToLocation(BilletingQuarter?.Longitude, BilletingQuarter?.Latitude)" />
                     <MudIconButton Variant="Variant.Filled" Color="Color.Primary" Icon="@Icons.Material.Filled.OpenInFull" OnClick="SetAndFitBounds" />
                 </MudStack>
@@ -102,52 +121,101 @@
 </MudContainer>
 
 @code {
+    /* ---------------------------
+       Parameters, Variables, & Dependencies
+
+       - stores parameters passed to the component - URL parameters
+       - manages and stores and data coming from API calls
+
+    --------------------------- */
+
+    // parameters passed via URL
     [Parameter] public string? Region { get; set; }
     [Parameter] public string? Address { get; set; }
     [Parameter] public int ID { get; set; }
     [Parameter] public decimal? Longitude { get; set; }
     [Parameter] public decimal? Latitude { get; set; }
 
+    // DotNetObjectReference for JS Interop
+    private DotNetObjectReference<BilletingQuarters>? objRef;
+    
+    // storage for the selected billeting quarter
     public SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters? BilletingQuarter { get; set; }
     private List<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>? _billetingQuarters;
 
+    // variables
     private bool? _toggleBilletingQuarterView = true;
-    private DotNetObjectReference<BilletingQuarters>? objRef;
-    string? qrCodeBase64;
-    string? fileName;
+    private string? qrCodeBase64;
+    private string? fileName;
 
+    /* ---------------------------
+        Lifecycle Methods
+
+        - methods that manage the component's lifecycle and state
+
+    --------------------------- */
+
+    // Initialize DotNetObjectReference for JS Interop
     protected override void OnInitialized()
     {
         objRef = DotNetObjectReference.Create(this);
         _ = JSRuntime.InvokeVoidAsync("registerDotNetReference", objRef);
     }
 
+    // Load theme preference, fetch billeting quarters, initialize map, and set up event handlers
     protected override async Task OnInitializedAsync()
     {
+        // subscribe to theme changes
         themeService.OnThemeChanged += StateHasChanged;
         await themeService.LoadThemePreference();
 
+        // fetch billeting quarters from the API
         await GetBilletingQuartersAsync();
         BilletingQuarter = _billetingQuarters?.FirstOrDefault(b => b.ID == ID);
 
+        // initialize the map with billeting quarters and theme preference
         await JSRuntime.InvokeVoidAsync("initializeMap", "map", mapBoxService.MapboxToken, _billetingQuarters, themeService.IsDarkMode);
 
+        // set initial map view based on URL parameters
         if (BilletingQuarter is not null)
             await HandleLocationChange();
 
+        // generate QR code for the current page URL
         GenerateQRCode(navigationManager.Uri);
+
+        // set user location using browser geolocation
         await JSRuntime.InvokeVoidAsync("setUserLocationFromGeolocation");
     }
 
+    /* ---------------------------
+      JS Invokable
+
+      - methods that can be called from JavaScript
+
+    --------------------------- */
     [JSInvokable]
-    public async Task OnCoordinate(int id)
+    public async Task OnCoordinateSelected(int id)
     {
+        // Find the billeting quarter by ID and update the selected quarter
+        // clicking a marker on the map will trigger this method
         BilletingQuarter = _billetingQuarters?.FirstOrDefault(v => v.ID == id);
-        if (BilletingQuarter is not null)
+
+        if (BilletingQuarter != null)
+        {
             await HandleLocationChange();
+        }
+
         StateHasChanged();
     }
 
+    /* ---------------------------
+       Methods
+
+       - methods for handling data and events
+
+    --------------------------- */
+
+    // Handle location change when a new billeting quarter is selected
     private async Task HandleLocationChange()
     {
         if (BilletingQuarter is not null && BilletingQuarter.Longitude.HasValue && BilletingQuarter.Latitude.HasValue)
@@ -160,67 +228,108 @@
                 ? "./regional-teams/billeting-quarters"
                 : $"./regional-teams/billeting-quarters/@{BilletingQuarter.Longitude},{BilletingQuarter.Latitude}/{BilletingQuarter.ID}/{BilletingQuarter.Region}, {BilletingQuarter.Address}";
 
+            // update the URL based on the selected billeting quarter
             navigationManager.NavigateTo(url);
         }
+
+        // generate QR code for the current page URL (updates )
         GenerateQRCode(navigationManager.Uri);
     }
 
+    // Search for billeting quarters based on the input value
     private async Task<IEnumerable<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>> SearchQuartersAsync(string value, CancellationToken token)
     {
         await Task.Delay(100);
+
         if (string.IsNullOrWhiteSpace(value))
             return _billetingQuarters ?? Enumerable.Empty<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>();
 
         return _billetingQuarters?.Where(q =>
             (!string.IsNullOrWhiteSpace(q.Region) && q.Region.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(q.Abbreviation) && q.Abbreviation.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
             (!string.IsNullOrWhiteSpace(q.Address) && q.Address.Contains(value, StringComparison.OrdinalIgnoreCase))
         ) ?? Enumerable.Empty<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>();
     }
 
+    // Clear the current selection and reset the map view
     private async Task ClearSelection()
     {
         BilletingQuarter = null;
         navigationManager.NavigateTo("./regional-teams/billeting-quarters");
+
         await JSRuntime.InvokeVoidAsync("clearRoute");
         await JSRuntime.InvokeVoidAsync("centerMap", null);
+
         GenerateQRCode(navigationManager.Uri);
     }
 
-    private void toggleLocationView() =>
+    // Toggle the visibility of the billeting quarter details view
+    private void ToggleLocationView() =>
         _toggleBilletingQuarterView = !_toggleBilletingQuarterView;
 
+    // Fly to the specified location on the map
     private async Task FlyToLocation(decimal? lng, decimal? lat) =>
         await JSRuntime.InvokeVoidAsync("flyToLocation", lng, lat);
 
+    // Set the map location and fit bounds to include user location and selected billeting quarter
     private async Task SetAndFitBounds()
     {
         await JSRuntime.InvokeVoidAsync("setLocation", BilletingQuarter?.Longitude, BilletingQuarter?.Latitude);
         await JSRuntime.InvokeVoidAsync("fitUserAndBounds");
     }
 
+    /* ---------------------------
+       API Calls
+
+       - methods for fetching data from APIs
+
+    --------------------------- */
+
+    // Fetch billeting quarters from the API
     private async Task GetBilletingQuartersAsync()
     {
         string url = "/Schools/BilletingQuarters/Details";
         _billetingQuarters = await apiService.GetAsync<SchoolsDTO.SchoolBillingQuarterDetails.SchoolBilletingQuarters>(url);
     }
 
+    /* ---------------------------
+       QR Code Utilities
+
+       - methods for generating and handling QR codes
+
+    --------------------------- */
+
+    // Generate a QR code for the given URL and set the file name for download
     private void GenerateQRCode(string url)
     {
         qrCodeBase64 = GenerateQrCodeBase64(url);
+
         var uri = new Uri(navigationManager.ToAbsoluteUri(url).ToString());
         var path = uri.AbsolutePath.Trim('/').Replace("/", "-");
+
         if (string.IsNullOrWhiteSpace(path))
             path = "homepage";
+
         fileName = $"qr-code-{path}.png";
     }
 
+    // Generate a base64-encoded PNG QR code for the given text (page url)
     private string GenerateQrCodeBase64(string text)
     {
         using var qrGenerator = new QRCoder.QRCodeGenerator();
         using var qrCodeData = qrGenerator.CreateQrCode(text, QRCoder.QRCodeGenerator.ECCLevel.Q);
         using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
+
         return $"data:image/png;base64,{Convert.ToBase64String(qrCode.GetGraphic(20))}";
     }
+
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
 
     public class SchoolsDTO
     {
@@ -241,3 +350,4 @@
         }
     }
 }
+

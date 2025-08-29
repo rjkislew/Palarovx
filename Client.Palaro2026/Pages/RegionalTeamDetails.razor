@@ -8,7 +8,6 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject NavigationManager navigationManager
-@inject FeaturesUnlockingService featuresUnlockingService
 
 <PageTitle>@Region | PALARO 2026 - Agusan del Sur</PageTitle>
 
@@ -289,20 +288,125 @@
 <FooterComponent />
 
 @code {
-    [Parameter]
-    public string? Region { get; set; }
-    [Parameter]
-    public string? Abbreviation { get; set; }
+    /* ---------------------------
+       Parameters, & Variables
 
-    private List<BreadcrumbItem> _items = new();
+       - stores parameters passed to the component - URL parameters
+       - manages and stores and data coming from API calls
 
+    --------------------------- */
+
+    // parameters to be passed via URL
+    [Parameter] public string? Region { get; set; }
+    [Parameter] public string? Abbreviation { get; set; }
+
+    // variables to store data from API calls
     private List<EventsDTO.EventDetails.Event>? _eventDetails;
     private MedalTallyDTO.RegionalMedalTally? _regionalMedalTallies;
     private List<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>? _schoolLevelMedalTallies;
 
+    // list to store breadcrumb items
+    private List<BreadcrumbItem> _items = new();
+
+    // status flags
     private bool isEmpty = false;
     private bool noConnection = false;
 
+    
+    // method to get YouTube thumbnail URL or default image
+    private string GetThumbnailUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
+
+        if (url.Contains("youtube.com/watch?v="))
+        {
+            var videoId = url.Split("v=")[1].Split('&')[0];
+            return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
+        }
+
+        return "media/images/no-thumbnail-default.webp";
+    }
+
+    // method to get medal color based on index
+    private string GetMedalColor(int index)
+    {
+        return index switch
+        {
+            0 => Colors.Amber.Accent4,       // Gold
+            1 => Colors.BlueGray.Lighten4,   // Silver
+            2 => Colors.DeepOrange.Lighten1, // Bronze
+            _ => "transparent"
+        };
+    }
+
+    /* ---------------------------
+        Lifecycle Methods
+
+        - methods that manage the component's lifecycle and state
+
+    --------------------------- */
+
+    // decode url and fetches data when the component is initialized
+    protected override async Task OnInitializedAsync()
+    {
+        // Decode URL parameters
+        if (!string.IsNullOrEmpty(Abbreviation))
+            Abbreviation = Uri.UnescapeDataString(Abbreviation);
+
+        if (!string.IsNullOrEmpty(Region))
+            Region = Uri.UnescapeDataString(Region);
+
+        // Fetch data from APIs
+        await GetEventsAsync();
+        await GetMedalTallyByRegionAsync();
+        await GetMedalTallyBySchoolLevelAsync();
+
+        // Check if there are no events
+        _items = new List<BreadcrumbItem>
+        {
+            new("Home", href: "./"),
+            new("Regional Teams", href: "./regional-teams"),
+            new($"{Region}", href: null, disabled: true)
+        };
+    }
+
+    /* ---------------------------
+       API Calls
+
+       - methods for fetching data from APIs
+
+    --------------------------- */
+
+    // Fetches event details for the specified region from the API
+    private async Task GetEventsAsync()
+    {
+        string url = $"/Events/Details?region={Region}";
+        _eventDetails = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+    }
+
+    // Fetches medal tally for the specified region from the API
+    private async Task GetMedalTallyByRegionAsync()
+    {
+        string url = $"/MedalTally?region={Region}";
+        _regionalMedalTallies = await apiService.GetSingleAsync<MedalTallyDTO.RegionalMedalTally>(url);
+    }
+
+    // Fetches medal tally by school level for the specified region from the API
+    private async Task GetMedalTallyBySchoolLevelAsync()
+    {
+        string url = $"/MedalTally/BySchoolLevel?region={Region}";
+        _schoolLevelMedalTallies = await apiService.GetAsync<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>(url);
+    }
+
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // Events DTO
     public class EventsDTO
     {
         public class EventDetails
@@ -338,11 +442,8 @@
             {
                 public int ID { get; set; }
                 public string? Score { get; set; }
-                // public int? SchoolRegionID { get; set; }
                 public string? Region { get; set; }
                 public string? Abbreviation { get; set; }
-                //
-
                 public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
                 public DateTime? RecentUpdateAt { get; set; }
             }
@@ -358,6 +459,7 @@
         }
     }
 
+    // Medal Tally DTO
     public class MedalTallyDTO
     {
         public class RegionalMedalTally
@@ -389,95 +491,5 @@
             }
         }
     }
-
-    private string GetThumbnailUrl(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
-
-        if (url.Contains("youtube.com/watch?v="))
-        {
-            var videoId = url.Split("v=")[1].Split('&')[0];
-            return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
-        }
-
-        return "media/images/no-thumbnail-default.webp";
-    }
-
-    private string GetMedalColor(int index)
-    {
-        return index switch
-        {
-            0 => Colors.Amber.Accent4,   // First place (Gold)
-            1 => Colors.BlueGray.Lighten4, // Second place (Silver)
-            2 => Colors.DeepOrange.Lighten1, // Third place (Bronze)
-            _ => "transparent" // Default color for others
-        };
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        featuresUnlockingService.OnLockChanged += HandleLockChanged;
-        await featuresUnlockingService.LoadFromLocalStorageAsync();
-
-        if (!featuresUnlockingService.IsUnlocked)
-        {
-            navigationManager.NavigateTo("./");
-            return;
-        }
-
-        if (!string.IsNullOrEmpty(Abbreviation))
-        {
-            Abbreviation = Uri.UnescapeDataString(Abbreviation);
-        }
-        if (!string.IsNullOrEmpty(Region))
-        {
-            Region = Uri.UnescapeDataString(Region);
-        }
-
-        await GetEventsAsync();
-        await GetMedalTallyByRegionAsync();
-        await GetMedalTallyBySchoolLevelAsync();
-
-        _items = new List<BreadcrumbItem>
-        {
-            new("Home", href: "./"),
-            new("Regional Teams", href: "./regional-teams"),
-            new($"{Region}", href: null, disabled: true)
-        };
-    }
-
-    private void HandleLockChanged()
-    {
-        if (!featuresUnlockingService.IsUnlocked)
-        {
-            navigationManager.NavigateTo("./");
-        }
-        else
-        {
-            StateHasChanged();
-        }
-    }
-
-    public void Dispose()
-    {
-        featuresUnlockingService.OnLockChanged -= HandleLockChanged;
-    }
-
-    private async Task GetEventsAsync()
-    {
-        string url = $"/Events/Details?region={Region}";
-        _eventDetails = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
-    }
-
-    private async Task GetMedalTallyByRegionAsync()
-    {
-        string url = $"/MedalTally?region={Region}";
-        _regionalMedalTallies = await apiService.GetSingleAsync<MedalTallyDTO.RegionalMedalTally>(url);
-    }
-
-    private async Task GetMedalTallyBySchoolLevelAsync()
-    {
-        string url = $"/MedalTally/BySchoolLevel?region={Region}";
-        _schoolLevelMedalTallies = await apiService.GetAsync<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>(url);
-    }
 }
+

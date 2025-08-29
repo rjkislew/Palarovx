@@ -4,11 +4,9 @@
 @using System.Text.Json
 @using System.Threading.Tasks
 @using Client.Palaro2026.Services
-@inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject NavigationManager navigationManager
-@inject FeaturesUnlockingService featuresUnlockingService
 
 <PageTitle>
     @_eventDetail?.Sport - @_eventDetail?.Subcategory  (@_eventDetail?.EventStage) | PALARO 2026 - Agusan del Sur
@@ -81,7 +79,7 @@
                                 <MudPaper Outlined Style="height: 100%" Class="scale-up-center">
                                     <MudStack AlignItems="AlignItems.Center" Class="pa-3 relative" Spacing="0" Style="height: 100%">
                                         <MudIcon Icon="@Icons.Material.Filled.WorkspacePremium" Size="Size.Large" Class="absolute align-self-start" Style="@($"color: {GetMedalColor((_eventDetail?.EventVersusList?.OrderByDescending(e => int.TryParse(e.Score, out var score) ? score : int.MinValue).ToList().IndexOf(team)) ?? -1)}")" />
-                                        <MudImage Src="@($"media/regions/{team.Abbreviation}.webp")" Height="70" />
+                                        <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{team.Region}.webp")" Height="70" />
                                         <MudText Style="font-weight: bold">@team.Abbreviation</MudText>
                                         <MudText Typo="Typo.caption">@team.Region</MudText>
                                         <MudText Style="font-family: 'Roboto Mono', monospace; font-size: 50px; font-weight: bold">
@@ -103,7 +101,7 @@
                                     <MudStack AlignItems="AlignItems.Center" Class="pa-3" Spacing="0" Justify="Justify.SpaceBetween" Style="height: 100%">
                                         <MudStack Spacing="0" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="height: 100%">
                                             <MudStack Spacing="2" AlignItems="AlignItems.Center">
-                                                <MudImage Src="@($"media/regions/{team.Abbreviation}.webp")" Height="70" />
+                                                <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{team.Region}.webp")" Height="70" />
                                                 <MudText Style="font-weight: bold; line-height: 1" Align="Align.Center">@team.Region</MudText>
                                                 <MudText Typo="Typo.caption">@team.Abbreviation</MudText>
                                             </MudStack>
@@ -141,72 +139,55 @@
 <FooterComponent />
 
 @code {
+    /* ---------------------------
+       Parameters, & Variables
 
-    [Parameter]
-    public string? ID { get; set; }
-    [Parameter]
-    public string? EventStatus { get; set; }
+       - stores parameters passed to the component - URL parameters
+       - manages and stores and data coming from API calls
 
+    --------------------------- */
+
+    // parameters passed via URL
+    [Parameter] public string? ID { get; set; }
+    [Parameter] public string? EventStatus { get; set; }
+
+    // storage for the fetched data
     private EventsDTO.EventDetails.Event? _eventDetail;
 
+    // breadcrumb items
     private List<BreadcrumbItem> _items = new();
 
-    public class EventsDTO
+    /* ---------------------------
+        Lifecycle Methods
+
+        - methods that manage the component's lifecycle and state
+
+    --------------------------- */
+
+    // fetches event details when the component is initialized 
+    protected override async Task OnInitializedAsync()
     {
-        public class EventDetails
+        // fetch event details
+        await GetEventsAsync();
+
+        // setup breadcrumb items
+        _items = new List<BreadcrumbItem>
         {
-            public class Event
-            {
-                public string ID { get; set; } = null!;
-                public string? EventStage { get; set; }
-                public List<EventVersusTeams>? EventVersusList { get; set; }
-                public string? Category { get; set; }
-                public string? Sport { get; set; }
-                public int? SubCategoryID { get; set; }
-                public string? Subcategory { get; set; }
-                public string? Gender { get; set; }
-                public string? Level { get; set; }
-                public string? Venue { get; set; }
-                public decimal? Latitude { get; set; }
-                public decimal? Longitude { get; set; }
-                public DateTime? Date { get; set; }
-                public TimeSpan? Time { get; set; }
-                public bool? OnStream { get; set; }
-                public string? StreamService { get; set; }
-                public string? StreamURL { get; set; }
-                public string? StreamTitle { get; set; }
-                public bool? IsFinished { get; set; }
-
-                public bool? Archived { get; set; }
-                public bool? Deleted { get; set; }
-                public string? FirstName { get; set; }
-                public string? LastName { get; set; }
-            }
-
-            public class EventVersusTeams
-            {
-                public int ID { get; set; }
-                public string? Score { get; set; }
-                // public int? SchoolRegionID { get; set; }
-                public string? Region { get; set; }
-                public string? Abbreviation { get; set; }
-                //
-
-                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
-                public DateTime? RecentUpdateAt { get; set; }
-            }
-
-            public class EventVersusTeamPlayers
-            {
-                public int ID { get; set; }
-                public int? EventVersusID { get; set; }
-                public string? FirstName { get; set; }
-                public string? LastName { get; set; }
-                public string? School { get; set; }
-            }
-        }
+            new("Home", href: "./"),
+            new("Events", href: "./events"),
+            new($"{EventStatus}", href: $"./events/{EventStatus}"),
+            new($"{_eventDetail?.Sport} - {_eventDetail?.Subcategory} ({_eventDetail?.EventStage})", href: null, disabled: true)
+        };
     }
 
+    /* ---------------------------
+       Methods
+
+       - methods for handling data and events
+
+    --------------------------- */
+
+    // extracts the YouTube video ID from a given URL
     private string? ExtractYouTubeVideoId(string? url)
     {
         if (string.IsNullOrWhiteSpace(url))
@@ -232,60 +213,89 @@
         }
     }
 
-    private string GetMedalColor(int index)
-    {
-        return index switch
+    // returns the color associated with the medal based on the index
+    private string GetMedalColor(int index) =>
+        index switch
         {
-            0 => Colors.Amber.Accent4,   // First place (Gold)
+            0 => Colors.Amber.Accent4,     // First place (Gold)
             1 => Colors.BlueGray.Lighten4, // Second place (Silver)
             2 => Colors.DeepOrange.Lighten1, // Third place (Bronze)
             _ => "transparent" // Default color for others
         };
-    }
 
-    protected override async Task OnInitializedAsync()
-    {
-        featuresUnlockingService.OnLockChanged += HandleLockChanged;
-        await featuresUnlockingService.LoadFromLocalStorageAsync();
+    /* ---------------------------
+       API Calls
 
-        if (!featuresUnlockingService.IsUnlocked)
-        {
-            navigationManager.NavigateTo("./");
-            return;
-        }
+       - methods for fetching data from APIs
 
-        await GetEventsAsync();
+    --------------------------- */
 
-        _items = new List<BreadcrumbItem>
-        {
-            new("Home", href: "./"),
-            new("Events", href: $"./events"),
-            new($"{EventStatus}", href: $"./events/{EventStatus}"),
-            new($"{_eventDetail?.Sport} - {_eventDetail?.Subcategory} ({_eventDetail?.EventStage})", href: null, disabled: true)
-        };
-    }
-
-    private void HandleLockChanged()
-    {
-        if (!featuresUnlockingService.IsUnlocked)
-        {
-            navigationManager.NavigateTo("./");
-        }
-        else
-        {
-            StateHasChanged();
-        }
-    }
-
-    public void Dispose()
-    {
-        featuresUnlockingService.OnLockChanged -= HandleLockChanged;
-    }
-
-
+    // fetches event details from the API based on the provided ID
     private async Task GetEventsAsync()
     {
         string url = $"/Events/Details?id={ID}";
         _eventDetail = await apiService.GetSingleAsync<EventsDTO.EventDetails.Event>(url);
     }
+
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // DTO for event details
+    public class EventsDTO
+    {
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public string? StreamTitle { get; set; }
+                public bool? IsFinished { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
+    }
 }
+

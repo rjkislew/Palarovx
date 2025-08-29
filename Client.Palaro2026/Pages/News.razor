@@ -53,7 +53,7 @@
                                         <MudPaper Outlined Style="height: 100%; position: relative;" Class="scale-up-center">
                                             <MudStack Spacing="0" AlignItems="AlignItems.Start" Style="height: 100%">
 
-                                                @if (_newsImageMap.TryGetValue(news.ID, out var images) && images?.Any() == true)
+                                                @if (_newsImageMap.TryGetValue(news.ID!, out var images) && images?.Any() == true)
                                                 {
                                                     <MudImage ObjectFit="ObjectFit.Cover"
                                                               Style="height: 100%; width: 100%"
@@ -134,103 +134,118 @@
 <FooterComponent />
 
 @code {
-    [Parameter]
-    public string? NewsCategory { get; set; }
+    /* ---------------------------
+       Parameters, & Variables
 
+       - stores parameters passed to the component - URL parameters
+       - manages and stores and data coming from API calls
+
+    --------------------------- */
+
+    // URL parameter for filtering news by category
+    [Parameter] public string? NewsCategory { get; set; }
+
+    // To store the fetched news details
     private List<NewsDTO.NewsDetails.NewsContent>? _newsContents;
-    private List<string> _imagesValues = new();
+
+    // To map news IDs to their corresponding image URLs
     private Dictionary<string, List<string>> _newsImageMap = new();
-    private List<string>? _newsCategories = new();
-    private string? _selectedNewsCategory = null;
 
+    // To temporarily hold image URLs during loading
+    private List<string>? _imagesValues = new();
 
+    // To store distinct news categories for the dropdown
+    private List<string?>? _newsCategories = new();
+
+    // Breadcrumb items
     private List<BreadcrumbItem> _items = new();
 
-    public class NewsDTO
-    {
-        public class NewsDetails
-        {
-            public class NewsContent
-            {
-                public string? ID { get; set; }
-                public string? Category { get; set; }
-                public string? Author { get; set; }
-                public string? Title { get; set; }
-                public string? Content { get; set; }
-                public string? Excerpt { get; set; }
-                public DateTime? DateCreated { get; set; }
-                public bool? IsPublished { get; set; }
-                public DateTime? DatePublished { get; set; }
-                public bool? IsArchived { get; set; }
-                public List<string> ImageUrls { get; set; } // or just string MainImageUrl
-            }
-        }
-    }
+    // To track the selected category in the dropdown
+    private string? _selectedNewsCategory = null;
 
-    protected override async Task OnParametersSetAsync()
-    {
-        _selectedNewsCategory = NewsCategory;
-        await GetNewsDetailsBySelectedCategoryAsync();
-    }
+    /* ---------------------------
+        Lifecycle Methods
 
-    private string GetRelativeTime(DateTime? date)
-    {
-        if (date == null) return "";
+        - methods that manage the component's lifecycle and state
 
-        var timeSpan = DateTime.Now - date.Value;
+    --------------------------- */
 
-        if (timeSpan.TotalSeconds < 60)
-            return "just now";
-
-        if (timeSpan.TotalMinutes < 60)
-        {
-            int minutes = (int)timeSpan.TotalMinutes;
-            return $"{minutes} minute{(minutes == 1 ? "" : "s")} ago";
-        }
-
-        if (timeSpan.TotalHours < 24)
-        {
-            int hours = (int)timeSpan.TotalHours;
-            return $"{hours} hour{(hours == 1 ? "" : "s")} ago";
-        }
-
-        if (timeSpan.TotalDays < 7)
-        {
-            int days = (int)timeSpan.TotalDays;
-            return $"{days} day{(days == 1 ? "" : "s")} ago";
-        }
-
-        if (timeSpan.TotalDays < 30)
-        {
-            int weeks = (int)(timeSpan.TotalDays / 7);
-            return $"{weeks} week{(weeks == 1 ? "" : "s")} ago";
-        }
-
-        if (timeSpan.TotalDays < 365)
-        {
-            int months = (int)(timeSpan.TotalDays / 30);
-            return $"{months} month{(months == 1 ? "" : "s")} ago";
-        }
-
-        int years = (int)(timeSpan.TotalDays / 365);
-        return $"{years} year{(years == 1 ? "" : "s")} ago";
-    }
-
-    // Initialization method to fetch data and update UI elements
+    // on component initialization fetch news details and setup breadcrumbs
     protected override async Task OnInitializedAsync()
     {
+        // Fetch initial news details
+        await GetNewsDetailsAsync();
+
+        // Initialize breadcrumb items
         _items = new List<BreadcrumbItem>
         {
             new("Home", href: "./"),
             new("News", href: null, disabled: true)
         };
 
-        await GetNewsDetailsAsync();
     }
 
+    // Update news when the category parameter changes
+    protected override async Task OnParametersSetAsync()
+    {
+        _selectedNewsCategory = NewsCategory;
+        await GetNewsDetailsBySelectedCategoryAsync();
+    }
+
+    // Utility to convert DateTime to relative time string - displays how long ago the post was
+    private string GetRelativeTime(DateTime? date)
+    {
+        if (date == null) return "";
+
+        var timeSpan = DateTime.Now - date.Value;
+
+        if (timeSpan.TotalSeconds < 60) return "just now";
+        if (timeSpan.TotalMinutes < 60) return $"{(int)timeSpan.TotalMinutes} minute{(timeSpan.TotalMinutes < 2 ? "" : "s")} ago";
+        if (timeSpan.TotalHours < 24) return $"{(int)timeSpan.TotalHours} hour{(timeSpan.TotalHours < 2 ? "" : "s")} ago";
+        if (timeSpan.TotalDays < 7) return $"{(int)timeSpan.TotalDays} day{(timeSpan.TotalDays < 2 ? "" : "s")} ago";
+        if (timeSpan.TotalDays < 30) return $"{(int)(timeSpan.TotalDays / 7)} week{((int)(timeSpan.TotalDays / 7) == 1 ? "" : "s")} ago";
+        if (timeSpan.TotalDays < 365) return $"{(int)(timeSpan.TotalDays / 30)} month{((int)(timeSpan.TotalDays / 30) == 1 ? "" : "s")} ago";
+
+        return $"{(int)(timeSpan.TotalDays / 365)} year{((int)(timeSpan.TotalDays / 365) == 1 ? "" : "s")} ago";
+    }
+
+    /* ---------------------------
+       API Calls
+
+       - methods for fetching data from APIs
+
+    --------------------------- */
+
+    // Fetch all news details
+    private async Task GetNewsDetailsAsync()
+    {
+        const string url = "/News/Details?&isArchived=false&isPublished=false";
+        _newsContents = await apiService.GetAsync<NewsDTO.NewsDetails.NewsContent>(url);
+        await LoadNewsImagesAsync(_newsContents!.Select(n => n.ID!));
+
+        _newsCategories = _newsContents?
+            .Select(n => n.Category)
+            .Distinct()
+            .OrderBy(c => c)
+            .ToList();
+    }
+
+    // Fetch news details based on the selected category
+    private async Task GetNewsDetailsBySelectedCategoryAsync()
+    {
+        var categoryEncoded = Uri.EscapeDataString(_selectedNewsCategory ?? string.Empty);
+        string url = $"/News/Details?category={categoryEncoded}&isArchived=false&isPublished=false";
+
+        _newsContents = await apiService.GetAsync<NewsDTO.NewsDetails.NewsContent>(url);
+        await LoadNewsImagesAsync(_newsContents!.Select(n => n.ID!));
+
+        NewsCategory = _selectedNewsCategory;
+    }
+
+    // Load images for each news item
     private async Task LoadNewsImagesAsync(IEnumerable<string>? newsIDs)
     {
-        var baseUrl = "https://palarongpambansa2026.com/attachments/media/news";
+        const string baseUrl = "https://palarongpambansa2026.com/attachments/media/news";
 
         foreach (var newsID in newsIDs!)
         {
@@ -239,7 +254,7 @@
                 var apiUrl = $"/News/NewsImages?newsID={newsID}";
                 var imageFiles = await apiService.GetAsync<string>(apiUrl);
 
-                if (imageFiles != null && imageFiles.Count > 0)
+                if (imageFiles is { Count: > 0 })
                 {
                     var fullUrls = imageFiles
                         .Where(file => !string.IsNullOrWhiteSpace(file))
@@ -256,19 +271,14 @@
         }
     }
 
-    private async Task GetNewsDetailsAsync()
-    {
-        string url = $"/News/Details?&isArchived=false&isPublished=false";
-        _newsContents = await apiService.GetAsync<NewsDTO.NewsDetails.NewsContent>(url);
-        await LoadNewsImagesAsync(_newsContents!.Select(n => n.ID));
+    /* ---------------------------
+       Methods
 
-        _newsCategories = _newsContents?
-            .Select(n => n.Category)
-            .Distinct()
-            .OrderBy(c => c)
-            .ToList();
-    }
+       - methods for handling data and events
 
+    --------------------------- */
+
+    // Handle changes in the news category selection
     private async Task OnNewsCategoryChangedAsync(string? category)
     {
         _selectedNewsCategory = category;
@@ -281,15 +291,34 @@
         await GetNewsDetailsBySelectedCategoryAsync();
     }
 
-    private async Task GetNewsDetailsBySelectedCategoryAsync()
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // DTO for News Details
+    public class NewsDTO
     {
-        var categoryEncoded = Uri.EscapeDataString(_selectedNewsCategory ?? string.Empty);
-        string url = $"/News/Details?category={categoryEncoded}&isArchived=false&isPublished=false";
-
-        _newsContents = await apiService.GetAsync<NewsDTO.NewsDetails.NewsContent>(url);
-        await LoadNewsImagesAsync(_newsContents!.Select(n => n.ID));
-
-        NewsCategory = _selectedNewsCategory;
+        public class NewsDetails
+        {
+            public class NewsContent
+            {
+                public string? ID { get; set; }
+                public string? Category { get; set; }
+                public string? Author { get; set; }
+                public string? Title { get; set; }
+                public string? Content { get; set; }
+                public string? Excerpt { get; set; }
+                public DateTime? DateCreated { get; set; }
+                public bool? IsPublished { get; set; }
+                public DateTime? DatePublished { get; set; }
+                public bool? IsArchived { get; set; }
+                public List<string> ImageUrls { get; set; } = new();
+            }
+        }
     }
-
 }
+

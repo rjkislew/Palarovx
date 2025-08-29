@@ -39,9 +39,9 @@
                 </MudItem>
                 <MudItem xs="12">
                     <MudSelect @bind-SelectedValues="_selectedCoachIDValues" ToStringFunc="@(id => _profileCoaches?.FirstOrDefault(c => c.ID == id) is { } coach ? $"{coach.FirstName} {coach.LastName}" : string.Empty)"
-                               T="int?" MultiSelection="true" Margin="Margin.Dense" Label="Coach" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                              MultiSelection="true" Margin="Margin.Dense" Label="Coach" ShrinkLabel Variant="Variant.Outlined" Clearable>
                         <MudVirtualize Items="_profileCoaches" Context="coach">
-                            <MudSelectItem T="int?" Value="coach.ID">@coach.FirstName @coach.LastName</MudSelectItem>
+                            <MudSelectItem Value="coach.ID">@coach.FirstName @coach.LastName</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
@@ -100,7 +100,7 @@ else
     private int? _selectedSportSubcategoryIDValue;
     private int? _selectedProfilePlayerSportIDValue;
     private int? _selectedProfilePlayerSportsCoachIDValue;
-    private IEnumerable<int?>? _selectedCoachIDValues;
+    private IEnumerable<string?>? _selectedCoachIDValues;
 
     // Disable addition button if values are empty
     private bool _editPlayerSporEventButtonDisabled =>
@@ -116,7 +116,7 @@ else
     {
         public class ProfilePlayers
         {
-            public int ID { get; set; }
+            public string? ID { get; set; }
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
             public int? SchoolID { get; set; }
@@ -134,12 +134,12 @@ else
         {
             public int ID { get; set; }
             public int? ProfilePlayerSportID { get; set; }
-            public int? ProfileCoachID { get; set; }
+            public string? ProfileCoachID { get; set; }
         }
 
         public class ProfileCoaches
         {
-            public int ID { get; set; }
+            public string? ID { get; set; }
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
             public int? SchoolRegionID { get; set; }
@@ -460,14 +460,14 @@ else
         {
             string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/Coaches";
 
-            var eventStream = _selectedCoachIDValues?.Where(id => id.HasValue) // Ensure valid IDs
+            var coach = _selectedCoachIDValues?.Where(id => string.IsNullOrEmpty(id)) // Ensure valid IDs
                 .Select(coachID => new ProfilesDTO.ProfilePlayerSportCoaches
                     {
-                        ProfileCoachID = coachID!.Value,
+                        ProfileCoachID = coachID!,
                         ProfilePlayerSportID = selectedPlayerSportsID,
                     }).ToList();
 
-            var jsonContent = JsonSerializer.Serialize(eventStream);
+            var jsonContent = JsonSerializer.Serialize(coach);
             var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
             HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);

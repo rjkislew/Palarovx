@@ -8,7 +8,6 @@
 @inject APIService apiService
 @inject ThemeService themeService
 @inject MapBoxService mapBoxService
-@inject FeaturesUnlockingService featuresUnlockingService
 
 <!-- Required -->
 <MudThemeProvider @ref="_mudThemeProvider" Theme="_palaroTheme" DefaultScrollbar="true" IsDarkMode="@(themeService.IsDarkMode)" />
@@ -50,16 +49,10 @@
                 {
                     <MudProgressCircular Color="Color.Primary" Value="@_progress">
                         <ChildContent>
-                            <MudText Typo="Typo.caption">@_progress %</MudText>
+                            <MudText Style="font-size: 10px">@_progress%</MudText>
                         </ChildContent>
                     </MudProgressCircular>
                 }
-
-                <!-- Icon button for unlocking features -->
-                <MudTooltip Arrow Text="Unlock Features">
-                    <MudIconButton OnClick="@(featuresUnlockingService.IsUnlocked? OpenLockFeaturesDialog : OpenUnlockFeaturesDialog)"
-                                   Icon="@(featuresUnlockingService.IsUnlocked ? Icons.Material.Filled.Lock : Icons.Material.Filled.LockOpen)" />
-                </MudTooltip>
 
                 <!-- Online grocery store link (Hatod) -->
                 <MudTooltip Arrow Text="Delivery Service">
@@ -102,16 +95,12 @@
             {
                 <MudProgressCircular Color="Color.Primary" Value="@_progress">
                     <ChildContent>
-                        <MudText Typo="Typo.caption">@_progress %</MudText>
+                        <MudText Style="font-size: 10px">@_progress%</MudText>
                     </ChildContent>
                 </MudProgressCircular>
             }
             <!-- Stack for icons on the right side of the AppBar -->
             <MudStack Row AlignItems="AlignItems.Center" Spacing="0">
-
-                <!-- Icon button for unlocking features -->
-                <MudIconButton OnClick="@(featuresUnlockingService.IsUnlocked? OpenLockFeaturesDialog : OpenUnlockFeaturesDialog)"
-                               Icon="@(featuresUnlockingService.IsUnlocked ? Icons.Material.Filled.Lock : Icons.Material.Filled.LockOpen)" />
 
                 <!-- Icon button for toggling dark mode -->
                 <MudIconButton OnClick="ToggleDarkMode" Icon="@GetThemeIcon()" />
@@ -157,7 +146,6 @@
         @Body
     </MudMainContent>
 </MudLayout>
-
 @code
 {
     // Reference to the MudThemeProvider for theme management
@@ -178,9 +166,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // remove this method if you don't want to unlock features on initialization or when governor cane is done checking
-        // await featuresUnlockingService.UnlockFeaturesAsync(); // Ensure features are unlocked on initialization
-
         // Handle system preferred theme from localStorage
         var systemPreferred = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "systemPreferred");
 
@@ -209,7 +194,6 @@
 
         // Subscribe to theme and feature change events
         themeService.OnThemeChanged += StateHasChanged;
-        featuresUnlockingService.OnLockChanged += StateHasChanged;
 
         // Load user's theme preference
         await themeService.LoadThemePreference();
@@ -227,12 +211,12 @@
         }
 
         // Initial checks
-        await CheckFeaturesUnlocked();
         await CheckNoticeAgreed();
+        await OpenNoticeDialog();
 
         if (_isNoticeAgreed != true)
         {
-            await OpenNoticeDialog();
+            await OpenTrashNoticeDialog();
         }
 
         StateHasChanged(); // Trigger UI update
@@ -305,7 +289,7 @@
             await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "isDarkMode");
 
             // 🔽 Get the current system theme mode immediately
-            var isSystemDark = await _mudThemeProvider.GetSystemPreference();
+            var isSystemDark = await _mudThemeProvider!.GetSystemDarkModeAsync();
             themeService.IsDarkMode = isSystemDark;
             await themeService.SystemThemeModeAsync(isSystemDark);
 
@@ -354,62 +338,22 @@
     }
 
     // Method to open the notice dialog
-    private async Task OpenNoticeDialog()
+    private async Task OpenTrashNoticeDialog()
     {
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, NoHeader = true };
+
+        var dialog = await dialogService.ShowAsync<TrashNotice>("Trash Notice", options);
+
+        var result = await dialog.Result;
+    }
+
+    private async Task OpenNoticeDialog()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, Position = DialogPosition.BottomCenter, BackgroundClass = "" , FullWidth = true, CloseOnEscapeKey = true, NoHeader = true };
 
         var dialog = await dialogService.ShowAsync<Notice>("Notice", options);
 
         var result = await dialog.Result;
-    }
-
-
-
-
-
-
-    // <summary>
-    // Lock features dialog
-    // This method opens a confirmation dialog to lock features.
-    // </summary>
-
-    // Method to check if features are unlocked
-    private async Task CheckFeaturesUnlocked()
-    {
-        await featuresUnlockingService.LoadFromLocalStorageAsync();
-    }
-
-    // Unlock features dialog
-    private async Task OpenUnlockFeaturesDialog()
-    {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true, NoHeader = true };
-
-        var dialog = await dialogService.ShowAsync<UnlockFeatures>("Unlock", options);
-
-        var result = await dialog.Result;
-
-        if (!result!.Canceled)
-        {
-            await CheckFeaturesUnlocked(); // Refresh the unlocked state after dialog closes
-        }
-    }
-
-    // Method to open the lock features confirmation dialog
-    private async Task OpenLockFeaturesDialog()
-    {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
-
-        bool? result = await dialogService.ShowMessageBox(
-            title: "Notice",
-            message: $"Do you confirm locking of features?",
-            yesText: "Yes",
-            cancelText: "Cancel",
-            options: options);
-
-        if (result == true)
-        {
-            await featuresUnlockingService.ToggleUnlockFeaturesAsync();
-        }
     }
 
 

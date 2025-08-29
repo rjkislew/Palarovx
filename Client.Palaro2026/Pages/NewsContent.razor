@@ -72,14 +72,123 @@
 <FooterComponent />
 
 @code {
+    /* ---------------------------
+       Parameters, & Variables
+
+       - stores parameters passed to the component - URL parameters
+       - manages and stores and data coming from API calls
+
+    --------------------------- */
+
+    // parameters to be passed via URL
     [Parameter] public string? Category { get; set; }
     [Parameter] public string? Title { get; set; }
 
+    // variables to store data from API calls
     private NewsDTO.NewsDetails.NewsContent? _newsContent;
+
+    // list to store image URLs
     private List<string> _imagesValues = new();
 
+    // breadcrumb items
     private List<BreadcrumbItem> _items = new();
 
+    /* ---------------------------
+        Lifecycle Methods
+
+        - methods that manage the component's lifecycle and state
+
+    --------------------------- */
+
+    // On component initialization, fetch news details and set up breadcrumb items
+    protected override async Task OnInitializedAsync()
+    {
+        // Fetch news details based on the Title parameter
+        await GetNewsDetailsAsync();
+
+        // Set up breadcrumb items
+        _items = new List<BreadcrumbItem>
+        {
+            new("Home", href: "./"),
+            new("News", href: "./news"),
+            new($"{Category}", href: $"./news/{Category}"),
+            new($"{Title}", href: null, disabled: true)
+        };
+    }
+
+    // Utility to convert DateTime to relative time string - displays how long ago the post was
+    private string GetRelativeTime(DateTime? date)
+    {
+        if (date == null) return "";
+
+        var timeSpan = DateTime.Now - date.Value;
+
+        if (timeSpan.TotalSeconds < 60) return "just now";
+        if (timeSpan.TotalMinutes < 60) return $"{(int)timeSpan.TotalMinutes} minute{((int)timeSpan.TotalMinutes == 1 ? "" : "s")} ago";
+        if (timeSpan.TotalHours < 24) return $"{(int)timeSpan.TotalHours} hour{((int)timeSpan.TotalHours == 1 ? "" : "s")} ago";
+        if (timeSpan.TotalDays < 7) return $"{(int)timeSpan.TotalDays} day{((int)timeSpan.TotalDays == 1 ? "" : "s")} ago";
+        if (timeSpan.TotalDays < 30) return $"{(int)(timeSpan.TotalDays / 7)} week{((int)(timeSpan.TotalDays / 7) == 1 ? "" : "s")} ago";
+        if (timeSpan.TotalDays < 365) return $"{(int)(timeSpan.TotalDays / 30)} month{((int)(timeSpan.TotalDays / 30) == 1 ? "" : "s")} ago";
+
+        return $"{(int)(timeSpan.TotalDays / 365)} year{((int)(timeSpan.TotalDays / 365) == 1 ? "" : "s")} ago";
+    }
+
+    /* ---------------------------
+       API Calls
+
+       - methods for fetching data from APIs
+
+    --------------------------- */
+
+    // Fetches news details based on the Title parameter
+    private async Task GetNewsDetailsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Title))
+            return;
+
+        string url = $"/News/Details?title={Title}";
+
+        _newsContent = await apiService.GetSingleAsync<NewsDTO.NewsDetails.NewsContent>(url);
+
+        if (_newsContent?.ID != null)
+        {
+            await LoadNewsImagesAsync(_newsContent.ID);
+        }
+    }
+
+    // Fetches images associated with a specific news item
+    private async Task LoadNewsImagesAsync(string newsID)
+    {
+        const string baseUrl = "https://palarongpambansa2026.com/attachments/media/news";
+
+        try
+        {
+            var apiUrl = $"/News/NewsImages?newsID={newsID}";
+            var imageFiles = await apiService.GetAsync<string>(apiUrl);
+
+            if (imageFiles is { Count: > 0 })
+            {
+                _imagesValues = imageFiles
+                    .Where(file => !string.IsNullOrWhiteSpace(file))
+                    .Select(file => $"{baseUrl}/{newsID}/{file}")
+                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading images for news {newsID}: {ex.Message}");
+        }
+    }
+
+    /* ---------------------------
+       DTO Classes
+
+       - Data Transfer Objects for handling API responses
+       Note: Please refer to the API documentation for more details.
+
+    --------------------------- */
+
+    // DTO for News Details
     public class NewsDTO
     {
         public class NewsDetails
@@ -100,97 +209,5 @@
             }
         }
     }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await GetNewsDetailsAsync();
-        _items = new List<BreadcrumbItem>
-        {
-            new("Home", href: "./"),
-            new("News", href: "./news"),
-            new($"{Category}", href: $"./news/{Category}"),
-            new($"{Title}", href: null, disabled: true)
-        };
-    }
-
-    private string GetRelativeTime(DateTime? date)
-    {
-        if (date == null) return "";
-
-        var timeSpan = DateTime.Now - date.Value;
-
-        if (timeSpan.TotalSeconds < 60)
-            return "just now";
-
-        if (timeSpan.TotalMinutes < 60)
-        {
-            int minutes = (int)timeSpan.TotalMinutes;
-            return $"{minutes} minute{(minutes == 1 ? "" : "s")} ago";
-        }
-
-        if (timeSpan.TotalHours < 24)
-        {
-            int hours = (int)timeSpan.TotalHours;
-            return $"{hours} hour{(hours == 1 ? "" : "s")} ago";
-        }
-
-        if (timeSpan.TotalDays < 7)
-        {
-            int days = (int)timeSpan.TotalDays;
-            return $"{days} day{(days == 1 ? "" : "s")} ago";
-        }
-
-        if (timeSpan.TotalDays < 30)
-        {
-            int weeks = (int)(timeSpan.TotalDays / 7);
-            return $"{weeks} week{(weeks == 1 ? "" : "s")} ago";
-        }
-
-        if (timeSpan.TotalDays < 365)
-        {
-            int months = (int)(timeSpan.TotalDays / 30);
-            return $"{months} month{(months == 1 ? "" : "s")} ago";
-        }
-
-        int years = (int)(timeSpan.TotalDays / 365);
-        return $"{years} year{(years == 1 ? "" : "s")} ago";
-    }
-
-    private async Task GetNewsDetailsAsync()
-    {
-        if (string.IsNullOrWhiteSpace(Title))
-            return;
-
-        string url = $"/News/Details?title={Title}";
-
-        _newsContent = await apiService.GetSingleAsync<NewsDTO.NewsDetails.NewsContent>(url);
-
-        if (_newsContent?.ID != null)
-        {
-            await LoadNewsImagesAsync(_newsContent.ID);
-        }
-    }
-
-    private async Task LoadNewsImagesAsync(string newsID)
-    {
-        var baseUrl = "https://palarongpambansa2026.com/attachments/media/news";
-
-        try
-        {
-            var apiUrl = $"/News/NewsImages?newsID={newsID}";
-            var imageFiles = await apiService.GetAsync<string>(apiUrl);
-
-            if (imageFiles != null && imageFiles.Count > 0)
-            {
-                _imagesValues = imageFiles
-                    .Where(file => !string.IsNullOrWhiteSpace(file))
-                    .Select(file => $"{baseUrl}/{newsID}/{file}")
-                    .ToList();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading images for news {newsID}: {ex.Message}");
-        }
-    }
 }
+
