@@ -16,7 +16,8 @@ namespace Server.Palaro2026.Controller
                Subcategory = sportSubcategories.Subcategory,
                SportID = sportSubcategories.SportID,
                SportGenderCategoryID = sportSubcategories.SportGenderCategoryID,
-               SchoolLevelID = sportSubcategories.SchoolLevelID
+               SchoolLevelID = sportSubcategories.SchoolLevelID,
+               MainCategory = sportSubcategories.MainCategory
            };
 
         [HttpGet("Subcategories")] // /api/Sports/Subcategories
@@ -25,7 +26,8 @@ namespace Server.Palaro2026.Controller
         [FromQuery] string? subcategory = null,
         [FromQuery] int? sportID = null,
         [FromQuery] int? sportGenderCategoryID = null,
-        [FromQuery] int? schoolLevelID = null)
+        [FromQuery] int? schoolLevelID = null,
+        [FromQuery] string? maincategory = null)
         {
             var query = _context.SportSubcategories.AsQueryable();
 
@@ -44,6 +46,9 @@ namespace Server.Palaro2026.Controller
             if (schoolLevelID.HasValue)
                 query = query.Where(x => x.SchoolLevelID == schoolLevelID.Value);
 
+            if (!string.IsNullOrEmpty(maincategory))
+                query = query.Where(x => x.MainCategory!.Contains(maincategory));
+
             return await query
                 .Select(x => SportSubcategoriesDTOMapper(x))
                 .AsNoTracking()
@@ -59,7 +64,8 @@ namespace Server.Palaro2026.Controller
                 Subcategory = sportSubcategories.Subcategory,
                 SportID = sportSubcategories.SportID,
                 SportGenderCategoryID = sportSubcategories.SportGenderCategoryID,
-                SchoolLevelID = sportSubcategories.SchoolLevelID
+                SchoolLevelID = sportSubcategories.SchoolLevelID,
+                MainCategory = sportSubcategories.MainCategory
             };
             _context.SportSubcategories.Add(sportSubcategoriesDTO);
             try
@@ -99,6 +105,7 @@ namespace Server.Palaro2026.Controller
             existingSubcategory.SportID = sportSubcategories.SportID;
             existingSubcategory.SportGenderCategoryID = sportSubcategories.SportGenderCategoryID;
             existingSubcategory.SchoolLevelID = sportSubcategories.SchoolLevelID;
+            existingSubcategory.MainCategory = sportSubcategories.MainCategory;
 
             try
             {
@@ -133,6 +140,9 @@ namespace Server.Palaro2026.Controller
 
             if (updatedSubcategory.SchoolLevelID != null)
                 existingSubcategory.SchoolLevelID = updatedSubcategory.SchoolLevelID;
+
+            if (updatedSubcategory.MainCategory != null)
+                existingSubcategory.MainCategory = updatedSubcategory.MainCategory;
 
             try
             {

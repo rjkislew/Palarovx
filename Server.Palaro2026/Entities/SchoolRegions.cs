@@ -14,6 +14,10 @@ public partial class SchoolRegions
 
     [JsonIgnore]
     public virtual ICollection<EventVersusTeams> EventVersusTeams { get; set; } = new List<EventVersusTeams>();
+    //
+    [JsonIgnore]
+    public virtual ICollection<EventVersusTeamScores> EventVersusTeamScores { get; set; } = new List<EventVersusTeamScores>();
+    //
 
     [JsonIgnore]
     public virtual ICollection<ProfileCoaches> ProfileCoaches { get; set; } = new List<ProfileCoaches>();

@@ -39,7 +39,7 @@
                 </MudItem>
                 <MudItem xs="12">
                     <MudSelect @bind-SelectedValues="_selectedCoachIDValues" ToStringFunc="@(id => _profileCoaches?.FirstOrDefault(c => c.ID == id) is { } coach ? $"{coach.FirstName} {coach.LastName}" : string.Empty)"
-                              MultiSelection="true" Margin="Margin.Dense" Label="Coach" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                               MultiSelection="true" Margin="Margin.Dense" Label="Coach" ShrinkLabel Variant="Variant.Outlined" Clearable>
                         <MudVirtualize Items="_profileCoaches" Context="coach">
                             <MudSelectItem Value="coach.ID">@coach.FirstName @coach.LastName</MudSelectItem>
                         </MudVirtualize>
@@ -105,7 +105,7 @@ else
     // Disable addition button if values are empty
     private bool _editPlayerSporEventButtonDisabled =>
     string.IsNullOrEmpty(_firstnameValue) ||
-    string.IsNullOrEmpty(_lastnameValue) || 
+    string.IsNullOrEmpty(_lastnameValue) ||
     !_selectedCoachIDValues!.Any();
 
     // Load dialog if true
@@ -195,14 +195,16 @@ else
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Profiles/Player?id={profilePlayerID}";
+            string url = $"/Profiles/Player?id={profilePlayerID}";
+            //mine
+            _profilePlayers = await apiService.GetAsync<ProfilesDTO.ProfilePlayers>(url);
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
+            // HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            // httpResponse.EnsureSuccessStatusCode();
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _profilePlayers = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayers>>(responseStream, options);
+            // using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            // var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            // _profilePlayers = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayers>>(responseStream, options);
 
             if (_profilePlayers != null)
             {
@@ -225,14 +227,16 @@ else
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/?id={profilePlayerID}";
+            string url = $"/Profiles/Player/Sports/?id={profilePlayerID}";
+            //mine
+            _profilePlayerSports = await apiService.GetAsync<ProfilesDTO.ProfilePlayerSports>(url);
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
+            // HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            // httpResponse.EnsureSuccessStatusCode();
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _profilePlayerSports = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayerSports>>(responseStream, options);
+            // using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            // var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            // _profilePlayerSports = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayerSports>>(responseStream, options);
 
             if (_profilePlayerSports != null)
             {
@@ -254,14 +258,28 @@ else
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Profiles/Coach?schoolRegionID={selectedRegionID}";
+            string url = $"/Profiles/Coach?schoolRegionID={selectedRegionID}";
+            //mine
+            _profileCoaches = await apiService.GetAsync<ProfilesDTO.ProfileCoaches>(url);
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
+            // HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            // httpResponse.EnsureSuccessStatusCode();
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _profileCoaches = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfileCoaches>>(responseStream, options);
+            // using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            // var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            // _profileCoaches = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfileCoaches>>(responseStream, options);
+
+            if (_profileCoaches != null)
+            {
+                var selectedCoach = _profileCoaches.First();
+                // Title
+                _dialogHeader = $"{selectedCoach.FirstName} {selectedCoach.LastName}";
+
+                // Data
+                _firstnameValue = selectedCoach.FirstName;
+                _lastnameValue = selectedCoach.LastName;
+            }
+
         }
         catch (HttpRequestException ex)
         {
@@ -273,20 +291,27 @@ else
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/Coaches?profilePlayerSportID={_selectedProfilePlayerSportIDValue}";
+            string url = $"/Profiles/Player/Sports/Coaches?profilePlayerSportID={_selectedProfilePlayerSportIDValue}";
+            //mine
+            _profilePlayerSportCoaches = await apiService.GetAsync<ProfilesDTO.ProfilePlayerSportCoaches>(url);
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode();
+            // HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            // httpResponse.EnsureSuccessStatusCode();
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _profilePlayerSportCoaches = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayerSportCoaches>>(responseStream, options);
+            // using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            // var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            // _profilePlayerSportCoaches = await JsonSerializer.DeserializeAsync<List<ProfilesDTO.ProfilePlayerSportCoaches>>(responseStream, options);
 
-            if (_profilePlayerSportCoaches != null)
+            if (_profilePlayerSportCoaches != null && _profilePlayerSportCoaches.Any()) // Check for non-empty list
             {
-                var profilePlayerSportCoach = _profilePlayerSportCoaches.First();
+                var profilePlayerSportCoach = _profilePlayerSportCoaches.First(); // safe to call First() now
                 _selectedProfilePlayerSportsCoachIDValue = profilePlayerSportCoach.ID;
                 _selectedCoachIDValues = _profilePlayerSportCoaches.Select(c => c.ProfileCoachID).ToList();
+            }
+            else
+            {
+                // Handle case where there are no coaches
+                Console.WriteLine("No coaches found.");
             }
         }
         catch (HttpRequestException ex)
@@ -299,18 +324,20 @@ else
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Sports/Subcategories?id={_selectedSportSubcategoryIDValue}";
+            string url = $"/Sports/Subcategories?id={_selectedSportSubcategoryIDValue}";
+            //mine
+            _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            // HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            // httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var sportSubcategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportSubcategories>>(responseStream, options);
+            // using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            // var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            // var sportSubcategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportSubcategories>>(responseStream, options);
 
-            if (sportSubcategories != null)
+            if (_sportSubcategories != null)
             {
-                var sportSubcategory = sportSubcategories.First();
+                var sportSubcategory = _sportSubcategories.First();
 
                 _selectedGenderCategoryIDValue = sportSubcategory.SportGenderCategoryID;
                 _selectedSportSubcategoryIDValue = sportSubcategory.ID;
@@ -327,14 +354,16 @@ else
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Sports/GenderCategories";
+            string url = $"/Sports/GenderCategories";
+            //mine
+            _sportGenderCategories = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url);
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            // HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            // httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sportGenderCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportGenderCategories>>(responseStream, options);
+            // using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            // var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            // _sportGenderCategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportGenderCategories>>(responseStream, options);
 
             await GetSportSubcategoryAsync();
         }
@@ -349,14 +378,16 @@ else
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Sports/Subcategories?sportID={selectedSportID}&schoolLevelID={selectedSchoolLevelID}&sportGenderCategoryID={_selectedGenderCategoryIDValue}";
+            string url = $"/Sports/Subcategories?sportID={selectedSportID}&schoolLevelID={selectedSchoolLevelID}&sportGenderCategoryID={_selectedGenderCategoryIDValue}";
+            //mine
+            _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
 
-            HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
-            httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
+            // HttpResponseMessage httpResponse = await httpClient.GetAsync(url);
+            // httpResponse.EnsureSuccessStatusCode(); // Ensure a successful response
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            _sportSubcategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportSubcategories>>(responseStream, options);
+            // using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+            // var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            // _sportSubcategories = await JsonSerializer.DeserializeAsync<List<SportsDTO.SportSubcategories>>(responseStream, options);
 
 
             if (_sportSubcategories == null || !_sportSubcategories.Any())
@@ -422,11 +453,15 @@ else
                     SportSubcategoryID = _selectedSportSubcategoryIDValue,
                 };
 
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/{selectedPlayerSportsID}";
-            var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
+            // string url = $"/Profiles/Player/Sports/{selectedPlayerSportsID}";
+            // var content = new StringContent(JsonSerializer.Serialize(updatedStream), Encoding.UTF8, "application/json");
 
-            HttpResponseMessage response = await httpClient.PutAsync(url, content);
-            response.EnsureSuccessStatusCode();
+            // HttpResponseMessage response = await httpClient.PutAsync(url, content);
+            // response.EnsureSuccessStatusCode();
+
+            string url = $"/Profiles/Player/Sports/{selectedPlayerSportsID}";
+            var success = await apiService.PutAsync(url, updatedStream);
+
 
             if (_selectedCoachIDValues?.Any() != true)
             {
@@ -435,13 +470,13 @@ else
 
             if (_selectedCoachIDValues?.Any() != false)
             {
-                await PostPlayerSportCoachesAsync();
+                await UpdatePlayerSportEventCoachesAsync();
             }
 
             if (_selectedCoachIDValues?.Count() > 0)
             {
-                await DeleteProfilePlayerSportCoachByPlayerSportIDAsync();
-                await PostPlayerSportCoachesAsync();
+                // await DeleteProfilePlayerSportCoachByPlayerSportIDAsync();
+                await UpdatePlayerSportEventCoachesAsync();
             }
 
             Snackbar.Add("Player sport event updated successfully.", Severity.Success);
@@ -458,7 +493,7 @@ else
     {
         try
         {
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/Coaches";
+            string url = $"/Profiles/Player/Sports/Coaches";
 
             var coach = _selectedCoachIDValues?.Where(id => string.IsNullOrEmpty(id)) // Ensure valid IDs
                 .Select(coachID => new ProfilesDTO.ProfilePlayerSportCoaches
@@ -467,16 +502,62 @@ else
                         ProfilePlayerSportID = selectedPlayerSportsID,
                     }).ToList();
 
-            var jsonContent = JsonSerializer.Serialize(coach);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            // var jsonContent = JsonSerializer.Serialize(coach);
+            // var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-            HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            // HttpResponseMessage httpResponse = await httpClient.PostAsync(url, content);
+            if (coach == null || coach.Count == 0) return;
+
+            var success = await apiService.PostAsync(url, coach);
+
+            if (!success)
+            {
+                Snackbar.Add("Failed to assign coaches.", Severity.Error);
+            }
+            //
         }
         catch (HttpRequestException ex)
         {
             Console.WriteLine($"Error posting data: {ex.Message}");
         }
     }
+
+    //doingzzzz with mah bff
+    private async Task UpdatePlayerSportEventCoachesAsync()
+    {
+        try
+        {
+            if (selectedPlayerSportsID == 0) return;
+
+            // Always clear old coaches first
+            string deleteUrl = $"/Profiles/Player/Sports/Coaches/ByPlayerSport/{selectedPlayerSportsID}";
+            await apiService.DeleteAsync(deleteUrl);
+
+            // Add the currently selected coaches
+            if (_selectedCoachIDValues != null && _selectedCoachIDValues.Any())
+            {
+                var newCoaches = _selectedCoachIDValues.Select(coachID => new ProfilesDTO.ProfilePlayerSportCoaches
+                    {
+                        ProfileCoachID = coachID,
+                        ProfilePlayerSportID = selectedPlayerSportsID
+                    }).ToList();
+
+                var success = await apiService.PostAsync("/Profiles/Player/Sports/Coaches", newCoaches);
+                if (!success)
+                {
+                    Snackbar.Add("Failed to assign coaches.", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating coaches: {ex.Message}", Severity.Error);
+        }
+    }
+
+
+    ///
+
 
     // Delete Sport event and sport event coach by sport event ID
     private async Task DeleteProfilePlayerSportCoachByPlayerSportIDAsync()
@@ -485,10 +566,17 @@ else
         {
             if (selectedPlayerSportsID == 0) return;
 
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/Coaches/ByPlayerSport/{selectedPlayerSportsID}";
+            // string url = $"/Profiles/Player/Sports/Coaches/ByPlayerSport/{selectedPlayerSportsID}";
 
-            HttpResponseMessage response = await httpClient.DeleteAsync(url);
-            response.EnsureSuccessStatusCode();
+            // HttpResponseMessage response = await httpClient.DeleteAsync(url);
+            // response.EnsureSuccessStatusCode();
+            string url = $"Profiles/Player/Sports/Coaches/ByPlayerSport/{selectedPlayerSportsID}";
+            var success = await apiService.DeleteAsync(url);
+            if (!success)
+            {
+                Snackbar.Add("Failed to delete player sport coach.", Severity.Error);
+            }
+            //
         }
         catch (HttpRequestException ex)
         {
@@ -502,12 +590,24 @@ else
         {
             if (selectedPlayerSportsID == 0) return;
 
-            string url = $"{apiService.Palaro2026API}/Profiles/Player/Sports/{selectedPlayerSportsID}";
+            // string url = $"/Profiles/Player/Sports/{selectedPlayerSportsID}";
 
-            HttpResponseMessage response = await httpClient.DeleteAsync(url);
-            response.EnsureSuccessStatusCode();
+            // HttpResponseMessage response = await httpClient.DeleteAsync(url);
+            // response.EnsureSuccessStatusCode();
 
-            Snackbar.Add("Player sport event deleted successfully.", Severity.Success);
+            // Snackbar.Add("Player sport event deleted successfully.", Severity.Success);
+            string url = $"Profiles/Player/Sports/{selectedPlayerSportsID}";
+            var success = await apiService.DeleteAsync(url);
+
+            if (success)
+            {
+                Snackbar.Add("Player sport event deleted successfully.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete player sport event.", Severity.Error);
+            }
+            //
         }
         catch (HttpRequestException ex)
         {
@@ -515,3 +615,4 @@ else
         }
     }
 }
+@* //naay ing ani tanan   { apiService.Palaro2026API} *@

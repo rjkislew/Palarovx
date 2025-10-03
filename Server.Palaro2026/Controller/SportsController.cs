@@ -69,7 +69,8 @@ namespace Server.Palaro2026.Controller
                                             .Select(sub => new SportsDTO.SportDetails.SportSubcategories
                                             {
                                                 ID = sub.ID,
-                                                Subcategory = sub.Subcategory
+                                                Subcategory = sub.Subcategory,
+                                                MainCategory = sub.MainCategory
                                             }).ToList()
                                     }).ToList()
                             }).ToList()

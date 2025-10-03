@@ -31,7 +31,8 @@ builder.Services.AddScoped(sp =>
 {
     var httpClient = new HttpClient { BaseAddress = new Uri(builder.Configuration["ApiUrl"]!) };
     var config = sp.GetRequiredService<IConfiguration>();
-    return new APIService(config, httpClient);
+    return new APIService(config, httpClient, builder.HostEnvironment);
+    //return new APIService(config, httpClient);
 });
 
 await builder.Build().RunAsync();

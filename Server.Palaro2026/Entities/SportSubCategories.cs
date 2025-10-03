@@ -15,6 +15,7 @@ public partial class SportSubcategories
     public int? SportGenderCategoryID { get; set; }
 
     public int? SchoolLevelID { get; set; }
+    public string? MainCategory { get; set; }
 
     [JsonIgnore]
     public virtual ICollection<Events> Events { get; set; } = new List<Events>();

@@ -1,53 +1,66 @@
 ﻿@inject NavigationManager NavManager
+@inject CookieService cookieService
 
 <MudNavMenu Margin="Margin.Normal" Rounded Color="Color.Dark" Class="scroll-container">
-    <!-- Home Link -->
+    <!-- Home -->
     <MudNavLink Match="NavLinkMatch.All" Href="./">Home</MudNavLink>
 
-    <!-- Events Group -->
-    <MudNavGroup Title="Event" Expanded="@IsExpanded("/events")">
-        <MudNavLink Match="NavLinkMatch.All" Href="./events/">Events</MudNavLink>
-        <MudNavLink Match="NavLinkMatch.All" Href="./events/streams">Streams</MudNavLink>
-        <MudNavLink Match="NavLinkMatch.All" Href="./events/venues">Venues</MudNavLink>
+    <!-- Events -->
+    <MudNavGroup Title="Event" Expanded="@IsExpanded("/events")" Disabled="@(!CanAccessEvents)">
+        <MudNavLink Match="NavLinkMatch.All" Href="./events/" Disabled="@(!CanAccessEvents)">Events</MudNavLink>
+        <MudNavLink Match="NavLinkMatch.All" Href="./events/streams" Disabled="@(!CanAccessEvents)">Streams</MudNavLink>
+        <MudNavLink Match="NavLinkMatch.All" Href="./events/venues" Disabled="@(!CanAccessEvents)">Venues</MudNavLink>
     </MudNavGroup>
 
-    <!-- News Group -->
-    <MudNavGroup Title="News" Expanded="@IsExpanded("/news")">
-        <MudNavLink Match="NavLinkMatch.All" Href="./news" >News</MudNavLink>
-        <MudNavLink Match="NavLinkMatch.All" Href="./news/categories">Categories</MudNavLink>
+    <!-- News -->
+    <MudNavGroup Title="News" Expanded="@IsExpanded("/news")" Disabled="@(!CanAccessNews)">
+        <MudNavLink Match="NavLinkMatch.All" Href="./news" Disabled="@(!CanAccessNews)">News</MudNavLink>
+        <MudNavLink Match="NavLinkMatch.All" Href="./news/categories" Disabled="@(!CanAccessNewsAdmin)">Categories</MudNavLink>
     </MudNavGroup>
 
-    <!-- Profile Group -->
-    <MudNavGroup Title="Profile" Expanded="@IsExpanded("/profiles")">
-        <MudNavLink Match="NavLinkMatch.All" Href="./profiles/players">Players</MudNavLink>
-        <MudNavLink Match="NavLinkMatch.All" Href="./profiles/coaches">Coaches</MudNavLink>
+    <!-- Profile -->
+    <MudNavGroup Title="Profile" Expanded="@IsExpanded("/profiles")" Disabled="@(!CanAccessProfiles)">
+        <MudNavLink Match="NavLinkMatch.All" Href="./profiles/players" Disabled="@(!CanAccessProfiles)">Players</MudNavLink>
+        <MudNavLink Match="NavLinkMatch.All" Href="./profiles/coaches" Disabled="@(!CanAccessProfiles)">Coaches</MudNavLink>
     </MudNavGroup>
 
-    <!-- Schools Group -->
-    <MudNavGroup Title="School" Expanded="@IsExpanded("/schools")">
-        <MudNavLink Match="NavLinkMatch.All" Href="./schools/regions">Regions</MudNavLink>
-        <MudNavLink Match="NavLinkMatch.All" Href="./schools/divisions">Divisions</MudNavLink>
-        <MudNavLink Match="NavLinkMatch.All" Href="./schools">Schools</MudNavLink>
-        <MudNavLink Match="NavLinkMatch.All" Href="./schools/billeting-quarters">Billeting Quarters</MudNavLink>
+    <!-- Schools -->
+    <MudNavGroup Title="School" Expanded="@IsExpanded("/schools")" Disabled="@(!CanAccessSchools)">
+        <MudNavLink Match="NavLinkMatch.All" Href="./schools/regions" Disabled="@(!CanAccessSchools)">Regions</MudNavLink>
+        <MudNavLink Match="NavLinkMatch.All" Href="./schools/divisions" Disabled="@(!CanAccessSchools)">Divisions</MudNavLink>
+        <MudNavLink Match="NavLinkMatch.All" Href="./schools" Disabled="@(!CanAccessSchools)">Schools</MudNavLink>
+        <MudNavLink Match="NavLinkMatch.All" Href="./schools/billeting-quarters" Disabled="@(!CanAccessSchools)">Billeting Quarters</MudNavLink>
     </MudNavGroup>
 
-    <!-- Sport Group -->
-    <MudNavGroup Title="Sport" Expanded="@IsExpanded("/sports")">
-        <MudNavLink Match="NavLinkMatch.All" Href="./sports">Sports</MudNavLink>
-        <MudNavLink Match="NavLinkMatch.All" Href="./sports/subcategories">Subcategories</MudNavLink>
+    <!-- Sports -->
+    <MudNavGroup Title="Sport" Expanded="@IsExpanded("/sports")" Disabled="@(!CanAccessSports)">
+        <MudNavLink Match="NavLinkMatch.All" Href="./sports" Disabled="@(!CanAccessSports)">Sports</MudNavLink>
+        <MudNavLink Match="NavLinkMatch.All" Href="./sports/subcategories" Disabled="@(!CanAccessSports)">Subcategories</MudNavLink>
     </MudNavGroup>
 
     <!-- Users -->
-    <MudNavLink Match="NavLinkMatch.All" Href="./users">Users</MudNavLink>
+    <MudNavLink Match="NavLinkMatch.All" Href="./users" Disabled="@(!CanAccessUsers)">Users</MudNavLink>
 </MudNavMenu>
 
 @code {
     private string currentPath = string.Empty;
+    private string? UserRole;
 
-    protected override void OnInitialized()
+    private bool CanAccessEvents => UserRole is "Superuser" or "System Administrator" or "Tally Manager" or "Tally Clerk" or "Event Manager";
+    private bool CanAccessNews => UserRole is "Superuser" or "System Administrator" or "News Administrator" or "News Editor" or "News Contributor";
+    private bool CanAccessNewsAdmin => UserRole is "Superuser" or "System Administrator" or "News Administrator";
+    private bool CanAccessProfiles => UserRole is "Superuser" or "System Administrator" or "Profile Manager";
+    private bool CanAccessSchools => UserRole is "Superuser" or "System Administrator" or "Regional Facilitator";
+    private bool CanAccessSports => UserRole is "Superuser" or "System Administrator" or "Sport Manager";
+    private bool CanAccessUsers => UserRole == "Superuser";
+
+    protected override async Task OnInitializedAsync()
     {
         UpdateCurrentPath();
         NavManager.LocationChanged += HandleLocationChanged;
+
+        // 🔑 Load role from cookie
+        UserRole = await cookieService.GetCookie("userRole");
     }
 
     private void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)

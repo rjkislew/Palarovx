@@ -40,6 +40,8 @@ public partial class Events
 
     [JsonIgnore]
     public virtual ICollection<EventVersusTeams> EventVersusTeams { get; set; } = new List<EventVersusTeams>();
+    [JsonIgnore]
+    public virtual ICollection<EventVersusTeamScores> EventVersusTeamScores { get; set; } = new List<EventVersusTeamScores>();
 
     public virtual SportSubcategories? SportSubcategory { get; set; }
 

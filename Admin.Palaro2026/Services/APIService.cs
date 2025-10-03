@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+﻿using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -8,11 +9,15 @@ public class APIService
 {
     private readonly IConfiguration _configuration;
     private readonly HttpClient _httpClient;
+    //sr
+    private readonly IWebAssemblyHostEnvironment _environment;
 
-    public APIService(IConfiguration configuration, HttpClient httpClient)
+    public APIService(IConfiguration configuration, HttpClient httpClient, IWebAssemblyHostEnvironment environment)
     {
         _configuration = configuration;
         _httpClient = httpClient;
+        //sr
+        _environment = environment;
     }
 
     public string ApiUrl => _configuration["ApiUrl"] ?? throw new InvalidOperationException("ApiUrl is not configured.");
@@ -25,6 +30,12 @@ public class APIService
 
     private string BuildUrl(string relativeUrl)
     {
+        //sir ronald
+        if (_environment.IsDevelopment())
+        {
+            return $"https://localhost:7063/api/{relativeUrl.TrimStart('/')}";
+        }
+        //
         if (!relativeUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
         {
             return $"{Palaro2026API.TrimEnd('/')}/{relativeUrl.TrimStart('/')}";

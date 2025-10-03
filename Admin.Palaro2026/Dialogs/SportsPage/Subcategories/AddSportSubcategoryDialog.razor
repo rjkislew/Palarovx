@@ -16,7 +16,7 @@
                 <MudItem xs="12" sm="6" md="4">
                     <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Category" T="int?"
                                ShrinkLabel Variant="Variant.Outlined" Clearable
-                               SelectedValuesChanged="() => InvokeAsync(async () => { _selectedSportIDValue = null; _selectedSchoolLevelIDValue = null; _selectedSportGenderCategoryIDValue = null; _selectedSportSubcategoryValue = null; await GetSportsAsync();}) ">
+                               SelectedValuesChanged="() => InvokeAsync(async () => { _selectedSportIDValue = null; _selectedSchoolLevelIDValue = null; _selectedSportGenderCategoryIDValue = null; _selectedSportSubcategoryValue = null; _selectedMainCategoryValue = null; LoadMainCategories();  await GetSportsAsync();}) ">
                         <MudVirtualize Items="_sportCategories" Context="category">
                             <MudSelectItem T="int?" Value="category.ID">@category.Category</MudSelectItem>
                         </MudVirtualize>
@@ -49,6 +49,24 @@
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
+                <!---->
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect @bind-Value="_selectedMainCategoryValue"
+                               Margin="Margin.Dense"
+                               Label="Main Category"
+                               T="string"
+                               ShrinkLabel
+                               Variant="Variant.Outlined"
+                               Clearable
+                               Disabled="_selectedSportGenderCategoryIDValue == null"
+                               SelectedValuesChanged="() => _selectedSportSubcategoryValue = null">
+                        @foreach (var mc in _mainCategories)
+                        {
+                            <MudSelectItem Value="@mc">@mc</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
                 <MudItem xs="12" sm="6" md="8">
                     <MudTextField @bind-Value="_selectedSportSubcategoryValue" Margin="Margin.Dense" Disabled="_selectedSportGenderCategoryIDValue == null"
                                   Label="Subcategory" ShrinkLabel Variant="Variant.Outlined" Immediate Clearable></MudTextField>
@@ -123,6 +141,7 @@ else
             public int? SportID { get; set; }
             public int? SportGenderCategoryID { get; set; }
             public int? SchoolLevelID { get; set; }
+            public string? MainCategory { get; set; }
         }
 
         public class SportGenderCategories
@@ -221,7 +240,8 @@ else
             Subcategory = _selectedSportSubcategoryValue,
             SportID = _selectedSportIDValue,
             SportGenderCategoryID = _selectedSportGenderCategoryIDValue,
-            SchoolLevelID = _selectedSchoolLevelIDValue
+            SchoolLevelID = _selectedSchoolLevelIDValue,
+                MainCategory = _selectedMainCategoryValue
         };
 
         string url = "/Sports/Subcategories";
@@ -233,4 +253,63 @@ else
         else
             Snackbar.Add($"Failed to add {_selectedSportSubcategoryValue}.", Severity.Error);
     }
+
+    //
+    private string? _selectedMainCategoryValue;
+    private List<string> _mainCategories = new();
+    private void LoadMainCategories()
+    {
+        _mainCategories.Clear();
+
+        var sportName = _sports?.FirstOrDefault(s => s.ID == _selectedSportIDValue)?.Sport;
+
+        if (string.IsNullOrEmpty(sportName)) return;
+
+        switch (sportName)
+        {
+            case "Archery":
+                _mainCategories.AddRange(new[] { "1440 Round", "Olympic Round" });
+                break;
+            case "Arnis":
+                _mainCategories.AddRange(new[] { "Full Contact", "Anyo" });
+                break;
+            case "Athletics":
+                _mainCategories.AddRange(new[] { "Track Events", "Field Events" });
+                break;
+            case "Boxing":
+                _mainCategories.AddRange(new[] { "School Boys (13-14 yrs old)", "Junior Boys (15-16 yrs old)", "Youth Boys (17-18 yrs old)" });
+                break;
+            case "Chess":
+                _mainCategories.AddRange(new[] { "Blitz", "Standard" });
+                break;
+            case "Gymnastics":
+                _mainCategories.AddRange(new[] { "Women's Artistic Gymnastics", "Men's Artistic Gymnastics", "Rhythmic Gymnastics", "Aerobic Gymnastics" });
+                break;
+            case "Taekwondo":
+                _mainCategories.AddRange(new[] { "Kyorugi Height Category", "Kyorugi Weight Category", "Poomsae" });
+                break;
+            case "Wrestling":
+                _mainCategories.AddRange(new[] { "Cadet Category", "Junior Category" });
+                break;
+            case "Wushu":
+                _mainCategories.AddRange(new[] { "Group A (16-18 yrs old)", "Group B (13-15 yrs old)" });
+                break;
+            case "Pencak Silat":
+                _mainCategories.AddRange(new[] { "Artistic (Tungal, Ganda, Regu)", "Tanding" });
+                break;
+            case "Athletics (Para Games)":
+                _mainCategories.AddRange(new[] { "Intellectual Impairment", "Visual Impairment", "Physical Impairment" });
+                break;
+            case "Swimming (Para Games)":
+                _mainCategories.AddRange(new[] { "Intellectual Impairment", "Physical Impairment" });
+                break;
+            case "Goalball":
+                _mainCategories.Add("Visual Impairment");
+                break;
+            case "Bocce":
+                _mainCategories.Add("Intellectual Impairment");
+                break;
+        }
+    }
+
 }

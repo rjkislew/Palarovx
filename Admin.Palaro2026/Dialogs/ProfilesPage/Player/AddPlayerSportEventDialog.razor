@@ -185,18 +185,19 @@ else
 
     private async Task GetProfilePlayerOnDialogOpenAsync(string? profilePlayerID)
     {
-        string url = "/Profiles/Player";
+        string url = $"/Profiles/Player?id={profilePlayerID}";
+
         _profilePlayers = await apiService.GetAsync<ProfilesDTO.ProfilePlayers>(url);
 
         if (_profilePlayers != null)
         {
-            var selectedCoach = _profilePlayers.First();
+            var selectedPlayer = _profilePlayers.First();
             // Title
-            _dialogHeader = $"{selectedCoach.FirstName} {selectedCoach.LastName}";
+            _dialogHeader = $"{selectedPlayer.FirstName} {selectedPlayer.LastName}";
 
             // Data
-            _firstnameValue = selectedCoach.FirstName;
-            _lastnameValue = selectedCoach.LastName;
+            _firstnameValue = selectedPlayer.FirstName;
+            _lastnameValue = selectedPlayer.LastName;
         }
     }
 
@@ -256,10 +257,10 @@ else
     private async Task AddPlayerSportEventAsync()
     {
         var addPlayerSportEvent = new ProfilesDTO.ProfilePlayerSports
-        {
-            ProfilePlayerID = selectedPlayerID,
-            SportSubcategoryID = _selectedSportSubcategoryIDValue,
-        };
+            {
+                ProfilePlayerID = selectedPlayerID,
+                SportSubcategoryID = _selectedSportSubcategoryIDValue,
+            };
 
         string url = "/Profiles/Player/Sports";
 
@@ -283,12 +284,12 @@ else
 
     private async Task AddPlayerSportEventCoachesAsync()
     {
-        var addPlayerSportEvent = _selectedCoachIDs?.Where(id => string.IsNullOrEmpty(id))
+        var addPlayerSportEvent = _selectedCoachIDs?.Where(id => !string.IsNullOrEmpty(id))
             .Select(coachID => new ProfilesDTO.ProfilePlayerSportCoaches
-            {
-                ProfileCoachID = coachID!,
-                ProfilePlayerSportID = _addedPlayerSportEventID,
-            }).ToList();
+                {
+                    ProfileCoachID = coachID!,
+                    ProfilePlayerSportID = _addedPlayerSportEventID,
+                }).ToList();
 
         string url = "/Profiles/Player/Sports/Coaches";
         var success = await apiService.PostAsync(url, addPlayerSportEvent);

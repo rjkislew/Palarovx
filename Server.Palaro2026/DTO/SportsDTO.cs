@@ -37,6 +37,7 @@ public class SportsDTO
         {
             public int ID { get; set; }
             public string? Subcategory { get; set; }
+            public string? MainCategory { get; set; }
         }
     }
 
@@ -61,6 +62,7 @@ public class SportsDTO
         public int? SportID { get; set; }
         public int? SportGenderCategoryID { get; set; }
         public int? SchoolLevelID { get; set; }
+        public string? MainCategory { get; set; }
     }
 
     public class SportGenderCategories
