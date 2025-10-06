@@ -9,6 +9,7 @@ public partial class Events
     public string ID { get; set; } = null!;
 
     public int? EventStageID { get; set; }
+    public string? SportMainCat { get; set; }
 
     public int? SportSubcategoryID { get; set; }
 

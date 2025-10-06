@@ -225,6 +225,11 @@ public partial class Palaro2026Context : DbContext
                 .HasForeignKey(d => d.EventVenuesID)
                 .HasConstraintName("FK__Events_EventVenues");
 
+            //
+            entity.Property(e => e.SportMainCat)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+
             entity.HasOne(d => d.SportSubcategory).WithMany(p => p.Events)
                 .HasForeignKey(d => d.SportSubcategoryID)
                 .HasConstraintName("FK_Events_SportSubcategories");

@@ -17,6 +17,7 @@ namespace Server.Palaro2026.Controller
            {
                ID = events.ID,
                EventStageID = events.EventStageID,
+               SportMainCat = events.SportMainCat,
                SportSubcategoryID = events.SportSubcategoryID,
                EventVenuesID = events.EventVenuesID,
                Date = events.Date,
@@ -35,6 +36,7 @@ namespace Server.Palaro2026.Controller
         public async Task<ActionResult<IEnumerable<EventsDTO.Events>>> GetEvents(
         [FromQuery] string? ID = null,
         [FromQuery] int? eventStageID = null,
+        [FromQuery] string? sportMainCat = null,
         [FromQuery] int? sportSubcategoryID = null,
         [FromQuery] int? eventVenuesID = null,
         [FromQuery] DateTime? date = null,
@@ -53,6 +55,10 @@ namespace Server.Palaro2026.Controller
 
             if (eventStageID.HasValue)
                 query = query.Where(x => x.EventStageID == eventStageID.Value);
+
+            if (!string.IsNullOrEmpty(sportMainCat))
+                query = query.Where(x => x.SportMainCat == sportMainCat);
+
 
             if (sportSubcategoryID.HasValue)
                 query = query.Where(x => x.SportSubcategoryID == sportSubcategoryID.Value);
@@ -97,6 +103,7 @@ namespace Server.Palaro2026.Controller
             {
                 ID = events.ID,
                 EventStageID = events.EventStageID,
+                SportMainCat = events.SportMainCat,
                 SportSubcategoryID = events.SportSubcategoryID,
                 EventVenuesID = events.EventVenuesID,
                 Date = events.Date,
@@ -146,6 +153,7 @@ namespace Server.Palaro2026.Controller
 
             existingEvent.EventStageID = events.EventStageID;
             existingEvent.GamePhase = events.GamePhase;
+            existingEvent.SportMainCat = events.SportMainCat;   // ✅ added
             existingEvent.SportSubcategoryID = events.SportSubcategoryID;
             existingEvent.EventVenuesID = events.EventVenuesID;
             existingEvent.Date = events.Date;
@@ -254,6 +262,7 @@ namespace Server.Palaro2026.Controller
             if (existingEvent == null) return NotFound();
 
             if (updatedEvent.EventStageID != null) existingEvent.EventStageID = updatedEvent.EventStageID;
+            if (updatedEvent.SportMainCat != null) existingEvent.SportMainCat = updatedEvent.SportMainCat; // ✅ added
             if (updatedEvent.SportSubcategoryID != null) existingEvent.SportSubcategoryID = updatedEvent.SportSubcategoryID;
             if (updatedEvent.EventVenuesID != null) existingEvent.EventVenuesID = updatedEvent.EventVenuesID;
             if (updatedEvent.Date != null) existingEvent.Date = updatedEvent.Date;

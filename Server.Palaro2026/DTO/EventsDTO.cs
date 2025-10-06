@@ -35,10 +35,14 @@ public class EventsDTO
             //
             public List<EventVersusTeamScores>? EventVersusScoreList { get; set; }
             //
-            //
+            
+
             public string? Category { get; set; }
             public string? Sport { get; set; }
             public string? GamePhase { get; set; }
+            //
+            public string? SportMainCat { get; set; }
+            //
             public int? SubCategoryID { get; set; }
             public string? Subcategory { get; set; }
             public string? Gender { get; set; }
@@ -106,6 +110,9 @@ public class EventsDTO
             //
             public string? Category { get; set; }
             public string? Sport { get; set; }
+            //
+            public string? SportMainCat { get; set; }
+            //
             public string? Subcategory { get; set; }
             public string? Gender { get; set; }
             public string? Level { get; set; }
@@ -132,6 +139,9 @@ public class EventsDTO
     {
         public string ID { get; set; } = null!;
         public int? EventStageID { get; set; }
+        //
+        public string? SportMainCat { get; set; }
+        //
         public int? SportSubcategoryID { get; set; }
         public int? EventVenuesID { get; set; }
         public DateTime? Date { get; set; }

@@ -27,6 +27,8 @@ namespace Server.Palaro2026.Controller
         [FromQuery] string? lastName = null,
         [FromQuery] string? category = null,
         [FromQuery] string? sport = null,
+        //
+        [FromQuery] string? sportMainCat = null,
         [FromQuery] string? subcategory = null,
         [FromQuery] string? gender = null,
         [FromQuery] string? level = null,
@@ -95,6 +97,11 @@ namespace Server.Palaro2026.Controller
 
                 if (sportList.Any())
                     query = query.Where(e => sportList.Contains(e.SportSubcategory!.Sport!.Sport!));
+
+                //
+                if (!string.IsNullOrEmpty(sportMainCat))
+                    query = query.Where(e => e.SportMainCat == sportMainCat);
+                //
 
                 if (!string.IsNullOrEmpty(subcategory))
                     query = query.Where(e => e.SportSubcategory!.Subcategory == subcategory);
@@ -170,6 +177,9 @@ namespace Server.Palaro2026.Controller
 
                     Category = eventEntity.SportSubcategory?.Sport?.SportCategory?.Category,
                     Sport = eventEntity.SportSubcategory?.Sport?.Sport,
+                    //
+                    SportMainCat = eventEntity.SportMainCat,
+                    //
                     SubCategoryID = eventEntity.SportSubcategory?.ID,
                     Subcategory = eventEntity.SportSubcategory?.Subcategory,
                     GamePhase = eventEntity.GamePhase,

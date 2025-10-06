@@ -13,45 +13,66 @@
     <MudDialog>
         <DialogContent>
             <MudGrid Spacing="1">
-                <MudItem xs="12" sm="6" md="4">
+                <MudItem xs="12" sm="6" md="6">
                     <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Category" T="int?"
-                               ShrinkLabel Variant="Variant.Outlined" Clearable
-                               SelectedValuesChanged="() => InvokeAsync(async () => { _selectedSportIDValue = null; _selectedSchoolLevelIDValue = null; _selectedSportGenderCategoryIDValue = null; _sportSubcategoryValue = null; await GetSportsAsync();}) ">
+                    ShrinkLabel Variant="Variant.Outlined" Clearable
+                    SelectedValuesChanged="() => InvokeAsync(async () => { _selectedSportIDValue = null; _selectedSchoolLevelIDValue = null; _selectedSportGenderCategoryIDValue = null; _sportSubcategoryValue = null; await GetSportsAsync();}) ">
                         <MudVirtualize Items="_sportCategories" Context="category">
                             <MudSelectItem T="int?" Value="category.ID">@category.Category</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" sm="6" md="4">
+                <MudItem xs="12" sm="6" md="6">
                     <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport" T="int?"
-                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSportCategoryIDValue == null"
-                               SelectedValuesChanged="() => { _selectedSchoolLevelIDValue = null; _selectedSportGenderCategoryIDValue = null; _sportSubcategoryValue = null; }">
+                    ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSportCategoryIDValue == null"
+                               SelectedValuesChanged="() => { _selectedSchoolLevelIDValue = null; _selectedSportGenderCategoryIDValue = null; _sportSubcategoryValue = null; _selectedMainCategory = null; LoadMainCategories();}">
                         <MudVirtualize Items="_sports" Context="sport">
                             <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" sm="6" md="4">
+                <MudItem xs="12" sm="6" md="6">
                     <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" T="int?"
-                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSportIDValue == null"
-                               SelectedValuesChanged="() => { _selectedSportGenderCategoryIDValue = null; _sportSubcategoryValue = null; }">
+                    ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSportIDValue == null"
+                    SelectedValuesChanged="() => { _selectedSportGenderCategoryIDValue = null; _sportSubcategoryValue = null; }">
                         <MudVirtualize Items="_schoolLevels" Context="schoolLevel">
                             <MudSelectItem T="int?" Value="schoolLevel.ID">@schoolLevel.Level</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" sm="6" md="4">
+                <MudItem xs="12" sm="6" md="6">
                     <MudSelect @bind-Value="_selectedSportGenderCategoryIDValue" Margin="Margin.Dense" Label="Gender" T="int?"
-                               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolLevelIDValue == null"
-                               SelectedValuesChanged="() => _sportSubcategoryValue = null">
+                    ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolLevelIDValue == null"
+                    SelectedValuesChanged="() => _sportSubcategoryValue = null">
                         <MudVirtualize Items="_sportGenderCategories" Context="gender">
                             <MudSelectItem T="int?" Value="gender.ID">@gender.Gender</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" sm="6" md="8">
+
+                <!---->
+                <MudItem xs="12" sm="6" md="6">
+                    <MudSelect @bind-Value="_selectedMainCategory"
+                    Margin="Margin.Dense"
+                    Label="Event"
+                    T="string"
+                    ShrinkLabel Variant="Variant.Outlined"
+                    Disabled="_selectedSportGenderCategoryIDValue == null"
+                    Clearable>
+                        @if (_mainCategories?.Any() == true)
+                        {
+                            @foreach (var maincat in _mainCategories)
+                            {
+                                <MudSelectItem Value="@maincat">@maincat</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+
+
+                <MudItem xs="12" sm="6" md="6">
                     <MudTextField @bind-Value="_sportSubcategoryValue" Margin="Margin.Dense" Disabled="_selectedSportGenderCategoryIDValue == null"
-                                  Label="Subcategory" ShrinkLabel Variant="Variant.Outlined" Immediate Clearable></MudTextField>
+                    Label="Subcategory" ShrinkLabel Variant="Variant.Outlined" Immediate Clearable></MudTextField>
                 </MudItem>
             </MudGrid>
         </DialogContent>
@@ -129,6 +150,7 @@ else
             public int? SportID { get; set; }
             public int? SportGenderCategoryID { get; set; }
             public int? SchoolLevelID { get; set; }
+            public string? MainCategory { get; set; }
         }
 
         public class SportGenderCategories
@@ -154,6 +176,7 @@ else
         _selectedSchoolLevelIDValue = null;
         _selectedSportGenderCategoryIDValue = null;
         _sportSubcategoryValue = null;
+        _selectedMainCategory = null;
     }
 
     protected override async Task OnInitializedAsync()
@@ -194,6 +217,9 @@ else
                 _selectedSchoolLevelIDValue = subcategory.SchoolLevelID;
                 _selectedSportGenderCategoryIDValue = subcategory.SportGenderCategoryID;
                 _sportSubcategoryValue = subcategory.Subcategory;
+                _selectedMainCategory = subcategory.MainCategory;
+
+                LoadMainCategories();
             }
         }
     }
@@ -268,7 +294,8 @@ else
             Subcategory = _sportSubcategoryValue,
             SportID = _selectedSportIDValue,
             SportGenderCategoryID = _selectedSportGenderCategoryIDValue,
-            SchoolLevelID = _selectedSchoolLevelIDValue
+            SchoolLevelID = _selectedSchoolLevelIDValue,
+            MainCategory = _selectedMainCategory
         };
 
         string url = $"/Sports/Subcategories/{SelectedSportSubcategoryID}";
@@ -299,4 +326,71 @@ else
             Snackbar.Add($"Error deleting {_sportSubcategoryValue}.", Severity.Error);
         }
     }
+
+    //
+    private List<string> _mainCategories = new();
+    private string? _selectedMainCategory;
+    private void LoadMainCategories()
+    {
+        _mainCategories = new();
+
+        if (_selectedSportIDValue == null) return;
+
+        var sport = _sports?.FirstOrDefault(s => s.ID == _selectedSportIDValue)?.Sport;
+
+        if (sport == null) return;
+
+        switch (sport)
+        {
+            case "Archery":
+                _mainCategories.AddRange(new[] { "1440 Round", "Olympic Round" });
+                break;
+            case "Arnis":
+                _mainCategories.AddRange(new[] { "Full Contact", "Anyo" });
+                break;
+            case "Athletics":
+                _mainCategories.AddRange(new[] { "Track Events", "Field Events" });
+                break;
+            case "Boxing":
+                _mainCategories.AddRange(new[] { "School Boys", "Junior Boys", "Youth Boys" });
+                break;
+            case "Chess":
+                _mainCategories.AddRange(new[] { "Blitz", "Standard" });
+                break;
+            case "Dancesport":
+                _mainCategories.AddRange(new[] { "Latin America", "Modern Standard" });
+                break;
+            case "Gymnastics":
+                _mainCategories.AddRange(new[] { "Women's Artistic Gymnastics", "Men's Artistic Gymnastics", "Rhythmic Gymnastics", "Aerobic Gymnastics" });
+                break;
+            case "Swimming":
+                _mainCategories.AddRange(new[] { "Freetyle", "Backstroke", "Breaststroke", "Butterfly", "Relay", "Individual Medley" });
+                break;
+            case "Taekwondo":
+                _mainCategories.AddRange(new[] { "Kyorugi Height Category", "Kyorugi Weight Category", "Poomsae" });
+                break;
+            case "Wrestling":
+                _mainCategories.AddRange(new[] { "Cadets' Division", "Juniors' Division" });
+                break;
+            case "Wushu":
+                _mainCategories.AddRange(new[] { "Group A", "Group B" });
+                break;
+            case "Pencak Silat":
+                _mainCategories.AddRange(new[] { "Artistic", "Tanding" });
+                break;
+            case "Athletics (Para Games)":
+                _mainCategories.AddRange(new[] { "Intellectual Impairment", "Visual Impairment", "Physical Impairment" });
+                break;
+            case "Swimming (Para Games)":
+                _mainCategories.AddRange(new[] { "Intellectual Impairment", "Physical Impairment" });
+                break;
+            case "Goalball":
+                _mainCategories.Add("Visual Impairment");
+                break;
+            case "Bocce":
+                _mainCategories.Add("Intellectual Impairment");
+                break;
+        }
+    }
+
 }

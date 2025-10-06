@@ -14,24 +14,6 @@
             <MudGrid Spacing="5">
 
                 <!-- Input Fields: dialogs, checkbox, datetime pickers -->
-                <!-- Event Stage -->
-                <MudItem xs="12" Class="mb-3">
-                    <MudStack Spacing="1">
-                        <MudText>Event Stage Detail</MudText>
-                        <MudDivider />
-                        <MudGrid Spacing="1">
-                            <MudItem xs="12" sm="6" md="4">
-                                <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense" Label="Stage" T="int?"
-                                ShrinkLabel Variant="Variant.Outlined" Clearable>
-                                    <MudVirtualize Items="_eventStages" Context="eventStage">
-                                        <MudSelectItem T="int?" Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
-                                    </MudVirtualize>
-                                </MudSelect>
-                            </MudItem>
-                        </MudGrid>
-                    </MudStack>
-                </MudItem>
-
                 <!-- Sport -->
                 <MudItem xs="12" Class="mb-3">
                     <MudStack Spacing="1">
@@ -47,72 +29,76 @@
                                     </MudVirtualize>
                                 </MudSelect>
                             </MudItem>
-                            <MudItem xs="12" sm="6" md="4">
+                            <MudItem xs="12" sm="6" md="3">
                                 <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport" T="int?"
                                 ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSportCategoryIDValue == null"
-                                SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSchoolLevelIDValue = null; _selectedSportGenderCategoryIDValue = null; _selectedSportSubcategoryIDValue = null; }))">
+                                           SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSchoolLevelIDValue = null; _selectedSportGenderCategoryIDValue = null; _selectedSportSubcategoryIDValue = null; _selectedSchoolLevelAndGenderID=null; await FilterSchoolLevelAndGenderAsync();}))">
                                     <MudVirtualize Items="_sports" Context="sport">
                                         <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
                                     </MudVirtualize>
                                 </MudSelect>
                             </MudItem>
-                            <MudItem xs="12" sm="6" md="4">
-                                <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level" T="int?"
+                            
+
+                            <MudItem xs="12" sm="6" md="5">
+                                <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense" Label="School Level and Gender" T="string"
                                 ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSportIDValue == null"
-                                SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSportGenderCategoryIDValue = null; _selectedSportSubcategoryIDValue = null; }))">
-                                    <MudVirtualize Items="_schoolLevels" Context="schoolLevel">
-                                        <MudSelectItem T="int?" Value="schoolLevel.ID">@schoolLevel.Level</MudSelectItem>
+                                           SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSportSubcategoryIDValue = null; _selectedMainCategoryValue = null; await GetSportSubCategoriesSLGAsync();  LoadMainCategories();}))">
+                                    <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
+                                        <MudSelectItem T="string" Value="@combinedID">
+                                            @combinedID
+                                        </MudSelectItem>
                                     </MudVirtualize>
                                 </MudSelect>
                             </MudItem>
-                            <MudItem xs="12" sm="6" md="4">
-                                <MudSelect @bind-Value="_selectedSportGenderCategoryIDValue" Margin="Margin.Dense" Label="Gender" T="int?"
-                                ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolLevelIDValue == null"
-                                SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSportSubcategoryIDValue = null; await GetSportSubCategoriesAsync(); }))">
-                                    <MudVirtualize Items="_sportGenderCategories" Context="gender">
-                                        <MudSelectItem T="int?" Value="gender.ID">@gender.Gender</MudSelectItem>
-                                    </MudVirtualize>
-                                </MudSelect>
-                            </MudItem>
-                            <MudItem xs="12" sm="12" md="8">
-                                <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense" Label="Subcategory" T="int?"
-                                HelperText="@((_sportSubcategories?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSportGenderCategoryIDValue != null) ? "No subcategory available for this gender or school level." : null)"
+
+                            <MudItem xs="12" sm="6" md="6">
+                                <MudSelect @bind-Value="_selectedMainCategoryValue" Margin="Margin.Dense" Label="Event" T="string"
                                 ShrinkLabel Variant="Variant.Outlined" Clearable
-                                Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelIDValue == null || _selectedSportGenderCategoryIDValue == null)">
-                                    <MudVirtualize Items="_sportSubcategories" Context="subCategory">
-                                        <MudSelectItem T="int?" Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
-                                    </MudVirtualize>
+                                Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                                    @foreach (var mc in _sportMainCat)
+                                    {
+                                        <MudSelectItem Value="@mc">@mc</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12" sm="12" md="6">
+                                <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense" Label="Category" T="int?"
+                                           HelperText="@((_sportSubcategories?.Any() != true && _selectedSchoolLevelAndGenderID != null) ? "No subcategory available for this gender or school level." : null)"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable
+                                           Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+
+                                    @if (!string.IsNullOrEmpty(_selectedMainCategoryValue))
+                                    {
+                                        <MudVirtualize Items="_sportSubcategories.Where(sc => sc.MainCategory == _selectedMainCategoryValue).ToList()" Context="subCategory">
+                                            <MudSelectItem T="int?" Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                                        </MudVirtualize>
+                                    }
                                 </MudSelect>
                             </MudItem>
 
 
 
-<MudItem xs="12" sm="6" md="4">
-    <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense" Label="School Level and Gender" T="string"
-               ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSportIDValue == null"
-               SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSportSubcategoryIDValue = null; await GetSportSubCategoriesSLGAsync(); }))">
-        <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
-            <MudSelectItem T="string" Value="@combinedID">
-                @combinedID
-            </MudSelectItem>
-        </MudVirtualize>
-    </MudSelect>
-</MudItem>
+                        </MudGrid>
+                    </MudStack>
+                </MudItem>
 
 
-
-                            <MudItem xs="12" sm="12" md="8">
-    <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense" Label="Subcategory" T="int?"
-               HelperText="@((_sportSubcategories?.Any() != true && _selectedSchoolLevelAndGenderID != null) ? "No subcategory available for this gender or school level." : null)"
-               ShrinkLabel Variant="Variant.Outlined" Clearable
-               Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
-        <MudVirtualize Items="_sportSubcategories" Context="subCategory">
-            <MudSelectItem T="int?" Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
-        </MudVirtualize>
-    </MudSelect>
-</MudItem>
-
-
+                <!-- Event Stage -->
+                <MudItem xs="12" Class="mb-3">
+                    <MudStack Spacing="1">
+                        <MudText>Event Stage Detail</MudText>
+                        <MudDivider />
+                        <MudGrid Spacing="1">
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense" Label="Stage" T="int?"
+                                ShrinkLabel Variant="Variant.Outlined" Clearable>
+                                    <MudVirtualize Items="_eventStages" Context="eventStage">
+                                        <MudSelectItem T="int?" Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
+                                    </MudVirtualize>
+                                </MudSelect>
+                            </MudItem>
                         </MudGrid>
                     </MudStack>
                 </MudItem>
@@ -250,6 +236,8 @@ else
     private int? _selectedSportIDValue;
     private int? _selectedSportGenderCategoryIDValue;
     private int? _selectedSchoolLevelIDValue;
+    //
+    private string? _selectedMainCategoryValue;
     private int? _selectedSportSubcategoryIDValue;
     private int? _selectedEventVenueIDValue;
     private DateTime? _selectedDateValue;
@@ -265,8 +253,9 @@ else
     private bool _addEventDisabled =>
     !_selectedSportCategoryIDValue.HasValue ||
     !_selectedSportIDValue.HasValue ||
-    !_selectedSportGenderCategoryIDValue.HasValue ||
-    !_selectedSchoolLevelIDValue.HasValue ||
+    // !_selectedSportGenderCategoryIDValue.HasValue ||
+    // !_selectedSchoolLevelIDValue.HasValue ||
+    
     !_selectedSportSubcategoryIDValue.HasValue ||
     !_selectedEventVenueIDValue.HasValue ||
     !_selectedDateValue.HasValue ||
@@ -285,6 +274,7 @@ else
         {
             public string ID { get; set; } = null!;
             public int? EventStageID { get; set; }
+            public string? SportMainCat { get; set; }
             public int? SportSubcategoryID { get; set; }
             public int? EventVenuesID { get; set; }
             public DateTime? Date { get; set; }
@@ -361,6 +351,7 @@ else
             public int? SportID { get; set; }
             public int? SportGenderCategoryID { get; set; }
             public int? SchoolLevelID { get; set; }
+            public string? MainCategory { get; set; }
         }
 
         public class SportGenderCategories
@@ -614,6 +605,8 @@ else
         {
             ID = GenerateRandomString(20),
             EventStageID = _selectedEventStagesIDValue,
+            //
+                SportMainCat = _selectedMainCategoryValue,
             SportSubcategoryID = _selectedSportSubcategoryIDValue,
             EventVenuesID = _selectedEventVenueIDValue,
             Date = _selectedDateValue,
@@ -636,4 +629,85 @@ else
         else
             Snackbar.Add("Failed to add event.", Severity.Error);
     }
+
+    //
+    private List<string> _sportMainCat = new();
+    private string? _selectedSportMainCat;
+    private void LoadMainCategories()
+    {
+        _sportMainCat = new();
+
+        if (_sportSubcategories == null || !_sportSubcategories.Any())
+            return;
+
+        // Get distinct main categories from subcategories
+        _sportMainCat = _sportSubcategories
+            .Where(sc => !string.IsNullOrEmpty(sc.MainCategory))
+            .Select(sc => sc.MainCategory!)
+            .Distinct()
+            .ToList();
+    }
+
+
+
+    private async Task FilterSchoolLevelAndGenderAsync()
+    {
+        if (_selectedSportIDValue == null)
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        // Filter subcategories by selected sport
+        var subcats = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+            $"/Sports/Subcategories?sportID={_selectedSportIDValue}");
+
+        if (subcats == null || !subcats.Any())
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        // Get school level IDs and gender IDs from subcategories
+        var schoolLevelIDs = subcats
+            .Where(x => x.SchoolLevelID.HasValue)
+            .Select(x => x.SchoolLevelID.Value)
+            .Distinct();
+
+        var genderIDs = subcats
+            .Where(x => x.SportGenderCategoryID.HasValue)
+            .Select(x => x.SportGenderCategoryID.Value)
+            .Distinct();
+
+        // Map IDs to names
+        var schoolLevelNames = _schoolLevels
+            .Where(s => schoolLevelIDs.Contains(s.ID))
+            .Select(s => s.Level);
+
+        var genderNames = _sportGenderCategories
+            .Where(g => genderIDs.Contains(g.ID))
+            .Select(g => g.Gender);
+
+        // Combine them
+        _combinedSchoolLevelAndGenderNames = schoolLevelNames
+            .SelectMany(s => genderNames, (s, g) => $"{s} - {g}")
+            .ToList();
+    }
+
+    private List<SportsDTO.SportSubcategories> _filteredSubcategories = new();
+
+    private void FilterSubcategoriesByMainCategory()
+    {
+        if (string.IsNullOrEmpty(_selectedMainCategoryValue))
+        {
+            _filteredSubcategories = new List<SportsDTO.SportSubcategories>();
+            return;
+        }
+
+        _filteredSubcategories = _sportSubcategories
+            .Where(sc => sc.MainCategory == _selectedMainCategoryValue)
+            .ToList();
+    }
+
+
 }
