@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.EntityFrameworkCore;
-using Server.Palaro2026.Context;
-using Scalar.AspNetCore;
-using System.Text;
-using Server.Palaro2026;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
+using Server.Palaro2026;
+using Server.Palaro2026.Context;
+using Server.Palaro2026.Services;
+using System.Text;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -72,7 +73,7 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddOpenApi("v1", options => { options.AddDocumentTransformer<BearerSecuritySchemeTransformer>(); });
-
+builder.Services.AddScoped<ISqlDataAccess, SqlDataAccess>();
 var app = builder.Build();
 
 // Fallback for first-time execution (avoids null values)

@@ -1,0 +1,769 @@
+﻿@* AddBoutDialog.razor *@
+@inject APIService apiService
+@inject CookieService cookieService
+
+<MudDialog MaxWidth="MaxWidth.Medium" FullWidth="true" Class="modern-dialog">
+    <DialogContent>
+        <div class="dialog-container">
+            <!-- Minimal Header Section -->
+            <div class="minimal-header">
+                <div class="minimal-title">
+                    <MudIcon Icon="@Icons.Material.Filled.SportsMma" Class="header-icon" />
+                    <div class="title-content">
+                        <MudText Typo="Typo.h6" Class="main-title">Add Boxing Match</MudText>
+                        <MudText Typo="Typo.caption" Class="round-label">@Round Round</MudText>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Section -->
+            <div class="input-section">
+                <!-- Bout Selection -->
+                <div class="bout-card">
+                    <div class="card-header bout-header">
+                        <MudIcon Icon="@Icons.Material.Filled.Numbers" Class="bout-icon" />
+                        <span class="bout-label">Bout Number *</span>
+                    </div>
+                    <MudSelect T="int" @bind-Value="_selectedBoutId"
+                               Label="Select Bout"
+                               Variant="Variant.Outlined"
+                               Class="bout-select"
+                               Immediate="true"
+                               Required="true"
+                               RequiredError="Bout number is required">
+                        <MudSelectItem Value="0">Select Bout</MudSelectItem>
+                        @foreach (var bout in bouts)
+                        {
+                            <MudSelectItem Value="@bout.Id">
+                                <div class="bout-option">
+                                    <span class="bout-name">@bout.Name</span>
+                                </div>
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+
+                <!-- Category Cards -->
+                <div class="category-cards-grid">
+                    <!-- Major Category Card -->
+                    <div class="category-card major-category-card">
+                        <div class="card-header category-header">
+                            <MudIcon Icon="@Icons.Material.Filled.Category" Class="category-icon" />
+                            <span class="category-label">Age Division *</span>
+                        </div>
+                        <MudSelect T="int"
+                                   @bind-Value="_selectedMajorCategoryId"
+                                   Label="Select Age Division"
+                                   Variant="Variant.Outlined"
+                                   Class="category-input"
+                                   Immediate="true"
+                                   Required="true"
+                                   RequiredError="Age Division is required">
+                            <MudSelectItem Value="0">Select Age Division</MudSelectItem>
+                            @foreach (var major in majorcategories)
+                            {
+                                <MudSelectItem Value="@major.Id">
+                                    <div class="category-option">
+                                        <MudIcon Icon="@Icons.Material.Filled.Accessibility" Class="option-icon" />
+                                        <span class="option-text">@major.Name</span>
+                                    </div>
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                        @if (_selectedMajorCategoryId != 0)
+                        {
+                            <div class="selection-preview">
+                                <MudText Typo="Typo.caption" Class="preview-label">
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-1" />
+                                    Selected: @GetMajorCategoryName(_selectedMajorCategoryId)
+                                </MudText>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Weight Category Card -->
+                    <div class="category-card weight-category-card">
+                        <div class="card-header category-header">
+                            <MudIcon Icon="@Icons.Material.Filled.FitnessCenter" Class="category-icon" />
+                            <span class="category-label">Weight Class *</span>
+                        </div>
+                        <MudSelect T="int"
+                                   Value="@_selectedCategoryId"
+                                   ValueChanged="@OnCategoryChanged"
+                                   Label="Select Weight Class"
+                                   Variant="Variant.Outlined"
+                                   Class="category-input"
+                                   Immediate="true"
+                                   Required="true"
+                                   RequiredError="Weight Class is required"
+                                   Disabled="@(_selectedMajorCategoryId == 0)">
+                            <MudSelectItem Value="0">Select Weight Class</MudSelectItem>
+                            @if (_selectedMajorCategoryId != 0)
+                            {
+                                @foreach (var cat in categories.Where(c => c.LevelId == _selectedMajorCategoryId))
+                                {
+                                    <MudSelectItem Value="@cat.Id">
+                                        <div class="category-option">
+                                            <MudIcon Icon="@Icons.Material.Filled.Scale" Class="option-icon" />
+                                            <span class="option-text">@cat.Name</span>
+                                        </div>
+                                    </MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
+                        @if (_selectedCategoryId != 0)
+                        {
+                            <div class="selection-preview">
+                                <MudText Typo="Typo.caption" Class="preview-label">
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-1" />
+                                    Selected: @GetCategoryName(_selectedCategoryId)
+                                </MudText>
+                            </div>
+                        }
+                        @if (_selectedMajorCategoryId == 0)
+                        {
+                            <div class="helper-text">
+                                <MudText Typo="Typo.caption" Color="Color.Warning">
+                                    Please select an Age Division first
+                                </MudText>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Fighter Cards -->
+                <div class="fighter-cards-grid">
+                    <!-- Red Corner Card -->
+                    <div class="fighter-card red-corner-card">
+                        <div class="card-header red-header">
+                            <MudIcon Icon="@Icons.Material.Filled.Face" Class="fighter-icon" />
+                            <span class="corner-label">Red Corner *</span>
+                        </div>
+                        <MudSelect T="string" @bind-Value="_redFighter"
+                                   Label="Select Participant"
+                                   Variant="Variant.Outlined"
+                                   Class="fighter-input red-corner-select"
+                                   Immediate="true"
+                                   Required="true"
+                                   RequiredError="Red Corner is required"
+                                   Disabled="@(_selectedCategoryId == 0)">
+                            @if (participants.Any())
+                            {
+                                @foreach (var participant in participants)
+                                {
+                                    <MudSelectItem Value="@participant.Id">
+                                        <div class="participant-option">
+                                            <span class="participant-abbr">@participant.Abbreviation</span>
+                                            <span class="participant-name">@participant.ParticipantName</span>
+                                        </div>
+                                    </MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
+                        @if (!string.IsNullOrEmpty(_redFighter))
+                        {
+                            <!-- Red Corner Selection Preview -->
+                            <div class="selection-preview red-corner">
+                                <div class="preview-details">
+                                    <div class="preview-item">
+                                        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" />
+                                        <span><strong>Region:</strong> @GetParticipantRegion(_redFighter)</span>
+                                    </div>
+                                    <div class="preview-item">
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                                        <span><strong>Fighter:</strong> @GetParticipantName(_redFighter)</span>
+                                    </div>
+                                    <div class="preview-item">
+                                        <MudIcon Icon="@Icons.Material.Filled.Sports" Size="Size.Small" />
+                                        <span><strong>Coach:</strong> @GetParticipantCoach(_redFighter)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Blue Corner Card -->
+                    <div class="fighter-card blue-corner-card">
+                        <div class="card-header blue-header">
+                            <MudIcon Icon="@Icons.Material.Filled.Face" Class="fighter-icon" />
+                            <span class="corner-label">Blue Corner *</span>
+                        </div>
+                        <MudSelect T="string" @bind-Value="_blueFighter"
+                                   Label="Select Participant"
+                                   Variant="Variant.Outlined"
+                                   Class="fighter-input blue-corner-select"
+                                   Immediate="true"
+                                   Required="true"
+                                   RequiredError="Blue Corner is required"
+                                   Disabled="@(_selectedCategoryId == 0)">
+                            @if (participants.Any())
+                            {
+                                @foreach (var participant in participants)
+                                {
+                                    <MudSelectItem Value="@participant.Id">
+                                        <div class="participant-option">
+                                            <span class="participant-abbr">@participant.Abbreviation</span>
+                                            <span class="participant-name">@participant.ParticipantName</span>
+                                        </div>
+                                    </MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
+                        @if (!string.IsNullOrEmpty(_blueFighter))
+                        {
+                            <!-- Blue Corner Selection Preview -->
+                            <div class="selection-preview blue-corner">
+                                <div class="preview-details">
+                                    <div class="preview-item">
+                                        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" />
+                                        <span><strong>Region:</strong> @GetParticipantRegion(_blueFighter)</span>
+                                    </div>
+                                    <div class="preview-item">
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                                        <span><strong>Fighter:</strong> @GetParticipantName(_blueFighter)</span>
+                                    </div>
+                                    <div class="preview-item">
+                                        <MudIcon Icon="@Icons.Material.Filled.Sports" Size="Size.Small" />
+                                        <span><strong>Coach:</strong> @GetParticipantCoach(_blueFighter)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Arena Selection -->
+                <div class="arena-card">
+                    <div class="card-header arena-header">
+                        <MudIcon Icon="@Icons.Material.Filled.Stadium" Class="arena-icon" />
+                        <span class="arena-label">Arena Assignment *</span>
+                    </div>
+                    <MudSelect T="string" @bind-Value="_selectedArena"
+                               Label="Select Arena"
+                               Variant="Variant.Outlined"
+                               Class="arena-select"
+                               Immediate="true"
+                               Required="true"
+                               RequiredError="Arena is required">
+                        @foreach (var arena in arenas)
+                        {
+                            <MudSelectItem Value="@arena.Name">
+                                <div class="region-option">
+                                    <span class="region-abbr">@arena.Name</span>
+                                </div>
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+
+                <!-- Schedule Card -->
+                <div class="schedule-card">
+                    <div class="card-header schedule-header">
+                        <MudIcon Icon="@Icons.Material.Filled.Event" Class="schedule-icon" />
+                        <span class="schedule-label">Match Schedule</span>
+                    </div>
+                    <div class="date-picker-container">
+                        <MudDatePicker @bind-Date="_schedule"
+                                       Label="Select Date"
+                                       Variant="Variant.Outlined"
+                                       Class="date-picker"
+                                       Elevation="1" />
+                        <MudTimePicker @bind-Time="_scheduleTime"
+                                       Label="Select Time"
+                                       Variant="Variant.Outlined"
+                                       Class="time-picker"
+                                       Elevation="1" />
+                    </div>
+                </div>
+
+                <!-- Referee Selection -->
+                <div class="referee-card">
+                    <div class="card-header referee-header">
+                        <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="referee-icon" />
+                        <span class="referee-label">Referee Assignment (Optional)</span>
+                    </div>
+                    <MudSelect T="string" @bind-Value="_referee"
+                               Label="Select Referee"
+                               Variant="Variant.Outlined"
+                               Class="referee-select"
+                               Immediate="true">
+                        @foreach (var referee in referees)
+                        {
+                            <MudSelectItem Value="@referee.Name">
+                                <div class="region-option">
+                                    <span class="region-abbr">@referee.Name</span>
+                                </div>
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+
+                @if (!string.IsNullOrEmpty(ValidationError))
+                {
+                    <MudAlert Severity="Severity.Warning" Class="validation-alert mt-2">
+                        @ValidationError
+                    </MudAlert>
+                }
+            </div>
+        </div>
+    </DialogContent>
+
+    <!-- Actions -->
+    <DialogActions>
+        <div class="actions-container">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       OnClick="Cancel"
+                       StartIcon="@Icons.Material.Filled.Close"
+                       Class="action-button cancel-button">
+                Cancel
+            </MudButton>
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       OnClick="Save"
+                       Disabled="_isDisabled"
+                       StartIcon="@Icons.Material.Filled.AddCircle"
+                       EndIcon="@GetSaveButtonEndIcon()"
+                       Class="action-button save-button">
+                @GetSaveButtonText()
+            </MudButton>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public int RoundId { get; set; }
+
+    [Parameter]
+    public string Round { get; set; } = string.Empty;
+
+    [Parameter]
+    public int MajorCategoryId { get; set; }
+
+    [Parameter]
+    public int CategoryId { get; set; }
+
+    private string _redFighter = string.Empty;
+    private string _blueFighter = string.Empty;
+    private string _selectedArena = string.Empty;
+    private string _referee = string.Empty;
+    private DateTime? _schedule = DateTime.Today;
+    private TimeSpan? _scheduleTime = new TimeSpan(DateTime.Now.Hour + 1, DateTime.Now.Minute, 0);
+
+
+    // New category properties with default values from parameters
+    private int _selectedMajorCategoryId = 0;
+    private int _selectedCategoryId = 0;
+    private int _selectedBoutId = 0;
+
+    private bool isLoading = true;
+    private List<ParticipantsDto> participants = new();
+
+    public class ParticipantsDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string ParticipantName { get; set; } = string.Empty;
+        public int SportSubcategoryID { get; set; }
+        public string CoachName { get; set; } = string.Empty;
+        public int SchoolRegionID { get; set; } // This is the Region ID
+        public string Region { get; set; } = string.Empty;
+        public string Abbreviation { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+    }
+
+    public class ArenaDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class RefereeDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class CreateBoxingMatchDto
+    {
+        public int RoundId { get; set; }
+        public string Round { get; set; } = string.Empty;
+        public int BoutId { get; set; }
+        public ParticipantDetailsDto RedCorner { get; set; } = new();
+        public ParticipantDetailsDto BlueCorner { get; set; } = new();
+        public DateTime? Schedule { get; set; }
+        public string Arena { get; set; } = string.Empty;
+        public string Referee { get; set; } = string.Empty;
+        public int MajorCategoryId { get; set; }
+        public int CategoryId { get; set; }
+        public string UserId { get; set; } = string.Empty;
+    }
+
+    public class ParticipantDetailsDto
+    {
+        public string ParticipantId { get; set; } = string.Empty;
+        public string ParticipantName { get; set; } = string.Empty;
+        public string Region { get; set; } = string.Empty;
+        public int RegionId { get; set; }
+        public string Abbreviation { get; set; } = string.Empty;
+        public string CoachName { get; set; } = string.Empty;
+    }
+
+    public class ApiResponse<T>
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public T? Data { get; set; }
+        public List<string> Errors { get; set; } = new();
+    }
+    // Add Bout DTO
+    public class BoutDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private List<ArenaDTO> arenas = new();
+    private List<RefereeDTO> referees = new();
+    private List<BoutDTO> bouts = new();
+
+    // Updated validation to include categories
+    private bool _isDisabled =>
+        string.IsNullOrWhiteSpace(_redFighter) ||
+        string.IsNullOrWhiteSpace(_blueFighter) ||
+        string.IsNullOrWhiteSpace(_selectedArena) ||
+        _selectedMajorCategoryId == 0 ||
+        _selectedCategoryId == 0 ||
+        _selectedBoutId == 0 ||
+        _redFighter == _blueFighter;
+
+    private string ValidationError
+    {
+        get
+        {
+            if (_selectedBoutId == 0)
+                return "Please select a bout number";
+            if (_selectedMajorCategoryId == 0)
+                return "Please select an Age Division";
+            if (_selectedCategoryId == 0)
+                return "Please select a Weight Class";
+            if (string.IsNullOrWhiteSpace(_redFighter))
+                return "Please select Red Corner fighter";
+            if (string.IsNullOrWhiteSpace(_blueFighter))
+                return "Please select Blue Corner fighter";
+            if (string.IsNullOrWhiteSpace(_selectedArena))
+                return "Please select an arena";
+            if (_redFighter == _blueFighter)
+                return "Red and Blue corners cannot be the same participant";
+            return string.Empty;
+        }
+    }
+
+    private string GetSaveButtonText() => _isDisabled ? "Complete All Required Fields" : "Create Bout";
+    private string GetSaveButtonEndIcon() => _isDisabled ? null : Icons.Material.Filled.ArrowForward;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        SetDefaultSchedule();
+        StateHasChanged();
+    }
+
+    private void SetDefaultCategories()
+    {
+        if (MajorCategoryId != 0)
+        {
+            _selectedMajorCategoryId = MajorCategoryId;
+
+            if (CategoryId != 0)
+            {
+                var category = categories.FirstOrDefault(c => c.Id == CategoryId && c.LevelId == MajorCategoryId);
+                if (category != null)
+                {
+                    _selectedCategoryId = CategoryId;
+                    _ = LoadParticipants(); // Load participants when category is set from parameters
+                }
+            }
+        }
+    }
+
+    private async Task OnCategoryChanged(int categoryId)
+    {
+        Console.WriteLine($"=== OnCategoryChanged called ===");
+        Console.WriteLine($"Previous category: {_selectedCategoryId}");
+        Console.WriteLine($"New category: {categoryId}");
+
+        _selectedCategoryId = categoryId;
+
+        // Reset the selected fighters
+        _redFighter = string.Empty;
+        _blueFighter = string.Empty;
+
+        // Clear the current participants list
+        participants.Clear();
+        Console.WriteLine($"Cleared participants, count: {participants.Count}");
+
+        if (categoryId != 0)
+        {
+            Console.WriteLine($"Loading participants for category: {categoryId}");
+            await LoadParticipants();
+        }
+        else
+        {
+            Console.WriteLine("Category is 0, skipping participant load");
+        }
+
+        StateHasChanged();
+        Console.WriteLine("=== OnCategoryChanged completed ===");
+    }
+
+    private async Task LoadParticipants()
+    {
+        if (_selectedCategoryId == 0) return;
+
+        try
+        {
+            string urlparticipants = $"/score/BoxingBout/participants/{_selectedCategoryId}";
+            Console.WriteLine($"Loading participants from: {urlparticipants}");
+
+            // Use GetAsync with just ParticipantsDto, not List<ParticipantsDto>
+            participants = await apiService.GetAsync<ParticipantsDto>(urlparticipants) ?? new List<ParticipantsDto>();
+
+            Console.WriteLine($"Successfully loaded {participants.Count} participants");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading participants: {ex.Message}");
+            participants = new List<ParticipantsDto>();
+        }
+        StateHasChanged();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            string urlarena = "/score/BoxingBout/arenas";
+            string urlreferee = "/score/BoxingBout/referees";
+            string urlmajorcategories = "/score/BoxingBout/majorcategories";
+            string urlcategories = "/score/BoxingBout/categories";
+            string urlbouts = "/score/BoxingBout/bouts";
+
+            arenas = await apiService.GetAsync<ArenaDTO>(urlarena);
+            referees = await apiService.GetAsync<RefereeDTO>(urlreferee);
+            majorcategories = await apiService.GetAsync<MajorCategoriesDTO>(urlmajorcategories);
+            categories = await apiService.GetAsync<CategoriesDTO>(urlcategories);
+            bouts = await apiService.GetAsync<BoutDTO>(urlbouts);
+
+            SetDefaultCategories();
+        }
+        catch (Exception ex)
+        {
+            arenas = GetFallbackArenas();
+            referees = GetFallbackReferees();
+            SetDefaultCategories();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SetDefaultSchedule()
+    {
+        _schedule = DateTime.Today;
+        _scheduleTime = new TimeSpan(DateTime.Now.Hour + 1, DateTime.Now.Minute, 0);
+    }
+    private async void Save()
+    {
+        if (_isDisabled) return;
+
+        try
+        {
+            var scheduledDateTime = _schedule.HasValue && _scheduleTime.HasValue
+                ? _schedule.Value.Date + _scheduleTime.Value
+                : (DateTime?)null;
+
+            var redParticipant = participants.FirstOrDefault(p => p.Id == _redFighter);
+            var blueParticipant = participants.FirstOrDefault(p => p.Id == _blueFighter);
+            var arenaId = arenas.FirstOrDefault(a => a.Name == _selectedArena)?.Id ?? 0;
+            var refereeId = referees.FirstOrDefault(r => r.Name == _referee)?.Id ?? 0;
+            var boutId = _selectedBoutId;
+
+            var createDto = new CreateBoxingMatchDto
+            {
+                RoundId = RoundId,
+                Round = Round,
+                BoutId = boutId,
+                RedCorner = new ParticipantDetailsDto
+                {
+                    ParticipantId = redParticipant?.Id ?? string.Empty,
+                    ParticipantName = redParticipant?.ParticipantName ?? string.Empty,
+                    Region = redParticipant?.Region ?? string.Empty,
+                    RegionId = redParticipant?.SchoolRegionID ?? 0,
+                    Abbreviation = redParticipant?.Abbreviation ?? string.Empty,
+                    CoachName = redParticipant?.CoachName ?? string.Empty
+                },
+                BlueCorner = new ParticipantDetailsDto
+                {
+                    ParticipantId = blueParticipant?.Id ?? string.Empty,
+                    ParticipantName = blueParticipant?.ParticipantName ?? string.Empty,
+                    Region = blueParticipant?.Region ?? string.Empty,
+                    RegionId = blueParticipant?.SchoolRegionID ?? 0,
+                    Abbreviation = blueParticipant?.Abbreviation ?? string.Empty,
+                    CoachName = blueParticipant?.CoachName ?? string.Empty
+                },
+                Schedule = scheduledDateTime,
+                Arena = arenaId.ToString(),
+                Referee = refereeId.ToString(),
+                MajorCategoryId = _selectedMajorCategoryId,
+                CategoryId = _selectedCategoryId,
+                UserId = await cookieService.GetCookie("userID") ?? "No ID"
+            };
+
+            // Console log all the entered data
+            Console.WriteLine("=== BOUT CREATION DATA (IDs) ===");
+            Console.WriteLine($"Round ID: {createDto.RoundId}");
+            Console.WriteLine($"Round: {createDto.Round}");
+            Console.WriteLine($"Bout ID: {createDto.BoutId}");
+            Console.WriteLine($"Red Corner:");
+            Console.WriteLine($"  Participant ID: {createDto.RedCorner.ParticipantId}");
+            Console.WriteLine($"  Name: {createDto.RedCorner.ParticipantName}");
+            Console.WriteLine($"  Region: {createDto.RedCorner.Region}");
+            Console.WriteLine($"  Region ID: {createDto.RedCorner.RegionId}");
+            Console.WriteLine($"  Abbreviation: {createDto.RedCorner.Abbreviation}");
+            Console.WriteLine($"  Coach: {createDto.RedCorner.CoachName}");
+            Console.WriteLine($"Blue Corner:");
+            Console.WriteLine($"  Participant ID: {createDto.BlueCorner.ParticipantId}");
+            Console.WriteLine($"  Name: {createDto.BlueCorner.ParticipantName}");
+            Console.WriteLine($"  Region: {createDto.BlueCorner.Region}");
+            Console.WriteLine($"  Region ID: {createDto.BlueCorner.RegionId}");
+            Console.WriteLine($"  Abbreviation: {createDto.BlueCorner.Abbreviation}");
+            Console.WriteLine($"  Coach: {createDto.BlueCorner.CoachName}");
+            Console.WriteLine($"Schedule: {createDto.Schedule?.ToString("yyyy-MM-dd HH:mm") ?? "Not set"}");
+            Console.WriteLine($"Arena ID: {createDto.Arena}");
+            Console.WriteLine($"Referee ID: {createDto.Referee}");
+            Console.WriteLine($"MajorCategoryId: {createDto.MajorCategoryId}");
+            Console.WriteLine($"CategoryId: {createDto.CategoryId}");
+            Console.WriteLine($"CategoryId: {await cookieService.GetCookie("userID")}");
+            Console.WriteLine("================================");
+
+            // Log as JSON for easy copying
+            Console.WriteLine("JSON Data:");
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(createDto, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true
+            }));
+
+            // Call the API to save the match
+            var matchId = await apiService.PostAsync<CreateBoxingMatchDto, int>("score/BoxingBout/SaveMatch", createDto);
+
+
+            Console.WriteLine($"Response: {matchId}");
+
+            if (matchId > 0)
+            {
+                Console.WriteLine($"Match saved successfully with ID: {matchId}");
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Console.WriteLine("Failed to save match - returned 0 ID");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating bout: {ex.Message}");
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    // Helper methods for participant details
+    private string GetParticipantName(string participantId)
+    {
+        var participant = participants.FirstOrDefault(p => p.Id == participantId);
+        return participant?.ParticipantName ?? "Unknown";
+    }
+
+    private string GetParticipantRegion(string participantId)
+    {
+        var participant = participants.FirstOrDefault(p => p.Id == participantId);
+        return participant?.Region ?? "Unknown";
+    }
+
+    private string GetParticipantCoach(string participantId)
+    {
+        var participant = participants.FirstOrDefault(p => p.Id == participantId);
+        return participant?.CoachName ?? "Unknown";
+    }
+
+    private string GetParticipantAbbreviation(string participantId)
+    {
+        var participant = participants.FirstOrDefault(p => p.Id == participantId);
+        return participant?.Abbreviation ?? "Unknown";
+    }
+
+    private string GetMajorCategoryName(int id)
+    {
+        if (id == 0) return "Not Selected";
+        var category = majorcategories.FirstOrDefault(r => r.Id == id);
+        return category?.Name ?? "Unknown Category";
+    }
+
+    private string GetCategoryName(int id)
+    {
+        if (id == 0) return "Not Selected";
+        var category = categories.FirstOrDefault(r => r.Id == id);
+        return category?.Name ?? "Unknown Category";
+    }
+
+    // Add these properties for the category data
+    private List<MajorCategoriesDTO> majorcategories = new();
+    private List<CategoriesDTO> categories = new();
+
+    // Add these DTO classes if not already defined
+    public class MajorCategoriesDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class CategoriesDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int LevelId { get; set; }
+    }
+
+    // Fallback data methods
+    private List<ArenaDTO> GetFallbackArenas()
+    {
+        return new List<ArenaDTO>
+        {
+            new ArenaDTO { Id = 1, Name = "Arena 1" },
+            new ArenaDTO { Id = 2, Name = "Arena 2" },
+            new ArenaDTO { Id = 3, Name = "Arena 3" },
+            new ArenaDTO { Id = 4, Name = "Arena 4" },
+            new ArenaDTO { Id = 5, Name = "Arena 5" }
+        };
+    }
+
+    private List<RefereeDTO> GetFallbackReferees()
+    {
+        return new List<RefereeDTO>
+        {
+            new RefereeDTO { Id = 1, Name = "Referee 1" },
+            new RefereeDTO { Id = 2, Name = "Referee 2" },
+            new RefereeDTO { Id = 3, Name = "Referee 3" },
+            new RefereeDTO { Id = 4, Name = "Referee 4" },
+            new RefereeDTO { Id = 5, Name = "Referee 5" }
+        };
+    }
+}

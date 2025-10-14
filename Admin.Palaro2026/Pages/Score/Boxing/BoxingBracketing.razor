@@ -1,0 +1,879 @@
+﻿@page "/score/boxing/bracketing"
+@using Admin.Palaro2026.Dialogs.ScorePage.Boxing
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject APIService apiService
+@inject CookieService cookieService
+
+
+<PageTitle>Boxing Bracketing | Palaro 2026</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
+    <!-- Category Selection Section -->
+    @if (!_filtersHidden)
+    {
+        <div class="filter-section">
+            <div class="filter-header">
+                <div class="filter-title-section">
+                    <MudIcon Icon="@Icons.Material.Filled.Tune" Class="filter-icon" />
+                    <MudText Typo="Typo.h6" Class="filter-title">Filter Tournament</MudText>
+                </div>
+                <div class="filter-actions-header">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Secondary"
+                               Size="Size.Small"
+                               OnClick="ClearFilters"
+                               StartIcon="@Icons.Material.Filled.ClearAll"
+                               Class="clear-all-btn">
+                        Clear All
+                    </MudButton>
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Secondary"
+                               Size="Size.Small"
+                               OnClick="() => _filtersHidden = true"
+                               Class="hide-filters-btn">
+                        <MudIcon Icon="@Icons.Material.Filled.ExpandLess" Size="Size.Small" Class="mr-1" />
+                        Collapse
+                    </MudButton>
+                </div>
+            </div>
+
+            <div class="filter-content">
+                <div class="dropdowns-container">
+                    <div class="dropdown-column">
+                        <MudSelect T="int"
+                                   @bind-Value="_selectedMajorCategoryId"
+                                   Label="Age Division"
+                                   Variant="Variant.Outlined"
+                                   Class="filter-input"
+                                   Immediate="true"
+                                   OnChange="OnMajorCategoryChanged"
+                                   Size="Size.Small">
+                            <MudSelectItem Value="0">All Age Divisions</MudSelectItem>
+                            @foreach (var major in majorcategories)
+                            {
+                                <MudSelectItem Value="@major.Id">
+                                    <div class="filter-option">
+                                        <MudIcon Icon="@Icons.Material.Filled.Accessibility" Class="option-icon" />
+                                        <span class="option-text">@major.Name</span>
+                                    </div>
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                    </div>
+
+                    <div class="dropdown-column">
+                        <MudSelect T="int"
+                                   @bind-Value="_selectedCategoryId"
+                                   Label="Weight Class"
+                                   Variant="Variant.Outlined"
+                                   Class="filter-input"
+                                   Immediate="true"
+                                   Disabled="@(_selectedMajorCategoryId == 0)"
+                                   Size="Size.Small">
+                            <MudSelectItem Value="0">All Weight Classes</MudSelectItem>
+                            @if (_selectedMajorCategoryId != 0)
+                            {
+                                @foreach (var cat in categories.Where(c => c.LevelId == _selectedMajorCategoryId))
+                                {
+                                    <MudSelectItem Value="@cat.Id">
+                                        <div class="filter-option">
+                                            <MudIcon Icon="@Icons.Material.Filled.FitnessCenter" Class="option-icon" />
+                                            <span class="option-text">@cat.Name</span>
+                                        </div>
+                                    </MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
+                    </div>
+                </div>
+
+                <div class="apply-button-container">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="ApplyFilters"
+                               StartIcon="@Icons.Material.Filled.Check"
+                               Size="Size.Small"
+                               Class="apply-filter-btn">
+                        Apply Filters
+                    </MudButton>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="collapsed-filters">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       OnClick="() => _filtersHidden = false"
+                       Class="show-filters-btn"
+                       FullWidth="true">
+                <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Class="mr-1" />
+                Show Tournament Filters
+            </MudButton>
+        </div>
+    }
+
+    <!-- Space between filters and active filters -->
+    <div class="filter-spacing"></div>
+
+    <!-- Active Filters Display -->
+    @if (_appliedMajorCategoryId != 0 || _appliedCategoryId != 0)
+    {
+        <MudPaper Class="active-filters-card" Elevation="0">
+            <div class="active-filters-header">
+                <MudText Typo="Typo.subtitle1" Class="active-filters-title">
+                    Active Filters
+                </MudText>
+                <MudButton Variant="Variant.Text" 
+                           Color="Color.Error" 
+                           Size="Size.Small" 
+                           OnClick="ClearAllFilters"
+                           StartIcon="@Icons.Material.Filled.Clear">
+                    Clear All
+                </MudButton>
+            </div>
+            
+            <div class="active-filters-chips">
+                @if (_appliedMajorCategoryId != 0)
+                {
+                    <MudChip T="string" 
+                             Color="Color.Primary" 
+                             Variant="Variant.Filled" 
+                             Size="Size.Small" 
+                             OnClose="ClearAppliedMajorCategory">
+                        <MudIcon Icon="@Icons.Material.Filled.Category" Size="Size.Small" Class="mr-1" />
+                        Major: @GetMajorCategoryName(_appliedMajorCategoryId)
+                    </MudChip>
+                }
+                @if (_appliedCategoryId != 0)
+                {
+                    <MudChip T="string" 
+                             Color="Color.Secondary" 
+                             Variant="Variant.Filled" 
+                             Size="Size.Small" 
+                             OnClose="ClearAppliedCategory">
+                        <MudIcon Icon="@Icons.Material.Filled.FitnessCenter" Size="Size.Small" Class="mr-1" />
+                        Weight: @GetCategoryName(_appliedCategoryId)
+                    </MudChip>
+                }
+            </div>
+        </MudPaper>
+    }
+
+    <!-- Header Section -->
+    <MudPaper Class="header-card" Elevation="0">
+        <MudGrid>
+            <MudItem xs="12" md="8">
+                <div class="header-content">
+                    <div class="title-section">
+                        <MudIcon Icon="@Icons.Material.Filled.SportsMma" Class="header-icon" />
+                        <div>
+                            <MudText Typo="Typo.h4" Class="main-title">
+                                Boxing Tournament Bracket
+                            </MudText>
+                            <MudText Typo="Typo.h6" Class="subtitle">
+                                Palarong Pambansa 2026
+                            </MudText>
+                        </div>
+                    </div>
+                    <MudText Typo="Typo.body2" Class="description">
+                        Manage tournament progression from preliminary rounds to championship
+                    </MudText>
+                </div>
+            </MudItem>
+            <MudItem xs="12" md="4" Class="champion-section">
+                <MudPaper Class="champion-card" Elevation="1">
+                    <div class="champion-content">
+                        <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="trophy-icon" />
+                        <div>
+                            <MudText Typo="Typo.caption" Class="champion-label">
+                                TOURNAMENT CHAMPION
+                            </MudText>
+                            <MudText Typo="Typo.h6" Class="champion-name">
+                                @(string.IsNullOrEmpty(Champion) ? "TBD" : Champion)
+                            </MudText>
+                        </div>
+                    </div>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <!-- Loading State -->
+    @if (isLoading)
+    {
+        <MudPaper Class="p-4 text-center">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            <MudText Class="mt-2">Loading tournament data...</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <!-- Tournament Bracket Grid -->
+        <MudGrid Spacing="3" Class="bracket-grid">
+            @foreach (var round in Rounds)
+            {
+                <MudItem xs="12" sm="6" lg="3">
+                    <MudPaper Class="round-card" Elevation="1">
+                        <!-- Round Header -->
+                        <div class="round-header @GetRoundHeaderClass(round.Key)">
+                            <div class="round-header-content">
+                                <div class="round-info">
+                                    <MudIcon Icon="@GetRoundIcon(round.Key)" Class="round-icon" />
+                                    <div class="round-texts">
+                                        <MudText Typo="Typo.h6" Class="round-title">
+                                            @round.Label
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Class="round-subtitle">
+                                            @GetRoundSubtitle(round.Key)
+                                        </MudText>
+                                    </div>
+                                </div>
+                                <MudBadge Color="Color.Primary" Size="Size.Small" Class="bout-count" Content="@round.Bouts.Count" />
+                            </div>
+                        </div>
+
+                        <!-- Add Bout Button -->
+                        <div class="action-section">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       FullWidth="true"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="@(() => OpenAddBoutDialog(round.Key))"
+                                       Class="add-bout-btn">
+                                Add Bout
+                            </MudButton>
+                        </div>
+
+                       <!-- Bouts List -->
+                    <div class="bouts-container">
+                        @if (!round.Bouts.Any())
+                        {
+                            <div class="empty-state fade-in">
+                                <MudIcon Icon="@Icons.Material.Filled.SportsMma" Class="empty-icon" />
+                                <MudText Typo="Typo.body2" Class="empty-text">
+                                    No bouts scheduled
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="empty-subtext">
+                                    Add the first bout to get started
+                                </MudText>
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.AddCircle"
+                                           Class="add-bout-btn mt-2">
+                                    Add Bout
+                                </MudButton>
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var bout in round.Bouts)
+                            {
+                                    <MudCard Class="bout-mudcard fade-in bout-poster-card" Elevation="1">
+                                        <MudCardContent Class="bout-card poster-layout">
+                                            <!-- Bout Header -->
+                                            <div class="poster-header">
+                                                <MudText Typo="Typo.subtitle2" Class="poster-bout-number">
+                                                    Bout #@bout.Number
+                                                </MudText>
+                                                <span class="just-text block">@bout.MajorCategory</span>
+                                                <span class="just-text block">@bout.SubCategory</span>
+                                            </div>
+
+
+                                            <!-- Main Fight Row -->
+                                            <div class="poster-fight-row">
+                                                <!-- Red Corner -->
+                                                <div class="poster-fighter red-corner">
+                                                    <MudImage Src="@($"Images/{bout.RedRegionId}.webp")"
+                                                              Alt="@bout.RedCornerName"
+                                                              Width="40"
+                                                              Height="40"
+                                                              Class="poster-fighter-image red-img" />
+                                                    <div class="poster-fighter-info">
+                                                        <span class="red-text">  @bout.RedCornerName </span>
+                                                        <span class="region-red-text">  @bout.RedCornerRegion </span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- VS Section -->
+                                                <div class="poster-vs">
+                                                    <MudText Typo="Typo.h6" Class="poster-vs-text">VS</MudText>
+                                                </div>
+
+                                                <!-- Blue Corner -->
+                                                <div class="poster-fighter blue-corner">
+                                                    <div class="poster-fighter-info text-right">
+                                                        <span class="blue-text">  @bout.BlueCornerName </span>
+                                                        <span class="region-blue-text">  @bout.BlueCornerRegion </span>
+                                                    </div>
+                                                    <MudImage Src="@($"Images/{bout.BlueRegionId}.webp")"
+                                                              Alt="@bout.BlueCornerName"
+                                                              Width="40"
+                                                              Height="40"
+                                                              Class="poster-fighter-image blue-img" />
+                                                </div>
+                                            </div>
+
+                                            <!-- Bout Info -->
+                                            <div class="poster-info">
+                                                <MudText Typo="Typo.caption" Class="poster-meta">
+                                                    @FormatBoutTime(bout.Schedule) &nbsp; • &nbsp;
+                                                    @bout.Arena_Name
+                                                    @if (!string.IsNullOrEmpty(bout.Referee))
+                                                    {
+                                                        <span>&nbsp; • &nbsp; <span class="region-red-text">Referee:</span> @bout.Referee</span>
+                                                    }
+                                                </MudText>
+                                            </div>
+                                        </MudCardContent>
+                                    </MudCard>
+
+                            }
+                        }
+                    </div>
+
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+
+        <!-- Quick Stats -->
+        <MudPaper Class="stats-card" Elevation="0">
+            <MudGrid>
+                <MudItem xs="6" sm="3">
+                    <div class="stat-item">
+                        <MudText Typo="Typo.h3" Class="stat-number primary-stat">
+                            @TotalBouts
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="stat-label">
+                            Total Bouts
+                        </MudText>
+                    </div>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <div class="stat-item">
+                        <MudText Typo="Typo.h3" Class="stat-number success-stat">
+                            @ScheduledBouts
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="stat-label">
+                            Scheduled
+                        </MudText>
+                    </div>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <div class="stat-item">
+                        <MudText Typo="Typo.h3" Class="stat-number warning-stat">
+                            @CompletedBouts
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="stat-label">
+                            Completed
+                        </MudText>
+                    </div>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <div class="stat-item">
+                        <MudText Typo="Typo.h3" Class="stat-number info-stat">
+                            @UniqueRegions
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="stat-label">
+                            Unique Regions
+                        </MudText>
+                    </div>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    private List<BoxingBoutDto> allBouts = new();
+    private string Champion = string.Empty;
+    private bool isLoading = true;
+
+    // Filter properties
+    private bool _filtersHidden = false;
+    private int _selectedMajorCategoryId = 0;
+    private int _selectedCategoryId = 0;
+    private int _appliedMajorCategoryId = 0;
+    private int _appliedCategoryId = 0;
+
+    // Statistics
+    private int TotalBouts => allBouts.Count;
+    private int ScheduledBouts => allBouts.Count(b => b.Status == "Scheduled");
+    private int CompletedBouts => allBouts.Count(b => b.Status == "Completed");
+    private int InProgressBouts => allBouts.Count(b => b.Status == "InProgress");
+    private int UniqueRegions => allBouts
+        .SelectMany(b => new[] { b.RedCornerRegion, b.BlueCornerRegion })
+        .Distinct()
+        .Count();
+
+    // Updated Rounds to use API data
+    private List<(int Id, string Key, string Label, List<BoxingBoutDto> Bouts)> Rounds =>
+     roundsdata?.Select(round =>
+     (
+         round.Id,
+         round.Abbreviation,
+         round.Name,
+         allBouts.Where(b =>
+             string.Equals(b.Round, round.Abbreviation, StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(b.Round, round.Name, StringComparison.OrdinalIgnoreCase)
+         ).ToList()
+     )).ToList() ?? new List<(int Id, string Key, string Label, List<BoxingBoutDto> Bouts)>();
+
+
+    // Category data
+    private List<MajorCategoriesDTO> majorcategories = new();
+    private List<CategoriesDTO> categories = new();
+    private List<RoundsDTO> roundsdata = new();
+
+    private bool CanEditBout(BoxingBoutDto bout) => bout.Status == "Scheduled";
+    private bool CanScoreBout(BoxingBoutDto bout) => bout.Status != "Completed" && bout.Status != "Cancelled";
+    private bool CanDeleteBout(BoxingBoutDto bout) => bout.Status == "Scheduled";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        await LoadBouts();
+        DetermineChampion();
+    }
+
+    private async Task LoadBouts()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            // Load matches from API
+            var matches = await apiService.GetAsync<EventDrawOfMatchDTO>("/score/BoxingBout/list_match");
+
+            Console.WriteLine($"=== LOADING BOUTS DEBUG INFO ===");
+            Console.WriteLine($"Total matches from API: {matches?.Count ?? 0}");
+
+            if (matches != null && matches.Any())
+            {
+                // Load participants for each match
+                foreach (var match in matches)
+                {
+                    var participants = await apiService.GetAsync<EventDrawOfMatchParticipantsDTO>($"/score/BoxingBout/list_participants/{match.Id}");
+                    match.Participants = participants?.ToList() ?? new List<EventDrawOfMatchParticipantsDTO>();
+
+                    Console.WriteLine($"Match {match.Id}: Round='{match.Round_Name}', Participants={match.Participants.Count}");
+                }
+
+                // Transform to BoxingBoutDto
+                allBouts = matches.Select(match => new BoxingBoutDto
+                {
+                    Id = match.Id,
+                    Number = match.Bout_Id,
+                    MajorCategory = match.MajorCategory,
+                    SubCategory = match.SubCategory,
+                    Round = match.Round_Name, // This is what's used for grouping
+                    Round_Name = match.Round_Name,
+                    Arena_Name = match.Arena_Name,
+                    Schedule = match.Schedule,
+                    Status = "Scheduled", // Default status
+                    RedCornerRegion = match.Participants.FirstOrDefault(p => p.Side_Name == "Red")?.Region_Abbr ?? "TBD",
+                    RedCornerName = match.Participants.FirstOrDefault(p => p.Side_Name == "Red")?.Participant_Name ?? "TBD",
+                    RedCornerCoach = match.Participants.FirstOrDefault(p => p.Side_Name == "Red")?.Coach_Name ?? "TBD",
+                    RedRegionId = match.Participants.FirstOrDefault(p => p.Side_Name == "Red")?.Region_Id ?? 0, // Add this line
+                    BlueCornerRegion = match.Participants.FirstOrDefault(p => p.Side_Name == "Blue")?.Region_Abbr ?? "TBD",
+                    BlueCornerName = match.Participants.FirstOrDefault(p => p.Side_Name == "Blue")?.Participant_Name ?? "TBD",
+                    BlueCornerCoach = match.Participants.FirstOrDefault(p => p.Side_Name == "Blue")?.Coach_Name ?? "TBD",
+                    BlueRegionId = match.Participants.FirstOrDefault(p => p.Side_Name == "Blue")?.Region_Id ?? 0, // Add this line
+                    WinnerRegion = string.Empty,
+                    VictoryType = string.Empty
+                }).ToList();
+
+                // Debug: Check what rounds we have in bouts
+                Console.WriteLine($"=== BOUTS BY ROUND ===");
+                var roundsInBouts = allBouts.Select(b => b.Round).Distinct();
+                foreach (var round in roundsInBouts)
+                {
+                    var boutsInRound = allBouts.Count(b => b.Round == round);
+                    Console.WriteLine($"Round '{round}': {boutsInRound} bouts");
+                }
+
+                // Debug: Check rounds data
+                Console.WriteLine($"=== ROUNDS DATA ===");
+                if (roundsdata != null && roundsdata.Any())
+                {
+                    foreach (var round in roundsdata)
+                    {
+                        Console.WriteLine($"Round: Id={round.Id}, Name='{round.Name}', Abbreviation='{round.Abbreviation}'");
+                        var matchingBouts = allBouts.Count(b => b.Round == round.Abbreviation);
+                        Console.WriteLine($"  -> Matching bouts: {matchingBouts}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No rounds data available");
+                }
+            }
+            else
+            {
+                allBouts = new List<BoxingBoutDto>();
+                Console.WriteLine("No matches found in API response");
+            }
+
+            DetermineChampion();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading bouts: {ex.Message}", Severity.Error);
+            allBouts = new List<BoxingBoutDto>();
+            Console.WriteLine($"Exception in LoadBouts: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+    private void DetermineChampion()
+    {
+        // Use the abbreviation from API data
+        var finalBout = allBouts.FirstOrDefault(b => b.Round == "Finals" && b.Status == "Completed");
+        if (finalBout != null && !string.IsNullOrEmpty(finalBout.WinnerRegion))
+        {
+            Champion = finalBout.WinnerRegion;
+        }
+        else
+        {
+            Champion = string.Empty;
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            string urlmajorcategories = "/score/BoxingBout/majorcategories";
+            string urlcategories = "/score/BoxingBout/categories";
+            string urlroundsdata = "/score/BoxingBout/rounds";
+
+            // Load data in parallel for better performance
+            Task<List<MajorCategoriesDTO>> majorCategoriesTask = apiService.GetAsync<MajorCategoriesDTO>(urlmajorcategories);
+            Task<List<CategoriesDTO>> categoriesTask = apiService.GetAsync<CategoriesDTO>(urlcategories);
+            Task<List<RoundsDTO>> roundsTask = apiService.GetAsync<RoundsDTO>(urlroundsdata);
+
+            // Wait for all tasks to complete
+            await Task.WhenAll(majorCategoriesTask, categoriesTask, roundsTask);
+
+            majorcategories = majorCategoriesTask.Result ?? new List<MajorCategoriesDTO>();
+            categories = categoriesTask.Result ?? new List<CategoriesDTO>();
+            roundsdata = roundsTask.Result ?? new List<RoundsDTO>();
+
+            if (!roundsdata.Any())
+            {
+                Snackbar.Add("No rounds data available", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading data: {ex.Message}", Severity.Error);
+            // Initialize empty lists to prevent null references
+            majorcategories = new List<MajorCategoriesDTO>();
+            categories = new List<CategoriesDTO>();
+            roundsdata = new List<RoundsDTO>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // Filter methods
+    private void OnMajorCategoryChanged(int value)
+    {
+        _selectedCategoryId = 0; // reset category when major changes
+    }
+
+    private void ApplyFilters()
+    {
+        _appliedMajorCategoryId = _selectedMajorCategoryId;
+        _appliedCategoryId = _selectedCategoryId;
+
+        LoadBouts(); // refresh bouts based on filters
+        _filtersHidden = true; // hide filter after apply
+
+        Snackbar.Add("Filters applied successfully!", Severity.Success);
+    }
+
+    private void ClearFilters()
+    {
+        _selectedMajorCategoryId = 0;
+        _selectedCategoryId = 0;
+        StateHasChanged();
+    }
+
+    private void ClearAllFilters()
+    {
+        _selectedMajorCategoryId = 0;
+        _selectedCategoryId = 0;
+        _appliedMajorCategoryId = 0;
+        _appliedCategoryId = 0;
+        LoadBouts();
+        Snackbar.Add("All filters cleared!", Severity.Info);
+    }
+
+    private void ClearAppliedMajorCategory()
+    {
+        _appliedMajorCategoryId = 0;
+        _selectedMajorCategoryId = 0;
+        LoadBouts();
+    }
+
+    private void ClearAppliedCategory()
+    {
+        _appliedCategoryId = 0;
+        _selectedCategoryId = 0;
+        LoadBouts();
+    }
+
+    // Category helper methods
+    private string GetMajorCategoryName(int id)
+    {
+        if (id == 0) return "All Major Categories";
+        var category = majorcategories.FirstOrDefault(r => r.Id == id);
+        return category?.Name ?? "Unknown Category";
+    }
+
+    private string GetCategoryName(int id)
+    {
+        if (id == 0) return "All Weight Categories";
+        var category = categories.FirstOrDefault(r => r.Id == id);
+        return category?.Name ?? "Unknown Category";
+    }
+
+    // Bout management methods - Updated to pass round ID and abbreviation
+    private async Task OpenAddBoutDialog(string roundKey)
+    {
+        if (roundsdata == null || !roundsdata.Any())
+        {
+            Snackbar.Add("Rounds data not loaded", Severity.Error);
+            return;
+        }
+
+        var round = roundsdata.FirstOrDefault(r => r.Abbreviation == roundKey);
+        if (round == null)
+        {
+            Snackbar.Add($"Round {roundKey} not found", Severity.Error);
+            return;
+        }
+
+        var parameters = new DialogParameters<AddBoutDialog>
+        {
+            { x => x.RoundId, round.Id },
+            { x => x.Round, round.Abbreviation },
+            { x => x.MajorCategoryId, _appliedMajorCategoryId },
+            { x => x.CategoryId, _appliedCategoryId }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+
+        var dialog = await DialogService.ShowAsync<AddBoutDialog>("Add Boxing Match", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadBouts();
+            Snackbar.Add("Bout added successfully!", Severity.Success);
+        }
+    }
+
+    private string FormatBoutTime(DateTime? schedule)
+    {
+        if (!schedule.HasValue) return "TBD";
+        return schedule.Value.ToString("MMM dd • h:mm tt");
+    }
+
+    private Color GetBoutStatusColor(string status) => status switch
+    {
+        "Scheduled" => Color.Tertiary,
+        "InProgress" => Color.Warning,
+        "Completed" => Color.Success,
+        "Cancelled" => Color.Error,
+        _ => Color.Default
+    };
+
+    private string GetBoutStatusColorForStyle(string status) => status switch
+    {
+        "Scheduled" => "var(--text-tertiary)",
+        "InProgress" => "var(--warning)",
+        "Completed" => "var(--success)",
+        "Cancelled" => "var(--error)",
+        _ => "var(--text-muted)"
+    };
+
+    private string GetBoutStatusIcon(string status) => status switch
+    {
+        "Scheduled" => Icons.Material.Filled.Schedule,
+        "InProgress" => Icons.Material.Filled.PlayArrow,
+        "Completed" => Icons.Material.Filled.CheckCircle,
+        "Cancelled" => Icons.Material.Filled.Cancel,
+        _ => Icons.Material.Filled.Help
+    };
+
+    private string GetBoutStatusDisplay(string status) => status switch
+    {
+        "Scheduled" => "Scheduled",
+        "InProgress" => "In Progress",
+        "Completed" => "Completed",
+        "Cancelled" => "Cancelled",
+        _ => "Unknown"
+    };
+
+    private string GetVictoryTypeDisplay(string victoryType) => victoryType switch
+    {
+        "KO" => "Knockout (KO)",
+        "TKO" => "Technical Knockout (TKO)",
+        "Decision" => "Decision",
+        "DQ" => "Disqualification (DQ)",
+        "Walkover" => "Walkover",
+        "NoContest" => "No Contest",
+        _ => "Unknown"
+    };
+
+    // Updated helper methods to use round data
+    private string GetRoundHeaderClass(string roundKey) => roundKey.ToLower();
+
+    private string GetRoundIcon(string roundKey)
+    {
+        if (string.IsNullOrEmpty(roundKey))
+            return Icons.Material.Filled.SportsMma;
+
+        return roundKey.ToLower() switch
+        {
+            "prelim" => Icons.Material.Filled.PlayArrow,
+            "quarter" => Icons.Material.Filled.Filter4,
+            "semi" => Icons.Material.Filled.Filter3,
+            "finals" => Icons.Material.Filled.EmojiEvents,
+            _ => Icons.Material.Filled.SportsMma
+        };
+    }
+
+    private string GetRoundSubtitle(string roundKey)
+    {
+        if (roundsdata == null || !roundsdata.Any())
+            return "Tournament round";
+
+        var round = roundsdata.FirstOrDefault(r => r.Abbreviation == roundKey);
+        return round?.Name ?? "Tournament round";
+    }
+
+      private string GetRegionId(string regionName)
+    {
+        // Implement your logic to convert region name to region ID
+        // This is a placeholder - replace with your actual logic
+        return regionName.ToLower().Replace(" ", "-");
+    }
+
+
+
+    // DTO classes
+    public class MajorCategoriesDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class CategoriesDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int LevelId { get; set; }
+    }
+
+    public class RoundsDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Abbreviation { get; set; } = string.Empty;
+    }
+
+    // API DTO classes
+    public class EventDrawOfMatchDTO
+    {
+        public int Id { get; set; }
+        public int Sport_Id { get; set; }
+        public int MajorCategories_Id { get; set; }
+        public string MajorCategory { get; set; } = string.Empty;
+        public int Categories_Id { get; set; }
+        public string SubCategory { get; set; } = string.Empty;
+        public int Bout_Id { get; set; }
+        public int Round_Id { get; set; }
+        public string Round_Name { get; set; } = string.Empty;
+        public int Arena_Id { get; set; }
+        public string Arena_Name { get; set; } = string.Empty;
+        public DateTime Schedule { get; set; }
+        public string User_Id { get; set; } = string.Empty;
+        public DateTime Datentime { get; set; }
+        public List<EventDrawOfMatchParticipantsDTO> Participants { get; set; } = new();
+    }
+
+    public class EventDrawOfMatchParticipantsDTO
+    {
+        public int Id { get; set; }
+        public int Match_Id { get; set; }
+        public int Side_Id { get; set; }
+        public string Side_Name { get; set; } = string.Empty;
+        public int Region_Id { get; set; }
+        public string Participant_Id { get; set; } = string.Empty;
+        public string Participant_Name { get; set; } = string.Empty;
+        public string Region_Name { get; set; } = string.Empty;
+        public string Region_Abbr { get; set; } = string.Empty;
+        public string Coach_Name { get; set; } = string.Empty;
+    }
+
+    // Updated BoxingBoutDto with all required properties
+    // Updated BoxingBoutDto with all required properties including region IDs
+    public class BoxingBoutDto
+    {
+        public int Id { get; set; }
+        public int Number { get; set; }
+        public string Round { get; set; } = string.Empty;
+        public string Round_Name { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string MajorCategory { get; set; } = string.Empty;
+        public string SubCategory { get; set; } = string.Empty;
+        public string Arena_Name { get; set; } = string.Empty;
+        public DateTime? Schedule { get; set; }
+        public string RedCornerRegion { get; set; } = string.Empty;
+        public string RedCornerName { get; set; } = string.Empty;
+        public string RedCornerCoach { get; set; } = string.Empty;
+        public int RedRegionId { get; set; } // Add this property
+        public string BlueCornerRegion { get; set; } = string.Empty;
+        public string BlueCornerName { get; set; } = string.Empty;
+        public string BlueCornerCoach { get; set; } = string.Empty;
+        public int BlueRegionId { get; set; } // Add this property
+        public string WinnerRegion { get; set; } = string.Empty;
+        public string VictoryType { get; set; } = string.Empty;
+        public string Referee { get; set; } = string.Empty;
+        public string Notes { get; set; } = string.Empty;
+    }
+  
+
+    public class UpdateBoxingBoutDto
+    {
+        public string Status { get; set; } = string.Empty;
+        public string Arena { get; set; } = string.Empty;
+        public string Referee { get; set; } = string.Empty;
+        public DateTime? Schedule { get; set; }
+        public string Notes { get; set; } = string.Empty;
+    }
+}

@@ -210,4 +210,49 @@ public class APIService
             return false;
         }
     }
+
+    public async Task<TResult?> PostAsync<TRequest, TResult>(string relativeUrl, TRequest data)
+    {
+        string url = BuildUrl(relativeUrl);
+        try
+        {
+            var jsonContent = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync(url, jsonContent);
+
+            if (response.IsSuccessStatusCode)
+            {
+                string responseContent = await response.Content.ReadAsStringAsync();
+
+                // Try to parse as the expected type
+                try
+                {
+                    return JsonSerializer.Deserialize<TResult>(responseContent, _jsonOptions);
+                }
+                catch
+                {
+                    // If direct deserialization fails, try to handle different response formats
+                    if (typeof(TResult) == typeof(int))
+                    {
+                        if (int.TryParse(responseContent, out int intResult))
+                        {
+                            return (TResult)(object)intResult;
+                        }
+                    }
+                    return default;
+                }
+            }
+            else
+            {
+                Console.WriteLine($"API Error: {response.StatusCode}");
+                string errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error content: {errorContent}");
+                return default;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"API Call Error: {ex.Message}");
+            return default;
+        }
+    }
 }
