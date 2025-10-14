@@ -21,4 +21,9 @@ public partial class Sports
 
     [JsonIgnore]
     public virtual ICollection<SportSubcategories> SportSubcategories { get; set; } = new List<SportSubcategories>();
+
+    //
+    [JsonIgnore]
+    public virtual ICollection<SportsBracket> SportsBracket { get; set; } = new List<SportsBracket>();
+
 }

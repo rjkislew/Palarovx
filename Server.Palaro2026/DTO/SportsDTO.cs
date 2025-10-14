@@ -70,4 +70,24 @@ public class SportsDTO
         public int ID { get; set; }
         public string? Gender { get; set; }
     }
+
+
+    // New bracket-level DTOs
+    public class SportsBracket
+    {
+        public int ID { get; set; }
+        public int SportID { get; set; }
+        public string? BracketName { get; set; }
+        public string? SportName { get; set; }
+        public List<SportsBracketRegions>? RegionsList { get; set; }
+    }
+
+    public class SportsBracketRegions
+    {
+        public int ID { get; set; }
+        public int BracketID { get; set; }
+        public int RegionID { get; set; }
+        public string? RegionName { get; set; }
+        public string? RegionAbbreviation { get; set; }
+    }
 }

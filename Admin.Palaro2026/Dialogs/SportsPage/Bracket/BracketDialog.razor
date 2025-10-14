@@ -1,0 +1,248 @@
+﻿@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+@if (_isLoaded)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudGrid Spacing="1">
+                <!-- Bracket Name -->
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_selectedBracketName"
+                                  Margin="Margin.Dense"
+                                  Label="Bracket Name"
+                                  ShrinkLabel
+                                  Variant="Variant.Outlined"
+                                  Immediate="true" />
+                </MudItem>
+
+                <!-- Sport -->
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_selectedSportID"
+                               Margin="Margin.Dense"
+                               Label="Sport"
+                               ShrinkLabel
+                               Variant="Variant.Outlined"
+                               T="int?"
+                               Clearable>
+                        <MudVirtualize Items="_sports" Context="sport">
+                            <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+
+                <!-- Multiple Regions -->
+                <MudItem xs="12">
+                    <MudSelect T="int"
+                               MultiSelection="true"
+                               SelectAll="true"
+                               @bind-SelectedValues="_selectedRegionIDs"
+                               ToStringFunc="@(id => _schoolRegions?.FirstOrDefault(r => r.ID == id)?.Region ?? string.Empty)"
+                               Margin="Margin.Dense"
+                               Label="Regions"
+                               ShrinkLabel
+                               Variant="Variant.Outlined">
+                        <MudVirtualize Items="_schoolRegions" Context="region">
+                            <MudSelectItem Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+
+        <DialogActions>
+            <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                @if (_isEdit)
+                {
+                    <MudButton Color="Color.Error" OnClick="ConfirmDeleteBracketAsync">Delete</MudButton>
+                }
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudButton OnClick="Cancel" Style="text-transform: none">Cancel</MudButton>
+                    <MudButton OnClick="SaveBracketAsync" Disabled="@_saveDisabled">@(_isEdit ? "Update" : "Add")</MudButton>
+                </MudStack>
+            </MudStack>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
+        </DialogContent>
+    </MudDialog>
+}
+
+@code {
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter] public int? BracketID { get; set; }
+    private bool _isEdit => BracketID.HasValue;
+
+    private List<SportsDTO.Sports>? _sports;
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+    private IEnumerable<int>? _selectedRegionIDs = new List<int>(); // MULTIPLE regions
+    private int? _selectedSportID;
+    private string? _selectedBracketName;
+    private bool _isLoaded = false;
+
+    private bool _saveDisabled => string.IsNullOrWhiteSpace(_selectedBracketName) || !_selectedSportID.HasValue;
+
+    // DTOs
+    public class SportsDTO
+    {
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+        }
+
+        public class SportsBracket
+        {
+            public int ID { get; set; }
+            public int SportID { get; set; }
+            public string? BracketName { get; set; }
+            public List<SportsBracketRegions>? RegionsList { get; set; }
+        }
+
+        public class SportsBracketRegions
+        {
+            public int ID { get; set; }
+            public int BracketID { get; set; }
+            public int RegionID { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSportsAsync();
+        await GetSchoolRegionsAsync();
+
+        if (_isEdit && BracketID.HasValue)
+            await LoadExistingBracketAsync(BracketID.Value);
+
+        _isLoaded = true;
+    }
+
+    private async Task LoadExistingBracketAsync(int id)
+    {
+        string url = $"/Sports/SportsBracketWithRegions";
+        var brackets = await apiService.GetAsync<SportsDTO.SportsBracket>(url);
+        var bracket = brackets.FirstOrDefault(b => b.ID == id);
+
+        if (bracket != null)
+        {
+            _selectedBracketName = bracket.BracketName;
+            _selectedSportID = bracket.SportID;
+            _selectedRegionIDs = bracket.RegionsList?.Select(r => r.RegionID).ToList() ?? new List<int>();
+        }
+    }
+
+
+    private async Task GetSportsAsync()
+    {
+        string url = "/Sports";
+        _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(url);
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task SaveBracketAsync()
+    {
+        try
+        {
+            var bracketDTO = new SportsDTO.SportsBracket
+                {
+                    SportID = _selectedSportID.Value,
+                    BracketName = _selectedBracketName,
+                    RegionsList = _selectedRegionIDs?.Select(r => new SportsDTO.SportsBracketRegions
+                    {
+                        RegionID = r
+                    }).ToList()
+                };
+
+            if (_isEdit)
+            {
+                await apiService.PutAsync($"/Sports/SportsBracket/{BracketID}", bracketDTO);
+                Snackbar.Add("Bracket updated successfully.", Severity.Success);
+            }
+            else
+            {
+                var created = await apiService.PostAndReadAsync<SportsDTO.SportsBracket>("/Sports/SportsBracket", bracketDTO);
+                if (created != null)
+                    Snackbar.Add("Bracket and region(s) added successfully!", Severity.Success);
+                else
+                    Snackbar.Add("Failed to add bracket.", Severity.Error);
+            }
+
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ConfirmDeleteBracketAsync()
+    {
+        bool? confirm = await DialogService.ShowMessageBox(
+            "Confirm Delete",
+            $"Are you sure you want to delete bracket '{_selectedBracketName}'?",
+            yesText: "Yes", cancelText: "Cancel");
+
+        if (confirm == true)
+            await DeleteBracketAsync();
+    }
+
+    private async Task DeleteBracketAsync()
+    {
+        try
+        {
+            if (!BracketID.HasValue)
+            {
+                Snackbar.Add("Invalid Bracket ID.", Severity.Warning);
+                return;
+            }
+
+            bool success = await apiService.DeleteAsync($"/Sports/SportsBracket/{BracketID}");
+
+            if (success)
+            {
+                Snackbar.Add("Bracket deleted successfully.", Severity.Success);
+                MudDialog?.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete bracket.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+
+}

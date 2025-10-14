@@ -1,12 +1,16 @@
 ﻿using System.Text.Json;
 using System.Text;
+using System;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
 namespace Client.Palaro2026.Services
 {
-    public class APIService(IConfiguration configuration, HttpClient httpClient)
+    public class APIService(IConfiguration configuration, HttpClient httpClient, IWebAssemblyHostEnvironment environment)
     {
         private readonly IConfiguration _configuration = configuration;
         private readonly HttpClient _httpClient = httpClient;
+        //sr
+        private readonly IWebAssemblyHostEnvironment _environment = environment;
 
         public bool NoData = false;
         public string ApiUrl => _configuration["ApiUrl"] ?? throw new InvalidOperationException("ApiUrl is not configured.");
@@ -19,6 +23,12 @@ namespace Client.Palaro2026.Services
 
         private string BuildUrl(string relativeUrl)
         {
+            //sir ronald
+            if (_environment.IsDevelopment())
+            {
+                return $"https://localhost:7063/api/{relativeUrl.TrimStart('/')}";
+            }
+            //
             if (!relativeUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             {
                 return $"{Palaro2026API.TrimEnd('/')}/{relativeUrl.TrimStart('/')}";

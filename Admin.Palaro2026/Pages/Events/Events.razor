@@ -28,7 +28,7 @@
                 </MudStack>
                 <MudSpacer />
                 <MudStack Row Spacing="0">
-                    <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddEventDialog">Add Event</MudButton>
+                    <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddEventDialog" Disabled="@(UserRole != "Regional Facilitator" && UserRole != "Superuser" && UserRole != "Event Manager")">Add Event</MudButton>
                     <MudDivider Vertical="true" FlexItem="true" />
                     <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetEventsAsync">Refresh Table</MudButton>
                 </MudStack>
@@ -124,7 +124,7 @@
                                         <ChildContent>
                                             <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Class="pa-0 pl-2">
                                                 @team.Abbreviation [ @team.Score ]
-                                                <MudIconButton Class="ml-2" Icon="@Icons.Material.Filled.Settings" Size="Size.Small" OnClick="() => OpenEditEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID, team.ID, eventDetail.EventStage)" />
+                                                <MudIconButton Class="ml-2" Icon="@Icons.Material.Filled.Settings" Size="Size.Small" OnClick="() => OpenEditEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID, eventDetail.EventStage)" />
                                             </MudChip>
                                         </ChildContent>
                                         <TooltipContent>
@@ -183,7 +183,7 @@
                     <MudTd Datalabel="Schedule">
                         <MudStack Spacing="0">
                             <MudText Typo="Typo.caption">@(eventDetail.Date?.ToString("dddd - MMMM d") ?? "No Date")</MudText>
-                            <MudText Typo="Typo.caption">@(eventDetail.Time.HasValue? DateTime.Today.Add(eventDetail.Time.Value).ToString("hh:mm tt") : "No Time")</MudText>
+                            <MudText Typo="Typo.caption">@(eventDetail.Time.HasValue ? DateTime.Today.Add(eventDetail.Time.Value).ToString("hh:mm tt") : "No Time")</MudText>
                         </MudStack>
                     </MudTd>
                     <MudTd Datalabel="Stream Service">
@@ -203,11 +203,19 @@
                             <MudText Typo="Typo.body2">No Stream Service Available</MudText>
                         }
                     </MudTd>
-                    <MudTd Datalabel="Tally Clerk">
-                        @eventDetail.FirstName @eventDetail.LastName
+                    <MudTd DataLabel="Tally Clerk">
+                        @if (!string.IsNullOrWhiteSpace(eventDetail.FirstName) || !string.IsNullOrWhiteSpace(eventDetail.LastName))
+                        {
+                            <MudText Typo="Typo.body2">@($"{eventDetail.FirstName} {eventDetail.LastName}".Trim())</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2">No Tally Clerk Assigned</MudText>
+                        }
                     </MudTd>
                     <MudTd Style="text-align: center">
-                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditEventDialog(eventDetail.ID)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1"
+                                       OnClick="() => OpenEditEventDialog(eventDetail.ID)" />
                     </MudTd>
                 </RowTemplate>
 
@@ -238,6 +246,8 @@
 
     // mud dialog instance: required for dialogs to work
     private IMudDialogInstance? MudDialog { get; set; }
+    [Inject] private CookieService cookieService { get; set; } = default!;
+
 
     // populated by API
 
@@ -245,7 +255,19 @@
     private List<EventsDTO.EventDetails.Event>? _eventDetails;
 
     private string _searchString = "";
+    private string? UserRole;
+    private bool? _isLoaded = false;
 
+    protected override async Task OnInitializedAsync()
+    {
+        // Load user role from cookie
+        UserRole = await cookieService.GetCookie("userRole");
+
+        // Load all data for selects
+        await LoadDataAsync();
+
+        _isLoaded = true;
+    }
 
     // filtering function from the table
     private bool FilterFunc(EventsDTO.EventDetails.Event events)
@@ -312,6 +334,7 @@
                 public string ID { get; set; } = null!;
                 public string? EventStage { get; set; }
                 public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? SportMainCat { get; set; }
                 public string? Category { get; set; }
                 public string? Sport { get; set; }
                 public string? GamePhase { get; set; }
@@ -357,7 +380,7 @@
     }
 
     // Initialization
-    protected override async Task OnInitializedAsync()
+    private async Task LoadDataAsync()
     {
         await GetEventsAsync();
     }
@@ -374,9 +397,9 @@
     // opening dialog method: add event dialog
     private async Task OpenAddEventDialog()
     {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false};
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
 
-        var dialog = await DialogService.ShowAsync<AddEventDialog>("Add Event", options);
+        var dialog = await DialogService.ShowAsync<AddEditDialog>("Add Event", options);
 
         var result = await dialog.Result;
 
@@ -390,14 +413,22 @@
     // opening dialog method: edit event dialog
     private async Task OpenEditEventDialog(string? selectedEventID)
     {
-        var parameter = new DialogParameters<EditEventDialog>
-        {
-            {x => x.SelectedEventID, selectedEventID},
-        };
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
+        var parameters = new DialogParameters<AddEditDialog>
+    {
+        { x => x.SelectedEventID, selectedEventID },
+        { x => x.IsEditMode, true }
+    };
 
-        var dialog = await DialogService.ShowAsync<EditEventDialog>("Edit Event", parameter, options);
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseOnEscapeKey = true,
+                BackdropClick = false
+            };
 
+        var dialog = await DialogService.ShowAsync<AddEditDialog>("Edit Event", parameters, options);
         var result = await dialog.Result;
 
         if (!result!.Canceled)
@@ -407,17 +438,19 @@
     }
 
 
+
+
     // opening dialog method: add event teams dialog
     private async Task OpenAddEventTeamsDialog(string? selectedEventID, int? selectedSubSportID)
     {
-        var parameter = new DialogParameters<AddEventTeamsDialog>
+        var parameter = new DialogParameters<AddEditDialog>
         {
             {x => x.SelectedEventID, selectedEventID},
             {x => x.SelectedSubCategoryID, selectedSubSportID},
         };
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
 
-        var dialog = await DialogService.ShowAsync<AddEventTeamsDialog>("Add Team for the Event", parameter, options);
+        var dialog = await DialogService.ShowAsync<AddEditDialog>("Add Team for the Event", parameter, options);
 
         var result = await dialog.Result;
 
@@ -430,12 +463,11 @@
 
 
     // opening dialog method: edit event teams dialog
-    private async Task OpenEditEventTeamsDialog(string? selectedEventID, int? selectedSubSportID, int? selectedEventTeamsID, string? selectedEventStage)
+    private async Task OpenEditEventTeamsDialog(string? selectedEventID, int? selectedEventTeamsID, string? selectedEventStage)
     {
         var parameter = new DialogParameters<EditEventTeamsDialog>
         {
             {x => x.SelectedEventID, selectedEventID},
-            {x => x.SelectedSubCategoryID, selectedSubSportID},
             {x => x.SelectedEventVersusTeamsID, selectedEventTeamsID},
             {x => x.SelectedEventStage, selectedEventStage}
         };

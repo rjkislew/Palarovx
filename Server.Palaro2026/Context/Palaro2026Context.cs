@@ -59,6 +59,12 @@ public partial class Palaro2026Context : DbContext
 
     public virtual DbSet<SportSubcategories> SportSubcategories { get; set; }
 
+    //
+    public DbSet<SportsBracket> SportsBracket { get; set; } = null!;
+    public DbSet<SportsBracketRegions> SportsBracketRegions { get; set; } = null!;
+
+    //
+
     public virtual DbSet<Sports> Sports { get; set; }
 
     public virtual DbSet<UserRoles> UserRoles { get; set; }
@@ -475,7 +481,38 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.Sport).WithMany(p => p.SportSubcategories)
                 .HasForeignKey(d => d.SportID)
                 .HasConstraintName("FK_SportSubcategories_Sports");
+        }); 
+
+        // 
+        modelBuilder.Entity<SportsBracket>(entity =>
+        {
+            entity.HasKey(e => e.ID).HasName("PK__SportsBracket__3214EC272FB5CE9E");
+
+            entity.Property(e => e.BracketName)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+
+            entity.HasOne(e => e.Sport)
+                .WithMany(s => s.SportsBracket)
+                .HasForeignKey(e => e.SportID)
+                .HasConstraintName("FK_Bracket_Sports");
         });
+
+        modelBuilder.Entity<SportsBracketRegions>(entity =>
+        {
+            entity.HasKey(e => e.ID).HasName("PK__SportsBracketRegions__3214EC27CD68C598");
+
+            entity.HasOne(e => e.Bracket)
+                .WithMany(b => b.SportsBracketRegions)
+                .HasForeignKey(e => e.BracketID)
+                .HasConstraintName("FK_BracketRegions_Bracket");
+
+            entity.HasOne(e => e.Region)
+                .WithMany()
+                .HasForeignKey(e => e.RegionID)
+                .HasConstraintName("FK_BracketRegions_Region");
+        });
+//
 
         modelBuilder.Entity<Sports>(entity =>
         {
