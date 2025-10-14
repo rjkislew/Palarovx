@@ -42,7 +42,7 @@
                                 </MudItem>
                                 <MudItem xs="12" sm="6" md="3">
                                     <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport"
-                                               T="int?"
+                                               T="int?" Disabled="_selectedSportCategoryIDValue == null"
                                                ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="@IsEditMode"
                                                SelectedValuesChanged="@((values) => InvokeAsync(async () =>
                                                                       {
@@ -98,17 +98,11 @@
                                                HelperText="@((_sportSubcategories?.Any() != true && _selectedSchoolLevelAndGenderID != null) ? "No subcategory available for this gender or school level." : null)"
                                                ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="@IsEditMode"
                                                Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
-                                        @if (!string.IsNullOrEmpty(_selectedMainCategoryValue))
-                                        {
-                                            <MudVirtualize Items="_sportSubcategories.Where(sc => sc.MainCategory == _selectedMainCategoryValue).ToList()"
-                                                           Context="subCategory">
-                                                <MudSelectItem T="int?"
-                                                               Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
-                                            </MudVirtualize>
-                                        }
+                                        <MudVirtualize Items="@GetFilteredSubcategories()" Context="subCategory">
+                                            <MudSelectItem T="int?" Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                                        </MudVirtualize>
                                     </MudSelect>
                                 </MudItem>
-
 
                             </MudGrid>
                         </MudStack>
@@ -685,6 +679,25 @@ else
         string url = "/Users/TallyClerkList";
         _userLists = await apiService.GetAsync<UsersDTO.UserList>(url);
     }
+
+    //
+    private List<SportsDTO.SportSubcategories> GetFilteredSubcategories()
+    {
+        if (_sportSubcategories == null)
+            return new List<SportsDTO.SportSubcategories>();
+
+        // ✅ If main category is selected → show only subcategories that match
+        if (!string.IsNullOrEmpty(_selectedMainCategoryValue))
+            return _sportSubcategories
+                .Where(sc => sc.MainCategory == _selectedMainCategoryValue)
+                .ToList();
+
+        // ✅ If no main category selected → show only subcategories that have NO main category
+        return _sportSubcategories
+            .Where(sc => string.IsNullOrEmpty(sc.MainCategory))
+            .ToList();
+    }
+
 
     // ------------------------------
     // Event CRUD
