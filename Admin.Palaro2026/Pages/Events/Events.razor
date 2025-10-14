@@ -59,8 +59,8 @@
                         <col style="width: 20%" />
                         <col style="width: 20%" />
                         <col style="width: 15%" />
-                        <col style="width: 10%" />
-                        <col style="width: 20%" />
+                        <col style="width: 15%" />
+                        <col style="width: 15%" />
                         <col style="width: 10%" />
                         <col style="width: 5%" />
                     </MudHidden>
@@ -95,7 +95,11 @@
                                     </MudElement>
                                 </MudText>
                                 <MudText Typo="Typo.caption">
-                                    @eventDetail.Subcategory ∙ @eventDetail.Level ∙ @eventDetail.Gender
+                                    @eventDetail.SportMainCat ∙ @eventDetail.Subcategory
+                                </MudText>
+                                <MudFlexBreak />
+                                <MudText Typo="Typo.caption">
+                                    @eventDetail.Level ∙ @eventDetail.Gender
                                 </MudText>
                             </MudStack>
 
@@ -122,9 +126,8 @@
                                 <MudVirtualize Items="@eventDetail.EventVersusList" Context="team">
                                     <MudTooltip Duration="0" Arrow="true">
                                         <ChildContent>
-                                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Class="pa-0 pl-2">
-                                                @team.Abbreviation [ @team.Score ]
-                                                <MudIconButton Class="ml-2" Icon="@Icons.Material.Filled.Settings" Size="Size.Small" OnClick="() => OpenEditEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID, eventDetail.EventStage)" />
+                                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Class="pa-2 px-3 mx-1">
+                                                @team.Abbreviation
                                             </MudChip>
                                         </ChildContent>
                                         <TooltipContent>
@@ -141,24 +144,6 @@
                                         </TooltipContent>
                                     </MudTooltip>
                                 </MudVirtualize>
-                            </MudItem>
-                            @if (@eventDetail.IsFinished != true)
-                            {
-                                <MudItem xs="12">
-                                    <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" FullWidth Style="text-transform: none" OnClick="() => OpenAddEventTeamsDialog(eventDetail.ID, eventDetail.SubCategoryID)">Add Team & Players</MudButton>
-                                </MudItem>
-                            }
-
-                            <MudItem xs="12">
-                                @if (eventDetail.EventVersusList != null && eventDetail.EventVersusList.Any() && eventDetail.IsFinished != true)
-                                {
-                                    <MudStack>
-                                        <MudDivider />
-                                        <MudButton FullWidth Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" DropShadow="false" OnClick="() => ScoreBoardDialog(eventDetail.ID, eventDetail.SubCategoryID)">
-                                            Score Board
-                                        </MudButton>
-                                    </MudStack>
-                                }
                             </MudItem>
                         </MudGrid>
                     </MudTd>
@@ -414,10 +399,10 @@
     private async Task OpenEditEventDialog(string? selectedEventID)
     {
         var parameters = new DialogParameters<AddEditDialog>
-    {
-        { x => x.SelectedEventID, selectedEventID },
-        { x => x.IsEditMode, true }
-    };
+        {
+            { x => x.SelectedEventID, selectedEventID },
+            { x => x.IsEditMode, true }
+        };
 
         var options = new DialogOptions
             {
@@ -433,24 +418,23 @@
 
         if (!result!.Canceled)
         {
-            await GetEventsAsync();
+            await GetEventsAsync(); // refresh list after edit
         }
     }
-
 
 
 
     // opening dialog method: add event teams dialog
     private async Task OpenAddEventTeamsDialog(string? selectedEventID, int? selectedSubSportID)
     {
-        var parameter = new DialogParameters<AddEditDialog>
+        var parameter = new DialogParameters<AddEventTeamsDialog>
         {
             {x => x.SelectedEventID, selectedEventID},
             {x => x.SelectedSubCategoryID, selectedSubSportID},
         };
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
 
-        var dialog = await DialogService.ShowAsync<AddEditDialog>("Add Team for the Event", parameter, options);
+        var dialog = await DialogService.ShowAsync<AddEventTeamsDialog>("Add Team for the Event", parameter, options);
 
         var result = await dialog.Result;
 

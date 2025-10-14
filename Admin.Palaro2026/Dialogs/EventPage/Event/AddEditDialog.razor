@@ -15,236 +15,243 @@
 
                 <!-- Input Fields: dialogs, checkbox, datetime pickers -->
                 <!-- Sport -->
-                <MudItem xs="12" Class="mb-3">
-                    <MudStack Spacing="1">
-                        <MudText>Sport Details</MudText>
-                        <MudDivider/>
-                        <MudGrid Spacing="1">
-                            <MudItem xs="12" sm="6" md="4">
-                                <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense"
-                                           Label="Classification" T="int?"
-                                           ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="@IsEditMode"
-                                           SelectedValuesChanged="@((values) => InvokeAsync(async () =>
-                                                                  {
-                                                                      _selectedSportIDValue = null;
-                                                                      _selectedSchoolLevelIDValue = null;
-                                                                      _selectedSportGenderCategoryIDValue = null;
-                                                                      _selectedSportSubcategoryIDValue = null;
-                                                                      await GetSportsAsync();
-                                                                  }))">
-                                    <MudVirtualize Items="_sportCategories" Context="category">
-                                        <MudSelectItem T="int?" Value="category.ID">@category.Category</MudSelectItem>
-                                    </MudVirtualize>
-                                </MudSelect>
-                            </MudItem>
-                            <MudItem xs="12" sm="6" md="3">
-                                <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport"
-                                           T="int?"
-                                           ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="@IsEditMode"
-                                           SelectedValuesChanged="@((values) => InvokeAsync(async () =>
-                                                                  {
-                                                                      _selectedSchoolLevelIDValue = null;
-                                                                      _selectedSportGenderCategoryIDValue = null;
-                                                                      _selectedSportSubcategoryIDValue = null;
-                                                                      _selectedSchoolLevelAndGenderID = null;
-                                                                      await FilterSchoolLevelAndGenderAsync();
-                                                                  }))">
-                                    <MudVirtualize Items="_sports" Context="sport">
-                                        <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
-                                    </MudVirtualize>
-                                </MudSelect>
-                            </MudItem>
-
-
-                            <MudItem xs="12" sm="6" md="5">
-                                <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense"
-                                           Label="School Level and Gender" T="string"
-                                           ShrinkLabel Variant="Variant.Outlined" Clearable
-                                           Disabled="_selectedSportIDValue == null" ReadOnly="@IsEditMode"
-                                           SelectedValuesChanged="@((values) => InvokeAsync(async () =>
-                                                                  {
-                                                                      _selectedSportSubcategoryIDValue = null;
-                                                                      _selectedMainCategoryValue = null;
-                                                                      await GetSportSubCategoriesSLGAsync();
-                                                                      LoadMainCategories();
-                                                                  }))">
-                                    <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
-                                        <MudSelectItem T="string" Value="@combinedID">
-                                            @combinedID
-                                        </MudSelectItem>
-                                    </MudVirtualize>
-                                </MudSelect>
-                            </MudItem>
-
-                            <MudItem xs="12" sm="6" md="6">
-                                <MudSelect @bind-Value="_selectedMainCategoryValue" Margin="Margin.Dense" Label="Event"
-                                           T="string"
-                                           ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="@IsEditMode"
-                                           Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
-                                    @foreach (var mc in _sportMainCat)
-                                    {
-                                        <MudSelectItem Value="@mc">@mc</MudSelectItem>
-                                    }
-                                </MudSelect>
-                            </MudItem>
-
-                            <MudItem xs="12" sm="12" md="6">
-                                <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense"
-                                           Label="Category" T="int?"
-                                           HelperText="@((_sportSubcategories?.Any() != true && _selectedSchoolLevelAndGenderID != null) ? "No subcategory available for this gender or school level." : null)"
-                                           ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="@IsEditMode"
-                                           Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
-                                    @if (!string.IsNullOrEmpty(_selectedMainCategoryValue))
-                                    {
-                                        <MudVirtualize
-                                            Items="_sportSubcategories.Where(sc => sc.MainCategory == _selectedMainCategoryValue).ToList()"
-                                            Context="subCategory">
-                                            <MudSelectItem T="int?"
-                                                           Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
-                                        </MudVirtualize>
-                                    }
-                                </MudSelect>
-                            </MudItem>
-
-
-                        </MudGrid>
-                    </MudStack>
-                </MudItem>
-
-
-                <!-- Event Stage -->
-                <MudItem xs="12" Class="mb-3">
-                    <MudStack Spacing="1">
-                        <MudText>Event Stage Detail</MudText>
-                        <MudDivider/>
-                        <MudGrid Spacing="1">
-                            <MudItem xs="12" sm="6" md="4">
-                                <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense" Label="Stage"
-                                           T="int?" ReadOnly="@IsEditMode"
-                                           ShrinkLabel Variant="Variant.Outlined" Clearable>
-                                    <MudVirtualize Items="_eventStages" Context="eventStage">
-                                        <MudSelectItem T="int?" Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
-                                    </MudVirtualize>
-                                </MudSelect>
-                            </MudItem>
-                            @if (IsEditMode)
-                            {
+                @if (IsSuperuser || IsEventManager || IsRegionalFacilitator)
+                {
+                    <MudItem xs="12" Class="mb-3">
+                        <MudStack Spacing="1">
+                            <MudText>Sport Details</MudText>
+                            <MudDivider />
+                            <MudGrid Spacing="1">
                                 <MudItem xs="12" sm="6" md="4">
-                                    <MudSelect @bind-Value="_selectedIsEventFinishedValue"
-                                               Label="Status"
-                                               T="bool?"
-                                               Variant="Variant.Outlined"
-                                               Clearable Margin="Margin.Dense"
-                                               Disabled="@(!CanEditAllFields)">
-                                        <MudSelectItem T="bool?" Value="true">Finished</MudSelectItem>
-                                        <MudSelectItem T="bool?" Value="false">Ongoing</MudSelectItem>
-                                    </MudSelect>
-                                </MudItem>
-                            }
-                        </MudGrid>
-                    </MudStack>
-                </MudItem>
-
-
-                <!-- Schedule and Venue -->
-                <MudItem xs="12" Class="mb-3">
-                    <MudStack Spacing="1">
-                        <MudText>Schedule and Venue Details</MudText>
-                        <MudDivider/>
-                        <MudGrid Spacing="1">
-                            <MudItem xs="12" sm="6" md="4">
-                                <MudSelect @bind-Value="_selectedEventVenueIDValue" Margin="Margin.Dense" Label="Venue"
-                                           T="int?"
-                                           ShrinkLabel Variant="Variant.Outlined" Clearable>
-                                    <MudVirtualize Items="_eventVenues" Context="venue">
-                                        <MudSelectItem T="int?"
-                                                       Value="venue.ID">@venue.Venue, @venue.Address</MudSelectItem>
-                                    </MudVirtualize>
-                                </MudSelect>
-                            </MudItem>
-                            <MudItem xs="12" sm="6" md="4">
-                                <MudDatePicker @bind-Date="_selectedDateValue" Variant="Variant.Outlined"
-                                               Margin="Margin.Dense" Label="Date"
-                                               Placeholder="&#8205;" Clearable PickerVariant="PickerVariant.Dialog"/>
-                            </MudItem>
-                            <MudItem xs="12" sm="6" md="4">
-                                <MudTimePicker @bind-Time="_selectedTimeValue" Variant="Variant.Outlined"
-                                               Margin="Margin.Dense" Label="Time" AmPm="true"
-                                               Placeholder="&#8205;" Clearable PickerVariant="PickerVariant.Dialog"/>
-                            </MudItem>
-                        </MudGrid>
-                    </MudStack>
-                </MudItem>
-
-                <!-- Opposing Team -->
-                <MudItem xs="12" Class="mb-3">
-                    <MudStack Spacing="1">
-                        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                            <MudText>Opposing Team</MudText>
-                            <MudButton StartIcon="@Icons.Material.Filled.Add"
-                                       OnClick="AddOpponent"
-                                       Disabled="IsEditMode || _schoolRegions == null || !_schoolRegions.Any()">Add
-                                Opponent
-                            </MudButton>
-                        </MudStack>
-                        <MudDivider/>
-
-                        @for (int i = 0; i < _teamSelections.Count; i++)
-                        {
-                            var team = _teamSelections[i];
-                            <MudGrid Spacing="0">
-                                <MudItem xs="12">
-                                    <!-- Region Select -->
-                                    <MudSelect @bind-Value="team.SelectedRegionID"
-                                               Margin="Margin.Dense"
-                                               Label="Region"
-                                               ShrinkLabel
-                                               Variant="Variant.Outlined"
-                                               T="int?"
-                                               Clearable
+                                    <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense"
+                                               Label="Classification" T="int?"
+                                               ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="@IsEditMode"
                                                SelectedValuesChanged="@((values) => InvokeAsync(async () =>
                                                                       {
-                                                                          team.SelectedPlayerIDs = new List<string>();
-                                                                          await GetPlayerAsync(team);
+                                                                          _selectedSportIDValue = null;
+                                                                          _selectedSchoolLevelIDValue = null;
+                                                                          _selectedSportGenderCategoryIDValue = null;
+                                                                          _selectedSportSubcategoryIDValue = null;
+                                                                          await GetSportsAsync();
                                                                       }))">
-                                        <MudVirtualize Items="_schoolRegions" Context="region">
-                                            <MudSelectItem T="int?" Value="@region.ID">
-                                                @region.Region (@region.Abbreviation)
-                                            </MudSelectItem>
+                                        <MudVirtualize Items="_sportCategories" Context="category">
+                                            <MudSelectItem T="int?"
+                                                           Value="category.ID">@category.Category</MudSelectItem>
                                         </MudVirtualize>
                                     </MudSelect>
+                                </MudItem>
+                                <MudItem xs="12" sm="6" md="3">
+                                    <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport"
+                                               T="int?"
+                                               ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="@IsEditMode"
+                                               SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                                      {
+                                                                          _selectedSchoolLevelIDValue = null;
+                                                                          _selectedSportGenderCategoryIDValue = null;
+                                                                          _selectedSportSubcategoryIDValue = null;
+                                                                          _selectedSchoolLevelAndGenderID = null;
+                                                                          await FilterSchoolLevelAndGenderAsync();
+                                                                      }))">
+                                        <MudVirtualize Items="_sports" Context="sport">
+                                            <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                                        </MudVirtualize>
+                                    </MudSelect>
+                                </MudItem>
 
-                                    <!-- Players Select -->
-                                    <MudSelect @bind-SelectedValues="team.SelectedPlayerIDs"
-                                               MultiSelection="true"
-                                               SelectAll="true"
-                                               Clearable
-                                               Margin="Margin.Dense"
-                                               Label="Players"
-                                               ShrinkLabel
-                                               Variant="Variant.Outlined"
-                                               Disabled="!team.SelectedRegionID.HasValue || !_selectedSportSubcategoryIDValue.HasValue"
-                                               T="string"
-                                               ToStringFunc="@(id => team.AvailablePlayers?.FirstOrDefault(p => p.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)">
-                                        <MudVirtualize Items="team.AvailablePlayers" Context="player">
-                                            <MudSelectItem T="string" Value="@player.ID">
-                                                @player.FirstName @player.LastName
+
+                                <MudItem xs="12" sm="6" md="5">
+                                    <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense"
+                                               Label="School Level and Gender" T="string"
+                                               ShrinkLabel Variant="Variant.Outlined" Clearable
+                                               Disabled="_selectedSportIDValue == null" ReadOnly="@IsEditMode"
+                                               SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                                      {
+                                                                          _selectedSportSubcategoryIDValue = null;
+                                                                          _selectedMainCategoryValue = null;
+                                                                          await GetSportSubCategoriesSLGAsync();
+                                                                          LoadMainCategories();
+                                                                      }))">
+                                        <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
+                                            <MudSelectItem T="string" Value="@combinedID">
+                                                @combinedID
                                             </MudSelectItem>
                                         </MudVirtualize>
                                     </MudSelect>
                                 </MudItem>
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                               Color="Color.Error"
-                                               OnClick="@(() => RemoveOpposingTeam(i))"/>
-                            </MudGrid>
 
-                            @if (i < _teamSelections.Count - 1)
+                                <MudItem xs="12" sm="6" md="6">
+                                    <MudSelect @bind-Value="_selectedMainCategoryValue" Margin="Margin.Dense"
+                                               Label="Event"
+                                               T="string"
+                                               ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="@IsEditMode"
+                                               Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                                        @foreach (var mc in _sportMainCat)
+                                        {
+                                            <MudSelectItem Value="@mc">@mc</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                </MudItem>
+
+                                <MudItem xs="12" sm="12" md="6">
+                                    <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense"
+                                               Label="Category" T="int?"
+                                               HelperText="@((_sportSubcategories?.Any() != true && _selectedSchoolLevelAndGenderID != null) ? "No subcategory available for this gender or school level." : null)"
+                                               ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="@IsEditMode"
+                                               Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                                        @if (!string.IsNullOrEmpty(_selectedMainCategoryValue))
+                                        {
+                                            <MudVirtualize Items="_sportSubcategories.Where(sc => sc.MainCategory == _selectedMainCategoryValue).ToList()"
+                                                           Context="subCategory">
+                                                <MudSelectItem T="int?"
+                                                               Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                                            </MudVirtualize>
+                                        }
+                                    </MudSelect>
+                                </MudItem>
+
+
+                            </MudGrid>
+                        </MudStack>
+                    </MudItem>
+
+
+                    <!-- Event Stage -->
+                    <MudItem xs="12" Class="mb-3">
+                        <MudStack Spacing="1">
+                            <MudText>Event Stage Detail</MudText>
+                            <MudDivider />
+                            <MudGrid Spacing="1">
+                                <MudItem xs="12" sm="6" md="4">
+                                    <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense"
+                                               Label="Stage"
+                                               T="int?" ReadOnly="@IsEditMode"
+                                               ShrinkLabel Variant="Variant.Outlined" Clearable>
+                                        <MudVirtualize Items="_eventStages" Context="eventStage">
+                                            <MudSelectItem T="int?"
+                                                           Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
+                                        </MudVirtualize>
+                                    </MudSelect>
+                                </MudItem>
+                                @if (IsEditMode)
+                                {
+                                    <MudItem xs="12" sm="6" md="4">
+                                        <MudSelect @bind-Value="_selectedIsEventFinishedValue"
+                                                   Label="Status"
+                                                   T="bool?"
+                                                   Variant="Variant.Outlined"
+                                                   Clearable Margin="Margin.Dense"
+                                                   Disabled="@(!CanEditAllFields)">
+                                            <MudSelectItem T="bool?" Value="true">Finished</MudSelectItem>
+                                            <MudSelectItem T="bool?" Value="false">Ongoing</MudSelectItem>
+                                        </MudSelect>
+                                    </MudItem>
+                                }
+                            </MudGrid>
+                        </MudStack>
+                    </MudItem>
+
+
+                    <!-- Schedule and Venue -->
+                    <MudItem xs="12" Class="mb-3">
+                        <MudStack Spacing="1">
+                            <MudText>Schedule and Venue Details</MudText>
+                            <MudDivider />
+                            <MudGrid Spacing="1">
+                                <MudItem xs="12" sm="6" md="4">
+                                    <MudSelect @bind-Value="_selectedEventVenueIDValue" Margin="Margin.Dense"
+                                               Label="Venue"
+                                               T="int?"
+                                               ShrinkLabel Variant="Variant.Outlined" Clearable>
+                                        <MudVirtualize Items="_eventVenues" Context="venue">
+                                            <MudSelectItem T="int?"
+                                                           Value="venue.ID">@venue.Venue, @venue.Address</MudSelectItem>
+                                        </MudVirtualize>
+                                    </MudSelect>
+                                </MudItem>
+                                <MudItem xs="12" sm="6" md="4">
+                                    <MudDatePicker @bind-Date="_selectedDateValue" Variant="Variant.Outlined"
+                                                   Margin="Margin.Dense" Label="Date"
+                                                   Placeholder="&#8205;" Clearable
+                                                   PickerVariant="PickerVariant.Dialog" />
+                                </MudItem>
+                                <MudItem xs="12" sm="6" md="4">
+                                    <MudTimePicker @bind-Time="_selectedTimeValue" Variant="Variant.Outlined"
+                                                   Margin="Margin.Dense" Label="Time" AmPm="true"
+                                                   Placeholder="&#8205;" Clearable
+                                                   PickerVariant="PickerVariant.Dialog" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudStack>
+                    </MudItem>
+
+                    <!-- Opposing Team -->
+                    <MudItem xs="12" Class="mb-3">
+                        <MudStack Spacing="1">
+                            <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudText>Opposing Team</MudText>
+                                <MudButton StartIcon="@Icons.Material.Filled.Add"
+                                           OnClick="AddOpponent"
+                                           Disabled="IsEditMode || _schoolRegions == null || !_schoolRegions.Any()">
+                                    Add
+                                    Opponent
+                                </MudButton>
+                            </MudStack>
+                            <MudDivider />
+
+                            @for (int i = 0; i < _teamSelections.Count; i++)
                             {
-                                <MudText Align="Align.Center" Typo="Typo.h6" Class="mt-2 mb-2">VS</MudText>
+                                var team = _teamSelections[i];
+                                <MudGrid Spacing="0">
+                                    <MudItem xs="12">
+                                        <!-- Region Select -->
+                                        <MudSelect @bind-Value="team.SelectedRegionID"
+                                                   Margin="Margin.Dense"
+                                                   Label="Region"
+                                                   ShrinkLabel
+                                                   Variant="Variant.Outlined"
+                                                   T="int?"
+                                                   Clearable
+                                                   SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                                          {
+                                                                              team.SelectedPlayerIDs = new List<string>();
+                                                                              await GetPlayerAsync(team);
+                                                                          }))">
+                                            <MudVirtualize Items="_schoolRegions" Context="region">
+                                                <MudSelectItem T="int?" Value="@region.ID">
+                                                    @region.Region (@region.Abbreviation)
+                                                </MudSelectItem>
+                                            </MudVirtualize>
+                                        </MudSelect>
+
+                                        <!-- Players Select -->
+                                        <MudSelect @bind-SelectedValues="team.SelectedPlayerIDs"
+                                                   MultiSelection="true"
+                                                   SelectAll="true"
+                                                   Clearable
+                                                   Margin="Margin.Dense"
+                                                   Label="Players"
+                                                   ShrinkLabel
+                                                   Variant="Variant.Outlined"
+                                                   Disabled="!team.SelectedRegionID.HasValue || !_selectedSportSubcategoryIDValue.HasValue"
+                                                   T="string"
+                                                   ToStringFunc="@(id => team.AvailablePlayers?.FirstOrDefault(p => p.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)">
+                                            <MudVirtualize Items="team.AvailablePlayers" Context="player">
+                                                <MudSelectItem T="string" Value="@player.ID">
+                                                    @player.FirstName @player.LastName
+                                                </MudSelectItem>
+                                            </MudVirtualize>
+                                        </MudSelect>
+                                    </MudItem>
+                                </MudGrid>
+
+                                @if (i < _teamSelections.Count - 1)
+                                {
+                                    <MudText Align="Align.Center" Typo="Typo.h6" Class="mt-2 mb-2">VS</MudText>
+                                }
                             }
-                        }
-                    </MudStack>
-                </MudItem>
+                        </MudStack>
+                    </MudItem>
+                }
 
 
                 <!-- Stream Section: Only for News Administrator -->
@@ -253,7 +260,7 @@
                     <MudItem xs="12" Class="mb-3">
                         <MudStack Spacing="1">
                             <MudText>Streaming Service Details</MudText>
-                            <MudDivider/>
+                            <MudDivider />
                             <MudGrid Spacing="1">
                                 <MudItem xs="12" md="2">
                                     <MudCheckBox Value="_isOnStream" Size="Size.Small" T="bool?"
@@ -302,46 +309,53 @@
 
 
                 <!-- Clerk Designate Section: Only for Event Manager -->
-                @if (UserRole == "Event Manager" || UserRole == "Superuser")
+                @if (UserRole == "Event Manager" || UserRole == "Superuser" || UserRole == "Tally Clerk")
                 {
                     <MudItem xs="12">
                         <MudStack Spacing="1">
                             <MudText>Designate Tally Clerk</MudText>
-                            <MudDivider/>
-                            <MudGrid Spacing="1">
-                                <MudItem xs="12" sm="6" md="4">
-                                    <MudSelect @bind-Value="_selectedUserIDValue" Margin="Margin.Dense"
-                                               Label="Tally Clerk" ShrinkLabel Variant="Variant.Outlined" Clearable>
-                                        <MudVirtualize Items="_userLists" Context="user">
-                                            <MudSelectItem T="string"
-                                                           Value="user.ID">@user.FirstName @user.LastName</MudSelectItem>
-                                        </MudVirtualize>
-                                    </MudSelect>
-                                </MudItem>
-                                @if (IsEditMode && _selectedIsEventFinishedValue == true)
-                                {
-                                    <MudItem xs="12" sm="6" md="4">
-                                        <MudStack Row AlignItems="AlignItems.Center">
-                                            <MudFileUpload T="IBrowserFile"
-                                                           FilesChanged="HandleRegionLogoFileUpload"
-                                                           Disabled="@(!IsTallyClerk)">
-                                                <ActivatorContent>
-                                                    <MudIconButton Icon="@Icons.Material.Filled.Upload"
-                                                                   Variant="Variant.Filled"
-                                                                   Color="Color.Primary"/>
-                                                </ActivatorContent>
-                                            </MudFileUpload>
-
-                                            <MudButton StartIcon="@Icons.Material.Filled.AttachFile"
-                                                       Href="@_eventAttachmentUrl"
-                                                       Target="_blank"
-                                                       Disabled="@(!_fileExists)">
-                                                <MudText Class="ml-2">@_eventAttachmentUploadState</MudText>
-                                            </MudButton>
-                                        </MudStack>
+                            <MudDivider />
+                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudItem xs="12" sm="6" md="6">
+                                        <MudSelect @bind-Value="_selectedUserIDValue"
+                                                   Margin="Margin.Dense"
+                                                   Label="Tally Clerk"
+                                                   ShrinkLabel
+                                                   Variant="Variant.Outlined"
+                                                   Clearable
+                                                   ReadOnly="@(IsTallyClerk)">
+                                            <MudVirtualize Items="_userLists" Context="user">
+                                                <MudSelectItem T="string" Value="user.ID">
+                                                    @user.FirstName @user.LastName
+                                                </MudSelectItem>
+                                            </MudVirtualize>
+                                        </MudSelect>
                                     </MudItem>
-                                }
-                            </MudGrid>
+
+                                    @if (IsEditMode && _selectedIsEventFinishedValue == true)
+                                    {
+                                        <MudItem xs="12" sm="6" md="6">
+                                            <MudStack Row AlignItems="AlignItems.Center">
+                                                <MudFileUpload T="IBrowserFile"
+                                                               FilesChanged="HandleRegionLogoFileUpload"
+                                                               Disabled="@(!(IsTallyClerk || IsSuperuser))">
+                                                    <ActivatorContent>
+                                                        <MudIconButton Icon="@Icons.Material.Filled.Upload"
+                                                                       Variant="Variant.Filled"
+                                                                       Color="Color.Primary" />
+                                                    </ActivatorContent>
+                                                </MudFileUpload>
+
+                                                <MudButton StartIcon="@Icons.Material.Filled.AttachFile"
+                                                           Href="@_eventAttachmentUrl"
+                                                           Target="_blank"
+                                                           Disabled="@(!_fileExists)">
+                                                    <MudText Class="ml-2">@_eventAttachmentUploadState</MudText>
+                                                </MudButton>
+                                            </MudStack>
+                                        </MudItem>
+                                    }
+                                </MudStack>
                         </MudStack>
                     </MudItem>
                 }
@@ -349,28 +363,41 @@
             </MudGrid>
         </DialogContent>
         <DialogActions>
-            <MudStack Row Style="width: 100%" Justify="Justify.SpaceBetween">
-                <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
-                <MudStack Row Justify="Justify.SpaceBetween">
-                    <MudButton Style="text-transform: none" Disabled="@IsEditMode" DropShadow="false"
-                               OnClick="ClearFields">Clear
+            @if (IsEditMode)
+            {
+                <!-- Edit Mode: Delete | Cancel | Update -->
+                <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                    <MudButton Style="text-transform: none" DropShadow="false" Color="Color.Error"
+                               OnClick="ConfirmDeleteEventAsync">
+                        Delete
                     </MudButton>
-                    @if (IsEditMode)
-                    {
-                        <MudButton OnClick="ConfirmUpdateEventAsync" Style="text-transform: none" DropShadow="false">
+                    <MudStack Row AlignItems="AlignItems.Center">
+                        <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">
+                            Cancel
+                        </MudButton>
+                        <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateEventAsync">
                             Update
                         </MudButton>
-                        <MudButton OnClick="DeleteEventAsync" Style="text-transform: none" DropShadow="false">Delete
-                        </MudButton>
-                    }
-                    else
-                    {
-                        <MudButton Style="text-transform: none" DropShadow="false"
-                                   OnClick="ConfirmAddEventAsync">Add
-                        </MudButton>
-                    }
+                    </MudStack>
                 </MudStack>
-            </MudStack>
+            }
+            else
+            {
+                <!-- Add Mode: Cancel | Clear | Add -->
+                <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">
+                        Cancel
+                    </MudButton>
+                    <MudStack Row AlignItems="AlignItems.Center">
+                        <MudButton Style="text-transform: none" DropShadow="false" OnClick="ClearFields">
+                            Clear
+                        </MudButton>
+                        <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmAddEventAsync">
+                            Add
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            }
         </DialogActions>
     </MudDialog>
 }
@@ -378,7 +405,7 @@ else
 {
     <MudDialog>
         <DialogContent>
-            <MudProgressLinear Indeterminate="true" Class="my-5"/>
+            <MudProgressLinear Indeterminate="true" Class="my-5" />
         </DialogContent>
     </MudDialog>
 }
@@ -473,6 +500,8 @@ else
     private string? _selectedSchoolLevelAndGenderID;
     private string? _selectedStreamTitle;
     private string? _selectedStreamService;
+    private int[]? _versusTeamsIDs;
+    private List<int?> selectedRegions { get; set; } = new() { null };
 
 
     // Opposing team IDs
@@ -664,23 +693,23 @@ else
     {
         // 1. Create main event
         var addEvent = new EventsDTO.Events
-        {
-            ID = GenerateRandomString(20),
-            EventStageID = _selectedEventStagesIDValue,
-            SportSubcategoryID = _selectedSportSubcategoryIDValue,
-            EventVenuesID = _selectedEventVenueIDValue,
-            EventStreamServiceID = _selectedEventStreamServiceIDValue,
-            EventStreamID = _selectedEventStreamIDValue,
-            OnStream = _isOnStream,
-            Date = _selectedDateValue,
-            Time = _selectedTimeValue,
-            GamePhase = null,
-            IsFinished = false,
-            Archived = false,
-            Deleted = false,
-            UserID = _selectedUserIDValue,
-            SportMainCat = _selectedMainCategoryValue
-        };
+            {
+                ID = GenerateRandomString(20),
+                EventStageID = _selectedEventStagesIDValue,
+                SportSubcategoryID = _selectedSportSubcategoryIDValue,
+                EventVenuesID = _selectedEventVenueIDValue,
+                EventStreamServiceID = _selectedEventStreamServiceIDValue,
+                EventStreamID = _selectedEventStreamIDValue,
+                OnStream = _isOnStream,
+                Date = _selectedDateValue,
+                Time = _selectedTimeValue,
+                GamePhase = null,
+                IsFinished = false,
+                Archived = false,
+                Deleted = false,
+                UserID = _selectedUserIDValue,
+                SportMainCat = _selectedMainCategoryValue
+            };
 
         string eventUrl = "/Events";
         var eventCreated = await apiService.PostAndReadAsync<EventsDTO.Events>(eventUrl, addEvent);
@@ -699,11 +728,11 @@ else
 
             // 2A. Create Versus Team first
             var addEventVersusTeams = new EventsDTO.EventVersusTeams
-            {
-                EventID = eventCreated.ID,
-                SchoolRegionID = team.SelectedRegionID,
-                RecentUpdateAt = _recentUpdateAt
-            };
+                {
+                    EventID = eventCreated.ID,
+                    SchoolRegionID = team.SelectedRegionID,
+                    RecentUpdateAt = _recentUpdateAt
+                };
 
             string teamUrl = "/Events/VersusTeams";
             var createdEventVersusTeams = await apiService.PostAndReadAsync<EventsDTO.EventVersusTeams>(teamUrl, addEventVersusTeams);
@@ -719,10 +748,10 @@ else
             {
                 var addEventTeamPlayers = team.SelectedPlayerIDs
                     .Select(playerID => new EventsDTO.EventVersusTeamPlayers
-                    {
-                        EventVersusID = createdEventVersusTeams.ID, // use the new team ID
-                        ProfilePlayerID = playerID
-                    })
+                        {
+                            EventVersusID = createdEventVersusTeams.ID, // use the new team ID
+                            ProfilePlayerID = playerID
+                        })
                     .ToList();
 
                 string playersUrl = "/Events/VersusTeams/Players";
@@ -773,7 +802,7 @@ else
             Snackbar.Add("Failed to update event.", Severity.Error);
             return;
         }
-        
+
         // Update VersusTeams and Players
         foreach (var team in _teamSelections)
         {
@@ -816,10 +845,10 @@ else
             }
         }
 
-        // Doooooooooooone
-        Snackbar.Add("Event and related teams updated successfully.", Severity.Success);
+        Snackbar.Add("Event updated successfully.", Severity.Success);
         MudDialog?.Close(DialogResult.Ok(true));
     }
+
 
     private async Task ConfirmUpdateEventAsync()
     {
@@ -839,6 +868,30 @@ else
         }
     }
 
+    private async Task ConfirmDeleteEventAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm deletion this event?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            // delete the players first
+            await DeleteVersusTeamPlayersByVersusTeamIDAsync();
+
+            // then delete the team
+            await DeleteVersusTeamsAsync();
+
+            // lastly delete the event
+            await DeleteEventAsync();
+
+            // close the dialog if successful
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
     private async Task DeleteEventAsync()
     {
         if (SelectedEventID == null) return;
@@ -848,35 +901,38 @@ else
         var success = await apiService.DeleteAsync(url);
 
         if (success)
-            Snackbar.Add("Event deleted successfully.", Severity.Success);
-        else
-            Snackbar.Add("Failed to delete event.", Severity.Error);
-    }
-
-    private async Task DeleteEventVersusTeamPlayersByEventVersusTeamIDAsync(int versusTeamID)
-    {
-        if (versusTeamID == 0) return;
-
-        string url = $"/Events/VersusTeams/Players/ByEventVersusTeam/{versusTeamID}";
-        await apiService.DeleteAsync(url);
-    }
-
-
-    private async Task DeleteEventVersusTeamPlayersAsync()
-    {
-        if (SelectedEventVersusTeamsID == 0) return;
-
-        string url = $"/Events/VersusTeams/{SelectedEventVersusTeamsID}";
-
-        var success = await apiService.DeleteAsync(url);
-
-        if (success)
         {
-            Snackbar.Add($"Team deleted successfully.", Severity.Success);
+            Snackbar.Add("Event deleted successfully.", Severity.Success);
         }
         else
         {
-            Snackbar.Add("Failed to delete team.", Severity.Error);
+            Snackbar.Add("Failed to delete event.", Severity.Error);
+        }
+    }
+
+    // Delete Sport event versus team players by event versus team ID
+    private async Task DeleteVersusTeamPlayersByVersusTeamIDAsync()
+    {
+        if (_versusTeamsIDs == null || _versusTeamsIDs.Length == 0) return;
+
+        foreach (var versusTeamID in _versusTeamsIDs)
+        {
+            string url = $"/Events/VersusTeams/Players/ByEventVersusTeam/{versusTeamID}";
+
+            await apiService.DeleteAsync(url);
+        }
+    }
+
+    // Delete versus teams
+    private async Task DeleteVersusTeamsAsync()
+    {
+        if (_versusTeamsIDs == null || _versusTeamsIDs.Length == 0) return;
+
+        foreach (var versusTeamID in _versusTeamsIDs)
+        {
+            string url = $"/Events/VersusTeams/{versusTeamID}";
+
+            await apiService.DeleteAsync(url);
         }
     }
 
@@ -884,10 +940,10 @@ else
     {
         var eventStream = _selectedPlayerIDValues?.Where(id => id?.Any() == true)
             .Select(playerID => new EventsDTO.EventVersusTeamPlayers
-            {
-                ProfilePlayerID = playerID,
-                EventVersusID = SelectedEventVersusTeamsID,
-            }).ToList();
+                {
+                    ProfilePlayerID = playerID,
+                    EventVersusID = SelectedEventVersusTeamsID,
+                }).ToList();
 
         if (eventStream == null || !eventStream.Any()) return;
 
@@ -1107,7 +1163,6 @@ else
     }
 
 
-
     private async Task GetEventVersusTeamPlayersAsync()
     {
         if (_selectedEventVersusTeamsIDValue == null) return;
@@ -1266,7 +1321,6 @@ else
             public bool? Deleted { get; set; }
             public string? UserID { get; set; }
             public List<EventVersusTeams> EventVersusTeams { get; set; } = new();
-
         }
 
         public class EventStages
