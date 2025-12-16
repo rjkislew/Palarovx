@@ -16,6 +16,32 @@
             <MudStack Row Spacing="0" Justify="Justify.FlexEnd">
                 <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddCoachDialog">Add Coach</MudButton>
                 <MudDivider Vertical="true" FlexItem="true" />
+                <MudFileUpload T="IBrowserFile" 
+                               OnFilesChanged="OnFileUpload" 
+                               MaxFileSize="52428800"
+                               Accept=".xlsx,.xls">
+                    <ActivatorContent>
+                        @if (uploading)
+                        {
+                            <div style="padding: 10px">
+                                <MudStack Row>
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                    <MudText Style="font-size: .9375rem">Uploading</MudText>
+                                </MudStack>
+                            </div>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Text" 
+                                       Size="Size.Large" 
+                                       StartIcon="@Icons.Material.Filled.CloudUpload"
+                                       Disabled="uploading">
+                                <MudText Style="font-size: .9375rem">Upload Excel File</MudText>
+                            </MudButton>
+                        }
+                    </ActivatorContent>
+                </MudFileUpload>
+                <MudDivider Vertical="true" FlexItem="true" />
                 <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="GetCoachesAsync">Refresh Table</MudButton>
             </MudStack>
         </MudItem>
@@ -31,9 +57,13 @@
                 </ToolBarContent>
                 <ColGroup>
                     <MudHidden Breakpoint="Breakpoint.Xs">
-                        <col style="width: 50%" />
-                        <col style="width: 45%" />
-                        <col style="width: 5%;" />
+                        <col style="width: 25%" />
+                        <col style="width: 15%" />
+                        <col style="width: 15%" />
+                        <col style="width: 5%" />
+                        <col style="width: 15%" />
+                        <col style="width: 20%" />
+                        <col style="width: 5%" />
                     </MudHidden>
                 </ColGroup>
                 <HeaderContent>
@@ -43,18 +73,72 @@
                         </MudTableSortLabel>
                     </MudTh>
                     <MudTh>
-                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfileCoachesDetails, object?>(x => (x.Region, x.Abbreviation))">
-                            Region
+                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfileCoachesDetails, object?>(x => (x.Designation))">
+                            Designation
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfileCoachesDetails, object?>(x => (x.Sports, x.SportGenderCategories, x.Level))">
+                            Sport
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfileCoachesDetails, object?>(x => x.Sex)">
+                            Sex
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfileCoachesDetails, object?>(x => x.BirthDate)">
+                            Birth Date
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel SortBy="new Func<ProfilesDTO.ProfileCoachesDetails, object?>(x => (x.School, x.SchoolDivision, x.Region, x.Abbreviation))">
+                            School
                         </MudTableSortLabel>
                     </MudTh>
                     <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate Context="coach">
                     <MudTd DataLabel="Firstname">
-                        <MudText Typo="Typo.body2">@coach.FirstName @coach.LastName</MudText>
+                        <MudText Typo="Typo.body2">@coach.FirstName @coach.MiddleInitial @coach.LastName</MudText>
                     </MudTd>
-                    <MudTd DataLabel="Region">
-                        <MudText Typo="Typo.caption">@coach.Region (@coach.Abbreviation)</MudText>                        
+                    <MudTd DataLabel="Designation">
+                        <MudText Typo="Typo.caption">@coach.Designation</MudText>                        
+                    </MudTd>
+                    <MudTd DataLabel="Sport">
+                        <MudText Typo="Typo.body2">
+                            @coach.Sports <br />
+                            <MudElement>
+                                <MudText Typo="Typo.caption">
+                                    @coach.Level - @coach.SportGenderCategories <br />
+                                </MudText>
+                            </MudElement>
+                        </MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Sex">
+                        <MudText Typo="Typo.caption">@coach.Sex</MudText>                        
+                    </MudTd>
+                    <MudTd DataLabel="Birth Date">
+                        @if (coach.BirthDate.HasValue)
+                        {
+                            @coach.BirthDate.Value.ToString("MMMM dd, yyyy")
+                        }
+                        </MudTd>
+                    <MudTd DataLabel="School">
+                        <MudText Typo="Typo.body2">
+                            @coach.School <br />
+                            <MudElement>
+                                <MudText Typo="Typo.caption">
+                                    @coach.SchoolDivision <br />
+                                </MudText>
+                            </MudElement>
+                            <MudElement>
+                                <MudText Typo="Typo.caption">
+                                    @coach.Region (@coach.Abbreviation)
+                                </MudText>
+                            </MudElement>
+                        </MudText>
                     </MudTd>
                     <MudTd Style="text-align: center">
                         <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditCoachDialog(coach.ID)" />
@@ -82,6 +166,7 @@
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
+    private bool uploading = false;
 
     // JSON storage
     private List<ProfilesDTO.ProfileCoachesDetails>? _profileCoachesDetails;
@@ -97,6 +182,19 @@
             public string? LastName { get; set; }
             public string? Region { get; set; }
             public string? Abbreviation { get; set; }
+            public string? MiddleInitial { get; set; }
+            public string? Sex { get; set; }
+            public DateTime? BirthDate { get; set; }
+            public string? Designation { get; set; }
+            public string? Sports { get; set; }
+            public int? GenderCategoryID { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public int? SchoolDivisionID { get; set; }
+            public int? SchoolID { get; set; }
+            public string? Level { get; set; }
+            public string? School { get; set; }
+            public string? SportGenderCategories { get; set; }
+            public string? SchoolDivision { get; set; }
         }
     }
 
@@ -130,7 +228,7 @@
         {
             {x => x.selectedCoachID, selectedID}
         };
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
 
         var dialog = await DialogService.ShowAsync<EditCoachDialog>("Edit Coach", parameter, options);
 
@@ -145,7 +243,7 @@
 
     private async Task OpenAddCoachDialog()
     {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
 
         var dialog = await DialogService.ShowAsync<AddCoachDialog>("Add Coach", options);
 
@@ -170,5 +268,75 @@
         string url = "/Profiles/Coach/Details";
 
         _profileCoachesDetails = await apiService.GetAsync<ProfilesDTO.ProfileCoachesDetails>(url);
+    }
+    
+    private async Task OnFileUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null)
+        {
+            Snackbar.Add("No file selected.", Severity.Warning);
+            return;
+        }
+
+        uploading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 50_000_000);
+
+            var content = new MultipartFormDataContent
+            {
+                { new StreamContent(stream), "file", file.Name }
+            };
+
+            // ✅ Correct backend route
+            string url = "/CoachImport/UploadCoaches";
+
+            var result = await apiService.PostFormAsync<ImportResult>(url, content);
+
+            if (result != null)
+            {
+                Snackbar.Add(
+                    $"Imported: {result.ImportedCount}. " +
+                    $"Skipped: {result.SkippedCount}. " +
+                    $"Errors: {result.Errors?.Count ?? 0}",
+                    result.Errors?.Count > 0 ? Severity.Warning : Severity.Success
+                );
+
+                if (result.Errors?.Count > 0)
+                {
+                    foreach (var err in result.Errors.Take(5)) 
+                    {
+                        Snackbar.Add(err, Severity.Error);
+                    }
+                }
+
+                await GetCoachesAsync();
+            }
+            else
+            {
+                Snackbar.Add("Upload failed.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Upload failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            uploading = false;
+            StateHasChanged();
+        }
+    }
+    
+    // DTO mirrored for the front-end result
+    public class ImportResult
+    {
+        public int TotalRows { get; set; }
+        public int ImportedCount { get; set; }
+        public int SkippedCount { get; set; }
+        public List<string> Errors { get; set; } = new();
     }
 }

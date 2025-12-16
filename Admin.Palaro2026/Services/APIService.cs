@@ -194,6 +194,17 @@ public class APIService
         }
     }
 
+    public async Task<T?> PostFormAsync<T>(string url, MultipartFormDataContent content)
+    {
+        var requestUrl = BuildUrl(url);
+        var response = await _httpClient.PostAsync(requestUrl, content);
+
+        if (!response.IsSuccessStatusCode)
+            return default;
+
+        return await response.Content.ReadFromJsonAsync<T>();
+    }
+
 
 
     public async Task<bool> DeleteAsync(string relativeUrl)

@@ -246,10 +246,36 @@ public partial class Palaro2026Context : DbContext
             entity.Property(e => e.LastName)
                 .HasMaxLength(100)
                 .IsUnicode(false);
-
+            entity.Property(e => e.MiddleInitial)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.Sex)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.BirthDate)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.Designation)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.HasOne(d => d.Sport).WithMany(p => p.ProfileCoaches)
+                .HasForeignKey(d => d.SportID)
+                .HasConstraintName("FK_ProfileCoaches_SportsID");
+            entity.HasOne(d => d.SportGenderCategories).WithMany(p => p.ProfileCoaches)
+                .HasForeignKey(d => d.GenderCategoryID)
+                .HasConstraintName("FK_ProfileCoaches_GenderCategoryID");
             entity.HasOne(d => d.SchoolRegion).WithMany(p => p.ProfileCoaches)
                 .HasForeignKey(d => d.SchoolRegionID)
                 .HasConstraintName("FK__PlayerTeamCoach_SchoolRegions");
+            entity.HasOne(d => d.SchoolDivision).WithMany(p => p.ProfileCoaches)
+                .HasForeignKey(d => d.SchoolDivisionID)
+                .HasConstraintName("FK_ProfileCoaches_SchoolDivisionID");
+            entity.HasOne(d => d.School).WithMany(p => p.ProfileCoaches)
+                .HasForeignKey(d => d.SchoolID)
+                .HasConstraintName("FK_ProfileCoaches_SchoolID");
+            entity.HasOne(d => d.SportCategory).WithMany(p => p.ProfileCoaches)
+                .HasForeignKey(d => d.SportCategoryID)
+                .HasConstraintName("FK_ProfileCoaches_SportCategoryID");
         });
 
         modelBuilder.Entity<ProfilePlayerSportCoaches>(entity =>
@@ -267,6 +293,7 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.ProfilePlayerSport).WithMany(p => p.ProfilePlayerSportCoaches)
                 .HasForeignKey(d => d.ProfilePlayerSportID)
                 .HasConstraintName("FK_ProfilePlayerSportCoaches_ProfilePlayerSports");
+            
         });
 
         modelBuilder.Entity<ProfilePlayerSports>(entity =>
@@ -302,6 +329,15 @@ public partial class Palaro2026Context : DbContext
             entity.Property(e => e.Sex)
                 .HasMaxLength(6)
                 .IsUnicode(false);
+            entity.Property(e => e.MiddleInitial)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.LRN)
+                .HasMaxLength(50)
+                .IsUnicode(false);
+            entity.Property(e => e.BirthDate)
+                .HasMaxLength(50)
+                .IsUnicode(false);
 
             entity.HasOne(d => d.School).WithMany(p => p.ProfilePlayers)
                 .HasForeignKey(d => d.SchoolID)
@@ -310,6 +346,10 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.Sport).WithMany(p => p.ProfilePlayers)
                 .HasForeignKey(d => d.SportID)
                 .HasConstraintName("FK_ProfilePlayers_Sports");
+            
+            entity.HasOne(d => d.SportCategory).WithMany(p => p.ProfilePlayers)
+                .HasForeignKey(d => d.SportCategoryID)
+                .HasConstraintName("FK_ProfilePlayers_SportCategoryID");
         });
 
         modelBuilder.Entity<SchoolBilletingQuarters>(entity =>
@@ -385,6 +425,10 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.SchoolLevels).WithMany(p => p.Schools)
                 .HasForeignKey(d => d.SchoolLevelsID)
                 .HasConstraintName("FK_Schools_SchoolLevels");
+            
+            entity.HasOne(d => d.SchoolRegion).WithMany(p => p.Schools)
+                .HasForeignKey(d => d.SchoolRegionID)
+                .HasConstraintName("FK__Schools__SchoolRegion");
         });
 
         modelBuilder.Entity<Sponsors>(entity =>

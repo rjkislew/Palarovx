@@ -9,6 +9,16 @@ public class ProfilesDTO
         public string ID { get; set; } = null!;
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
+        public string? MiddleInitial { get; set; }
+        public string? Sex { get; set; }
+        public DateTime? BirthDate { get; set; }
+        public string? Designation { get; set; }
+        public string? Sports { get; set; }
+        public string? SportGenderCategories { get; set; }
+        public string? SchoolDivision { get; set; }
+        public string? School { get; set; }
+        public int? SchoolLevelID { get; set; }
+        public string? Level { get; set; }
         public string? Region { get; set; }
         public string? Abbreviation { get; set; }
     }
@@ -18,7 +28,17 @@ public class ProfilesDTO
         public string? ID { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
+        public string? MiddleInitial { get; set; }
+        public string? Sex { get; set; }
+        public DateTime? BirthDate { get; set; }
+        public string? Designation { get; set; }
+        public int? SportID { get; set; }
+        public int? GenderCategoryID { get; set; }
         public int? SchoolRegionID { get; set; }
+        public int? SchoolDivisionID { get; set; }
+        public int? SchoolID { get; set; }
+        public int? SportCategoryID { get; set; }
+        
     }
 
     public class ProfilePlayerEvent
@@ -26,7 +46,8 @@ public class ProfilesDTO
         public string? ID { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
-        public string? Gender { get; set; }
+        public int? SchoolLevelID { get; set; }
+        public string? Level { get; set; }
         public int? RegionID { get; set; }
         public int? SubCategoryID { get; set; }
     }
@@ -38,7 +59,10 @@ public class ProfilesDTO
             public string ID { get; set; } = null!;
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
+            public string? MiddleInitial { get; set; }
             public string? Sex { get; set; }
+            public DateTime? BirthDate { get; set; }
+            public string? LRN { get; set; }
             public string? School { get; set; }
             public int? SchoolLevelID { get; set; }
             public string? Level { get; set; }
@@ -72,9 +96,13 @@ public class ProfilesDTO
         public string ID { get; set; } = null!;
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
-        public string? Sex { get; set; }
         public int? SchoolID { get; set; }
         public int? SportID { get; set; }
+        public string? MiddleInitial { get; set; }
+        public string? Sex { get; set; }
+        public DateTime? BirthDate { get; set; }
+        public string? LRN { get; set; }
+        public int? SportCategoryID { get; set; }
     }
 
     public class ProfilePlayerSports

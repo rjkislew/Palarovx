@@ -1,0 +1,1308 @@
+﻿@using Admin.Palaro2026.Dialogs.ScorePage.Dancesport
+
+@page "/dancesport"
+
+@inject APIService apiService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge">
+
+    <!--DANCESPORT EVENT TABLE-->
+    <MudTabs Centered="true" MinimumTabWidth="300px">
+        <MudTabPanel Text="Events">
+
+            <MudItem xs="12" Style="margin-top: 1rem;">
+                <MudStack Class="flex-lg-row" Justify="Justify.FlexEnd" Style="margin-bottom: 1rem">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudButton Variant="Variant.Text"
+                                   Size="Size.Large"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="OpenDialogAsync"
+                                   Class="ml-auto">
+                            Add Event
+                        </MudButton>
+                        <MudDivider Vertical="true" FlexItem="true" />
+                        <MudButton Size="Size.Large" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh"
+                                   OnClick="LoadDataAsync">
+                            Refresh Table
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTable Items="@_dancesportEvents" FixedHeader FixedFooter Height="calc(87vh - 150px)"
+                          Context="dancesportEvent"
+                          Outlined="true"
+                          Elevation="1"
+                          Style="border-radius: 8px; overflow: hidden;">
+
+                    <ColGroup>
+                        <col style="width: 20%" />
+                        <col style="width: 20%" />
+                        <col style="width: 15%" />
+                        <col style="width: 35%" />
+                        <col style="width: 10%" />
+                    </ColGroup>
+
+                    <HeaderContent>
+                        <MudTh>Event</MudTh>
+                        <MudTh>School Level - Gender</MudTh>
+                        <MudTh>Stage</MudTh>
+                        <MudTh>Opposing Team</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd DataLabel="Event">
+                            <MudText Typo="Typo.caption">@dancesportEvent.MainCategory</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="School Level - Gender">
+                            <MudText Typo="Typo.caption">
+                                @GetSchoolLevelName(dancesportEvent.LevelID) - @GetGenderName(dancesportEvent.GenderID)
+                            </MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Stage">
+                            <MudText Typo="Typo.caption">@GetEventStageName(dancesportEvent.StageID)</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Opposing Team">
+                            <MudGrid>
+                                <MudItem xs="12">
+                                    <MudVirtualize Items="@GetOpposingTeamsForEvent(dancesportEvent.ID)" Context="team">
+                                        <MudTooltip Duration="0" Arrow="true">
+                                            <ChildContent>
+                                                <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small"
+                                                         Class="pa-2 px-3 mx-1">
+                                                    @GetRegionAbbreviation(team.RegionID)
+                                                </MudChip>
+                                            </ChildContent>
+                                            <TooltipContent>
+                                                <MudVirtualize Items="@GetPlayersForTeam(team.RegionID, dancesportEvent.ID)"
+                                                               Context="player">
+                                                    <MudStack Spacing="0">
+                                                        <MudText Typo="Typo.caption">@player.FirstName @player.LastName</MudText>
+                                                        @if (player != GetPlayersForTeam(team.RegionID, dancesportEvent.ID)?.Last())
+                                                        {
+                                                            <MudDivider />
+                                                        }
+                                                    </MudStack>
+                                                </MudVirtualize>
+                                            </TooltipContent>
+                                        </MudTooltip>
+                                    </MudVirtualize>
+                                </MudItem>
+                            </MudGrid>
+                        </MudTd>
+                        <MudTd>
+                            <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                                           OnClick="() => OpenEditEventDialog(dancesportEvent.ID)" />
+                        </MudTd>
+                    </RowTemplate>
+
+                    <NoRecordsContent>
+                        <MudTd ColSpan="5" Class="text-center py-4">
+                            <MudText>No events found.</MudText>
+                        </MudTd>
+                    </NoRecordsContent>
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
+            </MudItem>
+        </MudTabPanel>
+
+
+        <!--DANCESPORT EVENT SCORE DISPLAY-->
+        <MudTabPanel Text="Scoreboard">
+            <MudCard Class="pa-4 mb-4" Outlined="true" Style="margin-top: 1rem;">
+                <MudGrid Spacing="3" Justify="Justify.Center">
+                    <MudItem xs="12" sm="3">
+                        <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport"
+                                   T="int?"
+                                   ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="true"
+                                   SelectedValuesChanged="@(async (_) => await FilterSchoolLevelAndGenderAsync())">
+                            <MudVirtualize Items="_sports" Context="sport">
+                                <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                            </MudVirtualize>
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="3">
+                        <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense"
+                                   Label="School Level and Gender" T="string"
+                                   ShrinkLabel Variant="Variant.Outlined" Clearable
+                                   Disabled="_selectedSportIDValue == null"
+                                   SelectedValuesChanged="@((values) => OnSchoolLevelGenderChanged())">
+                            <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
+                                <MudSelectItem T="string" Value="@combinedID">@combinedID</MudSelectItem>
+                            </MudVirtualize>
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="3">
+                        <MudSelect @bind-Value="_selectedMainCategoryValue" Margin="Margin.Dense"
+                                   Label="Event" T="string"
+                                   SelectedValuesChanged="@((values) => OnMainCategoryChanged())"
+                                   ShrinkLabel Variant="Variant.Outlined" Clearable
+                                   Disabled="@(!_sportMainCat?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                            @foreach (var mc in _sportMainCat)
+                            {
+                                <MudSelectItem Value="@mc">@mc</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="3">
+                        <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense"
+                                   Label="Stage" T="int?"
+                                   ShrinkLabel Variant="Variant.Outlined" Clearable>
+                            <MudVirtualize Items="_eventStages" Context="eventStage">
+                                <MudSelectItem T="int?" Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
+                            </MudVirtualize>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Action Buttons -->
+                <MudGrid Class="mt-3" Justify="Justify.Center">
+                    <MudItem xs="12" sm="4">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!IsApplyButtonEnabled)"
+                                   OnClick="ApplyFilters" FullWidth StartIcon="@Icons.Material.Filled.Search">
+                            Apply Filters
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                                   OnClick="ClearFilters" FullWidth StartIcon="@Icons.Material.Filled.Clear">
+                            Clear Filters
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudCard>
+
+            @if (_scoreDancesportEvents?.Any() == true)
+            {
+                @foreach (var eventItem in _scoreDancesportEvents)
+                {
+                    <MudCard Class="mb-2" Outlined="true">
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">
+                                @eventItem.MainCategory - @GetSchoolLevelName(eventItem.LevelID)
+                            </MudText>
+                        </MudCardContent>
+                    </MudCard>
+
+                    @if (eventItem.MainCategory == "Latin American")
+                    {
+                        <MudTable Items="@GetLatinAmericaScoreboardData(eventItem.ID)" Outlined="true"
+                                  Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden;">
+                            <ColGroup>
+                                <col style="width: 10%" />
+                                <col style="width: 20%" />
+                                <col style="width: 10%" />
+                                <col style="width: 10%" />
+                                <col style="width: 10%" />
+                                <col style="width: 10%" />
+                                <col style="width: 10%" />
+                                <col style="width: 10%" />
+                                @if (GetEventStageName(eventItem.StageID)?.Contains("Finals", StringComparison.OrdinalIgnoreCase) == true)
+                                {
+                                    <col style="width: 10%" />
+                                }
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Couple</MudTh>
+                                <MudTh>Chachacha</MudTh>
+                                <MudTh>Jive</MudTh>
+                                <MudTh>Paso Doble</MudTh>
+                                <MudTh>Rumba</MudTh>
+                                <MudTh>Samba</MudTh>
+                                <MudTh>Action</MudTh>
+                                @if (GetEventStageName(eventItem.StageID)?.Contains("Finals", StringComparison.OrdinalIgnoreCase) == true)
+                                {
+                                    <MudTh>Overall Ranking (Grade A)</MudTh>
+                                }
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Couple">
+                                    @foreach (var dancer in context.TeamDancers)
+                                    {
+                                        <MudText Typo="Typo.body2">@dancer</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Chachacha">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Chachacha")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Chachacha"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Jive">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Jive")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Jive"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Paso Doble">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Paso Doble")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Paso Doble"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Rumba">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Rumba")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Rumba"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Samba">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Samba")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Samba"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Action">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(context.RegionID, context.TeamPlayerIDs, eventItem.ID))">
+                                        Add Rank
+                                    </MudButton>
+                                </MudTd>
+                                @if (GetEventStageName(eventItem.StageID)?.Contains("Finals", StringComparison.OrdinalIgnoreCase) == true)
+                                {
+                                    <MudTd DataLabel="Overall Ranking">
+                                        @if (GetOverallRankPosition(context.RegionID, context.TeamPlayerIDs, eventItem.ID, "Latin American") > 0)
+                                        {
+                                            <MudText Typo="Typo.body2" Style="font-weight: bold;">
+                                                @GetOverallRankPosition(context.RegionID, context.TeamPlayerIDs, eventItem.ID, "Latin American")
+                                            </MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.body2">-</MudText>
+                                        }
+                                    </MudTd>
+                                }
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Latin American</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    }
+                    else if (eventItem.MainCategory == "Modern Standard")
+                    {
+                        <MudTable Items="@GetModernStandardScoreboardData(eventItem.ID)" Outlined="true"
+                                  Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden;">
+                            <ColGroup>
+                                <col style="width: 10%" />
+                                <col style="width: 20%" />
+                                <col style="width: 10%" />
+                                <col style="width: 10%" />
+                                <col style="width: 10%" />
+                                <col style="width: 10%" />
+                                <col style="width: 10%" />
+                                <col style="width: 10%" />
+                                @if (GetEventStageName(eventItem.StageID)?.Contains("Finals", StringComparison.OrdinalIgnoreCase) == true)
+                                {
+                                    <col style="width: 10%" />
+                                }
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Couple</MudTh>
+                                <MudTh>Tango</MudTh>
+                                <MudTh>Foxtrot</MudTh>
+                                <MudTh>Quickstep</MudTh>
+                                <MudTh>Viennese Waltz</MudTh>
+                                <MudTh>Waltz</MudTh>
+                                <MudTh>Action</MudTh>
+                                @if (GetEventStageName(eventItem.StageID)?.Contains("Finals", StringComparison.OrdinalIgnoreCase) == true)
+                                {
+                                    <MudTh>Overall Ranking (Grade A)</MudTh>
+                                }
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Couple">
+                                    @foreach (var dancer in context.TeamDancers)
+                                    {
+                                        <MudText Typo="Typo.body2">@dancer</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Tango">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetModernSubcategoryID(eventItem.LevelID, "Tango")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetModernSubcategoryID(eventItem.LevelID, "Tango"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Foxtrot">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetModernSubcategoryID(eventItem.LevelID, "Foxtrot")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetModernSubcategoryID(eventItem.LevelID, "Foxtrot"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Quickstep">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetModernSubcategoryID(eventItem.LevelID, "Quickstep")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetModernSubcategoryID(eventItem.LevelID, "Quickstep"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Viennese Waltz">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetModernSubcategoryID(eventItem.LevelID, "Viennese Waltz")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetModernSubcategoryID(eventItem.LevelID, "Viennese Waltz"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Waltz">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetModernSubcategoryID(eventItem.LevelID, "Waltz")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetModernSubcategoryID(eventItem.LevelID, "Waltz"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Action">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(context.RegionID, context.TeamPlayerIDs, eventItem.ID))">
+                                        Add Rank
+                                    </MudButton>
+                                </MudTd>
+                                @if (GetEventStageName(eventItem.StageID)?.Contains("Finals", StringComparison.OrdinalIgnoreCase) == true)
+                                {
+                                    <MudTd DataLabel="Overall Ranking">
+                                        @if (GetOverallRankPosition(context.RegionID, context.TeamPlayerIDs, eventItem.ID, "Modern Standard") > 0)
+                                        {
+                                            <MudText Typo="Typo.body2" Style="font-weight: bold;">
+                                                @GetOverallRankPosition(context.RegionID, context.TeamPlayerIDs, eventItem.ID, "Modern Standard")
+                                            </MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.body2">-</MudText>
+                                        }
+                                    </MudTd>
+                                }
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Modern Standard</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    }
+                }
+            }
+            @if (!_filtersApplied)
+            {
+                <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.Center" Style="margin-top: 3rem;">
+                    <MudText Typo="Typo.h6" Class="ma-4">
+                        Apply filter to view events.
+                    </MudText>
+                </MudStack>
+            }
+            else if (_filtersApplied && !_scoreDancesportEvents.Any())
+            {
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="margin-top: 3rem;">
+                    <MudText Typo="Typo.h6" Class="ma-4">No Results Found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Default">
+                        No event matches your filter criteria. Try adjusting your selections.
+                    </MudText>
+                </MudStack>
+            }
+        </MudTabPanel>
+    </MudTabs>
+</MudContainer>
+
+@code {
+    private List<SportsDTO.SportCategories>? _sportCategories;
+    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
+    private List<EventsDTO.EventStages>? _eventStages;
+    private List<PerformanceBasedDTO.PerformanceEvent>? _dancesportEvents;
+    private List<PerformanceBasedDTO.PerformanceEvent>? _scoreDancesportEvents;
+    private List<PerformanceBasedDTO.PerformanceTeam>? _allOpposingTeams;
+    private List<SchoolsDTO.SchoolRegion>? _schoolRegions;
+    private List<ProfilePlayersDTO.Players>? _allPlayers;
+    private List<PerformanceBasedDTO.PerformanceScores>? _allDancesportScores;
+
+    private string? _selectedSchoolLevelAndGenderID;
+    private List<string> _combinedSchoolLevelAndGenderNames = new();
+    private int? _selectedEventStagesIDValue;
+    private List<string> _filteredSchoolLevelAndGenderNames = new();
+    private string? _selectedMainCategoryValue;
+    private List<string> _sportMainCat = new();
+    private int? _selectedSportSubcategoryIDValue;
+    private int? _selectedSportCategoryIDValue = 1;
+    private int? _selectedSportIDValue = 10;
+    private List<SportsDTO.Sports>? _sports;
+
+    private List<string>? _subcategoryHeaders = new();
+
+    private bool _isEventDialogOpen = false;
+    private string? _selectedEventID;
+    private bool _isEditMode = false;
+    private bool _filtersApplied = false;
+
+
+    private bool _showScoreboard = false;
+    private PerformanceBasedDTO.PerformanceEvent? _selectedEvent;
+    private List<PerformanceBasedDTO.PerformanceTeam> _scoreData = new();
+    private List<DancesportScoreboardItem> _scoreboardData = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _selectedSportCategoryIDValue = 1;
+        _selectedSportIDValue = 10;
+
+        await GetSportsAsync();
+        await GetPerformanceEventsAsync();
+        await GetEventStagesAsync();
+        await GetGenderCategoriesAsync();
+        await GetSchoolLevelsAsync();
+        await GetOpposingTeamsAsync();
+        await GetSportSubCategoriesAsync();
+        await GetSchoolRegionsAsync();
+        await GetAllPlayersAsync();
+        await FilterSchoolLevelAndGenderAsync();
+        await GetScoreAsync();
+        LoadMainCategories();
+        _filteredSchoolLevelAndGenderNames = _combinedSchoolLevelAndGenderNames;
+    }
+
+    private async Task GetPerformanceEventsAsync()
+    {
+        string url = "/PerformanceBased/PerformanceEvents?sportID=10";
+        _dancesportEvents = await apiService.GetAsync<PerformanceBasedDTO.PerformanceEvent>(url);
+        StateHasChanged();
+    }
+
+    private async Task GetOpposingTeamsAsync()
+    {
+        string url = "/PerformanceBased/OpposingTeams";
+        _allOpposingTeams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(url);
+        StateHasChanged();
+    }
+
+    private async Task GetScoreAsync()
+    {
+        string url = "/PerformanceScore/Scores";
+        _allDancesportScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScores>(url);
+        StateHasChanged();
+    }
+
+    private List<PerformanceBasedDTO.PerformanceTeam> GetOpposingTeamsForEvent(int eventId)
+    {
+        return _allOpposingTeams?
+            .Where(team => team.PerformanceID == eventId)
+            .GroupBy(team => team.RegionID)
+            .Select(group => group.First())
+            .ToList() ?? new List<PerformanceBasedDTO.PerformanceTeam>();
+    }
+
+    private async Task GetSportsAsync()
+    {
+        string url = "/Sports";
+        _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
+    }
+
+    private async Task GetEventStagesAsync()
+    {
+        string url = "/Events/Stages";
+        _eventStages = await apiService.GetAsync<EventsDTO.EventStages>(url);
+    }
+
+    private async Task GetGenderCategoriesAsync()
+    {
+        string url = "/Sports/GenderCategories";
+        _sportGenderCategories = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url);
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        string url = "/Schools/Levels";
+        _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
+        await GetSportSubCategoriesAsync();
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegion>(url);
+    }
+
+    private async Task GetAllPlayersAsync()
+    {
+        string url = $"/Profiles/Player";
+        _allPlayers = await apiService.GetAsync<ProfilePlayersDTO.Players>(url);
+    }
+
+    private async Task GetSportSubCategoriesAsync()
+    {
+        string url = $"/Sports/Subcategories?sportID={_selectedSportIDValue}";
+        _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
+    }
+
+    private void LoadMainCategories()
+    {
+        if (_selectedSportIDValue == null || string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+        {
+            _sportMainCat = new List<string>();
+            return;
+        }
+
+        _sportMainCat = _sportSubcategories?.Where(sc => !string.IsNullOrEmpty(sc.MainCategory))
+            .Select(sc => sc.MainCategory!)
+            .Distinct()
+            .ToList() ?? new List<string>();
+    }
+
+    private string GetSchoolLevelName(int? schoolLevelId)
+    {
+        if (!schoolLevelId.HasValue) return "Unknown";
+        var level = _schoolLevels?.FirstOrDefault(sl => sl.ID == schoolLevelId.Value);
+        return level?.Level ?? "Unknown";
+    }
+
+    private List<ProfilePlayersDTO.Players> GetPlayersForTeam(int regionId, int eventId)
+    {
+        var playerIds = _allOpposingTeams?
+            .Where(team => team.PerformanceID == eventId && team.RegionID == regionId)
+            .Select(team => team.PlayerID)
+            .ToList() ?? new List<string>();
+
+        var players = _allPlayers?
+            .Where(player => playerIds.Contains(player.ID))
+            .ToList() ?? new List<ProfilePlayersDTO.Players>();
+
+        return players;
+    }
+
+    private string GetRegionAbbreviation(int regionId)
+    {
+        var region = _schoolRegions?.FirstOrDefault(r => r.ID == regionId);
+        return region?.Abbreviation ?? regionId.ToString();
+    }
+
+    private string GetGenderName(int? genderCategoryId)
+    {
+        if (!genderCategoryId.HasValue) return "Unknown";
+        var gender = _sportGenderCategories?.FirstOrDefault(g => g.ID == genderCategoryId.Value);
+        return gender?.Gender ?? "Unknown";
+    }
+
+    private string GetEventStageName(int? eventStageId)
+    {
+        if (!eventStageId.HasValue) return "Unknown";
+        var stage = _eventStages?.FirstOrDefault(es => es.ID == eventStageId.Value);
+        return stage?.Stage ?? "Unknown";
+    }
+
+
+    // SCORE DISPLAY METHODS
+
+    private int GetLatinSubcategoryID(int? schoolLevelId, string danceName)
+    {
+        if (!schoolLevelId.HasValue) return 0;
+
+        var schoolLevelName = GetSchoolLevelName(schoolLevelId);
+
+        if (schoolLevelName == "Elementary Level")
+        {
+            return danceName switch
+            {
+                "Chachacha" => 165,
+                "Jive" => 166,
+                "Paso Doble" => 167,
+                "Rumba" => 168,
+                "Samba" => 169,
+                _ => 0
+            };
+        }
+        else if (schoolLevelName == "Secondary Level")
+        {
+            return danceName switch
+            {
+                "Chachacha" => 177,
+                "Jive" => 178,
+                "Paso Doble" => 179,
+                "Rumba" => 180,
+                "Samba" => 181,
+                _ => 0
+            };
+        }
+
+        return 0;
+    }
+
+    private int GetModernSubcategoryID(int? schoolLevelId, string danceName)
+    {
+        if (!schoolLevelId.HasValue) return 0;
+
+        var schoolLevelName = GetSchoolLevelName(schoolLevelId);
+
+        if (schoolLevelName == "Elementary Level")
+        {
+            return danceName switch
+            {
+                "Tango" => 171,
+                "Foxtrot" => 172,
+                "Quickstep" => 173,
+                "Viennese Waltz" => 174,
+                "Waltz" => 175,
+                _ => 0
+            };
+        }
+        else if (schoolLevelName == "Secondary Level")
+        {
+            return danceName switch
+            {
+                "Tango" => 183,
+                "Foxtrot" => 184,
+                "Quickstep" => 185,
+                "Viennese Waltz" => 186,
+                "Waltz" => 187,
+                _ => 0
+            };
+        }
+
+        return 0;
+    }
+
+    private int GetOverallRankSum(int regionId, List<string> playerIds, int eventId, string categoryType)
+    {
+        if (playerIds == null || !playerIds.Any() || _allOpposingTeams == null || _allDancesportScores == null)
+            return 0;
+
+        var teamItem = GetDancesportScoreboardData(eventId).FirstOrDefault(item =>
+            item.RegionID == regionId &&
+            item.TeamPlayerIDs != null &&
+            item.TeamPlayerIDs.SequenceEqual(playerIds) &&
+            item.TeamID.HasValue);
+
+        if (teamItem?.TeamID == null) return 0;
+
+        var opposingTeam = _allOpposingTeams.FirstOrDefault(ot =>
+            ot.RegionID == regionId &&
+            ot.TeamID == teamItem.TeamID &&
+            ot.PerformanceID == eventId);
+
+        if (opposingTeam == null) return 0;
+
+        int totalRank = 0;
+        int danceCount = 0;
+
+        if (categoryType == "Latin American")
+        {
+            var latinDances = new[] { "Chachacha", "Jive", "Paso Doble", "Rumba", "Samba" };
+            foreach (var dance in latinDances)
+            {
+                var subcategoryId = GetLatinSubcategoryID(_dancesportEvents?.FirstOrDefault(e => e.ID == eventId)?.LevelID, dance);
+                var score = _allDancesportScores.FirstOrDefault(s =>
+                    s.PerformanceTeamID == opposingTeam.ID &&
+                    s.SportSubcategoryID == subcategoryId &&
+                    s.TeamID == teamItem.TeamID);
+
+                if (score?.Rank > 0)
+                {
+                    totalRank += score.Rank;
+                    danceCount++;
+                }
+            }
+        }
+        else if (categoryType == "Modern Standard")
+        {
+            var modernDances = new[] { "Tango", "Foxtrot", "Quickstep", "Viennese Waltz", "Waltz" };
+            foreach (var dance in modernDances)
+            {
+                var subcategoryId = GetModernSubcategoryID(_dancesportEvents?.FirstOrDefault(e => e.ID == eventId)?.LevelID, dance);
+                var score = _allDancesportScores.FirstOrDefault(s =>
+                    s.PerformanceTeamID == opposingTeam.ID &&
+                    s.SportSubcategoryID == subcategoryId &&
+                    s.TeamID == teamItem.TeamID);
+
+                if (score?.Rank > 0)
+                {
+                    totalRank += score.Rank;
+                    danceCount++;
+                }
+            }
+        }
+
+        // Return total rank sum (only if all dances have ranks)
+        return danceCount == 5 ? totalRank : 0;
+    }
+
+    private int GetOverallRankPosition(int regionId, List<string> playerIds, int eventId, string categoryType)
+    {
+        var scoreboardData = GetDancesportScoreboardData(eventId);
+
+        // Calculate rank sums for all teams
+        var teamsWithSums = scoreboardData.Select(item => new
+        {
+            Item = item,
+            RankSum = GetOverallRankSum(item.RegionID, item.TeamPlayerIDs, eventId, categoryType)
+        })
+            .Where(x => x.RankSum > 0) // Only include teams with complete rank data
+            .OrderBy(x => x.RankSum) // Sort by lowest sum first
+            .ToList();
+
+        // Find the current team's position
+        var currentTeamSum = GetOverallRankSum(regionId, playerIds, eventId, categoryType);
+        if (currentTeamSum == 0) return 0; // No complete rank data
+
+        // Get the rank position (1-based index)
+        var position = teamsWithSums.FindIndex(x =>
+            x.Item.RegionID == regionId &&
+            x.Item.TeamPlayerIDs.SequenceEqual(playerIds)
+        ) + 1;
+
+        return position;
+    }
+
+    private List<DancesportScoreboardItem> GetLatinAmericaScoreboardData(int eventId)
+    {
+        var scoreboardData = GetDancesportScoreboardData(eventId);
+
+        // Calculate overall rank sums and sort by lowest sum first
+        var rankedData = scoreboardData.Select(item => new
+        {
+            Item = item,
+            OverallRankSum = GetOverallRankSum(item.RegionID, item.TeamPlayerIDs, eventId, "Latin American")
+        })
+            .Where(x => x.OverallRankSum > 0) // Only include teams with complete rank data
+            .OrderBy(x => x.OverallRankSum) // Sort by lowest sum first
+            .Select(x => x.Item)
+            .ToList();
+
+        // Add teams without complete rank data at the end
+        var incompleteData = scoreboardData.Where(item =>
+            GetOverallRankSum(item.RegionID, item.TeamPlayerIDs, eventId, "Latin American") == 0
+        ).ToList();
+
+        return rankedData.Concat(incompleteData).ToList();
+    }
+
+    private List<DancesportScoreboardItem> GetModernStandardScoreboardData(int eventId)
+    {
+        var scoreboardData = GetDancesportScoreboardData(eventId);
+
+        // Calculate overall rank sums and sort by lowest sum first
+        var rankedData = scoreboardData.Select(item => new
+        {
+            Item = item,
+            OverallRankSum = GetOverallRankSum(item.RegionID, item.TeamPlayerIDs, eventId, "Modern Standard")
+        })
+            .Where(x => x.OverallRankSum > 0) // Only include teams with complete rank data
+            .OrderBy(x => x.OverallRankSum) // Sort by lowest sum first
+            .Select(x => x.Item)
+            .ToList();
+
+        // Add teams without complete rank data at the end
+        var incompleteData = scoreboardData.Where(item =>
+            GetOverallRankSum(item.RegionID, item.TeamPlayerIDs, eventId, "Modern Standard") == 0
+        ).ToList();
+
+        return rankedData.Concat(incompleteData).ToList();
+    }
+
+    private List<DancesportScoreboardItem> GetDancesportScoreboardData(int eventId)
+    {
+        var scoreboardData = new List<DancesportScoreboardItem>();
+
+        if (_allOpposingTeams == null || _allPlayers == null || _schoolRegions == null)
+            return scoreboardData;
+
+        // Get all teams for this event
+        var eventTeams = _allOpposingTeams
+            .Where(team => team.PerformanceID == eventId)
+            .ToList();
+
+        // Group by RegionID and TeamID to get couples
+        var teamGroups = eventTeams
+            .GroupBy(team => new { team.RegionID, team.TeamID })
+            .ToList();
+
+        foreach (var teamGroup in teamGroups)
+        {
+            var regionId = teamGroup.Key.RegionID;
+            var teamId = teamGroup.Key.TeamID;
+
+            var region = _schoolRegions.FirstOrDefault(r => r.ID == regionId);
+
+            // Get all players in this team
+            var players = teamGroup
+                .Select(team => _allPlayers.FirstOrDefault(p => p.ID == team.PlayerID))
+                .Where(player => player != null)
+                .ToList();
+
+            if (players.Any())
+            {
+                var dancerNames = players.Select(p => $"{p.FirstName} {p.LastName}").ToList();
+                var playerIds = players.Select(p => p.ID).ToList();
+
+                scoreboardData.Add(new DancesportScoreboardItem
+                {
+                    RegionID = regionId,
+                    Region = region?.Region ?? "Unknown",
+                    TeamID = teamId,
+                    TeamPlayerIDs = playerIds,
+                    TeamDancers = dancerNames
+                });
+            }
+        }
+
+        return scoreboardData;
+    }
+
+    private int GetRank(int regionId, List<string> playerIds, int eventId, int sportSubcategoryId)
+    {
+        if (playerIds == null || !playerIds.Any() || _allOpposingTeams == null || _allDancesportScores == null)
+            return 0;
+
+        var teamItem = GetDancesportScoreboardData(eventId).FirstOrDefault(item =>
+            item.RegionID == regionId &&
+            item.TeamPlayerIDs != null &&
+            item.TeamPlayerIDs.SequenceEqual(playerIds) &&
+            item.TeamID.HasValue);
+
+        if (teamItem?.TeamID == null) return 0;
+
+        var opposingTeam = _allOpposingTeams.FirstOrDefault(ot =>
+            ot.RegionID == regionId &&
+            ot.TeamID == teamItem.TeamID &&
+            ot.PerformanceID == eventId);
+
+        if (opposingTeam == null) return 0;
+
+        // Look for dance score with matching TeamID and SportSubcategoryID
+        var score = _allDancesportScores.FirstOrDefault(s =>
+            s.PerformanceTeamID == opposingTeam.ID &&
+            s.SportSubcategoryID == sportSubcategoryId &&
+            s.TeamID == teamItem.TeamID);
+
+        return score?.Rank ?? 0;
+    }
+
+    private async Task AddScores(int regionId, List<string> playerIds, int eventId)
+    {
+        if (playerIds == null || !playerIds.Any()) return;
+
+        // Get the TeamID from the scoreboard data
+        var teamItem = _scoreboardData.FirstOrDefault(item =>
+            item.RegionID == regionId &&
+            item.TeamPlayerIDs != null &&
+            item.TeamPlayerIDs.SequenceEqual(playerIds));
+
+        var parameters = new DialogParameters<DancesportScore>
+        {
+            { x => x.RegionID, regionId },
+            { x => x.PlayerID, playerIds.First() },
+            { x => x.EventID, eventId },
+            { x => x.IsTeamEvent, true },
+            { x => x.TeamPlayerIDs, playerIds },
+            { x => x.TeamID, teamItem?.TeamID },
+            { x => x.OnScoreSaved, EventCallback.Factory.Create(this, HandleScoreSaved) }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+
+        var dialog = await DialogService.ShowAsync<DancesportScore>("", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await HandleScoreSaved();
+        }
+    }
+
+    private async Task HandleScoreSaved()
+    {
+        await GetScoreAsync();
+        StateHasChanged();
+    }
+
+
+    //FILTERS
+
+    private async Task ApplyFilters()
+    {
+        try
+        {
+            if (_dancesportEvents == null)
+            {
+                Snackbar.Add("No events available.", Severity.Warning);
+                return;
+            }
+
+            var query = _dancesportEvents.AsQueryable();
+
+            if (_selectedSportIDValue != null)
+                query = query.Where(e => e.SportID == _selectedSportIDValue);
+
+            int? schoolLevelID = null;
+            int? genderID = null;
+
+            if (!string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+            {
+                var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+                schoolLevelID = _schoolLevels.FirstOrDefault(x => x.Level == parts[0])?.ID;
+                genderID = _sportGenderCategories.FirstOrDefault(x => x.Gender == parts[1])?.ID;
+
+                if (schoolLevelID != null)
+                    query = query.Where(e => e.LevelID == schoolLevelID);
+
+                if (genderID != null)
+                    query = query.Where(e => e.GenderID == genderID);
+            }
+
+            if (!string.IsNullOrWhiteSpace(_selectedMainCategoryValue))
+                query = query.Where(e => e.MainCategory == _selectedMainCategoryValue);
+
+            if (_selectedEventStagesIDValue != null)
+                query = query.Where(e => e.StageID == _selectedEventStagesIDValue);
+
+            string url = $"/PerformanceBased/PerformanceEvents"
+                         + $"?sportID={_selectedSportIDValue}"
+                         + $"&schoolLevelID={schoolLevelID}"
+                         + $"&genderID={genderID}"
+                         + $"&mainCategory={_selectedMainCategoryValue}"
+                         + $"&stageID={_selectedEventStagesIDValue}";
+
+            // --- CALL FILTERED DATA FROM API ---
+            _scoreDancesportEvents = await apiService.GetAsync<PerformanceBasedDTO.PerformanceEvent>(url);
+            _filtersApplied = true;
+
+            await GetOpposingTeamsAsync();
+            await GetScoreAsync();
+
+            Snackbar.Add("Filters applied", Severity.Success);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
+        }
+    }
+
+
+    private async Task ClearFilters()
+    {
+        _selectedSchoolLevelAndGenderID = null;
+        _selectedMainCategoryValue = null;
+        _selectedEventStagesIDValue = null;
+
+        if (_selectedSportIDValue != null)
+        {
+            await FilterSchoolLevelAndGenderAsync();
+            LoadMainCategories();
+        }
+        else
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            _sportMainCat = new List<string>();
+        }
+
+        _scoreDancesportEvents = new List<PerformanceBasedDTO.PerformanceEvent>();
+
+        Snackbar.Add("Filters cleared", Severity.Info);
+        StateHasChanged();
+    }
+
+    private bool IsApplyButtonEnabled =>
+        _selectedSportIDValue != null &&
+        !string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID) &&
+        !string.IsNullOrEmpty(_selectedMainCategoryValue) &&
+        _selectedEventStagesIDValue != null;
+
+    private async Task OpenDialogAsync()
+    {
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            BackdropClick = false
+        };
+
+        var dialog = await DialogService.ShowAsync<AddDancesportEvent>("Add Event", options);
+
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await GetPerformanceEventsAsync();
+            await GetOpposingTeamsAsync();
+        }
+    }
+
+    private async Task OnSchoolLevelGenderChanged()
+    {
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+        {
+            _selectedMainCategoryValue = null;
+            _sportMainCat = new List<string>();
+        }
+        else
+        {
+            await GetSportSubCategoriesSLGAsync();
+            LoadMainCategories();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task GetSportSubCategoriesSLGAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+        {
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+            return;
+        }
+
+        var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+        var schoolLevelName = parts[0];
+        var genderName = parts[1];
+
+        var schoolLevelID = _schoolLevels.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+        var genderID = _sportGenderCategories.FirstOrDefault(x => x.Gender == genderName)?.ID;
+
+        if (schoolLevelID != null && genderID != null)
+        {
+            _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+                $"/Sports/Subcategories?sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}");
+        }
+        else
+        {
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+        }
+    }
+
+    private async Task FilterSchoolLevelAndGenderAsync()
+    {
+        if (_selectedSportIDValue == null)
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        var subcats = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+            $"/Sports/Subcategories?sportID={_selectedSportIDValue}");
+
+        if (subcats == null || !subcats.Any())
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        var schoolLevelIDs = subcats.Where(x => x.SchoolLevelID.HasValue).Select(x => x.SchoolLevelID.Value).Distinct();
+        var genderIDs = subcats.Where(x => x.SportGenderCategoryID.HasValue).Select(x => x.SportGenderCategoryID.Value).Distinct();
+
+        var schoolLevelNames = _schoolLevels?.Where(s => schoolLevelIDs.Contains(s.ID)).Select(s => s.Level) ?? new List<string>();
+        var genderNames = _sportGenderCategories?.Where(g => genderIDs.Contains(g.ID)).Select(g => g.Gender) ?? new List<string>();
+
+        _combinedSchoolLevelAndGenderNames = schoolLevelNames.SelectMany(s => genderNames, (s, g) => $"{s} - {g}").ToList();
+    }
+
+    private async Task OnMainCategoryChanged()
+    {
+        LoadMainCategories();
+        StateHasChanged();
+    }
+
+    private async Task OpenEditEventDialog(int? selectedEventID)
+    {
+        var parameters = new DialogParameters<AddDancesportEvent>
+        {
+            { x => x.SelectedEventID, selectedEventID },
+            { x => x.IsEditMode, true }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            BackdropClick = false
+        };
+
+        var dialog = await DialogService.ShowAsync<AddDancesportEvent>("Edit Event", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await LoadDataAsync();
+        }
+    }
+
+    private bool HasScores(int eventId)
+    {
+        return _allDancesportScores?.Any(score => score.PerformanceID == eventId) == true;
+    }
+
+
+    private class DancesportScoreboardItem
+    {
+        public int RegionID { get; set; }
+        public string Region { get; set; } = string.Empty;
+        public int? TeamID { get; set; }
+        public List<string> TeamPlayerIDs { get; set; } = new();
+        public List<string> TeamDancers { get; set; } = new();
+    }
+
+    public class PerformanceBasedDTO
+    {
+        public class PerformanceEvent
+        {
+            public int ID { get; set; }
+            public int? SportID { get; set; }
+            public string MainCategory { get; set; } = string.Empty;
+            public int? LevelID { get; set; }
+            public int? GenderID { get; set; }
+            public int? StageID { get; set; }
+        }
+
+        public class PerformanceTeam
+        {
+            public int ID { get; set; }
+            public int? PerformanceID { get; set; }
+            public int? TeamID { get; set; }
+            public int RegionID { get; set; }
+            public string PlayerID { get; set; } = string.Empty;
+        }
+
+        public class PerformanceScores
+        {
+            public int ID { get; set; }
+            public int? PerformanceID { get; set; }
+            public int PerformanceTeamID { get; set; }
+            public int SportSubcategoryID { get; set; }
+            public decimal Score { get; set; }
+            public int Rank { get; set; }
+            public string UserID { get; set; } = string.Empty;
+            public DateTime UpdatedAt { get; set; }
+            public int? TeamID { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+
+        public class SchoolRegion
+        {
+            public int? ID { get; set; }
+            public string Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class SportCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+        }
+
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+            public string? MainCategory { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+    public class ProfilePlayersDTO
+    {
+        public class Players
+        {
+            public string ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+    }
+
+    public class EventsDTO
+    {
+        public class EventStages
+        {
+            public int ID { get; set; }
+            public string? Stage { get; set; }
+        }
+    }
+
+}

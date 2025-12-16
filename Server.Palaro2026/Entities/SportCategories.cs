@@ -12,4 +12,10 @@ public partial class SportCategories
 
     [JsonIgnore]
     public virtual ICollection<Sports> Sports { get; set; } = new List<Sports>();
+    
+    [JsonIgnore]
+    public virtual ICollection<ProfilePlayers> ProfilePlayers { get; set; } = new List<ProfilePlayers>();
+    
+    [JsonIgnore]
+    public virtual ICollection<ProfileCoaches> ProfileCoaches { get; set; } = new List<ProfileCoaches>();
 }

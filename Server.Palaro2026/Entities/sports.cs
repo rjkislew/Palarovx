@@ -16,6 +16,9 @@ public partial class Sports
 
     [JsonIgnore]
     public virtual ICollection<ProfilePlayers> ProfilePlayers { get; set; } = new List<ProfilePlayers>();
+    
+    [JsonIgnore]
+    public virtual ICollection<ProfileCoaches> ProfileCoaches { get; set; } = new List<ProfileCoaches>();
 
     public virtual SportCategories? SportCategory { get; set; }
 

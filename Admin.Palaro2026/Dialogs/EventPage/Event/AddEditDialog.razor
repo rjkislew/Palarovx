@@ -1,4 +1,5 @@
 ﻿@using System.Net.Http
+@using System.Net.Http.Headers
 @using System.Text.Json
 @using System.Threading.Tasks
 @using System.Text
@@ -51,6 +52,8 @@
                                                                           _selectedSportSubcategoryIDValue = null;
                                                                           _selectedSchoolLevelAndGenderID = null;
                                                                           await FilterSchoolLevelAndGenderAsync();
+                                                                          
+                                                                          FilterBracketsBySport();
                                                                       }))">
                                         <MudVirtualize Items="_sports" Context="sport">
                                             <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
@@ -104,6 +107,7 @@
                                     </MudSelect>
                                 </MudItem>
 
+
                             </MudGrid>
                         </MudStack>
                     </MudItem>
@@ -118,12 +122,25 @@
                                 <MudItem xs="12" sm="6" md="4">
                                     <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense"
                                                Label="Stage"
-                                               T="int?" ReadOnly="@IsEditMode"
+                                               T="int?"
                                                ShrinkLabel Variant="Variant.Outlined" Clearable>
                                         <MudVirtualize Items="_eventStages" Context="eventStage">
                                             <MudSelectItem T="int?"
                                                            Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
                                         </MudVirtualize>
+                                    </MudSelect>
+                                </MudItem>
+                                <MudItem xs="12" sm="6" md="4">
+                                    <MudSelect T="int?" Label="Select Bracket"
+                                               Value="_selectedBracketID"
+                                               Margin="Margin.Dense"
+                                               ValueChanged="OnBracketChanged" ReadOnly="@IsEditMode"
+                                               ShrinkLabel Variant="Variant.Outlined"
+                                               Disabled="@(_selectedSportIDValue == null || !_filteredBrackets.Any())">
+                                        @foreach (var bracket in _filteredBrackets)
+                                        {
+                                            <MudSelectItem T="int?" Value="bracket.ID">@bracket.BracketName</MudSelectItem>
+                                        }
                                     </MudSelect>
                                 </MudItem>
                                 @if (IsEditMode)
@@ -457,19 +474,22 @@ else
     private List<ProfilesDTO.ProfilePlayerEvent>? _profilePlayerEvents;
     private List<EventsDTO.EventVersusTeams>? _eventVersusTeams;
     private List<EventsDTO.EventVersusTeamPlayers>? _eventVersusTeamPlayers;
+    private List<SportsDTO.SportsBracketRegions>? _regionsForSelectedBracket;
+    private List<BracketDisplayRow> _brackets = new();
+    private List<BracketDisplayRow> _filteredBrackets = new();
 
     // ------------------------------
     // Selected Values
     // ------------------------------
     private int? _selectedEventStagesIDValue;
-    private int? _selectedSportCategoryIDValue;
+    private int? _selectedSportCategoryIDValue = 1;
     private int? _selectedSportIDValue;
     private int? _selectedSportGenderCategoryIDValue;
     private int? _selectedSchoolLevelIDValue;
     private string? _selectedMainCategoryValue;
     private int? _selectedSportSubcategoryIDValue;
     private int? _selectedEventVenueIDValue;
-    private DateTime? _selectedDateValue;
+    private DateTime? _selectedDateValue = DateTime.Now;
     private TimeSpan? _selectedTimeValue;
     private bool? _isOnStream = false;
     private int? _selectedEventStreamServiceIDValue;
@@ -478,10 +498,6 @@ else
     private int? _selectedRegionIDValue;
     private IEnumerable<string?>? _selectedPlayerIDs;
     private int? _createdEventVersusTeamIDValue;
-    private string? _updateEventAttachmentValue;
-    private string? _eventAttachmentUrl;
-    private string? _eventAttachmentUploadState = "No file uploaded";
-    private bool _fileExists = false;
     private bool? _selectedIsEventFinishedValue;
     private bool? _isFinished;
     private bool? _isArchived;
@@ -496,6 +512,7 @@ else
     private string? _selectedStreamService;
     private int[]? _versusTeamsIDs;
     private List<int?> selectedRegions { get; set; } = new() { null };
+    private int? _selectedBracketID;
 
 
     // Opposing team IDs
@@ -508,6 +525,18 @@ else
     private List<string> _combinedSchoolLevelAndGenderNames = new();
     private List<string> _sportMainCat = new();
     private string? _selectedSportMainCat;
+    
+    // Attachment
+    private string? _updateEventAttachmentValue;
+    private string? _eventAttachmentUploadState = "No file uploaded";
+    private byte[]? _uploadedFileBytes;
+    private string? _uploadedFileContentType;
+
+    private string _eventAttachmentUrl = "";
+    private bool _fileExists = false;
+
+    // Allowed extensions to check
+    private readonly string[] _extensions = { ".png", ".jpg", ".jpeg", ".pdf", ".doc", ".docx" };
 
     // ------------------------------
     // Lifecycle
@@ -522,6 +551,11 @@ else
             _teamSelections.Add(new TeamSelection());
 
         _isLoaded = true;
+    }
+    
+    protected override async Task OnParametersSetAsync()
+    {
+        await CheckIfFileExists();
     }
 
 
@@ -543,6 +577,8 @@ else
         await GetEventsOnDialogOpenAsync();
         await GetEventVersusTeamsAsync();
         await GetStreamsOnDialogOpenAsync();
+        await FilterSchoolLevelAndGenderAsync();
+        await GetBracketsAsync(); 
         LoadMainCategories();
 
         if (_schoolRegions?.Any() == true ||
@@ -552,6 +588,8 @@ else
         {
             _isLoaded = true;
         }
+        
+        _filteredBrackets = _brackets;
     }
 
     // ------------------------------
@@ -679,14 +717,61 @@ else
         string url = "/Users/TallyClerkList";
         _userLists = await apiService.GetAsync<UsersDTO.UserList>(url);
     }
+    
+    private async Task GetBracketsAsync()
+    {
+        string url = "Sports/SportsBracketWithRegions";
+        var bracketsDto = await apiService.GetAsync<SportsDTO.SportsBracket>(url);
 
-    //
+        _brackets = bracketsDto.Select(b => new BracketDisplayRow
+        {
+            ID = b.ID,
+            SportID = b.SportID,
+            BracketName = b.BracketName,
+            SportName = b.SportName,
+            RegionsList = b.RegionsList
+        }).ToList();
+
+        FilterBracketsBySport();
+    }
+    
+    private void FilterBracketsBySport()
+    {
+        if (_selectedSportIDValue.HasValue)
+            _filteredBrackets = _brackets.Where(b => b.SportID == _selectedSportIDValue).ToList();
+        else
+            _filteredBrackets = new();
+    }
+    
+    private async Task OnBracketChanged(int? bracketId)
+    {
+        _selectedBracketID = bracketId;
+        _selectedRegionIDValue = null;
+
+        if (bracketId.HasValue)
+        {
+            var selected = _brackets.FirstOrDefault(b => b.ID == bracketId);
+            _regionsForSelectedBracket = selected?.RegionsList ?? new();
+            _schoolRegions = _regionsForSelectedBracket?
+                .Select(r => new SchoolsDTO.SchoolRegions
+                {
+                    ID = r.RegionID,
+                    Region = r.RegionName,
+                    Abbreviation = r.RegionAbbreviation
+                }).ToList();
+        }
+        else
+        {
+            await GetSchoolRegionsAsync(); // restore default regions
+        }
+    }
+    
     private List<SportsDTO.SportSubcategories> GetFilteredSubcategories()
     {
         if (_sportSubcategories == null)
             return new List<SportsDTO.SportSubcategories>();
 
-        // ✅ If main category is selected → show only subcategories that match
+        // ✅ If a main category is selected → show only subcategories that match
         if (!string.IsNullOrEmpty(_selectedMainCategoryValue))
             return _sportSubcategories
                 .Where(sc => sc.MainCategory == _selectedMainCategoryValue)
@@ -697,7 +782,6 @@ else
             .Where(sc => string.IsNullOrEmpty(sc.MainCategory))
             .ToList();
     }
-
 
     // ------------------------------
     // Event CRUD
@@ -721,7 +805,8 @@ else
                 Archived = false,
                 Deleted = false,
                 UserID = _selectedUserIDValue,
-                SportMainCat = _selectedMainCategoryValue
+                SportMainCat = _selectedMainCategoryValue,
+                BracketID = _selectedBracketID
             };
 
         string eventUrl = "/Events";
@@ -806,7 +891,8 @@ else
                 Archived = false,
                 Deleted = false,
                 UserID = _selectedUserIDValue,
-                SportMainCat = _selectedMainCategoryValue
+                SportMainCat = _selectedMainCategoryValue,
+                BracketID = _selectedBracketID
             };
 
         var eventSuccess = await apiService.PutAsync($"/Events/{SelectedEventID}", updateEvent);
@@ -857,6 +943,37 @@ else
                 await apiService.PostAsync("/Events/VersusTeams/Players", playerList);
             }
         }
+        
+        if (_uploadedFileBytes != null && _uploadedFileBytes.Length > 0 && !string.IsNullOrEmpty(_uploadedFileContentType))
+        {
+            try
+            {
+                using var content = new MultipartFormDataContent();
+                using var fileContent = new StreamContent(new MemoryStream(_uploadedFileBytes));
+
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(_uploadedFileContentType);
+                fileContent.Headers.ContentLength = _uploadedFileBytes.Length; // 👈 Important for ASP.NET to detect file size
+
+                var fileExtension = Path.GetExtension(_updateEventAttachmentValue)?.ToLower() ?? ".dat";
+
+                // 👇 Make sure the field name matches [FromForm] IFormFile attachmentFile
+                content.Add(fileContent, "attachmentFile", $"{SelectedEventID}{fileExtension}");
+
+                var uploadUrl = $"/Events/UploadAttachment/{SelectedEventID}";
+                var uploadSuccess = await apiService.PutFormAsync(uploadUrl, content);
+
+                if (!uploadSuccess)
+                {
+                    Snackbar.Add("Event updated, but attachment upload failed.", Severity.Warning);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Event updated, but attachment upload failed: {ex.Message}", Severity.Warning);
+                return;
+            }
+        }
 
         Snackbar.Add("Event updated successfully.", Severity.Success);
         MudDialog?.Close(DialogResult.Ok(true));
@@ -891,13 +1008,6 @@ else
 
         if (result == true)
         {
-            // delete the players first
-            await DeleteVersusTeamPlayersByVersusTeamIDAsync();
-
-            // then delete the team
-            await DeleteVersusTeamsAsync();
-
-            // lastly delete the event
             await DeleteEventAsync();
 
             // close the dialog if successful
@@ -909,8 +1019,23 @@ else
     {
         if (SelectedEventID == null) return;
 
-        string url = $"/Events/{SelectedEventID}";
+        // 1. First, get all versus teams for this event
+        string versusTeamsUrl = $"/Events/VersusTeams?eventID={SelectedEventID}";
+        var versusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(versusTeamsUrl);
+    
+        if (versusTeams != null && versusTeams.Any())
+        {
+            _versusTeamsIDs = versusTeams.Select(vt => vt.ID).ToArray();
+        
+            // 2. Delete versus team players first (due to foreign key constraints)
+            await DeleteVersusTeamPlayersByVersusTeamIDAsync();
+        
+            // 3. Then delete versus teams
+            await DeleteVersusTeamsAsync();
+        }
 
+        // 4. Finally delete the main event
+        string url = $"/Events/{SelectedEventID}";
         var success = await apiService.DeleteAsync(url);
 
         if (success)
@@ -967,6 +1092,44 @@ else
     // ------------------------------
     // Event Attachments
     // ------------------------------
+    private async Task CheckIfFileExists()
+    {
+        if (string.IsNullOrEmpty(SelectedEventID))
+        {
+            _eventAttachmentUploadState = "No file selected";
+            _fileExists = false;
+            return;
+        }
+
+        using var httpClient = new HttpClient();
+
+        foreach (var ext in _extensions)
+        {
+            var url = $"https://palarongpambansa2026.com/attachments/media/events/official%20event%20records/{SelectedEventID}{ext}";
+
+            try
+            {
+                var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
+
+                if (response.IsSuccessStatusCode)
+                {
+                    _fileExists = true;
+                    _eventAttachmentUrl = url;
+                    _eventAttachmentUploadState = "View Attachment";
+                    return; // Stop checking once found
+                }
+            }
+            catch
+            {
+                // Ignore errors and try next extension
+            }
+        }
+
+        // No file found for any extension
+        _fileExists = false;
+        _eventAttachmentUploadState = "No file selected";
+    }
+    
     private async Task HandleRegionLogoFileUpload(IBrowserFile file)
     {
         try
@@ -990,8 +1153,16 @@ else
             using var stream = file.OpenReadStream(maxFileSize);
             using var memoryStream = new MemoryStream();
             await stream.CopyToAsync(memoryStream);
-            var base64File = Convert.ToBase64String(memoryStream.ToArray());
-            _updateEventAttachmentValue = $"data:{file.ContentType};base64,{base64File}";
+            
+            // Store the actual stream bytes (no base64)
+            _updateEventAttachmentValue = file.Name;
+
+            // Keep file in memory for sending
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            _uploadedFileBytes = ms.ToArray();
+            _uploadedFileContentType = file.ContentType;
+
 
             _eventAttachmentUploadState = Path.GetFileName(file.Name);
         }
@@ -1333,6 +1504,7 @@ else
             public bool? Archived { get; set; }
             public bool? Deleted { get; set; }
             public string? UserID { get; set; }
+            public int? BracketID { get; set; }
             public List<EventVersusTeams> EventVersusTeams { get; set; } = new();
         }
 
@@ -1427,6 +1599,24 @@ else
             public int ID { get; set; }
             public string? Gender { get; set; }
         }
+        
+        public class SportsBracket
+        {
+            public int ID { get; set; }
+            public int SportID { get; set; }
+            public string? BracketName { get; set; }
+            public string? SportName { get; set; }
+            public List<SportsBracketRegions>? RegionsList { get; set; }
+        }
+
+        public class SportsBracketRegions
+        {
+            public int ID { get; set; }
+            public int BracketID { get; set; }
+            public int RegionID { get; set; }
+            public string? RegionName { get; set; }
+            public string? RegionAbbreviation { get; set; }
+        }
     }
 
     public class SchoolsDTO
@@ -1478,6 +1668,15 @@ else
         public IEnumerable<string?>? SelectedPlayerIDs { get; set; } = new List<string?>();
         public List<ProfilesDTO.ProfilePlayerEvent> AvailablePlayers { get; set; } = new();
         public int ExistingVersusTeamID { get; set; }
+    }
+    
+    public class BracketDisplayRow
+    {
+        public int ID { get; set; }
+        public int SportID { get; set; }
+        public string? BracketName { get; set; }
+        public string? SportName { get; set; }
+        public List<SportsDTO.SportsBracketRegions>? RegionsList { get; set; }
     }
 
 }

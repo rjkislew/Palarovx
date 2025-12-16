@@ -12,16 +12,99 @@
     <MudDialog>
         <DialogContent>
             <MudGrid Spacing="2">
-                <MudItem xs="12" md="6">
-                    <MudTextField T="string" @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                </MudItem>
-                <MudItem xs="12" md="6">
+                <MudItem xs="12" md="5">
                     <MudTextField T="string" @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
-                <MudItem xs="12">
-                    <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region" ShrinkLabel Variant="Variant.Outlined" Clearable>
-                        <MudVirtualize Items="_schoolRegions" Context="region">
-                            <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
+                <MudItem xs="12" md="5">
+                    <MudTextField T="string" @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable/>
+                </MudItem>
+                <MudItem xs="12" md="2">
+                    <MudTextField T="string" @bind-Value="_middleInitialValue" Immediate Margin="Margin.Dense" Label="Middle Initial" ShrinkLabel Variant="Variant.Outlined" Clearable/>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudSelect @bind-Value="_selectedSex" T="string?" Immediate Margin="Margin.Dense" Label="Sex" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                        @foreach (var sex in _sex)
+                        {
+                            <MudSelectItem Value="@sex">@sex</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudDatePicker @bind-Date="_birthDateValue" PickerVariant="PickerVariant.Dialog" Label="Birth Date" Margin="Margin.Dense" ShrinkLabel Variant="Variant.Outlined" Clearable/>
+                </MudItem>
+                <MudItem xs="12" md="5">
+                    <MudSelect @bind-Value="_selectedDesignation" T="string?" Immediate Margin="Margin.Dense" Label="Designation" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                        @foreach (var designation in _designation)
+                        {
+                            <MudSelectItem Value="@designation">@designation</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                                <MudSelect @bind-Value="_selectedSchoolRegionIDValue" Margin="Margin.Dense" Label="Region"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable
+                                           TextChanged="@(() => _selectedSchoolDivisionIDValue = null)"
+                                           T="int?" SelectedValuesChanged="GetSchoolDivisionsAsync">
+                                    <MudVirtualize Items="_schoolRegions" Context="region">
+                                        <MudSelectItem T="int?" Value="region.ID">@region.Region (@region.Abbreviation)</MudSelectItem>
+                                    </MudVirtualize>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudSelect @bind-Value="_selectedSchoolDivisionIDValue" Margin="Margin.Dense" Label="Division"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolRegionIDValue == null"
+                                           TextChanged="@(() => _selectedSchoolLevelIDValue = null)">
+                                    <MudVirtualize Items="_schoolDivisions" Context="division">
+                                        <MudSelectItem T="int?" Value="division.ID">@division.Division</MudSelectItem>
+                                    </MudVirtualize>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudSelect @bind-Value="_selectedSchoolLevelIDValue" Margin="Margin.Dense" Label="School Level"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolDivisionIDValue == null"
+                                           TextChanged="@(() =>
+                                                        {
+                                                            _selectedSchoolIDValue = null;
+                                                            _selectedSportIDValue = null;
+                                                        })"
+                                           T="int?" SelectedValuesChanged="GetSchoolsAsync">
+                                    <MudVirtualize Items="_schoolLevels" Context="level">
+                                        <MudSelectItem T="int?" Value="level.ID">@level.Level</MudSelectItem>
+                                    </MudVirtualize>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudSelect @bind-Value="_selectedSchoolIDValue" Margin="Margin.Dense" Label="School"
+                                           HelperText="@((_schools?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSchoolDivisionIDValue != null && _selectedSchoolRegionIDValue != null) ? "No school representing for the selected region, division, and level." : null)"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable Disabled="@(_schools?.Any() != true || _selectedSchoolLevelIDValue == null || _selectedSchoolDivisionIDValue == null || _selectedSchoolRegionIDValue == null)">
+                                    <MudVirtualize Items="_schools" Context="school">
+                                        <MudSelectItem T="int?" Value="school.ID">@school.School</MudSelectItem>
+                                    </MudVirtualize>
+                                </MudSelect>
+                            </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Classification" ShrinkLabel Clearable
+                               Variant="Variant.Outlined" TextChanged="@(() => _selectedSportIDValue = null)"
+                               T="int?" SelectedValuesChanged="GetSportsInSubcategoriesAsync">
+                        <MudVirtualize Items="_sportCategories" Context="sportCategory">
+                            <MudSelectItem T="int?" Value="sportCategory.ID">@sportCategory.Category</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport" ShrinkLabel Variant="Variant.Outlined" Clearable
+                               Disabled="@(_sports?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSportCategoryIDValue != null)"
+                               HelperText="@((_sports?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSportCategoryIDValue != null) ? "No sports for that school level or sport category" : null)">
+                        <MudVirtualize Items="_sports" Context="sport">
+                            <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudSelect @bind-Value="_selectedSportGenderCategoryIDValue" Margin="Margin.Dense" Label="Gender Category" T="int?"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable>
+                        <MudVirtualize Items="_sportGenderCategories" Context="gender">
+                            <MudSelectItem T="int?" Value="gender.ID">@gender.Gender</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
@@ -53,20 +136,53 @@ else
 
     // JSON storage
     private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+    private List<SportsDTO.Sports>? _sports;
+    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+    private List<SchoolsDTO.SchoolDivisions>? _schoolDivisions;
+    private List<SchoolsDTO.Schools>? _schools;
+    private List<SportsDTO.SportCategories>? _sportCategories;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
 
     // Variables
     private string? _firstnameValue;
     private string? _lastnameValue;
+    private string? _middleInitialValue;
+    private string? _selectedSex;
+    private DateTime? _birthDateValue;
+    private string? _selectedDesignation;
     private int? _selectedSchoolRegionIDValue;
+    private int? _selectedSportGenderCategoryIDValue;
+    private int? _selectedSchoolDivisionIDValue;
+    private int? _selectedSchoolIDValue;
+    private int? _selectedSportCategoryIDValue;
+    private int? _selectedSchoolLevelIDValue;
+    private int? _selectedSportIDValue;
+    private int[]? _sportIDs;
 
     // Disable addition button if values are empty
     private bool _addCoachDisabled =>
-    string.IsNullOrEmpty(_firstnameValue) ||
-    string.IsNullOrEmpty(_lastnameValue) ||
-    !_selectedSchoolRegionIDValue.HasValue;
+        string.IsNullOrEmpty(_firstnameValue) ||
+        string.IsNullOrEmpty(_lastnameValue) ||
+        !_selectedSchoolRegionIDValue.HasValue ||
+        !_selectedSchoolDivisionIDValue.HasValue ||
+        !_selectedSchoolLevelIDValue.HasValue ||
+        !_selectedSchoolIDValue.HasValue ||
+        !_selectedSportCategoryIDValue.HasValue ||
+        !_selectedSportIDValue.HasValue || // Use consistent naming
+        string.IsNullOrEmpty(_selectedSex) ||
+        string.IsNullOrEmpty(_selectedDesignation);
+    
+    private readonly string[] _sex =
+    {
+        "Male", "Female"
+    };
+    
+    private readonly string[] _designation =
+    {
+        "Coach", "Assistant Coach", "Chaperone"
+    };
 
     private bool? _isLoaded = false;
-    // Load dialog if true
 
     // DTOs
     public class ProfilesDTO
@@ -76,17 +192,79 @@ else
             public string? ID { get; set; }
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
+            public string? MiddleInitial { get; set; }
+            public string? Sex { get; set; }
+            public DateTime? BirthDate { get; set; }
+            public string? Designation { get; set; }
+            public int? SportCategoryID { get; set; }
+            public int? SportID { get; set; }
+            public int? GenderCategoryID { get; set; }
             public int? SchoolRegionID { get; set; }
+            public int? SchoolDivisionID { get; set; }
+            public int? SchoolID { get; set; }
         }
     }
 
     public class SchoolsDTO
     {
+        public class Schools
+        {
+            public int ID { get; set; }
+            public string? School { get; set; }
+            public int? SchoolDivisionID { get; set; }
+            public int? SchoolLevelsID { get; set; }
+        }
+
         public class SchoolRegions
         {
             public int ID { get; set; }
             public string? Region { get; set; }
             public string? Abbreviation { get; set; }
+        }
+
+        public class SchoolDivisions
+        {
+            public int ID { get; set; }
+            public string? Division { get; set; }
+            public int? SchoolRegionID { get; set; }
+        }
+
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class SportCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+        }
+
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+        }
+        
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
         }
     }
 
@@ -94,10 +272,27 @@ else
     protected override async Task OnInitializedAsync()
     {
         await GetSchoolRegionsAsync();
+        await GetSportGenderCategoriesAsync();
+        await GetSportCategoriesAsync();
+        await GetSchoolLevelsAsync();
+        await GetSportGenderCategoriesAsync();
 
         if (_schoolRegions?.Any() == true)
         {
             _isLoaded = true;
+        }
+    }
+    
+    private async Task GetSchoolsAsync()
+    {
+        // Add school level filter like in player profile
+        string url = $"/Schools?schoolDivisionID={_selectedSchoolDivisionIDValue}&schoolLevelsID={_selectedSchoolLevelIDValue}";
+        _schools = await apiService.GetAsync<SchoolsDTO.Schools>(url);
+
+        // Add sports loading when school level changes
+        if (_selectedSportCategoryIDValue != null)
+        {
+            await GetSportsInSubcategoriesAsync();
         }
     }
 
@@ -106,13 +301,80 @@ else
         string url = "/Schools/Regions";
         _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(url);
     }
+    
+    private async Task GetSchoolLevelsAsync()
+    {
+        string url = "/Schools/Levels";
+        _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
+    }
+    
+    private async Task GetSportCategoriesAsync()
+    {
+        string url = "/Sports/Categories";
+        _sportCategories = await apiService.GetAsync<SportsDTO.SportCategories>(url);
+    }
+    
+    private async Task GetSportsAsync()
+    {
+        if (_sportIDs == null || !_sportIDs.Any())
+            return; // Exit if there are no IDs
+
+        string idsQuery = string.Join(",", _sportIDs); // Convert array to comma-separated string
+        string url = $"/Sports?id={idsQuery}&sportCategoryID={_selectedSportCategoryIDValue}";
+
+        _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
+    }
+    
+    private async Task GetSportGenderCategoriesAsync()
+    {
+        string url = "/Sports/GenderCategories";
+        _sportGenderCategories = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url);
+    }
+    
+    private async Task GetSchoolDivisionsAsync()
+    {
+        string url = $"/Schools/Divisions?schoolRegionID={_selectedSchoolRegionIDValue}";
+        _schoolDivisions = await apiService.GetAsync<SchoolsDTO.SchoolDivisions>(url);
+        
+        _selectedSchoolIDValue = null;
+        await GetSchoolsAsync();
+    }
+    
+    private async Task GetSportsInSubcategoriesAsync()
+    {
+        if (_selectedSchoolLevelIDValue == null || _selectedSportCategoryIDValue == null)
+            return;
+
+        string url = $"/Sports/Subcategories?schoolLevelID={_selectedSchoolLevelIDValue}";
+        var subcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
+
+        if (subcategories != null)
+        {
+            _sportIDs = subcategories.Select(s => s.SportID ?? 0).Distinct().ToArray();
+        }
+
+        await GetSportsAsync();
+    }
 
     // Dialog Actions
     private void ClearFields()
     {
         _firstnameValue = null;
         _lastnameValue = null;
+        _middleInitialValue = null;
+        _selectedSex = null;
+        _birthDateValue = null;
+        _selectedDesignation = null;
         _selectedSchoolRegionIDValue = null;
+        _selectedSchoolDivisionIDValue = null;
+        _selectedSchoolLevelIDValue = null; // Add this
+        _selectedSchoolIDValue = null;
+        _selectedSportCategoryIDValue = null;
+        _selectedSportIDValue = null; // Use consistent naming
+        _selectedSportGenderCategoryIDValue = null;
+        _schools = null;
+        _sports = null;
+        _schoolDivisions = null;
     }
 
     private async Task ConfirmCoachProfileAsync()
@@ -129,10 +391,10 @@ else
         if (result == true)
         {
             await AddCoachProfileAsync();
-
             MudDialog?.Close(DialogResult.Ok(true));
         }
     }
+    
     private string GenerateRandomString(int length)
     {
         const string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -140,19 +402,29 @@ else
             .Select(_ => chars[random.Next(chars.Length)])
             .ToArray());
     }
+    
     // Add Coach profile
     private async Task AddCoachProfileAsync()
     {
         var generatedID = GenerateRandomString(20);
         var addCoachProfile = new ProfilesDTO.ProfileCoaches
-            {
-                ID = generatedID,
-                FirstName = _firstnameValue,
-                LastName = _lastnameValue,
-                SchoolRegionID = _selectedSchoolRegionIDValue,
-            };
+        {
+            ID = generatedID,
+            FirstName = _firstnameValue,
+            LastName = _lastnameValue,
+            MiddleInitial = _middleInitialValue,
+            Sex = _selectedSex,
+            BirthDate = _birthDateValue,
+            Designation = _selectedDesignation,
+            SportID = _selectedSportIDValue, 
+            GenderCategoryID = _selectedSportGenderCategoryIDValue,
+            SchoolRegionID = _selectedSchoolRegionIDValue,
+            SchoolDivisionID = _selectedSchoolDivisionIDValue,
+            SchoolID = _selectedSchoolIDValue,
+            SportCategoryID = _selectedSportCategoryIDValue
+        };
 
-        string url = $"/Profiles/Coach";
+        string url = "/Profiles/Coach";
         var success = await apiService.PostAsync(url, addCoachProfile);
 
         if (success)

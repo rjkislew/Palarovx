@@ -1,0 +1,345 @@
+﻿@inject APIService apiService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+@if (_isLoaded)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudGrid Spacing="1">
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_selectedSportID" Margin="Margin.Dense" Label="Sports"
+                               T="int?"
+                               ShrinkLabel Variant="Variant.Outlined" Clearable>
+                        <MudVirtualize Items="_sports" Context="sport">
+                            <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                        </MudVirtualize>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudDatePicker @bind-Date="_selectedDate" MinDate="_minDate" MaxDate="@_maxDate" Margin="Margin.Dense"
+                                   Variant="Variant.Outlined" Label="Date" Clearable/>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudItem xs="12" sm="10">
+                            <MudTextField @bind-Value="_selectedDescription" Label="Description" ShrinkLabel Variant="Variant.Outlined" Margin="Margin.Dense"/>
+                        </MudItem>
+                        <MudItem xs="12" md="2">
+                            <MudButton
+                                Color="Color.Primary"
+                                OnClick="AddActivity"
+                                StartIcon="@Icons.Material.Filled.Add"
+                                Size="Size.Small" FullWidth="true">
+                                Add Activity
+                            </MudButton>
+                        </MudItem>
+                    </MudStack>
+                </MudItem>
+
+                @foreach (var activity in _activities)
+                {
+                    <MudItem xs="12">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudItem xs="12" md="6">
+                                <MudTextField @bind-Value="activity.ActivityName"
+                                              Label="Activity"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              FullWidth="true"/>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudTimePicker @bind-Time="activity.Time" AmPm
+                                               Label="Time" ShrinkLabel Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"/>
+                            </MudItem>
+                            <MudItem xs="12" md="2">
+                                <MudButton StartIcon="@Icons.Material.Filled.Delete"
+                                           Color="Color.Error"
+                                           OnClick="() => RemoveActivity(activity)"
+                                           Class="ml-2" Size="Size.Small" FullWidth="true"
+                                           Disabled="_activities.Count == 0">Remove</MudButton>
+                            </MudItem>
+                        </MudStack>
+                    </MudItem>
+                }
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            @if (IsEditMode)
+            {
+                <!-- Edit Mode: Delete | Cancel | Update -->
+                <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                    <MudButton Style="text-transform: none" DropShadow="false" Color="Color.Error"
+                               OnClick="ConfirmDeleteSchedule">
+                        Delete
+                    </MudButton>
+                    <MudStack Row AlignItems="AlignItems.Center">
+                        <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">
+                            Cancel
+                        </MudButton>
+                        <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateSchedule">
+                            Update
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            }
+            else
+            {
+                <!-- Add Mode: Cancel | Clear | Add -->
+                <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">
+                        Cancel
+                    </MudButton>
+                    <MudStack Row AlignItems="AlignItems.Center">
+                        <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmAddSchedule">
+                            Add
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            }
+        </DialogActions>
+    </MudDialog>
+}
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+    
+    [Parameter] public int? SelectedScheduleID { get; set; }
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public EventCallback? OnScheduleChanged { get; set; }
+
+    
+    private DateTime? _minDate = DateTime.Now.Date;
+    private DateTime? _maxDate = DateTime.Now.Date.AddMonths(1);
+    
+    private bool _isLoaded = false;
+    
+    private int? _selectedSportID;
+    private DateTime? _selectedDate;
+    private string? _selectedDescription;
+    
+    private List<SportsDTO.Sports>? _sports;
+    private List<ActivityDTO>? _activities;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetSportsAsync();
+
+        if (IsEditMode && SelectedScheduleID.HasValue)
+            await LoadExistingScheduleAsync(SelectedScheduleID.Value);
+        else
+            AddActivity(); // Add one initial activity for new schedules
+
+        _isLoaded = true;
+    }
+    
+    private async Task LoadExistingScheduleAsync(int id)
+    {
+        string url = $"/GeneralSchedule/{id}";
+        var schedule = await apiService.GetSingleAsync<GeneralScheduleDTO>(url);
+    
+        if (schedule != null)
+        {
+            _selectedSportID = schedule.SportsID;
+            _selectedDate = schedule.Date;
+            _selectedDescription = schedule.Description;
+            _activities = schedule.Activities ?? new List<ActivityDTO>();
+        }
+    }
+
+    private async Task GetSportsAsync()
+    {
+        string url = $"/Sports";
+        _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
+    }
+    
+    private void AddActivity()
+    {
+        _activities ??= new List<ActivityDTO>();
+        _activities.Add(new ActivityDTO());
+        StateHasChanged();
+    }
+    
+    private void RemoveActivity(ActivityDTO activity)
+    {
+        if (_activities != null)
+        {
+            _activities.Remove(activity);
+            StateHasChanged();
+        }
+    }
+
+    private async Task AddSchedule()
+    {
+        if (_activities == null)
+        {
+            _activities = new List<ActivityDTO>();
+        }
+        
+        var validActivities = _activities
+            .Where(a => a != null)
+            .ToList();
+        
+        var newSchedule = new GeneralScheduleDTO
+        {
+            SportsID = _selectedSportID,
+            Date = _selectedDate,
+            Description = _selectedDescription,
+            Activities = validActivities 
+        };
+
+        string url = "/GeneralSchedule";
+
+        var success = await apiService.PostAsync(url, newSchedule);
+
+        if (success)
+        {
+            Snackbar.Add("Schedule added successfully.", Severity.Success);
+            
+            if (OnScheduleChanged.HasValue)
+            {
+                await OnScheduleChanged.Value.InvokeAsync();
+            }
+            
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            Snackbar.Add("Error adding schedule.", Severity.Error);
+        }
+    }
+
+    private async Task ConfirmAddSchedule()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm saving this schedule?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await AddSchedule();
+            StateHasChanged();
+        }
+    }
+    
+    private async Task DeleteSchedule()
+    {
+        try
+        {
+            if (!SelectedScheduleID.HasValue)
+            {
+                Snackbar.Add("Invalid Schedule ID.", Severity.Warning);
+                return;
+            }
+
+            bool success = await apiService.DeleteAsync($"/GeneralSchedule/{SelectedScheduleID}");
+
+            if (success)
+            {
+                Snackbar.Add("Schedule deleted successfully.", Severity.Success);
+                await OnScheduleChanged?.InvokeAsync();
+                MudDialog?.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete schedule.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task ConfirmDeleteSchedule()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Warning",
+            message: "Are you sure you want to delete this schedule?",
+            yesText: "Delete",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await DeleteSchedule();
+            StateHasChanged();
+        }
+    }
+    
+    private async Task UpdateSchedule()
+    {
+        if (!SelectedScheduleID.HasValue || SelectedScheduleID == 0) return;
+
+        var updatedSchedule = new GeneralScheduleDTO
+        {
+            ID = SelectedScheduleID.Value,
+            SportsID = _selectedSportID,
+            Date = _selectedDate,
+            Description = _selectedDescription,
+            Activities = _activities ?? new List<ActivityDTO>()
+        };
+
+        string url = $"/GeneralSchedule/{SelectedScheduleID.Value}";
+
+        var success = await apiService.PutAsync(url, updatedSchedule);
+
+        if (success)
+        {
+            Snackbar.Add("Schedule updated successfully.", Severity.Success);
+            await OnScheduleChanged?.InvokeAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            Snackbar.Add("Error updating schedule.", Severity.Error);
+        }
+    }
+    
+    private async Task ConfirmUpdateSchedule()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm updating this schedule?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await UpdateSchedule();
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    public class SportsDTO
+    {
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+    }
+    
+    public class ActivityDTO
+    {
+        public string? ActivityName { get; set; } 
+        public TimeSpan? Time { get; set; }
+    }
+    
+    public class GeneralScheduleDTO
+    {
+        public int ID { get; set; }
+        public int? SportsID { get; set; }
+        public DateTime? Date { get; set; }
+        public string? Description { get; set; }
+        public List<ActivityDTO>? Activities { get; set; }
+    }
+}

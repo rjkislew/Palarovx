@@ -39,6 +39,20 @@
             <MudItem xs="12" md="6">
                 <MudTextField @bind-Value="_schoolValue" Immediate Margin="Margin.Dense" Label="School" ShrinkLabel Variant="Variant.Outlined" Clearable />
             </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect @bind-Value="_selectedSchoolType" Immediate Margin="Margin.Dense" Label="School Type" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                    @foreach (var type in _schoolType)
+                    {
+                        <MudSelectItem Value="@type">@type</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_schoolCodeValue" Immediate Margin="Margin.Dense" Label="School Code" ShrinkLabel Variant="Variant.Outlined" Clearable />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_schoolAddressValue" Immediate Margin="Margin.Dense" Label="School Address" ShrinkLabel Variant="Variant.Outlined" Clearable />
+            </MudItem>
         </MudGrid>
     </DialogContent>
     <DialogActions>
@@ -65,14 +79,21 @@
     private int? _selectedSchoolDivisionIDValue;
     private string? _schoolValue;
     private int? _selectedSchoolLevelIDValue;
-
+    private string? _selectedSchoolType;
+    private string? _schoolCodeValue;
+    private string? _schoolAddressValue;
 
     // Disable addition button if values are empty
     private bool _addSchoolDisabled =>
-    _selectedSchoolRegionIDValue == null ||
-    _selectedSchoolDivisionIDValue == null ||
-    _selectedSchoolLevelIDValue == null ||
-    string.IsNullOrEmpty(_schoolValue);
+        _selectedSchoolRegionIDValue == null ||
+        _selectedSchoolDivisionIDValue == null ||
+        _selectedSchoolLevelIDValue == null ||
+        string.IsNullOrEmpty(_schoolValue);
+
+    private readonly string[] _schoolType =
+    {
+        "Public", "Private"
+    };
 
     // DTOs
     public class SchoolDTO
@@ -80,9 +101,13 @@
         public class Schools
         {
             public int ID { get; set; }
+            public int? SchoolRegionID { get; set; }
             public string? School { get; set; }
             public int? SchoolDivisionID { get; set; }
             public int? SchoolLevelsID { get; set; }
+            public string? SchoolType { get; set; }
+            public string? SchoolCode { get; set; }
+            public string? SchoolAddress { get; set; }
         }
 
         public class SchoolRegions
@@ -106,7 +131,6 @@
             public string? Level { get; set; }
         }
     }
-
 
     // Initialization
     protected override async Task OnInitializedAsync()
@@ -136,8 +160,6 @@
         _schoolLevels = await apiService.GetAsync<SchoolDTO.SchoolLevels>(url);
     }
 
-
-
     // Dialog Actions
     private void ClearFields()
     {
@@ -145,6 +167,9 @@
         _selectedSchoolDivisionIDValue = null;
         _selectedSchoolLevelIDValue = null;
         _schoolValue = null;
+        _selectedSchoolType = null;
+        _schoolCodeValue = null;
+        _schoolAddressValue = null;
     }
 
     private async Task ConfirmAddSchoolAsync()
@@ -169,11 +194,15 @@
     private async Task AddSchoolAsync()
     {
         var addSchool = new SchoolDTO.Schools
-            {
-                SchoolDivisionID = _selectedSchoolDivisionIDValue,
-                SchoolLevelsID = _selectedSchoolLevelIDValue,
-                School = _schoolValue
-            };
+        {
+            SchoolRegionID = _selectedSchoolRegionIDValue,
+            SchoolDivisionID = _selectedSchoolDivisionIDValue,
+            SchoolLevelsID = _selectedSchoolLevelIDValue,
+            School = _schoolValue,
+            SchoolType = _selectedSchoolType,
+            SchoolCode = _schoolCodeValue,
+            SchoolAddress = _schoolAddressValue
+        };
 
         string url = "/Schools";
         var success = await apiService.PostAsync(url, addSchool);

@@ -12,6 +12,9 @@ public class SchoolsDTO
             public string? Division { get; set; }
             public string? Region { get; set; }
             public string? Abbreviation { get; set; }
+            public string? SchoolType { get; set; }
+            public string? SchoolCode { get; set; }
+            public string? SchoolAddress { get; set; }
         }
     }
 
@@ -35,8 +38,12 @@ public class SchoolsDTO
     {
         public int ID { get; set; }
         public string? School { get; set; }
+        public int? SchoolRegionID { get; set; }
         public int? SchoolDivisionID { get; set; }
         public int? SchoolLevelsID { get; set; }
+        public string? SchoolType { get; set; }
+        public string? SchoolCode { get; set; }
+        public string? SchoolAddress { get; set; }
     }
 
     public class SchoolBilletingQuarters

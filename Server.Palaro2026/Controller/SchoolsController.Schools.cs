@@ -15,6 +15,10 @@ namespace Server.Palaro2026.Controller
                School = schools.School,
                SchoolDivisionID = schools.SchoolDivisionID,
                SchoolLevelsID = schools.SchoolLevelsID,
+               SchoolAddress = schools.SchoolAddress,
+               SchoolCode = schools.SchoolCode,
+               SchoolType = schools.SchoolType,
+               SchoolRegionID = schools.SchoolRegionID
            };
 
         [HttpGet] // /api/Schools
@@ -22,7 +26,11 @@ namespace Server.Palaro2026.Controller
         [FromQuery] int? id = null,
         [FromQuery] string? school = null,
         [FromQuery] int? schoolDivisionID = null,
-        [FromQuery] int? schoolLevelsID = null)
+        [FromQuery] int? schoolLevelsID = null,
+        [FromQuery] string? schoolAddress = null,
+        [FromQuery] string? schoolCode = null,
+        [FromQuery] string? schoolType = null,
+        [FromQuery] int? schoolRegionID = null)
         {
             var query = _context.Schools.AsQueryable();
 
@@ -35,8 +43,20 @@ namespace Server.Palaro2026.Controller
             if (schoolDivisionID.HasValue)
                 query = query.Where(x => x.SchoolDivisionID == schoolDivisionID.Value);
 
+            if (schoolRegionID.HasValue)
+                query = query.Where(x => x.SchoolRegionID == schoolRegionID.Value);
+
             if (schoolLevelsID.HasValue)
                 query = query.Where(x => x.SchoolLevelsID == schoolLevelsID.Value);
+            
+            if (!string.IsNullOrEmpty(schoolAddress))
+                query = query.Where(x => x.SchoolAddress!.Contains(schoolAddress));
+            
+            if (!string.IsNullOrEmpty(schoolType))
+                query = query.Where(x => x.SchoolType!.Contains(schoolType));
+            
+            if (!string.IsNullOrEmpty(schoolCode))
+                query = query.Where(x => x.SchoolCode!.Contains(schoolCode));
 
             return await query
                 .Select(x => SchoolsDTOMapper(x))
@@ -53,6 +73,10 @@ namespace Server.Palaro2026.Controller
                 School = schools.School,
                 SchoolDivisionID = schools.SchoolDivisionID,
                 SchoolLevelsID = schools.SchoolLevelsID,
+                SchoolAddress = schools.SchoolAddress,
+                SchoolCode = schools.SchoolCode,
+                SchoolType = schools.SchoolType,
+                SchoolRegionID = schools.SchoolRegionID
             };
 
             _context.Schools.Add(schoolsDTO);
@@ -83,7 +107,7 @@ namespace Server.Palaro2026.Controller
                 return BadRequest("Invalid school ID or request body.");
             }
 
-            // Fetch the existing entity from the database
+            // Fetch the existing entity from the databasee
             var existingSchool = await _context.Schools.FindAsync(id);
             if (existingSchool == null)
             {
@@ -94,7 +118,11 @@ namespace Server.Palaro2026.Controller
             existingSchool.School = schoolsDto.School;
             existingSchool.SchoolDivisionID = schoolsDto.SchoolDivisionID;
             existingSchool.SchoolLevelsID = schoolsDto.SchoolLevelsID;
-
+            existingSchool.SchoolAddress = schoolsDto.SchoolAddress;
+            existingSchool.SchoolCode = schoolsDto.SchoolCode;
+            existingSchool.SchoolType = schoolsDto.SchoolType;
+            existingSchool.SchoolRegionID = schoolsDto.SchoolRegionID;
+            
             try
             {
                 await _context.SaveChangesAsync();

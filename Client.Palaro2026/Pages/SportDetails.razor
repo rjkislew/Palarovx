@@ -19,12 +19,13 @@
                       Style="@($"position: relative; overflow: hidden; background-image: url('media/sports/images/{Sports}.webp');  background-attachment: fixed; background-size: cover; background-position: center;")">
 
                 <!-- Dark Overlay -->
-                <MudStack Style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);"></MudStack>
+                <MudStack
+                    Style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);"></MudStack>
 
                 <MudStack AlignItems="AlignItems.Center" Spacing="0" Justify="Justify.Center"
                           Style="height: 100%; position: relative; z-index: 1;">
                     <MudImage ObjectFit="ObjectFit.Contain" Height="50"
-                              Src="@($"media/sports/icons/white/{Sports}.webp")" />
+                              Src="@($"media/sports/icons/white/{Sports}.webp")"/>
                     <MudText Typo="Typo.h1" HtmlTag="h2" Style="color: white">@Sports</MudText>
                     <MudText Style="color: white">@Category</MudText>
                 </MudStack>
@@ -36,13 +37,155 @@
             <MudGrid>
                 <MudItem xs="12">
                     <MudBreadcrumbs Style="font-size: 15px" Class="pa-0" Items="_items"></MudBreadcrumbs>
-                    <MudDivider />
+                    <MudDivider/>
                 </MudItem>
                 <MudItem xs="12">
                     <MudStack AlignItems="AlignItems.Center" Style="width: 100%">
                         <MudText Typo="Typo.body2">@_sportDescription</MudText>
                         <MudTabs KeepPanelsAlive Elevation="0" ApplyEffectsToContainer="true" PanelClass="pt-6" Centered
-                                 Style="width: 100%">
+                                 Style="width: 100%" @bind-ActivePanelIndex="_activeTabIndex">
+
+                            <!-- Event Schedule Tab -->
+                            <MudTabPanel Style="text-transform: none" Text="Event Schedule">
+
+                                <!-- Event Schedule Section -->
+                                @if (GetFilteredGeneralSchedules().Any())
+                                {
+                                    <MudItem xs="12" Class="mb-8">
+                                        @{
+                                            var eventSchedules = GetFilteredGeneralSchedules();
+                                            var eventDayGroups = GetSchedulesGroupedByDay(eventSchedules);
+                                        }
+
+                                        <MudStack Spacing="4" Style="margin-top: 2rem">
+
+                                            <MudGrid Spacing="5">
+                                                @foreach (var dayGroup in eventDayGroups)
+                                                {
+                                                    <MudItem xs="12" md="6" Class="d-flex flex-column">
+                                                        <!-- Day Header -->
+                                                        <MudPaper
+                                                            Style="background: linear-gradient(240deg, #f5f7fa 0%, #c3cfe2 100%); padding: 16px 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 16px;">
+                                                            <MudStack Spacing="1">
+                                                                <MudText Typo="Typo.h6"
+                                                                         Style="color: #1a237e; font-weight: 600; margin: 0;">
+                                                                    @dayGroup.DayLabel
+                                                                </MudText>
+                                                            </MudStack>
+                                                        </MudPaper>
+
+                                                        <!-- Schedule Card -->
+                                                        <MudPaper Elevation="1"
+                                                                  Style="border-radius: 8px; border: 1px solid #e0e0e0; flex: 1; display: flex; flex-direction: column;">
+                                                            <MudStack Spacing="0" Style="flex: 1;">
+                                                                @foreach (var schedule in dayGroup.Schedules)
+                                                                {
+                                                                    <MudGrid Spacing="2" 
+                                                                             Style="padding: 25px; border-bottom: 1px solid #f0f0f0; flex: 1; min-height: 80px;"
+                                                                             Class="schedule-item">
+
+                                                                        <!-- Time Column -->
+                                                                        <MudItem xs="12" md="5">
+                                                                            <MudStack Spacing="1">
+                                                                                <MudText Typo="Typo.body1"
+                                                                                         Style="color: #1a237e; font-weight: 600; border-left: 3px solid #d32f2f; padding-left: 8px;">
+                                                                                    @dayGroup.Date.ToString("MMMM dd, yyyy")
+                                                                                </MudText>
+                                                                            </MudStack>
+                                                                        </MudItem>
+
+                                                                        <!-- Content Column -->
+                                                                        <MudItem xs="12" sm="7" md="12" lg="7">
+                                                                            <MudStack Spacing="2" Style="height: 100%;">
+                                                                                <!-- Description -->
+                                                                                @if (!string.IsNullOrEmpty(schedule.Description))
+                                                                                {
+                                                                                    <MudText Typo="Typo.body1"
+                                                                                             Style="color: #333; font-weight: 500; line-height: 1.4;">
+                                                                                        @schedule.Description
+                                                                                    </MudText>
+                                                                                }
+
+                                                                                <!-- Activities -->
+                                                                                @if (schedule.Activities.Any())
+                                                                                {
+                                                                                    <MudStack Spacing="2"
+                                                                                              Style="flex: 1;">
+                                                                                        @foreach (var activity in schedule.Activities)
+                                                                                        {
+                                                                                            <MudGrid Spacing="1">
+                                                                                                <!-- Activity Time (if different from schedule time) -->
+                                                                                                @if (activity.Time.HasValue)
+                                                                                                {
+                                                                                                    <MudItem xs="12" sm="3">
+                                                                                                        <MudText
+                                                                                                            Typo="Typo.caption"
+                                                                                                            Style="color: #d32f2f; font-weight: 500;">
+                                                                                                            @DateTime.Today.Add(activity.Time.Value).ToString("hh:mm tt")
+                                                                                                        </MudText>
+                                                                                                    </MudItem>
+                                                                                                    <MudItem xs="12" sm="9">
+                                                                                                        <MudText
+                                                                                                            Typo="Typo.body2"
+                                                                                                            Style="color: #424242;">
+                                                                                                            @activity.ActivityName
+                                                                                                        </MudText>
+                                                                                                    </MudItem>
+                                                                                                }
+                                                                                                else
+                                                                                                {
+                                                                                                    <MudItem xs="12" sm="3">
+                                                                                                        <MudText>
+                                                                                                        </MudText>
+                                                                                                    </MudItem>
+                                                                                                    <MudItem xs="12" sm="9">
+                                                                                                        <MudText
+                                                                                                            Typo="Typo.body2"
+                                                                                                            Style="color: #424242;">
+                                                                                                            @activity.ActivityName
+                                                                                                        </MudText>
+                                                                                                    </MudItem>
+                                                                                                }
+                                                                                            </MudGrid>
+                                                                                        }
+                                                                                    </MudStack>
+                                                                                }
+                                                                            </MudStack>
+                                                                        </MudItem>
+                                                                    </MudGrid>
+                                                                }
+                                                            </MudStack>
+                                                        </MudPaper>
+                                                    </MudItem>
+                                                }
+                                            </MudGrid>
+                                        </MudStack>
+                                    </MudItem>
+                                }
+
+                                <!-- No Schedules Message -->
+                                @if (!GetFilteredEventSchedules().Any() && !GetFilteredGeneralSchedules().Any())
+                                {
+                                    <MudItem xs="12">
+                                        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="3"
+                                                  Style="padding: 3rem 2rem;">
+                                            <MudItem xs="12">
+                                                <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-2"
+                                                         Style="letter-spacing: 1px;">
+                                                    No event schedule at this time.
+                                                </MudText>
+                                            </MudItem>
+                                            <MudText Typo="Typo.body2"
+                                                     Style="color: #666; line-height: 1.5; text-align: center;">
+                                                The event schedule will be published once finalized. Please check back
+                                                for updates.
+                                            </MudText>
+                                        </MudStack>
+                                    </MudItem>
+                                }
+
+                            </MudTabPanel>
+
                             @if (_sportSubcategories != null && _sportSubcategories.Any() == true)
                             {
                                 @foreach (var group in _sportSubcategories.GroupBy(s => s.SchoolLevelID))
@@ -61,9 +204,9 @@
                                                                 <MudStack Row>
                                                                     <MudText>Boys</MudText>
                                                                     <MudIcon Icon="@Icons.Material.Filled.Male"
-                                                                             Color="Color.Info" />
+                                                                             Color="Color.Info"/>
                                                                 </MudStack>
-                                                                <MudDivider />
+                                                                <MudDivider/>
                                                                 <MudStack Row Wrap="Wrap.Wrap" Spacing="0">
                                                                     @foreach (var subCategory in group.Where(s => s.SportGenderCategoryID == 1))
                                                                     {
@@ -86,9 +229,9 @@
                                                                 <MudStack Row>
                                                                     <MudText>Girls</MudText>
                                                                     <MudIcon Icon="@Icons.Material.Filled.Female"
-                                                                             Color="Color.Error" />
+                                                                             Color="Color.Error"/>
                                                                 </MudStack>
-                                                                <MudDivider />
+                                                                <MudDivider/>
                                                                 <MudStack Row Wrap="Wrap.Wrap" Spacing="0">
                                                                     @foreach (var subCategory in group.Where(s => s.SportGenderCategoryID == 2))
                                                                     {
@@ -112,12 +255,12 @@
                                                                     <MudText>Mixed</MudText>
                                                                     <MudStack Row Spacing="0">
                                                                         <MudIcon Icon="@Icons.Material.Filled.Male"
-                                                                                 Color="Color.Info" />
+                                                                                 Color="Color.Info"/>
                                                                         <MudIcon Icon="@Icons.Material.Filled.Female"
-                                                                                 Color="Color.Error" />
+                                                                                 Color="Color.Error"/>
                                                                     </MudStack>
                                                                 </MudStack>
-                                                                <MudDivider />
+                                                                <MudDivider/>
                                                                 <MudStack Row Wrap="Wrap.Wrap" Spacing="0">
                                                                     @foreach (var subCategory in group.Where(s => s.SportGenderCategoryID != 1 && s.SportGenderCategoryID != 2))
                                                                     {
@@ -144,236 +287,207 @@
                                                 </MudPaper>
                                             </MudItem>
                                         </MudGrid>
+
+                                        <!-- Competition Schedule section (Filtered by School Level) -->
+                                        @if (GetFilteredEventDetails(group.Key).Any())
+                                        {
+                                            <MudItem xs="12">
+                                                <MudText Typo="Typo.h5" Align="Align.Center" Class="mb-2"
+                                                         Style="font-weight: bold; letter-spacing: 1px;">
+                                                    COMPETITION SCHEDULE
+                                                </MudText>
+                                                <MudTable Outlined Items="GetFilteredEventDetails(group.Key)"
+                                                          Context="eventDetail"
+                                                          FixedHeader FixedFooter Height="calc(87vh - 150px)"
+                                                          Virtualize="true" Elevation="0">
+
+                                                    <ColGroup>
+                                                        <MudHidden Breakpoint="Breakpoint.Xs">
+                                                            <col style="width: 20%"/>
+                                                            <col style="width: 25%"/>
+                                                            <col style="width: 20%"/>
+                                                            <col style="width: 20%"/>
+                                                            <col style="width: 15%"/>
+                                                        </MudHidden>
+                                                    </ColGroup>
+
+                                                    <HeaderContent>
+                                                        <MudTh>Event</MudTh>
+                                                        <MudTh>Opposing Teams</MudTh>
+                                                        <MudTh>Venue</MudTh>
+                                                        <MudTh>
+                                                            <MudTableSortLabel
+                                                                InitialDirection="SortDirection.Descending"
+                                                                SortBy="new Func<EventsDTO.EventDetails.Event, object?>(x => x.Date)">
+                                                                Schedule
+                                                            </MudTableSortLabel>
+                                                        </MudTh>
+                                                        <MudTh>Stream Service</MudTh>
+                                                    </HeaderContent>
+
+                                                    <RowTemplate>
+                                                        <MudTd Datalabel="Event">
+                                                            <MudStack>
+                                                                <MudStack Spacing="0">
+                                                                    <MudText Style="font-weight: bold">
+                                                                        @(string.IsNullOrWhiteSpace(eventDetail.SportMainCat)
+                                                                            ? eventDetail.Sport
+                                                                            : eventDetail.SportMainCat)
+                                                                        <MudElement>
+                                                                            <MudText Typo="Typo.caption">
+                                                                                | @eventDetail.Subcategory
+                                                                            </MudText>
+                                                                        </MudElement>
+                                                                    </MudText>
+
+                                                                    <MudText Typo="Typo.caption">
+                                                                        @eventDetail.Level ∙ @eventDetail.Gender
+                                                                    </MudText>
+                                                                </MudStack>
+
+                                                                <MudStack Row Spacing="0">
+                                                                    @if (@eventDetail.IsFinished == true)
+                                                                    {
+                                                                        <MudChip T="string" Color="Color.Success"
+                                                                                 Size="Size.Small">
+                                                                            Finished
+                                                                        </MudChip>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <MudChip T="string" Color="Color.Warning"
+                                                                                 Size="Size.Small">
+                                                                            Ongoing
+                                                                        </MudChip>
+                                                                    }
+                                                                    <MudChip T="string" Color="Color.Default"
+                                                                             Size="Size.Small">@eventDetail.EventStage</MudChip>
+                                                                </MudStack>
+                                                            </MudStack>
+                                                        </MudTd>
+                                                        <MudTd Datalabel="Opposing Teams">
+                                                            <MudStack Row Wrap="Wrap.Wrap" Justify="Justify.FlexStart"
+                                                                      AlignItems="AlignItems.Stretch" Spacing="1"
+                                                                      Class="py-2">
+                                                                <MudVirtualize Items="@eventDetail.EventVersusList"
+                                                                               Context="team">
+                                                                    <MudPaper Outlined
+                                                                              Class="pa-1 d-flex flex-column align-center justify-center"
+                                                                              Style="flex: 1 1 85px; min-width: 80px; max-width: 100px; text-align: center; white-space: normal; word-break: break-word; display: flex;">
+                                                                        <MudImage
+                                                                            Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{team.Region}.webp")"
+                                                                            Height="50" Width="50"
+                                                                            ObjectFit="ObjectFit.Contain" Class="mb-1"/>
+
+                                                                        <MudText
+                                                                            Style="font-weight: bold; font-size: 0.7rem; text-align:center;">
+                                                                            @team.Abbreviation
+                                                                        </MudText>
+
+                                                                        <MudText Typo="Typo.caption"
+                                                                                 Style="font-size: 0.6rem; line-height: 1.1; text-align:center; white-space: normal; word-break: break-word;">
+                                                                            @team.Region
+                                                                        </MudText>
+                                                                    </MudPaper>
+                                                                </MudVirtualize>
+                                                            </MudStack>
+                                                        </MudTd>
+                                                        <MudTd Datalabel="Venue">
+                                                            <MudLink Underline="Underline.Hover"
+                                                                     Href="@($"https://www.google.com/maps/?q={eventDetail.Latitude},{eventDetail.Longitude}")"
+                                                                     Target="_blank">
+                                                                <MudStack Row AlignItems="AlignItems.Center">
+                                                                    <MudStack Spacing="0">
+                                                                        <MudText Typo="Typo.body2">
+                                                                            @eventDetail.Venue
+                                                                        </MudText>
+                                                                    </MudStack>
+                                                                    <MudIcon Icon="@Icons.Material.Filled.OpenInNew"
+                                                                             Size="Size.Small"/>
+                                                                </MudStack>
+                                                            </MudLink>
+                                                        </MudTd>
+                                                        <MudTd Datalabel="Schedule">
+                                                            <MudStack Spacing="0">
+                                                                <MudText
+                                                                    Typo="Typo.caption">@(eventDetail.Date?.ToString("dddd - MMMM d") ?? "No Date")</MudText>
+                                                                <MudText
+                                                                    Typo="Typo.caption">@(eventDetail.Time.HasValue ? DateTime.Today.Add(eventDetail.Time.Value).ToString("hh:mm tt") : "No Time")</MudText>
+                                                            </MudStack>
+                                                        </MudTd>
+                                                        <MudTd Datalabel="Stream Service">
+                                                            @if (eventDetail.OnStream == true)
+                                                            {
+                                                                <MudLink Underline="Underline.Hover"
+                                                                         Href="@($"{@eventDetail.StreamURL}")"
+                                                                         Target="_blank">
+                                                                    <MudStack Row AlignItems="AlignItems.Center">
+                                                                        <MudText Typo="Typo.body2">
+                                                                            @eventDetail.StreamService
+                                                                        </MudText>
+                                                                        <MudIcon Icon="@Icons.Material.Filled.OpenInNew"
+                                                                                 Size="Size.Small"/>
+                                                                    </MudStack>
+                                                                </MudLink>
+                                                            }
+                                                            else
+                                                            {
+                                                                <MudText Typo="Typo.body2">No Stream Service Available
+                                                                </MudText>
+                                                            }
+                                                        </MudTd>
+                                                    </RowTemplate>
+
+                                                    <NoRecordsContent>
+                                                        <MudText Typo="Typo.caption">No records found.</MudText>
+                                                    </NoRecordsContent>
+
+                                                    <PagerContent>
+                                                        <MudTablePager
+                                                            PageSizeOptions="new int[] { 10, 25, 50, 100, int.MaxValue }"
+                                                            HideRowsPerPage="true"/>
+                                                    </PagerContent>
+                                                </MudTable>
+                                            </MudItem>
+                                        }
+                                        else
+                                        {
+                                            <MudItem xs="12">
+                                                <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-2"
+                                                         Style="letter-spacing: 1px;">
+                                                    No competition schedule at this time.
+                                                </MudText>
+                                            </MudItem>
+                                        }
                                     </MudTabPanel>
                                 }
-                            }
-                            else
-                            {
-                                <MudPaper Outlined>
-                                    <MudStack Class="pa-3">
-                                        <MudSkeleton Width="100px" Height="50px" />
-                                        <MudDivider />
-                                        <MudStack Row>
-                                            @for (int i = 0; i < 10; i++)
-                                            {
-                                                <MudSkeleton Width="150px" />
-                                            }
-                                        </MudStack>
-                                        <MudSkeleton Width="100px" Height="50px" />
-                                        <MudDivider />
-                                        <MudStack Row>
-                                            @for (int i = 0; i < 10; i++)
-                                            {
-                                                <MudSkeleton Width="150px" />
-                                            }
-                                        </MudStack>
-                                        <MudSkeleton Width="100px" Height="50px" />
-                                        <MudDivider />
-                                        <MudStack Row>
-                                            @for (int i = 0; i < 5; i++)
-                                            {
-                                                <MudSkeleton Width="150px" />
-                                            }
-                                        </MudStack>
-                                    </MudStack>
-                                </MudPaper>
-                                <MudText>No sports categories available.</MudText>
                             }
                         </MudTabs>
                     </MudStack>
                 </MudItem>
-
-                @if (_eventDetails != null && _eventDetails.Any() == true)
-                {
-                    <MudItem xs="12">
-                        <MudText Typo="Typo.h5" Align="Align.Center" Class="mb-2"
-                                 Style="font-weight: bold; letter-spacing: 1px;">
-                            SCHEDULE
-                        </MudText>
-                        <MudTable Outlined Items="_eventDetails" Context="eventDetail" FixedHeader FixedFooter
-                                  Height="calc(87vh - 150px)" Virtualize="true" Elevation="0">
-                            <!-- colgroup: column fixed widths: disabled/hidden on mobile view port -->
-                            <ColGroup>
-                                <MudHidden Breakpoint="Breakpoint.Xs">
-                                    <col style="width: 20%" />
-                                    <col style="width: 25%" />
-                                    <col style="width: 20%" />
-                                    <col style="width: 20%" />
-                                    <col style="width: 15%" />
-                                </MudHidden>
-                            </ColGroup>
-
-                            <!-- headers: default sort by schedule by descending order - display the recently added event first -->
-                            <HeaderContent>
-                                <MudTh>Event</MudTh>
-                                <MudTh>Opposing Teams</MudTh>
-                                <MudTh>Venue</MudTh>
-                                <MudTh>
-                                    <MudTableSortLabel InitialDirection="SortDirection.Descending"
-                                                       SortBy="new Func<EventsDTO.EventDetails.Event, object?>(x => x.Date)">
-                                        Schedule
-                                    </MudTableSortLabel>
-                                </MudTh>
-                                <MudTh>Stream Service</MudTh>
-
-                            </HeaderContent>
-
-                            <!-- rows: render all data from coming from events api -->
-                            <RowTemplate>
-                                <MudTd Datalabel="Event">
-                                    <MudStack>
-                                        <MudStack Spacing="0">
-                                            <MudText Style="font-weight: bold">
-                                                @eventDetail.SportMainCat
-                                                <MudElement>
-                                                    <MudText Typo="Typo.caption">
-                                                        | @eventDetail.Subcategory
-                                                    </MudText>
-                                                </MudElement>
-                                            </MudText>
-                                            <MudText Typo="Typo.caption">
-                                                @eventDetail.Level ∙ @eventDetail.Gender
-                                            </MudText>
-                                        </MudStack>
-
-                                        <MudStack Row Spacing="0">
-                                            @if (@eventDetail.IsFinished == true)
-                                            {
-                                                <MudChip T="string" Color="Color.Success" Size="Size.Small">
-                                                    Finished
-                                                </MudChip>
-                                            }
-                                            else
-                                            {
-                                                <MudChip T="string" Color="Color.Warning" Size="Size.Small">
-                                                    Ongoing
-                                                </MudChip>
-                                            }
-                                            <MudChip T="string" Color="Color.Default"
-                                                     Size="Size.Small">@eventDetail.EventStage</MudChip>
-                                        </MudStack>
-                                    </MudStack>
-                                </MudTd>
-                                <MudTd Datalabel="Opposing Teams">
-                                    <MudStack Row Wrap="Wrap.Wrap" Justify="Justify.FlexStart"
-                                              AlignItems="AlignItems.Stretch" Spacing="1" Class="py-2">
-                                        <MudVirtualize Items="@eventDetail.EventVersusList" Context="team">
-                                            <MudPaper Outlined
-                                                      Class="pa-1 d-flex flex-column align-center justify-center"
-                                                      Style="flex: 1 1 85px; min-width: 80px; max-width: 100px; text-align: center; white-space: normal; word-break: break-word; display: flex;">
-                                                <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{team.Region}.webp")"
-                                                          Height="50" Width="50" ObjectFit="ObjectFit.Contain" Class="mb-1" />
-
-                                                <MudText Style="font-weight: bold; font-size: 0.7rem; text-align:center;">
-                                                    @team.Abbreviation
-                                                </MudText>
-
-                                                <MudText Typo="Typo.caption"
-                                                         Style="font-size: 0.6rem; line-height: 1.1; text-align:center; white-space: normal; word-break: break-word;">
-                                                    @team.Region
-                                                </MudText>
-                                            </MudPaper>
-                                        </MudVirtualize>
-                                    </MudStack>
-                                </MudTd>
-                                <MudTd Datalabel="Venue">
-                                    <MudLink Underline="Underline.Hover"
-                                             Href="@($"/venues/@{eventDetail.Longitude},{eventDetail.Latitude}/{eventDetail.Venue}")"
-                                             Target="_blank">
-                                        <MudStack Row AlignItems="AlignItems.Center">
-                                            <MudStack Spacing="0">
-                                                <MudText Typo="Typo.body2">
-                                                    @eventDetail.Venue
-                                                </MudText>
-                                            </MudStack>
-                                            <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" />
-                                        </MudStack>
-                                    </MudLink>
-                                </MudTd>
-                                <MudTd Datalabel="Schedule">
-                                    <MudStack Spacing="0">
-                                        <MudText Typo="Typo.caption">@(eventDetail.Date?.ToString("dddd - MMMM d") ?? "No Date")</MudText>
-                                        <MudText Typo="Typo.caption">@(eventDetail.Time.HasValue ? DateTime.Today.Add(eventDetail.Time.Value).ToString("hh:mm tt") : "No Time")</MudText>
-                                    </MudStack>
-                                </MudTd>
-                                <MudTd Datalabel="Stream Service">
-                                    @if (eventDetail.OnStream == true)
-                                    {
-                                        <MudLink Underline="Underline.Hover" Href="@($"{@eventDetail.StreamURL}")"
-                                                 Target="_blank">
-                                            <MudStack Row AlignItems="AlignItems.Center">
-                                                <MudText Typo="Typo.body2">
-                                                    @eventDetail.StreamService
-                                                </MudText>
-                                                <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" />
-                                            </MudStack>
-                                        </MudLink>
-                                    }
-                                    else
-                                    {
-                                        <MudText Typo="Typo.body2">No Stream Service Available</MudText>
-                                    }
-                                </MudTd>
-
-                            </RowTemplate>
-
-                            <!-- if no record showing dispay this text -->
-                            <NoRecordsContent>
-                                <MudText Typo="Typo.caption">No records found.</MudText>
-                            </NoRecordsContent>
-
-                            <!-- table pagination: max of 5 rows dispalyed at a time -->
-                            <PagerContent>
-                                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100, int.MaxValue }"
-                                               HideRowsPerPage="true" />
-                            </PagerContent>
-                        </MudTable>
-                    </MudItem>
-                }
-                else
-                {
-                    <MudGrid>
-
-                        <MudItem xs="12">
-                            <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-2" Style="letter-spacing: 1px;">
-                                No schedule at this time.
-                            </MudText>
-                        </MudItem>
-
-                    </MudGrid>
-                }
             </MudGrid>
         </MudContainer>
     </MudItem>
 </MudGrid>
-<FooterComponent />
+<FooterComponent/>
 
 @code {
-    /* ---------------------------
-       Parameters, & Variables
-
-       - stores parameters passed to the component - URL parameters
-       - manages and stores and data coming from API calls
-
-    --------------------------- */
 
     // parameters passed via URL
     [Parameter] public string? Category { get; set; }
     [Parameter] public string? Sports { get; set; }
 
-    // parameters passed via URL
-    [Parameter] public decimal Longitude { get; set; }
-    [Parameter] public decimal Latitude { get; set; }
-    [Parameter] public int ID { get; set; }
-    [Parameter] public string? Venue { get; set; }
-    [Parameter] public string? Address { get; set; }
-
     // Breadcrumb items
     private List<BreadcrumbItem> _items = new();
+    private int _activeTabIndex = 0;
+
 
     // variables to store data from API calls
     private List<SportsDTO.SportSubcategories>? _sportSubcategories;
     private List<EventsDTO.EventDetails.Event>? _eventDetails;
+    private List<GeneralScheduleDTO> _generalSchedules = new();
+
+    private int? _currentSportId;
 
     // Grouped Events by Date
     private IEnumerable<IGrouping<DateTime, EventsDTO.EventDetails.Event>> groupedEventsAscendingDate =>
@@ -392,12 +506,10 @@
         ?? Enumerable.Empty<IGrouping<DateTime, EventsDTO.EventDetails.Event>>();
 
 
-    // storage for sport categories data from API call
     private string? _sportDescription;
     private int? _selectedSportCategoryID;
     private bool _dateOrder = true; // Default to ascending order
 
-    // Utility to get YouTube thumbnail or default image
     private string GetThumbnailUrl(string? url)
     {
         if (string.IsNullOrWhiteSpace(url)) return string.Empty;
@@ -411,7 +523,6 @@
         return "media/images/no-thumbnail-default.webp";
     }
 
-    // Utility to get medal color based on index
     private string GetMedalColor(int index)
     {
         return index switch
@@ -423,22 +534,13 @@
         };
     }
 
-    /* ---------------------------
-        Lifecycle Methods
-
-        - methods that manage the component's lifecycle and state
-
-    --------------------------- */
-
-    // On component initialization, fetch sport categories, sports, and event details and set up breadcrumb items
     protected override async Task OnInitializedAsync()
     {
-        // Fetch sport categories, sports, and event details based on URL parameters
         await GetSportCategoriesAsync();
         await GetSportsAsync();
         await GetEventsAsync();
+        await GetGeneralSchedulesAsync();
 
-        // Setup breadcrumb items
         _items = new List<BreadcrumbItem>
         {
             new("Home", href: "./"),
@@ -448,14 +550,6 @@
         };
     }
 
-    /* ---------------------------
-       API Calls
-
-       - methods for fetching data from APIs
-
-    --------------------------- */
-
-    // Fetch sport categories data from the API based on the Category parameter
     private async Task GetSportCategoriesAsync()
     {
         string url = $"/Sports/Categories?category={Category}";
@@ -469,7 +563,6 @@
         }
     }
 
-    // Fetch sports data from the API based on the Sports parameter and selected sport category ID
     private async Task GetSportsAsync()
     {
         string url = $"/Sports?sport={Sports}&sportCategoryID={_selectedSportCategoryID}";
@@ -480,32 +573,128 @@
             var sport = sports.First();
 
             _sportDescription = sport.Description;
+            _currentSportId = sport.ID;
 
             await GetSportSubcategoriesAsync(sport.ID);
+            await GetGeneralSchedulesAsync();
         }
     }
 
-    // Fetch sport subcategories data from the API based on the sport ID
     private async Task GetSportSubcategoriesAsync(int sportID)
     {
         string url = $"/Sports/Subcategories?sportID={sportID}";
         _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
     }
 
-    // Fetch event details data from the API based on the Category and Sports parameters
     private async Task GetEventsAsync()
     {
         string url = $"/Events/Details?category={Category}&sport={Sports}";
         _eventDetails = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
     }
 
-    /* ---------------------------
-       DTO Classes
+    private async Task GetGeneralSchedulesAsync()
+    {
+        if (!_currentSportId.HasValue) return;
 
-       - Data Transfer Objects for handling API responses
-       Note: Please refer to the API documentation for more details.
+        string url = $"/GeneralSchedule/sport/{_currentSportId.Value}";
+        _generalSchedules = await apiService.GetAsync<GeneralScheduleDTO>(url) ?? new();
+    }
 
-    --------------------------- */
+    private List<GeneralScheduleDTO> GetFilteredGeneralSchedules()
+    {
+        if (!_currentSportId.HasValue)
+            return new List<GeneralScheduleDTO>();
+
+        return _generalSchedules
+            .Where(s => !s.IsEvent && s.SportsID == _currentSportId.Value)
+            .OrderBy(s => s.Date)
+            .ToList();
+    }
+
+    private List<EventsDTO.EventDetails.Event> GetFilteredEventDetails(int? schoolLevelId)
+    {
+        if (_eventDetails == null || !schoolLevelId.HasValue)
+            return new List<EventsDTO.EventDetails.Event>();
+
+        return _eventDetails
+            .Where(e => DoesEventMatchSchoolLevel(e, schoolLevelId.Value))
+            .ToList();
+    }
+
+    private bool DoesEventMatchSchoolLevel(EventsDTO.EventDetails.Event eventItem, int schoolLevelId)
+    {
+        string levelString = schoolLevelId switch
+        {
+            1 => "Elementary",
+            2 => "Secondary",
+            3 => "SPED",
+            _ => string.Empty
+        };
+
+        return !string.IsNullOrEmpty(eventItem.Level) &&
+               eventItem.Level.Contains(levelString, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private List<DayScheduleGroup> GetSchedulesGroupedByDay(List<GeneralScheduleDTO> schedules)
+    {
+        var result = new List<DayScheduleGroup>();
+        var groupedByDate = schedules
+            .Where(s => s.Date.HasValue)
+            .GroupBy(s => s.Date.Value.Date)
+            .OrderBy(g => g.Key);
+
+        int dayNumber = 1;
+        foreach (var dateGroup in groupedByDate)
+        {
+            result.Add(new DayScheduleGroup
+            {
+                Date = dateGroup.Key,
+                DayLabel = $"Day {dayNumber}",
+                Schedules = dateGroup.OrderBy(s => s.Activities.Min(a => a.Time)).ToList()
+            });
+            dayNumber++;
+        }
+
+        return result;
+    }
+
+    private List<GeneralScheduleDTO> GetFilteredEventSchedules()
+    {
+        if (!_currentSportId.HasValue)
+            return new List<GeneralScheduleDTO>();
+
+        return _generalSchedules
+            .Where(s => s.IsEvent && s.SportsID == _currentSportId.Value)
+            .OrderBy(s => s.Date)
+            .ToList();
+    }
+
+
+    public class DayScheduleGroup
+    {
+        public DateTime Date { get; set; }
+        public string DayLabel { get; set; } = string.Empty;
+        public List<GeneralScheduleDTO> Schedules { get; set; } = new List<GeneralScheduleDTO>();
+    }
+
+    // General Schedule DTO
+    public class GeneralScheduleDTO
+    {
+        public int ID { get; set; }
+        public int? SportsID { get; set; }
+        public DateTime? Date { get; set; }
+        public string? Description { get; set; }
+        public List<ActivityDTO> Activities { get; set; } = new List<ActivityDTO>();
+        public bool IsEvent { get; set; } // Add this property to distinguish event schedules
+    }
+
+    public class ActivityDTO
+    {
+        public int ID { get; set; }
+        public int ScheduleID { get; set; }
+        public TimeSpan? Time { get; set; }
+        public string ActivityName { get; set; } = string.Empty;
+    }
 
     // Events DTO
     public class EventsDTO
@@ -525,7 +714,6 @@
                 public string? Gender { get; set; }
                 public string? Level { get; set; }
                 public string? Venue { get; set; }
-                public int? EventVenuesID { get; set; }
                 public decimal? Latitude { get; set; }
                 public decimal? Longitude { get; set; }
                 public DateTime? Date { get; set; }
@@ -559,15 +747,6 @@
                 public string? LastName { get; set; }
                 public string? School { get; set; }
             }
-
-            public class EventVenues
-            {
-                public int ID { get; set; }
-                public string? Address { get; set; }
-                public string? Venue { get; set; }
-                public decimal? Latitude { get; set; }
-                public decimal? Longitude { get; set; }
-            }
         }
     }
 
@@ -597,5 +776,7 @@
             public int? SchoolLevelID { get; set; }
         }
     }
+
+}
 
 }

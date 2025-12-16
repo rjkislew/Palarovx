@@ -1,0 +1,3164 @@
+﻿@page "/gymnastics"
+@using Admin.Palaro2026.Dialogs.ScorePage.Gymnastics
+
+@inject APIService apiService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge">
+
+    <MudTabs Centered="true" MinimumTabWidth="300px">
+        <MudTabPanel Text="Events">
+            <MudItem xs="12" Style="margin-top: 1rem;">
+                <MudStack Class="flex-lg-row" Justify="Justify.FlexEnd" Style="margin-bottom: 1rem">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudButton Variant="Variant.Text"
+                                   Size="Size.Large"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="OpenDialogAsync"
+                                   Class="ml-auto">
+                            Add Gymnastics Event
+                        </MudButton>
+                        <MudDivider Vertical="true" FlexItem="true" />
+                        <MudButton Size="Size.Large" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh"
+                                   OnClick="LoadDataAsync">
+                            Refresh Table
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudItem>
+
+            <MudTable Items="@_gymnasticsEvents" FixedHeader FixedFooter Height="calc(87vh - 150px)"
+                      Context="gymnasticsEvent"
+                      Outlined="true"
+                      Elevation="1"
+                      Style="border-radius: 8px; overflow: hidden;">
+
+                <ColGroup>
+                    <col style="width: 20%" />
+                    <col style="width: 20%" />
+                    <col style="width: 15%" />
+                    <col style="width: 35%" />
+                    <col style="width: 10%" />
+                </ColGroup>
+
+                <HeaderContent>
+                    <MudTh>Event</MudTh>
+                    <MudTh>School Level - Gender</MudTh>
+                    <MudTh>Stage</MudTh>
+                    <MudTh>Opposing Team</MudTh>
+                    <MudTh>Actions</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd DataLabel="Event">
+                        <MudText Typo="Typo.caption">@gymnasticsEvent.MainCategory</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="School Level - Gender">
+                        <MudText Typo="Typo.caption">
+                            @GetSchoolLevelName(gymnasticsEvent.LevelID) - @GetGenderName(gymnasticsEvent.GenderID)
+                        </MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Stage">
+                        <MudText Typo="Typo.caption">@GetEventStageName(gymnasticsEvent.StageID)</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Opposing Team">
+                        <MudGrid>
+                            <MudItem xs="12">
+                                <MudVirtualize Items="@GetOpposingTeamsForEvent(gymnasticsEvent.ID)" Context="team">
+                                    <MudTooltip Duration="0" Arrow="true">
+                                        <ChildContent>
+                                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small"
+                                                     Class="pa-2 px-3 mx-1">
+                                                @GetRegionAbbreviation(team.RegionID)
+                                            </MudChip>
+                                        </ChildContent>
+                                        <TooltipContent>
+                                            <MudVirtualize Items="@GetPlayersForTeam(team.RegionID, gymnasticsEvent.ID)"
+                                                           Context="player">
+                                                <MudStack Spacing="0">
+                                                    <MudText Typo="Typo.caption">@player.FirstName @player.LastName</MudText>
+                                                    @if (player != GetPlayersForTeam(team.RegionID, gymnasticsEvent.ID)?.Last())
+                                                    {
+                                                        <MudDivider />
+                                                    }
+                                                </MudStack>
+                                            </MudVirtualize>
+                                        </TooltipContent>
+                                    </MudTooltip>
+                                </MudVirtualize>
+                            </MudItem>
+                        </MudGrid>
+                    </MudTd>
+                    <MudTd>
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                                       OnClick="() => OpenEditEventDialog(gymnasticsEvent.ID)"/>
+                    </MudTd>
+                </RowTemplate>
+
+                <NoRecordsContent>
+                    <MudTd ColSpan="5" Class="text-center py-4">
+                        <MudText>No events found.</MudText>
+                    </MudTd>
+                </NoRecordsContent>
+
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Scoreboard">
+
+            <!-- FILTERS SECTION -->
+            <MudCard Class="pa-4 mb-4" Outlined="true">
+                <MudText Typo="Typo.h6" Class="mb-4">Event Filters</MudText>
+                <MudGrid Spacing="3" Justify="Justify.Center">
+
+                    <MudItem xs="12" sm="3">
+                        <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport"
+                                   T="int?"
+                                   ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="true"
+                                   SelectedValuesChanged="@(async (_) => await FilterSchoolLevelAndGenderAsync())">
+                            <MudVirtualize Items="_sports" Context="sport">
+                                <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                            </MudVirtualize>
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="3">
+                        <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense"
+                                   Label="School Level and Gender" T="string"
+                                   ShrinkLabel Variant="Variant.Outlined" Clearable
+                                   Disabled="_selectedSportIDValue == null"
+                                   SelectedValuesChanged="@((values) => OnSchoolLevelGenderChanged())">
+                            <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
+                                <MudSelectItem T="string" Value="@combinedID">@combinedID</MudSelectItem>
+                            </MudVirtualize>
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="3">
+                        <MudSelect @bind-Value="_selectedMainCategoryValue" Margin="Margin.Dense"
+                                   Label="Event" T="string"
+                                   SelectedValuesChanged="@((values) => OnMainCategoryChanged())"
+                                   ShrinkLabel Variant="Variant.Outlined" Clearable
+                                   Disabled="@(!_sportMainCat?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                            @foreach (var mc in _sportMainCat)
+                            {
+                                <MudSelectItem Value="@mc">@mc</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="3">
+                        <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense"
+                                   Label="Stage" T="int?"
+                                   ShrinkLabel Variant="Variant.Outlined" Clearable>
+                            <MudVirtualize Items="_eventStages" Context="eventStage">
+                                <MudSelectItem T="int?" Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
+                            </MudVirtualize>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Action Buttons -->
+                <MudGrid Class="mt-3" Justify="Justify.Center">
+                    <MudItem xs="12" sm="4">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!IsApplyButtonEnabled)"
+                                   OnClick="ApplyFilters" FullWidth StartIcon="@Icons.Material.Filled.Search">
+                            Apply Filters
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                                   OnClick="ClearFilters" FullWidth StartIcon="@Icons.Material.Filled.Clear">
+                            Clear Filters
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudCard>
+
+            @if (_filtersApplied && _filteredGymnasticsEvents?.Any() == true)
+            {
+                @foreach (var evt in _filteredGymnasticsEvents)
+                {
+                    <!-- Event Header -->
+                    <MudCard Class="mb-2" Outlined="true">
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">@evt.MainCategory - @GetSchoolLevelName(evt.LevelID)</MudText>
+                        </MudCardContent>
+                    </MudCard>
+
+                    @if (IsWAGEventC1(evt) && IsElementaryGirls(evt))
+                    {
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" SortLabel="Sort By" Outlined="true"
+                                  Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 10%" />
+                                <col style="width: 25%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Single Bar</MudTh>
+                                <MudTh>Vault</MudTh>
+                                <MudTh>Floor Exercise</MudTh>
+                                <MudTh>Balance Beam</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Single Bar">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 221) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 221)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 221)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Vault">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 223) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 223)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 223)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Floor Exercise">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 216) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 216)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 216)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Balance Beam">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 214) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 214)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 214)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Score">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for WAG (C1) - Elementary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+
+                        @if (GetEventStageName(evt.StageID)?.Contains("Elimination", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                        <MudStack Row>
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Team Ranking</MudText>
+                                <MudTable Items="@GetTeamRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.TeamTotal.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Individual All-Around Ranking</MudText>
+                                <MudTable Items="@GetIndividualAllAroundRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Gymnast</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.PlayerName</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.Total.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+                        </MudStack>
+                        }
+                    }
+                    else if (IsWAGEventC2(evt) && IsElementaryGirls(evt))
+                    {
+                        <!-- WAG - C2: Elementary Girls -->
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 15%" />
+                                <col style="width: 20%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Uneven Bars</MudTh>
+                                <MudTh>Vault</MudTh>
+                                <MudTh>Floor Exercise</MudTh>
+                                <MudTh>Balance Beam</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Uneven Bars">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 220) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 220)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 220)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Vault">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 224) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 224)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 224)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Floor Exercise">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 217) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 217)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 217)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Balance Beam">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 215) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 215)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 215)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Score">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for WAG (C2) - Elementary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                        
+                        @if (GetEventStageName(evt.StageID)?.Contains("Elimination", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                            <MudStack Row>
+                                <MudItem xs="12" md="6">
+                                    <MudText Typo="Typo.h6" Align="Align.Center">Team Ranking</MudText>
+                                    <MudTable Items="@GetTeamRanking(evt.ID)" Outlined="true" Dense="true">
+                                        <HeaderContent>
+                                            <MudTh>Rank</MudTh>
+                                            <MudTh>Region</MudTh>
+                                            <MudTh>Total Score</MudTh>
+                                        </HeaderContent>
+                                        <RowTemplate>
+                                            <MudTd>@context.Rank</MudTd>
+                                            <MudTd>@context.RegionName</MudTd>
+                                            <MudTd>@context.TeamTotal.ToString("0.000")</MudTd>
+                                        </RowTemplate>
+                                    </MudTable>
+                                </MudItem>
+
+                                <MudItem xs="12" md="6">
+                                    <MudText Typo="Typo.h6" Align="Align.Center">Individual All-Around Ranking</MudText>
+                                    <MudTable Items="@GetIndividualAllAroundRanking(evt.ID)" Outlined="true"
+                                              Dense="true">
+                                        <HeaderContent>
+                                            <MudTh>Rank</MudTh>
+                                            <MudTh>Gymnast</MudTh>
+                                            <MudTh>Region</MudTh>
+                                            <MudTh>Total Score</MudTh>
+                                        </HeaderContent>
+                                        <RowTemplate>
+                                            <MudTd>@context.Rank</MudTd>
+                                            <MudTd>@context.PlayerName</MudTd>
+                                            <MudTd>@context.RegionName</MudTd>
+                                            <MudTd>@context.Total.ToString("0.000")</MudTd>
+                                        </RowTemplate>
+                                    </MudTable>
+                                </MudItem>
+                            </MudStack>
+                        }
+                    }
+                    else if (IsWAGEventC3(evt) && IsSecondaryGirls(evt))
+                    {
+                        <!-- WAG - C3: Secondary Girls -->
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 15%" />
+                                <col style="width: 20%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Uneven Bars</MudTh>
+                                <MudTh>Vault</MudTh>
+                                <MudTh>Floor Exercise</MudTh>
+                                <MudTh>Balance Beam</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Uneven Bars">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 247) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 247)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 247)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Vault">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 248) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 248)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 248)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Floor Exercise">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 244) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 244)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 244)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Balance Beam">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 243) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 243)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 243)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Score">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for WAG (C3) - Secondary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+
+                        @if (GetEventStageName(evt.StageID)?.Contains("Elimination", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                        <MudStack Row>
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Team Ranking</MudText>
+                                <MudTable Items="@GetTeamRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.TeamTotal.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Individual All-Around Ranking</MudText>
+                                <MudTable Items="@GetIndividualAllAroundRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Gymnast</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.PlayerName</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.Total.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+                        </MudStack>
+                        }
+                    }
+                    else if (IsMAGEventC1(evt) && IsElementaryBoys(evt))
+                    {
+                        <!-- MAG: Men's Artistic Gymnastics -->
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 15%" />
+                                <col style="width: 20%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Horizontal Bar</MudTh>
+                                <MudTh>Vaulting Table</MudTh>
+                                <MudTh>Floor Exercise</MudTh>
+                                <MudTh>Pommel Horse</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Horizontal Bar">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 198) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 198)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 198)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Vaulting Table">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 201) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 201)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 201)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Floor Exercise">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 197) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 197)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 197)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Pommel Horse">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 200) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 200)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 200)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Score">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for MAG (C1) - Elementary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+
+                        @if (GetEventStageName(evt.StageID)?.Contains("Elimination", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                        <MudStack Row>
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Team Ranking</MudText>
+                                <MudTable Items="@GetTeamRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.TeamTotal.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Individual All-Around Ranking</MudText>
+                                <MudTable Items="@GetIndividualAllAroundRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Gymnast</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.PlayerName</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.Total.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+                        </MudStack>
+                        }
+                    }
+                    else if (IsMAGEventC2(evt) && IsElementaryBoys(evt))
+                    {
+                        <!-- MAG: Men's Artistic Gymnastics -->
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 15%" />
+                                <col style="width: 20%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Horizontal Bar</MudTh>
+                                <MudTh>Vaulting Table</MudTh>
+                                <MudTh>Floor Exercise</MudTh>
+                                <MudTh>Pommel Horse</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Horizontal Bar">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 204) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 204)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 204)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Vaulting Table">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 206) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 206)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 206)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Floor Exercise">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 203) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 203)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 203)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Pommel Horse">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 205) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 205)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 205)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Score">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for MAG (C2) - Elementary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+
+                        @if (GetEventStageName(evt.StageID)?.Contains("Elimination", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                        <MudStack Row>
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Team Ranking</MudText>
+                                <MudTable Items="@GetTeamRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.TeamTotal.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Individual All-Around Ranking</MudText>
+                                <MudTable Items="@GetIndividualAllAroundRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Gymnast</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.PlayerName</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.Total.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+                        </MudStack>
+                        }
+                    }
+                    else if (IsMAGEventC3(evt) && IsSecondaryBoys(evt))
+                    {
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 15%" />
+                                <col style="width: 20%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Horizontal Bar</MudTh>
+                                <MudTh>Vaulting Table</MudTh>
+                                <MudTh>Floor Exercise</MudTh>
+                                <MudTh>Pommel Horse</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Horizontal Bar">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 232) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 232)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 232)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Vaulting Table">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 236) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 236)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 236)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Floor Exercise">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 231) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 231)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 231)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Pommel Horse">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 234) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 234)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 234)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Score">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for MAG (C3) - Elementary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+
+                        @if (GetEventStageName(evt.StageID)?.Contains("Elimination", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                        <MudStack Row>
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Team Ranking</MudText>
+                                <MudTable Items="@GetTeamRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.TeamTotal.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Individual All-Around Ranking</MudText>
+                                <MudTable Items="@GetIndividualAllAroundRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Gymnast</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.PlayerName</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.Total.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+                        </MudStack>
+                        }
+                    }
+                    else if (IsRhythmicEvent(evt) && IsElementary(evt))
+                    {
+                        <!-- Rhythmic Gymnastics Elementary -->
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 15%" />
+                                <col style="width: 20%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Freehand</MudTh>
+                                <MudTh>Rope</MudTh>
+                                <MudTh>Hoop</MudTh>
+                                <MudTh>Ball</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Freehand">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 210) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 210)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 210)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Rope">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 212) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 212)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 212)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Hoop">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 211) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 211)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 211)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Ball">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 209) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 209)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 209)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Score">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Rhythmic Gymnastics - Elementary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+
+                        @if (GetEventStageName(evt.StageID)?.Contains("Elimination", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                        <MudStack Row>
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Team Ranking</MudText>
+                                <MudTable Items="@GetTeamRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.TeamTotal.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Individual All-Around Ranking</MudText>
+                                <MudTable Items="@GetIndividualAllAroundRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Gymnast</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.PlayerName</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.Total.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+                        </MudStack>
+                        }
+                    }
+                    else if (IsRhythmicEvent(evt) && IsSecondary(evt))
+                    {
+                        <!-- Rhythmic Gymnastics Secondary -->
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 15%" />
+                                <col style="width: 20%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                                <col style="width: 13%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Clubs</MudTh>
+                                <MudTh>Ribbon</MudTh>
+                                <MudTh>Hoop</MudTh>
+                                <MudTh>Ball</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Clubs">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 239) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 239)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 239)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Ribbon">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 241) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 241)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 241)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Hoop">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 240) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 240)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 240)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Ball">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 238) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 238)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 238)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Score">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Rhythmic Gymnastics - Secondary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+
+                        @if (GetEventStageName(evt.StageID)?.Contains("Elimination", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                        <MudStack Row>
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Team Ranking</MudText>
+                                <MudTable Items="@GetTeamRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.TeamTotal.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Individual All-Around Ranking</MudText>
+                                <MudTable Items="@GetIndividualAllAroundRanking(evt.ID)" Outlined="true" Dense="true">
+                                    <HeaderContent>
+                                        <MudTh>Rank</MudTh>
+                                        <MudTh>Gymnast</MudTh>
+                                        <MudTh>Region</MudTh>
+                                        <MudTh>Total Score</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@context.PlayerName</MudTd>
+                                        <MudTd>@context.RegionName</MudTd>
+                                        <MudTd>@context.Total.ToString("0.000")</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudItem>
+                        </MudStack>
+                        }
+                    }
+                    else if (IsAerobicEvent(evt) && IsElementary(evt) && IsElementaryGirls(evt))
+                    {
+                        <!-- Aerobic Gymnastics Elementary - Girls -->
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 30%" />
+                                <col style="width: 40%" />
+                                <col style="width: 20%" />
+                                <col style="width: 10%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Individual Women</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Individual Women">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 193) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 193)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 193)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Action">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Individual Women - Elementary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    }
+                    else if (IsAerobicEvent(evt) && IsSecondary(evt) && IsSecondaryGirls(evt))
+                    {
+                        <!-- Aerobic Gymnastics Secondary - Girls -->
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 30%" />
+                                <col style="width: 40%" />
+                                <col style="width: 20%" />
+                                <col style="width: 10%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Individual Women</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Individual Women">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 227) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 227)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 227)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Action">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Individual Women - Secondary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    }
+                    else if (IsAerobicEvent(evt) && IsElementary(evt) && IsElementaryBoys(evt))
+                    {
+                        <!-- Aerobic Gymnastics Elementary - Boys -->
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 30%" />
+                                <col style="width: 40%" />
+                                <col style="width: 20%" />
+                                <col style="width: 10%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Individual Men</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Individual Men">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 192) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 192)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 192)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Action">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Individual Men - Elementary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    }
+                    else if (IsAerobicEvent(evt) && IsSecondary(evt) && IsSecondaryBoys(evt))
+                    {
+                        <!-- Aerobic Gymnastics Secondary - Boys -->
+                        <MudTable Items="@GetEventIndividualScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 30%" />
+                                <col style="width: 40%" />
+                                <col style="width: 20%" />
+                                <col style="width: 10%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Gymnast</MudTh>
+                                <MudTh>Individual Men</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Gymnast">@context.Gymnast</MudTd>
+                                <MudTd DataLabel="Individual Men">
+                                    @if (GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 226) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetScoreForApparatus(evt.ID, context.RegionID, context.PlayerID, 226)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 226)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Action">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddScores(evt.ID, context.RegionID, context.PlayerID))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Individual Men - Secondary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    }
+                    else if (IsAerobicEvent(evt) && IsElementary(evt) && IsMixedGender(evt) && HasTwoPlayersPerRegion(evt))
+                    {
+                        <!-- Aerobic Gymnastics Elementary - Mixed Pair (2 players) -->
+                        <MudTable Items="@GetEventTeamScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 25%" />
+                                <col style="width: 35%" />
+                                <col style="width: 20%" />
+                                <col style="width: 20%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Team Members</MudTh>
+                                <MudTh>Mixed Pair</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Team Members">
+                                    @foreach (var gymnast in context.TeamGymnasts)
+                                    {
+                                        <MudText Typo="Typo.body2">@gymnast</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Mixed Pair">
+                                    @if (GetTeamScoreForApparatus(evt.ID, context.RegionID, context.TeamPlayerIDs, 194) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetTeamScoreForApparatus(evt.ID, context.RegionID, context.TeamPlayerIDs, 194)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 194)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Action">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddTeamScores(evt.ID, context.RegionID, context.TeamPlayerIDs))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Mixed Pair - Elementary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    }
+                    else if (IsAerobicEvent(evt) && IsSecondary(evt) && IsMixedGender(evt) && HasTwoPlayersPerRegion(evt))
+                    {
+                        <!-- Aerobic Gymnastics Secondary - Mixed Pair (2 players) -->
+                        <MudTable Items="@GetEventTeamScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 25%" />
+                                <col style="width: 35%" />
+                                <col style="width: 20%" />
+                                <col style="width: 20%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Team Members</MudTh>
+                                <MudTh>Mixed Pair</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Team Members">
+                                    @foreach (var gymnast in context.TeamGymnasts)
+                                    {
+                                        <MudText Typo="Typo.body2">@gymnast</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Mixed Pair">
+                                    @if (GetTeamScoreForApparatus(evt.ID, context.RegionID, context.TeamPlayerIDs, 228) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetTeamScoreForApparatus(evt.ID, context.RegionID, context.TeamPlayerIDs, 228)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetTeamRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 228)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Action">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddTeamScores(evt.ID, context.RegionID, context.TeamPlayerIDs))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Mixed Pair - Secondary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    }
+                    else if (IsAerobicEvent(evt) && IsElementary(evt) && IsMixedGender(evt) && HasThreePlayersPerRegion(evt))
+                    {
+                        <!-- Aerobic Gymnastics Elementary - Trio (3 players) -->
+                        <MudTable Items="@GetEventTeamScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 25%" />
+                                <col style="width: 35%" />
+                                <col style="width: 20%" />
+                                <col style="width: 20%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Team Members</MudTh>
+                                <MudTh>Trio</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Team Members">
+                                    @foreach (var gymnast in context.TeamGymnasts)
+                                    {
+                                        <MudText Typo="Typo.body2">@gymnast</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Trio">
+                                    @if (GetTeamScoreForApparatus(evt.ID, context.RegionID, context.TeamPlayerIDs, 196) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetTeamScoreForApparatus(evt.ID, context.RegionID, context.TeamPlayerIDs, 196)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetTeamRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 196)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Action">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddTeamScores(evt.ID, context.RegionID, context.TeamPlayerIDs))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Trio - Elementary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    }
+                    else if (IsAerobicEvent(evt) && IsSecondary(evt) && IsMixedGender(evt) && HasThreePlayersPerRegion(evt))
+                    {
+                        <!-- Aerobic Gymnastics Secondary - Trio (3 players) -->
+                        <MudTable Items="@GetEventTeamScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 25%" />
+                                <col style="width: 35%" />
+                                <col style="width: 20%" />
+                                <col style="width: 20%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Team Members</MudTh>
+                                <MudTh>Trio</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Team Members">
+                                    @foreach (var gymnast in context.TeamGymnasts)
+                                    {
+                                        <MudText Typo="Typo.body2">@gymnast</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Trio">
+                                    @if (GetTeamScoreForApparatus(evt.ID, context.RegionID, context.TeamPlayerIDs, 230) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetTeamScoreForApparatus(evt.ID, context.RegionID, context.TeamPlayerIDs, 230)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetTeamRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 230)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Action">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddTeamScores(evt.ID, context.RegionID, context.TeamPlayerIDs))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Trio - Secondary Level</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    }
+                    else if (IsAerobicEvent(evt) && IsMixedGender(evt) && IsMixed(evt) && HasFiveToEightPlayersPerRegion(evt))
+                    {
+                        <!-- Aerobic Gymnastics - Aerobic Dance (5-8 players) -->
+                        <MudTable Items="@GetEventTeamScoreboardData(evt.ID)" Outlined="true" Elevation="1"
+                                  Style="border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                            <ColGroup>
+                                <col style="width: 20%" />
+                                <col style="width: 40%" />
+                                <col style="width: 20%" />
+                                <col style="width: 20%" />
+                            </ColGroup>
+                            <HeaderContent>
+                                <MudTh>Region</MudTh>
+                                <MudTh>Team Members</MudTh>
+                                <MudTh>Aerobic Dance</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Region">@context.Region</MudTd>
+                                <MudTd DataLabel="Team Members">
+                                    <MudStack Spacing="0">
+                                        @foreach (var gymnast in context.TeamGymnasts)
+                                        {
+                                            <MudText Typo="Typo.body2" Class="mb-1">@gymnast</MudText>
+                                        }
+                                    </MudStack>
+                                </MudTd>
+                                <MudTd DataLabel="Aerobic Dance">
+                                    @if (GetTeamScoreForApparatus(evt.ID, context.RegionID, context.TeamPlayerIDs, 520) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            @GetTeamScoreForApparatus(evt.ID, context.RegionID, context.TeamPlayerIDs, 520)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Rank: @GetTeamRankForApparatus(evt.ID, context.RegionID, context.PlayerID, 520)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Action">
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="@(() => AddTeamScores(evt.ID, context.RegionID, context.TeamPlayerIDs))">
+                                        Add Score
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText>No event found for Aerobic Dance</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    }
+                }
+            }
+
+            @if (!_filtersApplied)
+            {
+                <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.Center" Style="margin-top: 3rem;">
+                    <MudText Typo="Typo.h6" Class="ma-4">
+                        Apply filter to view events.
+                    </MudText>
+                </MudStack>
+            }
+            else if (_filtersApplied && !_filteredGymnasticsEvents.Any())
+            {
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="margin-top: 3rem;">
+                    <MudText Typo="Typo.h6" Class="ma-4">No Results Found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Default">
+                        No event matches your filter criteria. Try adjusting your selections.
+                    </MudText>
+                </MudStack>
+            }
+        </MudTabPanel>
+    </MudTabs>
+
+</MudContainer>
+
+@code {
+    private List<SportsDTO.SportCategories>? _sportCategories;
+    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
+    private List<EventsDTO.EventStages>? _eventStages;
+    private List<PerformanceBasedDTO.PerformanceEvent>? _gymnasticsEvents;
+    private List<PerformanceBasedDTO.PerformanceTeam>? _allOpposingTeams;
+    private List<SchoolsDTO.SchoolRegion>? _schoolRegions;
+    private List<ProfilePlayersDTO.Players>? _allPlayers;
+    private List<PerformanceBasedDTO.PerformanceScore> _allScores = new();
+    private List<PerformanceBasedDTO.PerformanceEvent> _filteredGymnasticsEvents = new();
+
+    private string? _selectedSchoolLevelAndGenderID;
+    private List<string> _combinedSchoolLevelAndGenderNames = new();
+    private int? _selectedEventStagesIDValue;
+    private List<string> _filteredSchoolLevelAndGenderNames = new();
+    private string? _selectedMainCategoryValue;
+    private List<string> _sportMainCat = new();
+    private int? _selectedSportSubcategoryIDValue;
+    private int? _selectedSportCategoryIDValue = 1;
+    private int? _selectedSportIDValue = 13;
+    private List<SportsDTO.Sports>? _sports;
+
+    private bool _isEventDialogOpen = false;
+    private string? _selectedEventID;
+    private bool _isEditMode = false;
+    private bool _filtersApplied = false;
+
+    private bool _showScoreboard = false;
+
+    private PerformanceBasedDTO.PerformanceEvent? _selectedEvent;
+    private List<ScoreboardItem> _scoreboardData = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _selectedSportCategoryIDValue = 1;
+        _selectedSportIDValue = 13; // Sport ID = 13 (Gymnastics)
+
+        await GetSportsAsync();
+        await GetGymnasticsEventsAsync();
+        await GetEventStagesAsync();
+        await GetGenderCategoriesAsync();
+        await GetSchoolLevelsAsync();
+        await GetOpposingTeamsAsync();
+        await GetSportSubCategoriesAsync();
+        await GetSchoolRegionsAsync();
+        await GetAllPlayersAsync();
+        await FilterSchoolLevelAndGenderAsync();
+        LoadMainCategories();
+        _filteredSchoolLevelAndGenderNames = _combinedSchoolLevelAndGenderNames;
+    }
+
+    private async Task GetGymnasticsEventsAsync()
+    {
+        string url = "/PerformanceBased/PerformanceEvents?sportID=13";
+        _gymnasticsEvents = await apiService.GetAsync<PerformanceBasedDTO.PerformanceEvent>(url);
+        StateHasChanged();
+    }
+
+    private async Task GetOpposingTeamsAsync()
+    {
+        string url = "/PerformanceBased/OpposingTeams";
+        _allOpposingTeams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(url);
+        StateHasChanged();
+    }
+
+    private List<PerformanceBasedDTO.PerformanceTeam> GetOpposingTeamsForEvent(int eventId)
+    {
+        return _allOpposingTeams?
+            .Where(team => team.PerformanceID == eventId)
+            .GroupBy(team => team.RegionID)
+            .Select(group => group.First())
+            .ToList() ?? new List<PerformanceBasedDTO.PerformanceTeam>();
+    }
+
+    private async Task GetSportsAsync()
+    {
+        string url = "/Sports";
+        _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
+    }
+
+    private async Task GetEventStagesAsync()
+    {
+        string url = "/Events/Stages";
+        _eventStages = await apiService.GetAsync<EventsDTO.EventStages>(url);
+    }
+
+    private async Task GetGenderCategoriesAsync()
+    {
+        string url = "/Sports/GenderCategories";
+        _sportGenderCategories = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url);
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        string url = "/Schools/Levels";
+        _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
+        await GetSportSubCategoriesAsync();
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegion>(url);
+    }
+
+    private async Task GetAllPlayersAsync()
+    {
+        string url = $"/Profiles/Player";
+        _allPlayers = await apiService.GetAsync<ProfilePlayersDTO.Players>(url);
+    }
+
+    private async Task GetSportSubCategoriesAsync()
+    {
+        string url = $"/Sports/Subcategories?sportID={_selectedSportIDValue}";
+        _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
+    }
+
+    private void LoadMainCategories()
+    {
+        if (_selectedSportIDValue == null || string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+        {
+            _sportMainCat = new List<string>();
+            return;
+        }
+
+        _sportMainCat = _sportSubcategories?.Where(sc => !string.IsNullOrEmpty(sc.MainCategory))
+            .Select(sc => sc.MainCategory!)
+            .Distinct()
+            .ToList() ?? new List<string>();
+    }
+
+    private string GetSchoolLevelName(int? schoolLevelId)
+    {
+        if (!schoolLevelId.HasValue) return "Unknown";
+        var level = _schoolLevels?.FirstOrDefault(sl => sl.ID == schoolLevelId.Value);
+        return level?.Level ?? "Unknown";
+    }
+
+    private List<ProfilePlayersDTO.Players> GetPlayersForTeam(int regionId, int eventId)
+    {
+        var playerIds = _allOpposingTeams?
+            .Where(team => team.PerformanceID == eventId && team.RegionID == regionId)
+            .Select(team => team.PlayerID)
+            .ToList() ?? new List<string>();
+
+        var players = _allPlayers?
+            .Where(player => playerIds.Contains(player.ID))
+            .ToList() ?? new List<ProfilePlayersDTO.Players>();
+
+        return players;
+    }
+
+    private string GetGenderName(int? genderCategoryId)
+    {
+        if (!genderCategoryId.HasValue) return "Unknown";
+        var gender = _sportGenderCategories?.FirstOrDefault(g => g.ID == genderCategoryId.Value);
+        return gender?.Gender ?? "Unknown";
+    }
+
+    private string GetEventStageName(int? eventStageId)
+    {
+        if (!eventStageId.HasValue) return "Unknown";
+        var stage = _eventStages?.FirstOrDefault(es => es.ID == eventStageId.Value);
+        return stage?.Stage ?? "Unknown";
+    }
+
+    //FILTERS
+
+    private async Task ApplyFilters()
+    {
+        try
+        {
+            if (_gymnasticsEvents == null)
+            {
+                Snackbar.Add("No events available.", Severity.Warning);
+                return;
+            }
+
+            var query = _gymnasticsEvents.AsQueryable();
+
+            // SPORT
+            if (_selectedSportIDValue != null)
+                query = query.Where(e => e.SportID == _selectedSportIDValue);
+
+            // SCHOOL LEVEL + GENDER
+            if (!string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+            {
+                var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+                var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == parts[0])?.ID;
+                var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == parts[1])?.ID;
+
+                if (schoolLevelID != null)
+                    query = query.Where(e => e.LevelID == schoolLevelID);
+
+                if (genderID != null)
+                    query = query.Where(e => e.GenderID == genderID);
+            }
+
+            // MAIN CATEGORY
+            if (!string.IsNullOrWhiteSpace(_selectedMainCategoryValue))
+                query = query.Where(e => e.MainCategory == _selectedMainCategoryValue);
+
+            // EVENT STAGE
+            if (_selectedEventStagesIDValue != null)
+                query = query.Where(e => e.StageID == _selectedEventStagesIDValue);
+
+            _filteredGymnasticsEvents = query.ToList();
+            _filtersApplied = true;
+
+            await LoadScoreboardDataForFilteredEvents();
+
+            Snackbar.Add("Filters applied", Severity.Success);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ClearFilters()
+    {
+        // Clear only the selected values
+        _selectedSchoolLevelAndGenderID = null;
+        _selectedMainCategoryValue = null;
+        _selectedEventStagesIDValue = null;
+
+        if (_selectedSportIDValue != null)
+        {
+            await FilterSchoolLevelAndGenderAsync();
+            LoadMainCategories();
+        }
+        else
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            _sportMainCat = new List<string>();
+        }
+
+        _filteredGymnasticsEvents = new List<PerformanceBasedDTO.PerformanceEvent>();
+
+        Snackbar.Add("Filters cleared", Severity.Info);
+        StateHasChanged();
+    }
+
+    private bool IsApplyButtonEnabled =>
+        _selectedSportIDValue != null &&
+        !string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID) &&
+        !string.IsNullOrEmpty(_selectedMainCategoryValue) &&
+        _selectedEventStagesIDValue != null;
+
+    private async Task LoadScoreboardDataForFilteredEvents()
+    {
+        if (_filteredGymnasticsEvents == null || !_filteredGymnasticsEvents.Any())
+        {
+            _scoreboardData = new List<ScoreboardItem>();
+            return;
+        }
+
+        try
+        {
+            _scoreboardData = new List<ScoreboardItem>();
+
+            if (_allOpposingTeams == null || _schoolRegions == null || _allPlayers == null)
+            {
+                await LoadSupportingData();
+            }
+
+            var eventIds = _filteredGymnasticsEvents.Select(e => e.ID).ToList();
+
+            var eventTeams = _allOpposingTeams?
+                .Where(t => eventIds.Contains(t.PerformanceID))
+                .ToList() ?? new List<PerformanceBasedDTO.PerformanceTeam>();
+
+            var individualPlayers = eventTeams
+                .Where(t => !t.TeamID.HasValue)
+                .ToList();
+
+            foreach (var team in individualPlayers)
+            {
+                var region = _schoolRegions?.FirstOrDefault(r => r.ID == team.RegionID);
+                var player = _allPlayers?.FirstOrDefault(p => p.ID == team.PlayerID);
+
+                if (region != null && player != null)
+                {
+                    _scoreboardData.Add(new ScoreboardItem
+                    {
+                        RegionID = team.RegionID,
+                        Region = region.Abbreviation ?? region.Region,
+                        PlayerID = team.PlayerID,
+                        Gymnast = $"{player.FirstName} {player.LastName}",
+                        TeamID = null,
+                        TeamPlayerIDs = new List<string> { team.PlayerID },
+                        TeamGymnasts = new List<string> { $"{player.FirstName} {player.LastName}" },
+                        PerformanceID = team.PerformanceID
+                    });
+                }
+            }
+
+            var teamGroups = eventTeams
+                .Where(team => team.TeamID.HasValue)
+                .GroupBy(team => new { team.RegionID, team.TeamID, team.PerformanceID })
+                .ToList();
+
+            foreach (var teamGroup in teamGroups)
+            {
+                var region = _schoolRegions?.FirstOrDefault(r => r.ID == teamGroup.Key.RegionID);
+                if (region == null) continue;
+
+                var teamPlayers = new List<string>();
+                var teamGymnastNames = new List<string>();
+
+                foreach (var team in teamGroup)
+                {
+                    var player = _allPlayers?.FirstOrDefault(p => p.ID == team.PlayerID);
+                    if (player != null)
+                    {
+                        teamPlayers.Add(team.PlayerID);
+                        teamGymnastNames.Add($"{player.FirstName} {player.LastName}");
+                    }
+                }
+
+                if (teamPlayers.Any())
+                {
+                    _scoreboardData.Add(new ScoreboardItem
+                    {
+                        RegionID = teamGroup.Key.RegionID,
+                        Region = region.Abbreviation ?? region.Region,
+                        PlayerID = teamPlayers.First(),
+                        Gymnast = string.Join(" / ", teamGymnastNames),
+                        TeamID = teamGroup.Key.TeamID,
+                        TeamPlayerIDs = teamPlayers,
+                        TeamGymnasts = teamGymnastNames,
+                        PerformanceID = teamGroup.Key.PerformanceID
+                    });
+                }
+            }
+
+            await LoadAllScoresForFilteredEvents(eventIds);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading scoreboard: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task LoadAllScoresForFilteredEvents(List<int> eventIds)
+    {
+        try
+        {
+            if (eventIds == null || !eventIds.Any())
+            {
+                _allScores = new List<PerformanceBasedDTO.PerformanceScore>();
+                return;
+            }
+
+            // Load scores for all filtered events
+            _allScores = new List<PerformanceBasedDTO.PerformanceScore>();
+            foreach (var eventId in eventIds)
+            {
+                string url = $"/PerformanceScore/Score/{eventId}";
+                var eventScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(url)
+                                  ?? new List<PerformanceBasedDTO.PerformanceScore>();
+                _allScores.AddRange(eventScores);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading scores: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenDialogAsync()
+    {
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            BackdropClick = false
+        };
+
+        var dialog = await DialogService.ShowAsync<AddGymnasticsEvent>("Add Event", options);
+
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await GetGymnasticsEventsAsync();
+            await GetOpposingTeamsAsync();
+        }
+    }
+
+    private async Task OnSchoolLevelGenderChanged()
+    {
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+        {
+            _selectedMainCategoryValue = null;
+            _sportMainCat = new List<string>();
+        }
+        else
+        {
+            await GetSportSubCategoriesSLGAsync();
+            LoadMainCategories();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task GetSportSubCategoriesSLGAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+        {
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+            return;
+        }
+
+        var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+        var schoolLevelName = parts[0];
+        var genderName = parts[1];
+
+        var schoolLevelID = _schoolLevels.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+        var genderID = _sportGenderCategories.FirstOrDefault(x => x.Gender == genderName)?.ID;
+
+        if (schoolLevelID != null && genderID != null)
+        {
+            _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+                $"/Sports/Subcategories?sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}");
+        }
+        else
+        {
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+        }
+    }
+
+    private async Task FilterSchoolLevelAndGenderAsync()
+    {
+        if (_selectedSportIDValue == null)
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            StateHasChanged();
+            return;
+        }
+
+        var subcats = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+            $"/Sports/Subcategories?sportID={_selectedSportIDValue}");
+
+        if (subcats == null || !subcats.Any())
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        var schoolLevelIDs = subcats.Where(x => x.SchoolLevelID.HasValue).Select(x => x.SchoolLevelID.Value).Distinct();
+        var genderIDs = subcats.Where(x => x.SportGenderCategoryID.HasValue).Select(x => x.SportGenderCategoryID.Value).Distinct();
+
+        var schoolLevelNames = _schoolLevels?.Where(s => schoolLevelIDs.Contains(s.ID)).Select(s => s.Level) ?? new List<string>();
+        var genderNames = _sportGenderCategories?.Where(g => genderIDs.Contains(g.ID)).Select(g => g.Gender) ?? new List<string>();
+
+        _combinedSchoolLevelAndGenderNames = schoolLevelNames.SelectMany(s => genderNames, (s, g) => $"{s} - {g}").ToList();
+    }
+
+    private async Task OnMainCategoryChanged()
+    {
+        LoadMainCategories();
+        StateHasChanged();
+    }
+
+    private async Task OpenEditEventDialog(int? selectedEventID)
+    {
+        var parameters = new DialogParameters<AddGymnasticsEvent>
+        {
+            { x => x.SelectedEventID, selectedEventID },
+            { x => x.IsEditMode, true }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            BackdropClick = false
+        };
+
+        var dialog = await DialogService.ShowAsync<AddGymnasticsEvent>("Edit Event", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await LoadDataAsync();
+        }
+    }
+
+    private bool HasScores(int eventId)
+    {
+        return _allScores?.Any(score => score.PerformanceID == eventId) == true;
+    }
+
+    //SCOREBOARD
+
+    private string GetRegionAbbreviation(int regionId)
+    {
+        var region = _schoolRegions?.FirstOrDefault(r => r.ID == regionId);
+        return region?.Abbreviation ?? regionId.ToString();
+    }
+
+    private async Task LoadSupportingData()
+    {
+        var tasks = new List<Task>
+        {
+            LoadAllScores()
+        };
+
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task LoadAllScores()
+    {
+        try
+        {
+            if (_selectedEvent?.ID == null)
+            {
+                _allScores = new List<PerformanceBasedDTO.PerformanceScore>();
+                return;
+            }
+
+            string url = $"/PerformanceScore/Score/{_selectedEvent.ID}";
+            _allScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(url) ?? new List<PerformanceBasedDTO.PerformanceScore>();
+
+            await CalculateAndSaveRanks();
+
+            _allScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(url) ?? new List<PerformanceBasedDTO.PerformanceScore>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading scores: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private bool IsWAGEventC1(PerformanceBasedDTO.PerformanceEvent evt) =>
+        evt?.MainCategory?.Contains("Women's Artistic Gymnastics (C1)", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsWAGEventC2(PerformanceBasedDTO.PerformanceEvent evt) =>
+        evt?.MainCategory?.Contains("Women's Artistic Gymnastics (C2)", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsWAGEventC3(PerformanceBasedDTO.PerformanceEvent evt) =>
+        evt?.MainCategory?.Contains("Women's Artistic Gymnastics (C3)", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsMAGEventC1(PerformanceBasedDTO.PerformanceEvent evt) =>
+        evt?.MainCategory?.Contains("Men's Artistic Gymnastics (C1)", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsMAGEventC2(PerformanceBasedDTO.PerformanceEvent evt) =>
+        evt?.MainCategory?.Contains("Men's Artistic Gymnastics (C2)", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsMAGEventC3(PerformanceBasedDTO.PerformanceEvent evt) =>
+        evt?.MainCategory?.Contains("Men's Artistic Gymnastics (C3)", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsRhythmicEvent(PerformanceBasedDTO.PerformanceEvent evt) =>
+        evt?.MainCategory?.Contains("Rhythmic Gymnastics", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsAerobicEvent(PerformanceBasedDTO.PerformanceEvent evt) =>
+        evt?.MainCategory?.Contains("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsElementary(PerformanceBasedDTO.PerformanceEvent evt) =>
+        GetSchoolLevelName(evt?.LevelID)?.Contains("Elementary", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsSecondary(PerformanceBasedDTO.PerformanceEvent evt) =>
+        GetSchoolLevelName(evt?.LevelID)?.Contains("Secondary", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsMixed(PerformanceBasedDTO.PerformanceEvent evt) =>
+        GetSchoolLevelName(evt?.LevelID)?.Contains("Mixed", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsElementaryGirls(PerformanceBasedDTO.PerformanceEvent evt) =>
+        IsElementary(evt) && GetGenderName(evt?.GenderID)?.Contains("Girls", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsElementaryBoys(PerformanceBasedDTO.PerformanceEvent evt) =>
+        IsElementary(evt) && GetGenderName(evt?.GenderID)?.Contains("Boys", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsSecondaryGirls(PerformanceBasedDTO.PerformanceEvent evt) =>
+        IsSecondary(evt) && GetGenderName(evt?.GenderID)?.Contains("Girls", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsSecondaryBoys(PerformanceBasedDTO.PerformanceEvent evt) =>
+        IsSecondary(evt) && GetGenderName(evt?.GenderID)?.Contains("Boys", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool IsMixedGender(PerformanceBasedDTO.PerformanceEvent evt) =>
+        GetGenderName(evt?.GenderID)?.Contains("Mix", StringComparison.OrdinalIgnoreCase) == true;
+
+    private bool HasTwoPlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        if (_allOpposingTeams == null || evt?.ID == null) return false;
+
+        var teamGroups = _allOpposingTeams
+            .Where(team => team.PerformanceID == evt.ID)
+            .GroupBy(team => new { team.RegionID, team.TeamID })
+            .ToList();
+
+        return teamGroups.Any(group => group.Count() == 2);
+    }
+
+    private bool HasThreePlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        if (_allOpposingTeams == null || evt?.ID == null) return false;
+
+        var teamGroups = _allOpposingTeams
+            .Where(team => team.PerformanceID == evt.ID)
+            .GroupBy(team => new { team.RegionID, team.TeamID })
+            .ToList();
+
+        return teamGroups.Any(group => group.Count() == 3);
+    }
+
+    private bool HasFiveToEightPlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        if (_allOpposingTeams == null || evt?.ID == null) return false;
+
+        var teamGroups = _allOpposingTeams
+            .Where(team => team.PerformanceID == evt.ID)
+            .GroupBy(team => new { team.RegionID, team.TeamID })
+            .ToList();
+
+        return teamGroups.Any(group => group.Count() >= 5 && group.Count() <= 8);
+    }
+
+    private List<ScoreboardItem> GetEventIndividualScoreboardData(int eventId)
+    {
+        return _scoreboardData
+            .Where(item => item.PerformanceID == eventId && item.IsIndividual)
+            .ToList();
+    }
+
+    private List<ScoreboardItem> GetEventTeamScoreboardData(int eventId)
+    {
+        return _scoreboardData
+            .Where(item => item.PerformanceID == eventId && item.IsTeam)
+            .ToList();
+    }
+
+    private decimal GetScoreForApparatus(int eventId, int regionId, string playerId, int apparatusId)
+    {
+        if (_allOpposingTeams == null || _allScores == null) return 0;
+
+        var opposingTeam = _allOpposingTeams.FirstOrDefault(ot =>
+            ot.PerformanceID == eventId &&
+            ot.RegionID == regionId &&
+            ot.PlayerID == playerId);
+
+        if (opposingTeam == null) return 0;
+
+        var score = _allScores.FirstOrDefault(s =>
+            s.PerformanceID == eventId &&
+            s.PerformanceTeamID == opposingTeam.ID &&
+            s.SportSubcategoryID == apparatusId &&
+            !s.TeamID.HasValue);
+
+        return score?.Score ?? 0;
+    }
+
+    private int GetTeamRankForApparatus(int eventId, int regionId, string playerId, int apparatusId)
+    {
+        if (_allOpposingTeams == null || _allScores == null)
+            return 0;
+
+        // Find the team (PerformanceTeam) based on event + region + playerId
+        var opposingTeam = _allOpposingTeams.FirstOrDefault(ot =>
+            ot.PerformanceID == eventId &&
+            ot.RegionID == regionId &&
+            ot.PlayerID == playerId &&
+            ot.TeamID.HasValue);
+
+        if (opposingTeam == null)
+            return 0;
+
+        // Get the score entry for that team & apparatus
+        var score = _allScores.FirstOrDefault(s =>
+            s.PerformanceID == eventId &&
+            s.PerformanceTeamID == opposingTeam.ID &&
+            s.SportSubcategoryID == apparatusId &&
+            s.TeamID == opposingTeam.TeamID);
+
+        return score?.Rank ?? 0;
+    }
+
+    private int GetRankForApparatus(int eventId, int regionId, string playerId, int apparatusId)
+    {
+        if (_allOpposingTeams == null || _allScores == null) return 0;
+
+        var opposingTeam = _allOpposingTeams.FirstOrDefault(ot =>
+            ot.PerformanceID == eventId &&
+            ot.RegionID == regionId &&
+            ot.PlayerID == playerId);
+
+        if (opposingTeam == null) return 0;
+
+        var score = _allScores.FirstOrDefault(s =>
+            s.PerformanceID == eventId &&
+            s.PerformanceTeamID == opposingTeam.ID &&
+            s.SportSubcategoryID == apparatusId &&
+            !s.TeamID.HasValue);
+
+        return score?.Rank ?? 0;
+    }
+
+
+    private decimal GetScoreForApparatusForTeamRanking(int eventId, int regionId, string playerId, int apparatusId)
+    {
+        if (_allOpposingTeams == null || _allScores == null) return 0;
+
+        // Find the PerformanceTeam for this player in this event
+        var opposingTeam = _allOpposingTeams.FirstOrDefault(ot =>
+            ot.PerformanceID == eventId &&
+            ot.RegionID == regionId &&
+            ot.PlayerID == playerId);
+
+        if (opposingTeam == null) return 0;
+
+        // Find the score using PerformanceTeamID
+        var score = _allScores.FirstOrDefault(s =>
+            s.PerformanceID == eventId &&
+            s.PerformanceTeamID == opposingTeam.ID &&
+            s.SportSubcategoryID == apparatusId &&
+            !s.TeamID.HasValue);
+
+        return score?.Score ?? 0;
+    }
+
+    private decimal GetTeamScoreForApparatus(int eventId, int regionId, List<string> playerIds, int apparatusId)
+    {
+        if (playerIds == null || !playerIds.Any() || _allOpposingTeams == null || _allScores == null)
+            return 0;
+
+        var teamItem = _scoreboardData.FirstOrDefault(item =>
+            item.PerformanceID == eventId &&
+            item.RegionID == regionId &&
+            item.TeamPlayerIDs != null &&
+            item.TeamPlayerIDs.SequenceEqual(playerIds) &&
+            item.TeamID.HasValue);
+
+        if (teamItem?.TeamID == null) return 0;
+
+        var opposingTeam = _allOpposingTeams.FirstOrDefault(ot =>
+            ot.PerformanceID == eventId &&
+            ot.RegionID == regionId &&
+            ot.TeamID == teamItem.TeamID);
+
+        if (opposingTeam == null) return 0;
+
+        var score = _allScores.FirstOrDefault(s =>
+            s.PerformanceID == eventId &&
+            s.PerformanceTeamID == opposingTeam.ID &&
+            s.SportSubcategoryID == apparatusId &&
+            s.TeamID == teamItem.TeamID);
+
+        return score?.Score ?? 0;
+    }
+
+
+    private async Task AddScores(int eventId, int regionId, string playerId)
+    {
+        var parameters = new DialogParameters<GymnasticsScore>
+        {
+            { x => x.RegionID, regionId },
+            { x => x.PlayerID, playerId },
+            { x => x.EventID, eventId },
+            { x => x.OnScoreSaved, EventCallback.Factory.Create(this, HandleScoreSaved) }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+
+        var dialog = await DialogService.ShowAsync<GymnasticsScore>("", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await HandleScoreSaved();
+        }
+    }
+
+    private async Task AddTeamScores(int eventId, int regionId, List<string> playerIds)
+    {
+        if (playerIds == null || !playerIds.Any()) return;
+
+        var teamItem = _scoreboardData.FirstOrDefault(item =>
+            item.PerformanceID == eventId &&
+            item.RegionID == regionId &&
+            item.TeamPlayerIDs != null &&
+            item.TeamPlayerIDs.SequenceEqual(playerIds));
+
+        var parameters = new DialogParameters<GymnasticsScore>
+        {
+            { x => x.RegionID, regionId },
+            { x => x.PlayerID, playerIds.First() },
+            { x => x.EventID, eventId },
+            { x => x.IsTeamEvent, true },
+            { x => x.TeamPlayerIDs, playerIds },
+            { x => x.TeamID, teamItem?.TeamID },
+            { x => x.OnScoreSaved, EventCallback.Factory.Create(this, HandleScoreSaved) }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+
+        var dialog = await DialogService.ShowAsync<GymnasticsScore>("", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await HandleScoreSaved();
+        }
+    }
+
+    private async Task HandleScoreSaved()
+    {
+        await LoadAllScoresForFilteredEvents(_filteredGymnasticsEvents.Select(e => e.ID).ToList());
+        await LoadScoreboardDataForFilteredEvents();
+        StateHasChanged();
+    }
+
+    //RANKING CALCULATION
+
+    /*private async Task CalculateAndSaveRanks()
+    {
+        try
+        {
+            if (_selectedEvent?.ID == null || _allScores == null || !_allScores.Any())
+                return;
+
+            var eventIds = GetCombinedEventIds(_selectedEvent.ID);
+
+    var scoresForCombinedEvents = _allScores
+    .Where(s => eventIds.Contains(s.PerformanceID))
+    .ToList();
+
+    var scoresByApparatus = _allScores
+    .Where(s => s.PerformanceID == _selectedEvent.ID)
+    .GroupBy(s => s.SportSubcategoryID)
+    .ToList();
+
+            foreach (var apparatusGroup in scoresByApparatus)
+            {
+                var apparatusId = apparatusGroup.Key;
+
+    var individualScores = apparatusGroup.Where(s => !s.TeamID.HasValue).ToList();
+    var teamScores = apparatusGroup.Where(s => s.TeamID.HasValue).ToList();
+
+    await UpdateRanksForScoresGlobal(individualScores, apparatusId);
+    await UpdateRanksForScoresGlobal(teamScores, apparatusId);
+    }
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error calculating ranks: {ex.Message}");
+        }
+    }*/
+
+    private async Task CalculateAndSaveRanks()
+    {
+        try
+        {
+            if (_selectedEvent?.ID == null || _allScores == null || !_allScores.Any())
+                return;
+
+            var eventIds = GetCombinedEventIds(_selectedEvent.ID, false);
+
+            var allApparatus = eventIds
+                .SelectMany(evtId => GetApparatusForEvent(evtId))
+                .Distinct()
+                .ToList();
+
+            foreach (var apparatusId in allApparatus)
+            {
+                var apparatusScores = _allScores
+                    .Where(s => eventIds.Contains(s.PerformanceID) &&
+                                s.SportSubcategoryID == apparatusId)
+                    .ToList();
+
+                if (!apparatusScores.Any()) continue;
+
+                var individualScores = apparatusScores.Where(s => !s.TeamID.HasValue).ToList();
+                var teamScores = apparatusScores.Where(s => s.TeamID.HasValue).ToList();
+
+                await UpdateRanksForScoresGlobal(individualScores, apparatusId);
+                await UpdateRanksForScoresGlobal(teamScores, apparatusId);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error calculating ranks: {ex.Message}");
+        }
+    }
+
+    /*private async Task UpdateRanksForScoresGlobal(List<PerformanceBasedDTO.PerformanceScore> scores, int apparatusId)
+    {
+        if (!scores.Any()) return;
+
+        var globalScores = scores
+            .Where(s => s.SportSubcategoryID == apparatusId)
+            .OrderByDescending(s => s.Score) // Higher score = better rank
+            .ToList();
+
+        int currentRank = 1;
+        decimal? previousScore = null;
+        int sameScoreCount = 0;
+
+        for (int i = 0; i < globalScores.Count; i++)
+        {
+    var score = globalScores[i];
+
+    if (previousScore.HasValue && score.Score == previousScore.Value)
+    {
+        sameScoreCount++;
+        // Use the same rank as previous entry
+        score.Rank = currentRank - sameScoreCount;
+        }
+    else
+    {
+        currentRank = i + 1;
+        score.Rank = currentRank;
+        sameScoreCount = 0;
+        }
+
+    previousScore = score.Score;
+
+    await UpdateScoreRankInDatabase(score);
+    }
+    }*/
+
+    private async Task UpdateRanksForScoresGlobal(List<PerformanceBasedDTO.PerformanceScore> scores, int apparatusId)
+    {
+        if (!scores.Any()) return;
+
+        var sortedScores = scores
+    .OrderByDescending(s => s.Score)
+    .ToList();
+
+        int rank = 1;
+        decimal? previousScore = null;
+        int skipCount = 0;
+
+        for (int i = 0; i < sortedScores.Count; i++)
+        {
+            var score = sortedScores[i];
+
+            if (previousScore.HasValue && score.Score == previousScore.Value)
+            {
+                skipCount++;
+                score.Rank = rank - skipCount;
+            }
+            else
+            {
+                rank = i + 1;
+                score.Rank = rank;
+                skipCount = 0;
+            }
+
+            previousScore = score.Score;
+
+            await UpdateScoreRankInDatabase(score);
+        }
+    }
+
+    private async Task UpdateScoreRankInDatabase(PerformanceBasedDTO.PerformanceScore score)
+    {
+        try
+        {
+            string url = $"/PerformanceScore/Score/{score.ID}";
+
+            // Create a proper GymnasticsScores object with only the rank updated
+            var updateData = new PerformanceBasedDTO.PerformanceScore
+            {
+                ID = score.ID,
+                PerformanceID = score.PerformanceID,
+                PerformanceTeamID = score.PerformanceTeamID,
+                SportSubcategoryID = score.SportSubcategoryID,
+                Score = score.Score,
+                Rank = score.Rank,
+                UserID = score.UserID,
+                UpdatedAt = DateTime.Now,
+                TeamID = score.TeamID
+            };
+
+            var result = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(url, updateData);
+
+            if (result == null)
+            {
+                Console.WriteLine($"Failed to update rank for score ID {score.ID}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating rank for score {score.ID}: {ex.Message}");
+        }
+    }
+
+    //Individual All-Around Ranking
+    private List<IndividualAllAroundRank> GetIndividualAllAroundRanking(int eventId)
+    {
+        var eventIds = GetCombinedEventIds(eventId, false);
+        var players = GetCombinedPlayers(eventIds);
+
+        var rankings = new List<IndividualAllAroundRank>();
+
+        foreach (var player in players)
+        {
+            decimal totalScore = 0m;
+
+            foreach (var evtId in eventIds)
+            {
+                var apparatusList = GetApparatusForEvent(evtId);
+                totalScore += apparatusList.Sum(apparatus =>
+                    GetScoreForApparatus(evtId, player.RegionID, player.PlayerID, apparatus));
+            }
+
+            rankings.Add(new IndividualAllAroundRank
+            {
+                PlayerID = player.PlayerID,
+                PlayerName = player.Gymnast,
+                RegionID = player.RegionID,
+                RegionName = player.Region,
+                Total = totalScore
+            });
+        }
+
+        return CalculateRanks(rankings, r => r.Total);
+    }
+
+    // Team Ranking
+    private List<TeamRank> GetTeamRanking(int eventId)
+{
+    var currentEvent = _gymnasticsEvents?.FirstOrDefault(e => e.ID == eventId);
+    if (currentEvent == null) return new List<TeamRank>();
+    
+    var schoolLevelName = GetSchoolLevelName(currentEvent.LevelID);
+    bool isElementary = schoolLevelName?.Contains("Elementary", StringComparison.OrdinalIgnoreCase) == true;
+    
+    var eventIds = isElementary ? 
+        GetCombinedEventIds(eventId, true) : 
+        new List<int> { eventId };
+    
+    var allPlayers = new List<ScoreboardItem>();
+    foreach (var evtId in eventIds)
+    {
+        // IMPORTANT: Get players directly from allOpposingTeams, not from scoreboardData
+        var eventPlayers = GetPlayersFromAllOpposingTeams(evtId);
+        allPlayers.AddRange(eventPlayers.Where(p => 
+            !allPlayers.Any(ap => ap.PlayerID == p.PlayerID && ap.RegionID == p.RegionID)));
+    }
+    
+    if (!allPlayers.Any()) return new List<TeamRank>();
+    
+    // Group by Region ONLY
+    var regionGroups = allPlayers
+        .GroupBy(p => new { p.RegionID, p.Region })
+        .ToList();
+    
+    var teamScores = new List<TeamRank>();
+    
+    foreach (var group in regionGroups)
+    {
+        decimal regionTotal = 0m;
+        
+        foreach (var player in group)
+        {
+            decimal playerTotal = 0m;
+            
+            // Sum player's scores across ALL combined events
+            foreach (var evtId in eventIds)
+            {
+                var apparatusList = GetApparatusForEvent(evtId);
+                foreach (var apparatus in apparatusList)
+                {
+                    playerTotal += GetScoreForApparatusForTeamRanking(
+                        evtId,
+                        player.RegionID,
+                        player.PlayerID,
+                        apparatus
+                    );
+                }
+            }
+            
+            regionTotal += playerTotal;
+        }
+        
+        teamScores.Add(new TeamRank
+        {
+            RegionID = group.Key.RegionID,
+            RegionName = group.Key.Region,
+            TeamTotal = regionTotal
+        });
+    }
+    
+    return CalculateRanks(teamScores, t => t.TeamTotal);
+}
+
+private List<ScoreboardItem> GetPlayersFromAllOpposingTeams(int eventId)
+{
+    var players = new List<ScoreboardItem>();
+    
+    if (_allOpposingTeams == null || _schoolRegions == null || _allPlayers == null)
+        return players;
+    
+    // Get ALL opposing teams for this event (from the full list, not filtered)
+    var eventTeams = _allOpposingTeams
+        .Where(t => t.PerformanceID == eventId && !t.TeamID.HasValue)
+        .ToList();
+    
+    foreach (var team in eventTeams)
+    {
+        var region = _schoolRegions.FirstOrDefault(r => r.ID == team.RegionID);
+        var player = _allPlayers.FirstOrDefault(p => p.ID == team.PlayerID);
+        
+        if (region != null && player != null)
+        {
+            players.Add(new ScoreboardItem
+            {
+                PerformanceID = eventId,
+                RegionID = team.RegionID,
+                Region = region.Abbreviation ?? region.Region,
+                PlayerID = team.PlayerID,
+                Gymnast = $"{player.FirstName} {player.LastName}"
+            });
+        }
+    }
+    
+    return players;
+}
+
+    private List<T> CalculateRanks<T>(List<T> items, Func<T, decimal> scoreSelector) where T : class
+    {
+        var sorted = items.OrderByDescending(scoreSelector).ToList();
+
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            var property = sorted[i].GetType().GetProperty("Rank");
+            if (property == null || !property.CanWrite) continue;
+
+            if (i == 0)
+            {
+                property.SetValue(sorted[i], 1);
+                continue;
+            }
+
+            var currentScore = scoreSelector(sorted[i]);
+            var previousScore = scoreSelector(sorted[i - 1]);
+
+            if (Math.Abs(currentScore - previousScore) < 0.001m)
+            {
+                var prevRank = (int)sorted[i - 1].GetType().GetProperty("Rank")!.GetValue(sorted[i - 1])!;
+                property.SetValue(sorted[i], prevRank);
+            }
+            else
+            {
+                property.SetValue(sorted[i], i + 1);
+            }
+        }
+
+        return sorted;
+    }
+
+
+    private List<int> GetCombinedEventIds(int currentEventId, bool isTeamRanking)
+    {
+        var currentEvent = _gymnasticsEvents?.FirstOrDefault(e => e.ID == currentEventId);
+        if (currentEvent == null) return new List<int> { currentEventId };
+
+        // Check if Elementary level
+        var schoolLevelName = GetSchoolLevelName(currentEvent.LevelID);
+        bool isElementary = schoolLevelName?.Contains("Elementary", StringComparison.OrdinalIgnoreCase) == true;
+
+        // Only combine for Team Ranking in Elementary level
+        if (!isElementary || !isTeamRanking)
+            return new List<int> { currentEventId };
+
+        // Check if it's WAG or MAG
+        bool isWAG = currentEvent.MainCategory?.Contains("Women's Artistic Gymnastics", StringComparison.OrdinalIgnoreCase) == true;
+        bool isMAG = currentEvent.MainCategory?.Contains("Men's Artistic Gymnastics", StringComparison.OrdinalIgnoreCase) == true;
+
+        if (isWAG)
+        {
+            // Get ALL WAG Elementary events (both C1 and C2)
+            return _gymnasticsEvents
+                .Where(e => GetSchoolLevelName(e.LevelID)?.Contains("Elementary", StringComparison.OrdinalIgnoreCase) == true &&
+                           e.GenderID == currentEvent.GenderID &&
+                           e.MainCategory?.Contains("Women's Artistic Gymnastics", StringComparison.OrdinalIgnoreCase) == true &&
+                           (e.MainCategory?.Contains("(C1)") == true || e.MainCategory?.Contains("(C2)") == true))
+                .Select(e => e.ID)
+                .ToList();
+        }
+
+        if (isMAG)
+        {
+            // Get ALL MAG Elementary events (both C1 and C2)
+            return _gymnasticsEvents
+                .Where(e => GetSchoolLevelName(e.LevelID)?.Contains("Elementary", StringComparison.OrdinalIgnoreCase) == true &&
+                           e.GenderID == currentEvent.GenderID &&
+                           e.MainCategory?.Contains("Men's Artistic Gymnastics", StringComparison.OrdinalIgnoreCase) == true &&
+                           (e.MainCategory?.Contains("(C1)") == true || e.MainCategory?.Contains("(C2)") == true))
+                .Select(e => e.ID)
+                .ToList();
+        }
+
+        return new List<int> { currentEventId };
+    }
+
+
+    private List<ScoreboardItem> GetCombinedPlayers(List<int> eventIds)
+    {
+        var allPlayers = new List<ScoreboardItem>();
+
+        foreach (var eventId in eventIds)
+        {
+            var eventPlayers = GetEventIndividualScoreboardData(eventId);
+            allPlayers.AddRange(eventPlayers.Where(p =>
+                !allPlayers.Any(ap => ap.PlayerID == p.PlayerID && ap.RegionID == p.RegionID)));
+        }
+
+        return allPlayers;
+    }
+
+    private int[] GetApparatusForEvent(int eventId)
+    {
+        var evt = _gymnasticsEvents?.FirstOrDefault(e => e.ID == eventId);
+
+        if (evt == null)
+            return Array.Empty<int>();
+
+        if (IsWAGEventC1(evt)) return new[] { 221, 223, 216, 214 };
+        if (IsWAGEventC2(evt)) return new[] { 220, 224, 217, 215 };
+        if (IsWAGEventC3(evt)) return new[] { 247, 248, 244, 243 };
+
+        if (IsMAGEventC1(evt)) return new[] { 198, 201, 197, 200 };
+        if (IsMAGEventC2(evt)) return new[] { 204, 206, 203, 205 };
+        if (IsMAGEventC3(evt)) return new[] { 232, 236, 231, 234 };
+
+        if (IsRhythmicEvent(evt)) return new[] { 210, 212, 211, 209 };
+
+        return Array.Empty<int>();
+    }
+
+    // Data models
+    public class ScoreboardItem
+    {
+        public int PerformanceID { get; set; }
+        public int RegionID { get; set; }
+        public string Region { get; set; } = string.Empty;
+        public string PlayerID { get; set; } = string.Empty;
+        public int LevelID { get; set; }
+        public string Gymnast { get; set; } = string.Empty;
+        public decimal TotalScore { get; set; }
+        public int? TeamID { get; set; }
+        public List<string> TeamPlayerIDs { get; set; } = new();
+        public List<string> TeamGymnasts { get; set; } = new();
+        public bool IsTeam => TeamID.HasValue && TeamPlayerIDs.Count > 1;
+        public bool IsIndividual => !TeamID.HasValue || TeamPlayerIDs.Count == 1;
+        public string Level { get; set; } = string.Empty;
+    }
+
+    public class IndividualAllAroundRank
+    {
+        public int Rank { get; set; }
+        public string PlayerID { get; set; }
+        public string PlayerName { get; set; }
+        public int RegionID { get; set; }
+        public string RegionName { get; set; }
+        public decimal Total { get; set; }
+    }
+
+    public class TeamRank
+    {
+        public int Rank { get; set; }
+        public int RegionID { get; set; }
+        public string RegionName { get; set; }
+        public decimal TeamTotal { get; set; }
+        public int LevelID { get; set; }
+        public string Level { get; set; } = string.Empty;
+    }
+
+    public class PerformanceBasedDTO
+    {
+        public class PerformanceEvent
+        {
+            public int ID { get; set; }
+            public int? SportID { get; set; }
+            public string MainCategory { get; set; }
+            public int LevelID { get; set; }
+            public int GenderID { get; set; }
+            public int StageID { get; set; }
+        }
+
+        public class PerformanceTeam
+        {
+            public int ID { get; set; }
+            public int PerformanceID { get; set; }
+            public int? TeamID { get; set; }
+            public int RegionID { get; set; }
+            public string PlayerID { get; set; }
+        }
+
+        public class PerformanceScore
+        {
+            public int ID { get; set; }
+            public int PerformanceID { get; set; }
+            public int PerformanceTeamID { get; set; }
+            public int SportSubcategoryID { get; set; }
+            public decimal Score { get; set; }
+            public int Rank { get; set; }
+            public string? UserID { get; set; }
+            public DateTime UpdatedAt { get; set; }
+            public int? TeamID { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+
+        public class SchoolRegion
+        {
+            public int? ID { get; set; }
+            public string Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class SportCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+        }
+
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+            public string? MainCategory { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+    public class ProfilePlayersDTO
+    {
+        public class Players
+        {
+            public string ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+    }
+
+    public class EventsDTO
+    {
+        public class EventStages
+        {
+            public int ID { get; set; }
+            public string? Stage { get; set; }
+        }
+    }
+}
+

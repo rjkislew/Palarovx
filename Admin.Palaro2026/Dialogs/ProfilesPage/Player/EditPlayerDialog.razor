@@ -53,14 +53,31 @@
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" md="6">
-                    <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
-                </MudItem>
-                <MudItem xs="12" md="6">
+                <MudItem xs="12" md="5">
                     <MudTextField @bind-Value="_lastnameValue" Immediate Margin="Margin.Dense" Label="Lastname" ShrinkLabel Variant="Variant.Outlined" Clearable />
                 </MudItem>
+                <MudItem xs="12" md="5">
+                    <MudTextField @bind-Value="_firstnameValue" Immediate Margin="Margin.Dense" Label="Firstname" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+                <MudItem xs="12" md="2">
+                    <MudTextField @bind-Value="_middleInitialValue" T="string?" Immediate Margin="Margin.Dense" Label="Middle Initial" ShrinkLabel Variant="Variant.Outlined" Clearable />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudSelect @bind-Value="_selectedSex" T="string?" Immediate Margin="Margin.Dense" Label="Sex" ShrinkLabel Variant="Variant.Outlined" Clearable>
+                        @foreach (var sex in _sex)
+                        {
+                            <MudSelectItem Value="@sex">@sex</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudDatePicker @bind-Date="_birthDateValue" PickerVariant="PickerVariant.Dialog" Label="Birth Date" Margin="Margin.Dense" ShrinkLabel Variant="Variant.Outlined" Clearable/>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_lrnValue" Label="LRN" Immediate Margin="Margin.Dense" ShrinkLabel Variant="Variant.Outlined" Clearable/>
+                </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Sport Category" ShrinkLabel
+                    <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense" Label="Classification" ShrinkLabel
                                Variant="Variant.Outlined" Clearable Disabled="_selectedSchoolDivisionIDValue == null"
                                T="int?" SelectedValuesChanged="@((values) => InvokeAsync(async () => { _selectedSportIDValue = null; await GetSportsInSubcategoriesAsync(); }))">
                         <MudVirtualize Items="_sportCategories" Context="sportCategory">
@@ -70,14 +87,13 @@
                 </MudItem>
                 <MudItem xs="12" md="6">
                     <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport" ShrinkLabel Variant="Variant.Outlined" Clearable
-                               Disabled="@( _sports?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSportCategoryIDValue != null)"
-                               HelperText="@((_sports?.Any() != true && _selectedSchoolLevelIDValue != null && _selectedSportCategoryIDValue != null) ? "No sports for that school level or sport category" : null)">
+                               Disabled="@(_sports?.Any() != true)"
+                               HelperText="@((_sports?.Any() != true) ? "No sports available" : null)">
                         <MudVirtualize Items="_sports" Context="sport">
                             <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
                         </MudVirtualize>
                     </MudSelect>
                 </MudItem>
-
             </MudGrid>
         </DialogContent>
         <DialogActions>
@@ -126,10 +142,19 @@ else
     private int? _selectedSchoolIDValue;
     private string? _firstnameValue;
     private string? _lastnameValue;
+    private string? _middleInitialValue;
+    private string? _selectedSex;
+    private DateTime? _birthDateValue;
+    private string? _lrnValue;
     private int? _selectedSportCategoryIDValue;
     private int? _selectedSportIDValue;
     private int[]? _sportIDs;
     private int[]? _playerSportsIDs;
+    
+    private readonly string[] _sex =
+    {
+        "Male", "Female"
+    };
 
     // Disable addition button if values are empty
     private bool _editPlayerButtonDisabled =>
@@ -146,11 +171,15 @@ else
     {
         public class ProfilePlayers
         {
-            public string? ID { get; set; }
+            public string ID { get; set; }
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
             public int? SchoolID { get; set; }
             public int? SportID { get; set; }
+            public string? MiddleInitial { get; set; }
+            public string? Sex { get; set; }
+            public DateTime? BirthDate { get; set; }
+            public string? LRN { get; set; }
         }
 
         public class ProfilePlayerSports
@@ -231,16 +260,8 @@ else
         await GetSportsAsync();
         await GetPlayerSportsAsync();
 
-        if (_profilePlayers?.Any() == true
-        && _schoolRegions?.Any() == true
-        && _schoolDivisions?.Any() == true
-        && _schoolLevels?.Any() == true
-        && _schools?.Any() == true
-        && _sportCategories?.Any() == true
-        && _sports?.Any() == true)
-        {
-            _isLoaded = true;
-        }
+        // FIXED: Always load the dialog, don't require sports data
+        _isLoaded = true;
     }
 
     private async Task GetProfilePlayerOnDialogOpenAsync(string? profilePlayerID)
@@ -258,6 +279,10 @@ else
             // Data
             _firstnameValue = selectedPlayer.FirstName;
             _lastnameValue = selectedPlayer.LastName;
+            _middleInitialValue = selectedPlayer.MiddleInitial;
+            _birthDateValue = selectedPlayer.BirthDate;
+            _lrnValue = selectedPlayer.LRN;
+            _selectedSex = selectedPlayer.Sex;
             _selectedSchoolIDValue = selectedPlayer.SchoolID;
             _selectedSportIDValue = selectedPlayer.SportID;
         }
@@ -302,19 +327,16 @@ else
     // Load after GetProfilePlayerOnDialogOpenAsync
     private async Task GetSportCategoryOpenAsync()
     {
-        //mine
-        string url = $"/Sports?id={_selectedSportIDValue}";
-        //
-        // string url = $"{apiService.Palaro2026API}/Sports?id={_selectedSportIDValue}";
-
-
-        var sports = await apiService.GetAsync<SportsDTO.Sports>(url);
-
-        if (sports != null)
+        if (_selectedSportIDValue.HasValue)
         {
-            var sport = sports.First();
+            string url = $"/Sports?id={_selectedSportIDValue}";
+            var sports = await apiService.GetAsync<SportsDTO.Sports>(url);
 
-            _selectedSportCategoryIDValue = sport.SportCategoryID;
+            if (sports != null && sports.Any())
+            {
+                var sport = sports.First();
+                _selectedSportCategoryIDValue = sport.SportCategoryID;
+            }
         }
 
         await GetSportCategoriesAsync();
@@ -346,9 +368,9 @@ else
     private async Task GetSportCategoriesAsync()
     {
         string url = "/Sports/Categories?";
-
         _sportCategories = await apiService.GetAsync<SportsDTO.SportCategories>(url);
 
+        // FIXED: Always try to get sports, even if categories are missing
         await GetSportsAsync();
     }
 
@@ -380,20 +402,31 @@ else
     private async Task GetSportsInSubcategoriesAsync()
     {
         string url = $"/Sports/Subcategories?schoolLevelID={_selectedSchoolLevelIDValue}";
-
         var subcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
 
-        if (subcategories != null)
+        if (subcategories != null && subcategories.Any())
         {
-            _sportIDs = subcategories.Select(s => s.SportID ?? 0).Distinct().ToArray(); // Store unique SportIDs in array
+            _sportIDs = subcategories.Select(s => s.SportID ?? 0).Distinct().ToArray();
         }
+        else
+        {
+            // FIXED: Clear sport IDs to allow loading all sports
+            _sportIDs = null;
+        }
+    
+        await GetSportsAsync();
     }
 
     // Load after GetSportsInSubcategoriesAsync
     private async Task GetSportsAsync()
     {
         if (_sportIDs == null || !_sportIDs.Any())
-            return; // Exit if there are no IDs
+        {
+            // FIXED: Load all sports when no specific filtering is available
+            string allSportsUrl = "/Sports";
+            _sports = await apiService.GetAsync<SportsDTO.Sports>(allSportsUrl);
+            return;
+        }
 
         string idsQuery = string.Join(",", _sportIDs); // Convert array to comma-separated string
         string url = $"/Sports?id={idsQuery}&sportCategoryID={_selectedSportCategoryIDValue}";
@@ -447,12 +480,25 @@ else
                 FirstName = _firstnameValue,
                 LastName = _lastnameValue,
                 SchoolID = _selectedSchoolIDValue,
-                SportID = _selectedSportIDValue
+                SportID = _selectedSportIDValue,
+                MiddleInitial = _middleInitialValue,
+                Sex = _selectedSex,
+                BirthDate = _birthDateValue,
+                LRN = _lrnValue
             };
 
         string url = $"/Profiles/Player/{selectedPlayerID}";
 
         var success = await apiService.PutAsync(url, updatePlayerProfile);
+        
+        if (success)
+        {
+            Snackbar.Add($" Player {_firstnameValue} {_lastnameValue} updated successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"Failed to update player {_firstnameValue} {_lastnameValue}.", Severity.Error);
+        }
     }
 
     // Delete Player profile
@@ -461,6 +507,15 @@ else
         string url = $"/Profiles/Player/{selectedPlayerID}";
 
         var success = await apiService.DeleteAsync(url);
+        
+        if (success)
+        {
+            Snackbar.Add($"Player {_firstnameValue} {_lastnameValue} deleted successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"Failed to delete player {_firstnameValue} {_lastnameValue}.", Severity.Error);
+        }
     }
 
     // Delete Sport event and sport event coach by sport event ID
@@ -473,6 +528,15 @@ else
             string url = $"/Profiles/Player/Sports/Coaches/ByPlayerSport/{playerSportID}";
 
             var success = await apiService.DeleteAsync(url);
+            
+            if (success)
+            {
+                Snackbar.Add($"Player {_firstnameValue} {_lastnameValue} deleted successfully.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add($"Failed to delete player {_firstnameValue} {_lastnameValue}.", Severity.Error);
+            }
         }
     }
 
@@ -485,6 +549,15 @@ else
             string url = $"/Profiles/Player/Sports/{playerSportID}";
 
             var success = await apiService.DeleteAsync(url);
+            
+            if (success)
+            {
+                Snackbar.Add($"Player {_firstnameValue} {_lastnameValue} deleted successfully.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add($"Failed to delete player {_firstnameValue} {_lastnameValue}.", Severity.Error);
+            }
         }
     }
 }

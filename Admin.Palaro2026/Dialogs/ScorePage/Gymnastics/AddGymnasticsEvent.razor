@@ -1,0 +1,1261 @@
+﻿@using System.Net.Http.Headers
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudGrid Spacing="5">
+                <!-- Sport Details -->
+                <MudItem xs="12" Class="mb-3">
+                    <MudStack Spacing="1">
+                        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText>Sport Details</MudText>
+                            <MudSwitch Value="_isAerobicDanceEnabled"
+                                       Color="Color.Primary"
+                                       Disabled="@(!ShouldAllowAerobicDanceSwitchEdit())"
+                                       ValueChanged="@((bool value) => OnAerobicDanceSwitchChanged(value))">Enable for
+                                Aerobic Dance
+                            </MudSwitch>
+                        </MudStack>
+                        <MudDivider/>
+                        <MudGrid Spacing="1">
+                            <MudItem xs="12" sm="6">
+                                <MudSelect @bind-Value="_selectedSportCategoryIDValue" Margin="Margin.Dense"
+                                           Label="Classification" T="int?"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="true">
+                                    <MudVirtualize Items="_sportCategories" Context="category">
+                                        <MudSelectItem T="int?" Value="category.ID">@category.Category</MudSelectItem>
+                                    </MudVirtualize>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport"
+                                           T="int?"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="true">
+                                    <MudVirtualize Items="_sports" Context="sport">
+                                        <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                                    </MudVirtualize>
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12" sm="6">
+                                <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense"
+                                           Label="School Level and Gender" T="string"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable
+                                           Disabled="_selectedSportIDValue == null || _isAerobicDanceEnabled"
+                                           ReadOnly="@IsEditMode"
+                                           SelectedValuesChanged="@((values) => OnSchoolLevelGenderChanged())">
+                                    <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
+                                        <MudSelectItem T="string" Value="@combinedID">@combinedID</MudSelectItem>
+                                    </MudVirtualize>
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12" sm="6">
+                                <MudSelect @bind-Value="_selectedMainCategoryValue" Margin="Margin.Dense"
+                                           Label="Event" T="string"
+                                           SelectedValuesChanged="@((values) => OnMainCategoryChanged())"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable ReadOnly="@IsEditMode"
+                                           Disabled="@(!_sportMainCat?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                                    @foreach (var mc in _sportMainCat)
+                                    {
+                                        <MudSelectItem Value="@mc">@mc</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                        </MudGrid>
+                    </MudStack>
+                </MudItem>
+
+                <!-- Event Stage -->
+                <MudItem xs="12" Class="mb-3">
+                    <MudStack Spacing="1">
+                        <MudText>Event Stage Detail</MudText>
+                        <MudDivider/>
+                        <MudGrid Spacing="1">
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense"
+                                           Label="Stage" T="int?" ReadOnly="@IsEditMode"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable>
+                                    <MudVirtualize Items="_eventStages" Context="eventStage">
+                                        <MudSelectItem T="int?" Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
+                                    </MudVirtualize>
+                                </MudSelect>
+                            </MudItem>
+                            @if (IsEditMode)
+                            {
+                                <MudItem xs="12" sm="6" md="4">
+                                    <MudSelect @bind-Value="_selectedIsEventFinishedValue"
+                                               Label="Status"
+                                               T="bool?"
+                                               Variant="Variant.Outlined"
+                                               Clearable Margin="Margin.Dense">
+                                        <MudSelectItem T="bool?" Value="true">Finished</MudSelectItem>
+                                        <MudSelectItem T="bool?" Value="false">Ongoing</MudSelectItem>
+                                    </MudSelect>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudStack>
+                </MudItem>
+               
+
+                <!-- Opposing Team -->
+                <MudItem xs="12" Class="mb-3">
+                    <MudStack Spacing="1">
+                        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText>Opposing Team</MudText>
+                            <MudButton StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="AddOpponent"
+                                       Disabled="_schoolRegions == null || !_schoolRegions.Any()">
+                                Add Opponent
+                            </MudButton>
+                        </MudStack>
+                        <MudDivider/>
+
+                        @for (int i = 0; i < _teamSelections.Count; i++)
+                        {
+                            var team = _teamSelections[i];
+                            <MudGrid Spacing="0">
+                                <MudItem xs="12">
+                                    <!-- Region Select -->
+                                    <MudSelect @bind-Value="team.SelectedRegionID"
+                                               Margin="Margin.Dense"
+                                               Label="Region"
+                                               ShrinkLabel
+                                               Variant="Variant.Outlined"
+                                               T="int?"
+                                               Clearable
+                                               SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                                      {
+                                                                          team.SelectedPlayerIDs = new HashSet<string>();
+                                                                          await GetPlayerAsync(team);
+                                                                      }))">
+                                        <MudVirtualize Items="_schoolRegions" Context="region">
+                                            <MudSelectItem T="int?" Value="@region.ID">
+                                                @region.Region (@region.Abbreviation)
+                                            </MudSelectItem>
+                                        </MudVirtualize>
+                                    </MudSelect>
+
+                                    <!-- Players Select -->
+                                    <MudSelect SelectedValues="@team.SelectedPlayerIDs"
+                                               SelectedValuesChanged="@(async (IEnumerable<string> values) => await OnSelectedPlayersChanged(team, values))"
+                                               MultiSelection="true"
+                                               SelectAll="true"
+                                               Clearable
+                                               Margin="Margin.Dense"
+                                               Label="Players"
+                                               ShrinkLabel
+                                               Variant="Variant.Outlined"
+                                               Disabled="!team.SelectedRegionID.HasValue || !_selectedSportIDValue.HasValue || string.IsNullOrEmpty(_selectedMainCategoryValue)"
+                                               T="string"
+                                               ToStringFunc="@(id => team.AvailablePlayers?.FirstOrDefault(p => p.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)">
+                                        @if (team.AvailablePlayers?.Any() == true)
+                                        {
+                                            foreach (var player in team.AvailablePlayers)
+                                            {
+                                                <MudSelectItem T="string" Value="@player.ID">
+                                                    @player.FirstName @player.LastName
+                                                </MudSelectItem>
+                                            }
+                                        }
+                                    </MudSelect>
+
+                                    <!-- Set as Team Button - Below each player dropdown -->
+                                    @if (ShouldShowSetTeamButton())
+                                    {
+                                        <MudItem xs="12" Class="mt-2">
+                                            <MudButton StartIcon="@Icons.Material.Filled.Groups"
+                                                       OnClick="() => SetAsTeam(team)"
+                                                       Variant="Variant.Filled"
+                                                       Color="Color.Primary"
+                                                       Size="Size.Small"
+                                                       FullWidth="true"
+                                                       Disabled="@(!ShouldEnableSetTeamButton(team))">
+                                                Set as Team
+                                            </MudButton>
+                                        </MudItem>
+                                    }
+                                </MudItem>
+                            </MudGrid>
+
+                            @if (i < _teamSelections.Count - 1)
+                            {
+                                <MudText Align="Align.Center" Typo="Typo.h6" Class="mt-2 mb-2">VS</MudText>
+                            }
+                        }
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            @if (IsEditMode)
+            {
+                <!-- Edit Mode: Delete | Cancel | Update -->
+                <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                    <MudButton Style="text-transform: none" DropShadow="false" Color="Color.Error"
+                               OnClick="ConfirmDeleteEventAsync">
+                        Delete
+                    </MudButton>
+                    <MudStack Row AlignItems="AlignItems.Center">
+                        <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">
+                            Cancel
+                        </MudButton>
+                        <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateEventAsync">
+                            Update
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            }
+            else
+            {
+                <!-- Add Mode: Cancel | Clear | Add -->
+                <MudStack Row Justify="Justify.SpaceBetween" Style="width: 100%">
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">
+                        Cancel
+                    </MudButton>
+                    <MudStack Row AlignItems="AlignItems.Center">
+                        <MudButton Style="text-transform: none" DropShadow="false" OnClick="ClearFields">
+                            Clear
+                        </MudButton>
+                        <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmAddEventAsync">
+                            Add
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            }
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <MudDialog>
+        <DialogContent>
+            <MudProgressLinear Indeterminate="true" Class="my-5"/>
+        </DialogContent>
+    </MudDialog>
+}
+
+
+@code {
+
+    // ------------------------------
+    // Dialog & Services
+    // ------------------------------
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+    [Inject] private CookieService cookieService { get; set; } = default!;
+    [Inject] private NavigationManager NavManager { get; set; } = default!;
+
+    // ------------------------------
+    // Parameters
+    // ------------------------------
+    [Parameter] public int? SelectedEventID { get; set; }
+    [Parameter] public int? SelectedSubCategoryID { get; set; }
+    [Parameter] public bool IsEditMode { get; set; } = false;
+    [Parameter] public int? SelectedEventVersusTeamsID { get; set; }
+    [Parameter] public string? SelectedEventStage { get; set; }
+
+    // ------------------------------
+    // DTO Lists
+    // ------------------------------
+    private List<EventsDTO.EventStages>? _eventStages;
+    private List<SportsDTO.SportCategories>? _sportCategories;
+    private List<SportsDTO.Sports>? _sports;
+    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
+    private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+
+    // ------------------------------
+    // Selected Values
+    // ------------------------------
+    private int? _selectedEventStagesIDValue;
+    private string? _selectedSchoolLevelAndGenderID;
+    private int? _selectedSportCategoryIDValue = 1;
+    private int? _selectedSportIDValue = 13;
+    private int? _selectedSportSubcategoryID;
+    private string? _selectedMainCategoryValue;
+    private int? _selectedSportGenderCategoryIDValue;
+    private int? _selectedSchoolLevelIDValue;
+    private bool _isLoaded = false;
+    private bool? _selectedIsEventFinishedValue;
+
+
+    private bool _isAerobicDanceEnabled = false;
+
+    // UI
+    private List<string> _combinedSchoolLevelAndGenderNames = new();
+    private List<string> _sportMainCat = new();
+    private string? _selectedSportMainCat;
+    private List<TeamSelection> _teamSelections = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _selectedSportCategoryIDValue = 1; // Sport Category ID = 1
+        _selectedSportIDValue = 13; // Sport ID = 13 (Gymnastics)
+
+        await LoadDataAsync();
+
+        if (!IsEditMode)
+            _teamSelections.Add(new TeamSelection());
+
+        // Set Aerobic Dance switch based on event type in Edit Mode
+        if (IsEditMode && SelectedEventID.HasValue)
+        {
+            await SetAerobicDanceSwitchBasedOnEvent();
+        }
+
+        _isLoaded = true;
+        StateHasChanged(); // Ensure UI updates
+    }
+
+    private async Task SetAerobicDanceSwitchBasedOnEvent()
+    {
+        if (SelectedEventID == null) return;
+
+        try
+        {
+            // Get opposing teams for this event
+            string opposingTeamsUrl = $"/PerformanceBased/OpposingTeams/{SelectedEventID}";
+            var opposingTeams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(opposingTeamsUrl);
+
+            if (opposingTeams != null && opposingTeams.Any())
+            {
+                // Group by TeamID to count players per team
+                var teamsGrouped = opposingTeams
+                    .Where(t => t.TeamID.HasValue)
+                    .GroupBy(t => t.TeamID.Value);
+
+                // Check if any team has 5 or more players
+                bool hasTeamWithFiveOrMore = teamsGrouped.Any(g => g.Count() >= 5);
+
+                if (hasTeamWithFiveOrMore)
+                {
+                    _isAerobicDanceEnabled = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking event teams: {ex.Message}");
+        }
+    }
+
+
+    private async Task LoadDataAsync()
+    {
+        await GetEventStagesAsync();
+        await GetSportCategoriesAsync();
+        await GetGenderCategoriesAsync();
+        await GetSchoolLevelsAsync();
+        await GetSchoolRegionsAsync();
+        await GetSportsAsync();
+
+        if (IsEditMode && SelectedEventID.HasValue)
+            await GetEventsOnDialogOpenAsync();
+
+        await FilterSchoolLevelAndGenderAsync();
+    }
+
+
+    // API Calls
+    private async Task GetEventStagesAsync()
+    {
+        string url = "/Events/Stages";
+        _eventStages = await apiService.GetAsync<EventsDTO.EventStages>(url);
+    }
+
+    private async Task GetSportCategoriesAsync()
+    {
+        string url = "/Sports/Categories";
+        _sportCategories = await apiService.GetAsync<SportsDTO.SportCategories>(url);
+    }
+
+    private async Task GetSportsAsync()
+    {
+        string url = $"/Sports?sportCategoryID={_selectedSportCategoryIDValue}";
+        _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
+
+        // Force set to Gymnastics (ID = 13) and make it non-editable
+        if (!IsEditMode)
+        {
+            _selectedSportIDValue = 13;
+        }
+    }
+
+    private async Task GetPlayerAsync(TeamSelection team)
+    {
+        if (_isAerobicDanceEnabled)
+        {
+            await GetPlayersForAerobicDance(team);
+            StateHasChanged();
+            return;
+        }
+
+        if (!team.SelectedRegionID.HasValue || !_selectedSportIDValue.HasValue || string.IsNullOrEmpty(_selectedMainCategoryValue))
+        {
+            team.AvailablePlayers = new();
+            return;
+        }
+
+        await GetPlayersWithFilters(team);
+
+        StateHasChanged();
+    }
+
+
+    private async Task GetPlayersForAerobicDance(TeamSelection team)
+    {
+        if (!team.SelectedRegionID.HasValue)
+        {
+            team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+            return;
+        }
+        
+        string url = $"/Profiles/Player/FilteredPlayer?regionID={team.SelectedRegionID}&sportID=13";
+        var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
+
+        var allPlayers = result?.ToList() ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+
+        if (_sportSubcategories == null || !_sportSubcategories.Any())
+        {
+            _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>($"/Sports/Subcategories?sportID=13");
+        }
+
+        if (_sportSubcategories != null)
+        {
+            var validSubcategoryIDs = _sportSubcategories
+                .Where(sc => !string.IsNullOrEmpty(sc.MainCategory) &&
+                             sc.MainCategory.Equals("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase))
+                .Select(sc => sc.ID)
+                .ToList();
+
+            if (validSubcategoryIDs.Any())
+            {
+                allPlayers = allPlayers
+                    .Where(p => p.SubCategoryID.HasValue && validSubcategoryIDs.Contains(p.SubCategoryID.Value))
+                    .ToList();
+            }
+            else
+            {
+                allPlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+            }
+        }
+
+        team.AvailablePlayers = allPlayers
+            .GroupBy(p => p.ID)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+
+    private async Task GetPlayersWithFilters(TeamSelection team)
+    {
+        // Extract school level and gender from the selected combined value
+        var parts = _selectedSchoolLevelAndGenderID?.Split(" - ");
+        var schoolLevelName = parts?.Length > 0 ? parts[0] : null;
+        var genderName = parts?.Length > 1 ? parts[1] : null;
+
+        // Get the corresponding IDs
+        var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+        var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
+
+        // Build URL with filters
+        string url = $"/Profiles/Player/FilteredPlayer?regionID={team.SelectedRegionID}&sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&genderID={genderID}";
+
+        var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
+
+        // Filter players by main category through subcategories
+        if (result != null && _sportSubcategories != null)
+        {
+            var validSubcategoryIDs = _sportSubcategories
+                .Where(sc => !string.IsNullOrEmpty(sc.MainCategory) &&
+                             sc.MainCategory.Equals(_selectedMainCategoryValue, StringComparison.OrdinalIgnoreCase))
+                .Select(sc => sc.ID)
+                .ToList();
+
+            if (validSubcategoryIDs.Any())
+            {
+                result = result.Where(player =>
+                    player.SubCategoryID.HasValue &&
+                    validSubcategoryIDs.Contains(player.SubCategoryID.Value)
+                ).ToList();
+            }
+            else
+            {
+                result = new List<ProfilesDTO.ProfilePlayerEvent>();
+            }
+        }
+
+        team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+    }
+
+    private async Task OnAerobicDanceSwitchChanged(bool newValue)
+    {
+        if (IsEditMode && _isAerobicDanceEnabled && !newValue)
+        {
+            bool hasTeamWithFiveOrMore = _teamSelections
+                .Any(t => (t.SelectedPlayerIDs?.Count ?? 0) >= 5);
+
+            if (hasTeamWithFiveOrMore)
+            {
+                _isAerobicDanceEnabled = true;
+                Snackbar.Add("Cannot disable Aerobic Dance mode when teams have 5 or more players.", Severity.Warning);
+                StateHasChanged();
+                return;
+            }
+        }
+
+        _isAerobicDanceEnabled = newValue;
+
+        if (_isAerobicDanceEnabled)
+        {
+            _selectedSportIDValue = 13; // Gymnastics
+            _selectedMainCategoryValue = "Aerobic Gymnastics";
+
+            _selectedSchoolLevelAndGenderID = null;
+            _sportMainCat = new List<string>();
+
+            foreach (var team in _teamSelections)
+            {
+                team.SelectedRegionID = null;
+                team.SelectedPlayerIDs = new HashSet<string>();
+                team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+            }
+
+            await LoadMainCategoriesForAerobicDance();
+        }
+        else
+        {
+            await FilterSchoolLevelAndGenderAsync();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task LoadMainCategoriesForAerobicDance()
+    {
+        _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+            $"/Sports/Subcategories?sportID=13");
+
+        // Filter to only show Aerobic Gymnastics
+        _sportMainCat = _sportSubcategories?
+            .Where(sc => !string.IsNullOrEmpty(sc.MainCategory) &&
+                         sc.MainCategory.Equals("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase))
+            .Select(sc => sc.MainCategory!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList() ?? new List<string>();
+    }
+
+    private async Task GetGenderCategoriesAsync()
+    {
+        string url = "/Sports/GenderCategories";
+        _sportGenderCategories = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url);
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        string url = "/Schools/Levels";
+        _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
+
+        await GetSportSubCategoriesAsync();
+    }
+
+    private async Task GetSportSubCategoriesAsync()
+    {
+        string url = $"/Sports/Subcategories?sportID={_selectedSportIDValue}&schoolLevelID={_selectedSchoolLevelIDValue}&sportGenderCategoryID={_selectedSportGenderCategoryIDValue}";
+        _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
+    }
+
+    private async Task GetSportSubCategoriesSLGAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+        {
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+            return;
+        }
+
+        var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+        var schoolLevelName = parts[0];
+        var genderName = parts[1];
+
+        var schoolLevelID = _schoolLevels.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+        var genderID = _sportGenderCategories.FirstOrDefault(x => x.Gender == genderName)?.ID;
+
+        if (schoolLevelID != null && genderID != null)
+        {
+            _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+                $"/Sports/Subcategories?sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}");
+        }
+        else
+        {
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+        }
+    }
+
+    private async Task OnSchoolLevelGenderChanged()
+    {
+        _selectedMainCategoryValue = null;
+        await GetSportSubCategoriesSLGAsync();
+        LoadMainCategories();
+
+        foreach (var team in _teamSelections)
+        {
+            team.SelectedRegionID = null;
+            team.SelectedPlayerIDs = new List<string>();
+            team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+        }
+    }
+
+    private async Task OnMainCategoryChanged()
+    {
+        if (_isAerobicDanceEnabled &&
+            !string.IsNullOrEmpty(_selectedMainCategoryValue) &&
+            !_selectedMainCategoryValue.Equals("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase))
+        {
+            _selectedMainCategoryValue = "Aerobic Gymnastics";
+            Snackbar.Add("Event is locked to 'Aerobic Gymnastics' when Aerobic Dance mode is enabled.", Severity.Warning);
+        }
+
+        foreach (var team in _teamSelections)
+        {
+            team.SelectedRegionID = null;
+            team.SelectedPlayerIDs = new List<string>();
+            team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task OnSelectedPlayersChanged(TeamSelection team, IEnumerable<string> selectedValues)
+    {
+        team.SelectedPlayerIDs = selectedValues?.ToHashSet() ?? new HashSet<string>();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(url);
+    }
+
+    private int? GetSchoolLevelIDFromSelection()
+    {
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID)) return null;
+        var schoolLevelName = _selectedSchoolLevelAndGenderID.Split(" - ")[0];
+        return _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+    }
+
+    private int? GetGenderCategoryIDFromSelection()
+    {
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID)) return null;
+        var genderName = _selectedSchoolLevelAndGenderID.Split(" - ")[1];
+        return _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
+    }
+
+    // ------------------------------
+    // Event CRUD
+    // -----------------------------
+
+    private async Task AddEventAsync()
+    {
+        try
+        {
+            // Create the gymnastics event
+            var addEvent = new PerformanceBasedDTO.PerformanceEvent
+            {
+                SportID = _selectedSportIDValue,
+                MainCategory = _selectedMainCategoryValue ?? string.Empty,
+                StageID = _selectedEventStagesIDValue,
+                LevelID = _isAerobicDanceEnabled ? 8 : GetSchoolLevelIDFromSelection(),
+                GenderID = _isAerobicDanceEnabled ? 3 : GetGenderCategoryIDFromSelection(),
+                IsFinished = false
+            };
+
+            var eventCreated = await apiService.PostAndReadAsync<PerformanceBasedDTO.PerformanceEvent>("/PerformanceBased/AddEvent", addEvent);
+
+            if (eventCreated == null)
+            {
+                Snackbar.Add("Failed to add event.", Severity.Error);
+                return;
+            }
+
+            // Process all team selections
+            foreach (var team in _teamSelections)
+            {
+                if (team.SelectedRegionID.HasValue && team.SelectedPlayerIDs?.Any() == true)
+                {
+                    await ProcessTeamSelection(eventCreated.ID, team);
+                }
+            }
+
+            Snackbar.Add("Event added successfully.", Severity.Success);
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error adding event: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ProcessTeamSelection(int eventId, TeamSelection team)
+    {
+        int? teamIdToUse = null;
+
+        // USE TEAM ID ONLY IF USER CLICKED "SET AS TEAM" AND HAS 2+ PLAYERS
+        if (team.TeamID.HasValue && team.SelectedPlayerIDs.Count > 1)
+        {
+            teamIdToUse = team.TeamID.Value;
+        }
+        else
+        {
+            // Do NOT use team ID for individuals
+            // Do NOT use team ID unless button is clicked
+            teamIdToUse = null;
+        }
+
+        foreach (var playerId in team.SelectedPlayerIDs)
+        {
+            if (string.IsNullOrEmpty(playerId)) continue;
+
+            var opposingTeam = new PerformanceBasedDTO.PerformanceTeam
+            {
+                PerformanceID = eventId,
+                RegionID = team.SelectedRegionID.Value,
+                PlayerID = playerId,
+                TeamID = teamIdToUse // <- NULL for individuals
+            };
+
+            var result = await apiService.PostAndReadAsync<PerformanceBasedDTO.PerformanceTeam>(
+                "/PerformanceBased/AddOpposingTeam", opposingTeam
+            );
+
+            if (result == null)
+            {
+                Snackbar.Add($"Failed to add player {playerId}.", Severity.Error);
+            }
+        }
+    }
+
+
+    private async Task UpdateEventAsync()
+    {
+        try
+        {
+            // 1. Update the gymnastics event
+            var updateEvent = new PerformanceBasedDTO.PerformanceEvent
+            {
+                ID = SelectedEventID.Value,
+                SportID = _selectedSportIDValue ?? 13,
+                MainCategory = _selectedMainCategoryValue ?? string.Empty,
+                StageID = _selectedEventStagesIDValue,
+                LevelID = _isAerobicDanceEnabled ? 8 : GetSchoolLevelIDFromSelection(),
+                GenderID = _isAerobicDanceEnabled ? 3 : GetGenderCategoryIDFromSelection(),
+                IsFinished = _selectedIsEventFinishedValue,
+            };
+
+            var eventSuccess = await apiService.PutAsync($"/PerformanceBased/UpdateEvent/{SelectedEventID}", updateEvent);
+            if (!eventSuccess)
+            {
+                Snackbar.Add("Failed to update event.", Severity.Error);
+                return;
+            }
+
+            // Delete existing teams first
+            await apiService.DeleteAsync($"/PerformanceBased/DeleteOpposingTeamsByEvent/{SelectedEventID}");
+
+            // Add updated teams WITH TeamID
+            foreach (var team in _teamSelections)
+            {
+                if (team.SelectedRegionID.HasValue && team.SelectedPlayerIDs?.Any() == true)
+                {
+                    foreach (var playerId in team.SelectedPlayerIDs)
+                    {
+                        if (!string.IsNullOrEmpty(playerId))
+                        {
+                            var opposingTeam = new PerformanceBasedDTO.PerformanceTeam
+                            {
+                                PerformanceID = SelectedEventID.Value,
+                                RegionID = team.SelectedRegionID.Value,
+                                PlayerID = playerId,
+                                TeamID = team.TeamID // Add this line
+                            };
+
+                            var result = await apiService.PostAndReadAsync<PerformanceBasedDTO.PerformanceTeam>("/PerformanceBased/AddOpposingTeam", opposingTeam);
+
+                            if (result != null)
+                            {
+                                // Success
+                            }
+                        }
+                    }
+                }
+            }
+
+            Snackbar.Add("Event updated successfully.", Severity.Success);
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating event: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ConfirmUpdateEventAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm changing the event?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await UpdateEventAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private async Task ConfirmDeleteEventAsync()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm deleting this event?",
+            yesText: "Yes",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            await DeleteEventAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private async Task DeleteEventAsync()
+    {
+        if (SelectedEventID == null) return;
+
+        string versusTeamsUrl = $"/PerformanceBased/DeleteOpposingTeam/{SelectedEventID}";
+        var versusTeams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(versusTeamsUrl);
+
+        string url = $"/PerformanceBased/DeleteEvent/{SelectedEventID}";
+        var success = await apiService.DeleteAsync(url);
+
+        if (success)
+        {
+            Snackbar.Add("Event deleted successfully.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to delete event.", Severity.Error);
+        }
+    }
+
+    private bool ShouldShowSetTeamButton()
+    {
+        if (_isAerobicDanceEnabled)
+        {
+            return true;
+        }
+
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+            return false;
+
+        var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+        if (parts.Length < 2)
+            return false;
+
+        var schoolLevel = parts[0];
+        var gender = parts[1];
+
+        if (schoolLevel != "Elementary Level" && schoolLevel != "Secondary Level")
+            return false;
+
+        if (gender != "Mix")
+            return false;
+
+        if (string.IsNullOrEmpty(_selectedMainCategoryValue) ||
+            !_selectedMainCategoryValue.Equals("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return true;
+    }
+
+    private int _teamCounter = 1;
+
+    private int GenerateTeamID()
+    {
+        return _teamCounter++;
+    }
+
+    private void SetAsTeam(TeamSelection team)
+    {
+        try
+        {
+            if (!team.SelectedRegionID.HasValue || team.SelectedPlayerIDs?.Any() != true)
+            {
+                Snackbar.Add("Please select a region and at least one player to set as a team.", Severity.Warning);
+                return;
+            }
+
+            if (team.TeamID == null)
+            {
+                team.TeamID = GenerateTeamID();
+                Snackbar.Add("Team has been set successfully!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("This team already has a TeamID assigned.", Severity.Info);
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error setting team: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // ------------------------------
+    // Event Load on Edit
+    // ------------------------------
+    private async Task GetEventsOnDialogOpenAsync()
+    {
+        if (SelectedEventID == null) return;
+
+        try
+        {
+            // Get the specific event
+            string url = $"/PerformanceBased/PerformanceEvent/{SelectedEventID}";
+            var eventDetail = await apiService.GetSingleAsync<PerformanceBasedDTO.PerformanceEvent>(url);
+
+            if (eventDetail != null)
+            {
+                _selectedEventStagesIDValue = eventDetail.StageID;
+                _selectedMainCategoryValue = eventDetail.MainCategory;
+                _selectedSportIDValue = eventDetail.SportID;
+                _selectedIsEventFinishedValue = eventDetail.IsFinished;
+
+                await SetSchoolLevelAndGender(eventDetail.LevelID, eventDetail.GenderID);
+
+                LoadMainCategories();
+
+                await LoadOpposingTeamsForEdit();
+
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading event: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SetSchoolLevelAndGender(int? schoolLevelID, int? genderCategoryID)
+    {
+        if (schoolLevelID == null || genderCategoryID == null) return;
+
+        var schoolLevel = _schoolLevels?.FirstOrDefault(x => x.ID == schoolLevelID);
+        var gender = _sportGenderCategories?.FirstOrDefault(x => x.ID == genderCategoryID);
+
+        if (schoolLevel != null && gender != null)
+        {
+            _selectedSchoolLevelAndGenderID = $"{schoolLevel.Level} - {gender.Gender}";
+
+            if (schoolLevelID == 8 && genderCategoryID == 3)
+            {
+                _isAerobicDanceEnabled = true;
+                _selectedMainCategoryValue = "Aerobic Gymnastics";
+                _selectedSchoolLevelAndGenderID = null;
+            }
+
+            // Load subcategories for this selection
+            await GetSportSubCategoriesSLGAsync();
+            LoadMainCategories();
+        }
+    }
+
+    private async Task LoadOpposingTeamsForEdit()
+    {
+        if (SelectedEventID == null) return;
+
+        try
+        {
+            string url = $"/PerformanceBased/OpposingTeams/{SelectedEventID}";
+            var opposingTeams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(url);
+
+            _teamSelections = new List<TeamSelection>();
+
+            if (opposingTeams != null && opposingTeams.Any())
+            {
+                var teamsByRegionAndTeam = opposingTeams
+                    .Where(team => team.RegionID.HasValue && !string.IsNullOrEmpty(team.PlayerID))
+                    .GroupBy(team => new { RegionID = team.RegionID.Value, TeamID = team.TeamID });
+
+                foreach (var teamGroup in teamsByRegionAndTeam)
+                {
+                    var teamSelection = new TeamSelection
+                    {
+                        SelectedRegionID = teamGroup.Key.RegionID,
+                        TeamID = teamGroup.Key.TeamID // Load the TeamID
+                    };
+
+                    await GetPlayerAsync(teamSelection);
+
+                    // Set the selected player IDs
+                    teamSelection.SelectedPlayerIDs = teamGroup
+                        .Where(team => !string.IsNullOrEmpty(team.PlayerID))
+                        .Select(team => team.PlayerID)
+                        .ToHashSet();
+
+                    _teamSelections.Add(teamSelection);
+                }
+            }
+
+            if (!_teamSelections.Any())
+            {
+                _teamSelections.Add(new TeamSelection());
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading teams: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // ------------------------------
+    // Main Categories & School Level/Gender
+    // ------------------------------
+    private void LoadMainCategories()
+    {
+        _sportMainCat = _sportSubcategories?
+            .Where(sc => !string.IsNullOrEmpty(sc.MainCategory))
+            .Select(sc => sc.MainCategory!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList() ?? new List<string>();
+    }
+
+
+    private async Task FilterSchoolLevelAndGenderAsync()
+    {
+        if (_selectedSportIDValue == null)
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        var subcats = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+            $"/Sports/Subcategories?sportID={_selectedSportIDValue}");
+
+        if (subcats == null || !subcats.Any())
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        var schoolLevelIDs = subcats.Where(x => x.SchoolLevelID.HasValue).Select(x => x.SchoolLevelID.Value).Distinct();
+        var genderIDs = subcats.Where(x => x.SportGenderCategoryID.HasValue).Select(x => x.SportGenderCategoryID.Value).Distinct();
+
+        var schoolLevelNames = _schoolLevels?.Where(s => schoolLevelIDs.Contains(s.ID)).Select(s => s.Level) ?? new List<string>();
+        var genderNames = _sportGenderCategories?.Where(g => genderIDs.Contains(g.ID)).Select(g => g.Gender) ?? new List<string>();
+
+        _combinedSchoolLevelAndGenderNames = schoolLevelNames.SelectMany(s => genderNames, (s, g) => $"{s} - {g}").ToList();
+    }
+
+    private bool ShouldAllowAerobicDanceSwitchEdit()
+    {
+        if (IsEditMode)
+        {
+            if (_isAerobicDanceEnabled)
+            {
+                var totalPlayers = _teamSelections
+                    .SelectMany(t => t.SelectedPlayerIDs ?? new HashSet<string>())
+                    .Count();
+
+                bool hasTeamWithFiveOrMore = _teamSelections
+                    .Any(t => (t.SelectedPlayerIDs?.Count ?? 0) >= 5);
+
+                return hasTeamWithFiveOrMore || totalPlayers >= 5;
+            }
+        }
+
+        return !IsEditMode;
+    }
+
+    private bool ShouldEnableSetTeamButton(TeamSelection team)
+    {
+        if (!team.SelectedRegionID.HasValue || team.SelectedPlayerIDs?.Any() != true)
+            return false;
+
+        if (team.TeamID.HasValue)
+            return false;
+
+        if (!ShouldShowSetTeamButton())
+            return false;
+
+        return true;
+    }
+
+
+    // ------------------------------
+    // Dialog Controls
+    // ------------------------------
+    private async Task ConfirmAddEventAsync()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, CloseOnEscapeKey = true };
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Do you confirm addition of Event?",
+            yesText: "Yes",
+            noText: "Cancel",
+            options: options
+        );
+
+        if (result == true)
+        {
+            await AddEventAsync();
+            MudDialog?.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private void AddOpponent()
+    {
+        _teamSelections.Add(new TeamSelection { TeamID = null });
+    }
+
+    private void ClearFields()
+    {
+        _selectedEventStagesIDValue = null;
+        _selectedSportCategoryIDValue = 1;
+        _selectedSportIDValue = 13;
+        _selectedSportGenderCategoryIDValue = null;
+        _selectedSchoolLevelIDValue = null;
+
+        _selectedSchoolLevelAndGenderID = null;
+        _selectedMainCategoryValue = null;
+        _combinedSchoolLevelAndGenderNames = new List<string>();
+
+
+        foreach (var team in _teamSelections)
+        {
+            team.SelectedRegionID = null;
+            team.SelectedPlayerIDs = new List<string>();
+            team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+        }
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    public class PerformanceBasedDTO
+    {
+        public class PerformanceEvent
+        {
+            public int ID { get; set; }
+            public int? SportID { get; set; }
+            public string MainCategory { get; set; }
+            public int? LevelID { get; set; }
+            public int? GenderID { get; set; }
+            public int? StageID { get; set; }
+            public bool? IsFinished { get; set; }
+        }
+
+        public class PerformanceTeam
+        {
+            public int ID { get; set; }
+            public int? PerformanceID { get; set; }
+            public int? TeamID { get; set; }
+            public int? RegionID { get; set; }
+            public string PlayerID { get; set; }
+        }
+    }
+
+    public class EventsDTO
+    {
+        public class EventStages
+        {
+            public int ID { get; set; }
+            public string? Stage { get; set; }
+        }
+    }
+
+    public class ProfilesDTO
+    {
+        public class ProfilePlayerEvent
+        {
+            public string? ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public int? RegionID { get; set; }
+            public int? SubCategoryID { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class SportCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+        }
+
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+            public string? MainCategory { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+    }
+
+    private class TeamSelection
+    {
+        public int ID { get; set; }
+        public int? SelectedRegionID { get; set; }
+        public ICollection<string> SelectedPlayerIDs { get; set; } = new HashSet<string>();
+        public List<ProfilesDTO.ProfilePlayerEvent> AvailablePlayers { get; set; } = new List<ProfilesDTO.ProfilePlayerEvent>();
+        public int ExistingOpposingTeamID { get; set; }
+        public int? TeamID { get; set; }
+    }
+
+}

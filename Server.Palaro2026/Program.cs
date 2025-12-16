@@ -8,10 +8,18 @@ using Server.Palaro2026.Context;
 using Server.Palaro2026.Services;
 using System.Text;
 using System.Text.Json.Serialization;
+using OfficeOpenXml;
+using Server.Palaro2026.Services.UploadServices;
 
 var builder = WebApplication.CreateBuilder(args);
+
+ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddScoped<IPlayerImportService, PlayerImportService>();
+builder.Services.AddScoped<ICoachImportService, CoachImportService>();
+
 
 var connectionString = builder.Configuration.GetConnectionString("Palaro2026DB")
                        ?? throw new InvalidOperationException("Connection string is not configured properly.");
@@ -74,6 +82,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddOpenApi("v1", options => { options.AddDocumentTransformer<BearerSecuritySchemeTransformer>(); });
 builder.Services.AddScoped<ISqlDataAccess, SqlDataAccess>();
+
 var app = builder.Build();
 
 // Fallback for first-time execution (avoids null values)

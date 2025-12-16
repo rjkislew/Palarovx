@@ -1,0 +1,351 @@
+﻿@using Admin.Palaro2026.Dialogs.GeneralSchedule
+@inject IDialogService DialogService
+@inject APIService apiService
+
+@page "/schedule"
+
+
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge">
+    <!-- Header Section with Sport Filter -->
+    <MudItem xs="12" Style="margin-bottom: 2rem">
+        <MudStack AlignItems="AlignItems.Center" Class="flex-lg-row" Justify="Justify.SpaceBetween">
+            <MudItem>
+                <MudText Typo="Typo.h4" Style="font-weight: 600;">Sports Schedule</MudText>
+            </MudItem>
+            <MudItem>
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudSelect Value="_selectedSport"
+                               T="int?"
+                               ShrinkLabel Variant="Variant.Outlined"
+                               Label="Filter by Sport"
+                               Clearable Margin="Margin.Dense"
+                               ValueChanged="OnSportFilterChanged" Style="width: 350px">
+                        <MudSelectItem T="int?" Value="null">All Sports</MudSelectItem>
+                        @foreach (var sport in _sports)
+                        {
+                            <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudDivider Vertical="true" FlexItem="true"/>
+                    <MudButton @onclick="OpenDialogAsync"
+                               Style="text-transform: none"
+                               StartIcon="@Icons.Material.Filled.Add">
+                        Add Schedule
+                    </MudButton>
+                    <MudDivider Vertical="true" FlexItem="true" />
+                    <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadDataAsync">Refresh Table</MudButton>
+                </MudStack>
+            </MudItem>
+        </MudStack>
+    </MudItem>
+
+
+    <!-- Schedule Cards Grouped by Date -->
+    @if (_filteredSchedules.Any())
+    {
+        var groupedSchedules = _filteredSchedules
+            .Where(s => s.SportsID.HasValue)
+            .GroupBy(s => s.SportsID.Value)
+            .OrderBy(g => GetSportName(g.Key));
+
+        @foreach (var sportGroup in groupedSchedules)
+        {
+            <MudPaper Class="mb-6" Elevation="2" Style="overflow: hidden;">
+                <!-- Sport Header -->
+                <div style="background-color: #c3cfe2;" class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.h6" Style="font-weight: 600; color: #2c3e50;" Align="Align.Center">
+                                @GetSportName(sportGroup.Key)
+                            </MudText>
+                        </MudItem>
+                    </MudGrid>
+                </div>
+
+                <!-- Schedule Table -->
+                <div class="pa-4">
+                    <MudTable Items="@GetGroupedSchedulesByDate(sportGroup)"
+                              Context="scheduleGroup"
+                              Outlined="true"
+                              Elevation="1"
+                              Style="border-radius: 8px; overflow: hidden;">
+
+                        <ColGroup>
+                            <col style="width: 20%"/>
+                            <col style="width: 30%"/>
+                            <col style="width: 15%"/>
+                            <col style="width: 30%"/>
+                            <col style="width: 15%"/>
+                        </ColGroup>
+
+                        <HeaderContent>
+                            <MudTh>Date</MudTh>
+                            <MudTh>Description</MudTh>
+                            <MudTh>Time</MudTh>
+                            <MudTh>Activity</MudTh>
+                            <MudTh>Actions</MudTh>
+                        </HeaderContent>
+
+                        <RowTemplate>
+                            <MudTd DataLabel="Date">
+                                @if (scheduleGroup.IsFirstInDateGroup)
+                                {
+                                    @if (scheduleGroup.Schedule.Date.HasValue)
+                                    {
+                                        <MudText>@scheduleGroup.Schedule.Date.Value.ToString("MMMM dd, yyyy")</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Color="Color.Secondary">-</MudText>
+                                    }
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Description">
+                                <MudText>@(scheduleGroup.Schedule.Description ?? "-")</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Time">
+                                @if (scheduleGroup.Schedule.Activities.Any())
+                                {
+                                    <MudStack Spacing="1">
+                                        @foreach (var activity in scheduleGroup.Schedule.Activities.Take(2))
+                                        {
+                                            @if (activity.Time.HasValue)
+                                            {
+                                                <MudText
+                                                    Typo="Typo.caption">@DateTime.Today.Add(activity.Time.Value).ToString("hh:mm tt")</MudText>
+                                            }
+                                            else
+                                            {
+                                                <MudText
+                                                    Typo="Typo.caption">--:--</MudText>
+                                            }
+                                        }
+                                        @if (scheduleGroup.Schedule.Activities.Count > 2)
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Primary">
+                                                +@(scheduleGroup.Schedule.Activities.Count - 2) more
+                                            </MudText>
+                                        }
+                                    </MudStack>
+                                }
+                                else
+                                {
+                                    <MudText Color="Color.Secondary">-</MudText>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Activity">
+                                @if (scheduleGroup.Schedule.Activities.Any())
+                                {
+                                    <MudStack Spacing="1">
+                                        @foreach (var activity in scheduleGroup.Schedule.Activities.Take(2))
+                                        {
+                                            <MudText Typo="Typo.caption">@activity.ActivityName</MudText>
+                                        }
+                                        @if (scheduleGroup.Schedule.Activities.Count > 2)
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Primary">
+                                                +@(scheduleGroup.Schedule.Activities.Count - 2) more
+                                            </MudText>
+                                        }
+                                    </MudStack>
+                                }
+                                else
+                                {
+                                    <MudText Color="Color.Secondary">-</MudText>
+                                }
+                            </MudTd>
+                            <MudTd Style="text-align: center">
+                                <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1"
+                                               OnClick="() => OpenEditScheduleDialog(scheduleGroup.Schedule.ID)" />
+                            </MudTd>
+                        </RowTemplate>
+
+                        <NoRecordsContent>
+                            <MudTd ColSpan="5" Class="text-center py-4">
+                                <MudText Color="Color.Secondary">No schedules for this sport</MudText>
+                            </MudTd>
+                        </NoRecordsContent>
+
+                    </MudTable>
+                </div>
+            </MudPaper>
+        }
+    }
+    else
+    {
+        <!-- Empty State -->
+        <MudPaper Class="pa-12 text-center" Elevation="1" Style="border-radius: 16px;">
+            <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Large" Class="mb-4"/>
+            <MudText Typo="Typo.h6" Class="mb-2">No schedules found</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4">
+                @(_selectedSport.HasValue ? "No schedules for the selected sport." : "Get started by creating your first schedule.")
+            </MudText>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code
+{
+    private List<GeneralScheduleDTO> _schedules = new();
+    private List<GeneralScheduleDTO> _filteredSchedules = new();
+    private List<SportsDTO.Sports> _sports = new();
+    private int? _selectedSport = null;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        await GetScheduleAsync();
+        await GetSportsAsync();
+        ApplyFilter();
+    }
+
+    private async Task OnSportFilterChanged(int? selectedSport)
+    {
+        _selectedSport = selectedSport;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        if (_selectedSport.HasValue)
+        {
+            _filteredSchedules = _schedules
+                .Where(s => s.SportsID == _selectedSport.Value)
+                .OrderBy(s => s.Date)
+                .ToList();
+        }
+        else
+        {
+            _filteredSchedules = _schedules
+                .OrderBy(s => s.Date)
+                .ToList();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task GetScheduleAsync()
+    {
+        string url = "GeneralSchedule";
+        _schedules = await apiService.GetAsync<GeneralScheduleDTO>(url);
+    }
+
+    private async Task GetSportsAsync()
+    {
+        string url = $"/Sports";
+        _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
+    }
+
+    private string GetSportName(int? sportsId)
+    {
+        if (!sportsId.HasValue) return "Unknown Sport";
+        var sport = _sports.FirstOrDefault(s => s.ID == sportsId.Value);
+        return sport?.Sport ?? "Unknown Sport";
+    }
+
+    private Task OpenDialogAsync()
+    {
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            BackdropClick = false
+        };
+
+        return DialogService.ShowAsync<ScheduleDialog>("Add Schedule", options);
+    }
+    
+    private async Task OpenEditScheduleDialog(int scheduleId)
+    {
+        var parameters = new DialogParameters<ScheduleDialog>
+        {
+            { x => x.SelectedScheduleID, scheduleId },
+            { x => x.IsEditMode, true },
+            {x => x.OnScheduleChanged, EventCallback.Factory.Create(this, LoadDataAsync)}
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true,
+            BackdropClick = false
+        };
+
+        var dialog = await DialogService.ShowAsync<ScheduleDialog>("Edit Schedule", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadDataAsync();
+        }
+    }
+
+    private List<ScheduleGroup> GetGroupedSchedulesByDate(IEnumerable<GeneralScheduleDTO> schedules)
+    {
+        var result = new List<ScheduleGroup>();
+        var groupedByDate = schedules
+            .OrderBy(s => s.Date)
+            .ThenBy(s => s.Activities.Min(a => a.Time))
+            .GroupBy(s => s.Date?.Date);
+
+        foreach (var dateGroup in groupedByDate)
+        {
+            var first = true;
+            foreach (var schedule in dateGroup)
+            {
+                result.Add(new ScheduleGroup
+                {
+                    Schedule = schedule,
+                    IsFirstInDateGroup = first
+                });
+                first = false;
+            }
+        }
+
+        return result;
+    }
+
+    // Your existing DTO classes
+    public class GeneralScheduleDTO
+    {
+        public int ID { get; set; }
+        public int? SportsID { get; set; }
+        public DateTime? Date { get; set; }
+        public string? Description { get; set; }
+        public List<ActivityDTO> Activities { get; set; } = new List<ActivityDTO>();
+    }
+
+    public class ActivityDTO
+    {
+        public int ID { get; set; }
+        public int ScheduleID { get; set; }
+        public TimeSpan? Time { get; set; }
+        public string ActivityName { get; set; } = string.Empty;
+    }
+
+    public class SportsDTO
+    {
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+    }
+
+    public class ScheduleGroup
+    {
+        public GeneralScheduleDTO Schedule { get; set; }
+        public bool IsFirstInDateGroup { get; set; }
+    }
+}

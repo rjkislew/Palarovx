@@ -16,4 +16,7 @@ public partial class SchoolDivisions
 
     [JsonIgnore]
     public virtual ICollection<Schools> Schools { get; set; } = new List<Schools>();
+    
+    [JsonIgnore]
+    public virtual ICollection<ProfileCoaches> ProfileCoaches { get; set; } = new List<ProfileCoaches>();
 }

@@ -11,13 +11,16 @@ public partial class ProfilePlayers
     public string? FirstName { get; set; }
 
     public string? LastName { get; set; }
-
     public string? Sex { get; set; }
-
     public int? SchoolID { get; set; }
 
     public int? SportID { get; set; }
-
+    public string? MiddleInitial { get; set; }
+    public DateTime? BirthDate { get; set; }
+    public string? LRN { get; set; }
+    
+    public int? SportCategoryID { get; set; }
+    
     [JsonIgnore]
     public virtual ICollection<EventVersusTeamPlayers> EventVersusTeamPlayers { get; set; } = new List<EventVersusTeamPlayers>();
 
@@ -27,4 +30,5 @@ public partial class ProfilePlayers
     public virtual Schools? School { get; set; }
 
     public virtual Sports? Sport { get; set; }
+    public virtual SportCategories? SportCategory { get; set; }
 }

@@ -1,0 +1,848 @@
+﻿@inject ISnackbar Snackbar
+@inject APIService apiService
+@inject IDialogService DialogService
+
+@if (_isLoaded == true)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudGrid Spacing="5">
+                <!-- Player Info -->
+                <MudItem xs="12" Class="mb-3">
+                    @if (IsTeamEvent)
+                    {
+                        <MudText Typo="Typo.h6"> @_regionName</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h6" Class="mb-2">@_playerName</MudText>
+                        <MudText Typo="Typo.caption">Region: @_regionName</MudText>
+                    }
+                    <MudDivider Class="my-2"/>
+                </MudItem>
+
+                <!-- Sport Details -->
+                <MudItem xs="12" Class="mb-3">
+                    <MudStack Spacing="1">
+                        <MudGrid Spacing="1">
+                            <MudItem xs="12">
+                                <MudSelect @bind-Value="_selectedMainCategory" Margin="Margin.Dense"
+                                           Label="Event" T="string"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable
+                                           ReadOnly="true">
+                                    @if (!string.IsNullOrEmpty(_selectedMainCategory))
+                                    {
+                                        <MudSelectItem
+                                            Value="@_selectedMainCategory">@_selectedMainCategory</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12">
+                                <MudSelect Value="@_selectedSubcategoryId"
+                                           ValueChanged="@((int? value) => OnSubcategoryChanged(value))"
+                                           Margin="Margin.Dense"
+                                           Label="Category" T="int?"
+                                           ShrinkLabel Variant="Variant.Outlined" Clearable>
+                                    <MudVirtualize Items="_sportSubcategories" Context="subCategory">
+                                        <MudSelectItem T="int?"
+                                                       Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                                    </MudVirtualize>
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12">
+                                <MudNumericField @bind-Value="_scoreValue"
+                                                 HideSpinButtons="true"
+                                                 Label="Score"
+                                                 Variant="Variant.Outlined"
+                                                 Min="0"
+                                                 Max="10"
+                                                 Step="0.1"
+                                                 Margin="Margin.Dense"
+                                                 Disabled="@_isScoreInputDisabled" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudButton Variant="Variant.Text" OnClick="ConfirmSaveScore">Save</MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter] public int RegionID { get; set; }
+    [Parameter] public string PlayerID { get; set; } = string.Empty;
+    [Parameter] public int? EventID { get; set; }
+    [Parameter] public EventCallback OnScoreSaved { get; set; }
+    
+    [Parameter] public bool IsTeamEvent { get; set; } = false;
+    [Parameter] public List<string> TeamPlayerIDs { get; set; } = new();
+    [Parameter] public int? TeamID { get; set; }
+
+    private string _playerName = "Loading...";
+    private string _regionName = "Loading...";
+    private double _scoreValue;
+    private string? _selectedMainCategory;
+    private int? _selectedSubcategoryId;
+    private bool _isLoaded = false;
+    private int? _existingScoreId;
+
+    private bool _isScoreInputDisabled = false; // Add this flag
+    private int? _eliminationRank; // Add this to store current rank
+    private int _eventStageId = 0;
+
+    private List<string> _mainCategories = new();
+    private PerformanceBasedDTO.PerformanceEvent? _selectedEvent;
+    private List<SportsDTO.SportSubcategories> _sportSubcategories = new();
+    private List<SportsDTO.SportSubcategories> _filteredSubcategories = new();
+    private int? _opposingTeamId;
+    private string _currentUserId = string.Empty;
+    
+    private List<string> _teamPlayerNames = new();
+
+    private List<SportsDTO.SportGenderCategories> _sportGenderCategories = new();
+    private List<SchoolsDTO.SchoolLevels> _schoolLevels = new();
+    private int? _selectedSportIDValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInitialData();
+        _isLoaded = true;
+    }
+
+    private async Task LoadInitialData()
+    {
+        try
+        {
+            await GetCurrentUser();
+            await LoadEventData();
+            await LoadPlayerAndRegionData();
+            await LoadSportData(); 
+            await LoadOpposingTeam();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading data: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task GetCurrentUser()
+    {
+        _currentUserId = "current_user_id";
+    }
+
+    private async Task LoadEventData()
+    {
+        try
+        {
+            if (!EventID.HasValue)
+            {
+                Snackbar.Add("No event ID provided", Severity.Error);
+                return;
+            }
+
+            string eventUrl = $"/PerformanceBased/PerformanceEvent/{EventID.Value}";
+            _selectedEvent = await apiService.GetSingleAsync<PerformanceBasedDTO.PerformanceEvent>(eventUrl);
+
+            if (_selectedEvent == null)
+            {
+                var eventList = await apiService.GetAsync<PerformanceBasedDTO.PerformanceEvent>(eventUrl);
+                _selectedEvent = eventList?.FirstOrDefault();
+            }
+
+            if (_selectedEvent != null)
+            {
+                _selectedMainCategory = _selectedEvent.MainCategory;
+                _selectedSportIDValue = _selectedEvent.SportID;
+                _eventStageId = _selectedEvent.StageID;
+
+                // Load the necessary data for filtering
+                await GetGenderCategoriesAsync();
+                await GetSchoolLevelsAsync();
+
+                // Now filter subcategories using the event data
+                await FilterSubcategoriesByEvent();
+            }
+            else
+            {
+                Snackbar.Add($"Event not found for ID: {EventID.Value}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading event data: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task FilterSubcategoriesByEvent()
+    {
+        if (_selectedEvent == null) return;
+
+        try
+        {
+            // Use the specific filtering method with event data
+            await GetSportSubCategoriesAsync();
+
+            if (!string.IsNullOrEmpty(_selectedMainCategory))
+            {
+                await FilterSubcategoriesByMainCategory();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error filtering subcategories: {ex.Message}", Severity.Error);
+        }
+    }
+
+   private async Task LoadPlayerAndRegionData()
+    {
+        if (IsTeamEvent && TeamPlayerIDs.Any())
+        {
+            await LoadTeamPlayerNames();
+        }
+        else if (!string.IsNullOrEmpty(PlayerID) && EventID != null)
+        {
+            try
+            {
+                string playerUrl = $"/Profiles/Player?id={PlayerID}";
+                var playerResult = await apiService.GetAsync<ProfilePlayersDTO.Players>(playerUrl);
+                var player = playerResult?.FirstOrDefault();
+
+                if (player != null)
+                {
+                    _playerName = $"{player.FirstName} {player.LastName}";
+                }
+                else
+                {
+                    _playerName = "Player not found";
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error loading player data: {ex.Message}", Severity.Error);
+            }
+        }
+
+        try
+        {
+            string regionUrl = $"/Schools/Regions?id={RegionID}";
+            var regionResult = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(regionUrl);
+            var region = regionResult?.FirstOrDefault();
+
+            if (region != null)
+            {
+                _regionName = region.Abbreviation ?? region.Region;
+            }
+            else
+            {
+                _regionName = "Region not found";
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading region data: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task LoadTeamPlayerNames()
+    {
+        _teamPlayerNames = new List<string>();
+        
+        foreach (var playerId in TeamPlayerIDs)
+        {
+            try
+            {
+                string playerUrl = $"/Profiles/Player?id={playerId}";
+                var playerResult = await apiService.GetAsync<ProfilePlayersDTO.Players>(playerUrl);
+                var player = playerResult?.FirstOrDefault();
+
+                if (player != null)
+                {
+                    _teamPlayerNames.Add($"{player.FirstName} {player.LastName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error loading team player {playerId}: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task LoadOpposingTeam()
+    {
+        if (EventID == null) return;
+
+        try
+        {
+            // Get ALL opposing teams for this event
+            string url = $"/PerformanceBased/OpposingTeams/{EventID}";
+            var teams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(url);
+
+            PerformanceBasedDTO.PerformanceTeam team;
+
+            if (IsTeamEvent && TeamID.HasValue)
+            {
+                // For teams, find by TeamID and RegionID
+                team = teams?.FirstOrDefault(t =>
+                    t.RegionID == RegionID &&
+                    t.TeamID == TeamID &&
+                    t.PerformanceID == EventID);
+            }
+            else
+            {
+                // For individuals, find by PlayerID and RegionID
+                team = teams?.FirstOrDefault(t =>
+                    t.RegionID == RegionID &&
+                    t.PlayerID == PlayerID &&
+                    t.PerformanceID == EventID);
+            }
+
+            if (team != null)
+            {
+                _opposingTeamId = team.ID;
+            }
+            else
+            {
+                Snackbar.Add("Could not find team information", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading team data: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task LoadSportData()
+    {
+        try
+        {
+            // If we haven't loaded specific subcategories yet, load all as fallback
+            if (!_sportSubcategories.Any())
+            {
+                string subcategoriesUrl = "/Sports/Subcategories";
+                _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(subcategoriesUrl)
+                                      ?? new List<SportsDTO.SportSubcategories>();
+            }
+
+            LoadMainCategories();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading sport data: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void LoadMainCategories()
+    {
+        _mainCategories = _sportSubcategories
+            .Where(sc => !string.IsNullOrEmpty(sc.MainCategory))
+            .Select(sc => sc.MainCategory!)
+            .Distinct()
+            .ToList();
+    }
+
+    private async Task LoadExistingScore()
+    {
+        if (EventID == null) return;
+
+        try
+        {
+            string url = $"/PerformanceScore/Score/{EventID}";
+            var scores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(url) ?? new List<PerformanceBasedDTO.PerformanceScore>();
+
+            var existingScore = scores.FirstOrDefault(s =>
+                s.PerformanceTeamID == _opposingTeamId &&
+                s.SportSubcategoryID == _selectedSubcategoryId &&
+                ((IsTeamEvent && s.TeamID.HasValue) || (!IsTeamEvent && !s.TeamID.HasValue))); // Match team/individual type
+
+            if (existingScore != null)
+            {
+                _existingScoreId = existingScore.ID;
+                _scoreValue = (double)existingScore.Score;
+            }
+            else
+            {
+                _existingScoreId = null;
+                _scoreValue = 0;
+            }
+
+            await CheckEliminationRankAndPermission();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading existing score: {ex.Message}", Severity.Error);
+
+            _existingScoreId = null;
+            _scoreValue = 0;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CheckEliminationRankAndPermission()
+    {
+        if (_eventStageId != 4)
+        {
+            _isScoreInputDisabled = false;
+            _eliminationRank = null;
+            return;
+        }
+
+        try
+        {
+            if (_selectedEvent == null) return;
+
+            int? eliminationEventId = await GetEliminationStageEventId();
+
+            if (!eliminationEventId.HasValue)
+            {
+                _isScoreInputDisabled = false;
+                _eliminationRank = null;
+                return;
+            }
+
+            _eliminationRank = await GetPlayerEliminationRank(eliminationEventId.Value);
+
+            if (_eliminationRank.HasValue && _eliminationRank.Value >= 9)
+            {
+                _isScoreInputDisabled = true;
+            }
+            else
+            {
+                _isScoreInputDisabled = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error checking elimination rank: {ex.Message}", Severity.Error);
+            _isScoreInputDisabled = false;
+            _eliminationRank = null;
+        }
+    }
+
+    private async Task<int?> GetEliminationStageEventId()
+    {
+        try
+        {
+            if (_selectedEvent == null) return null;
+
+            var parameters = new List<string>();
+
+            if (_selectedEvent.SportID.HasValue)
+                parameters.Add($"sportID={_selectedEvent.SportID}");
+
+            if (!string.IsNullOrEmpty(_selectedMainCategory))
+                parameters.Add($"mainCategory={Uri.EscapeDataString(_selectedMainCategory)}");
+
+            if (_selectedEvent.LevelID.HasValue)
+                parameters.Add($"schoolLevelID={_selectedEvent.LevelID}");
+
+            if (_selectedEvent.GenderID.HasValue)
+                parameters.Add($"genderID={_selectedEvent.GenderID}");
+
+            parameters.Add($"stageID=1");
+
+            string url = "/PerformanceBased/PerformanceEvents";
+            if (parameters.Any())
+                url += "?" + string.Join("&", parameters);
+
+            var eliminationEvents = await apiService.GetAsync<PerformanceBasedDTO.PerformanceEvent>(url);
+
+            return eliminationEvents?.FirstOrDefault()?.ID;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error finding elimination stage: {ex.Message}", Severity.Warning);
+            return null;
+        }
+    }
+
+    private async Task<int?> GetPlayerEliminationRank(int eliminationEventId)
+    {
+        try
+        {
+            string teamUrl = $"/PerformanceBased/OpposingTeams/{eliminationEventId}";
+            var teams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(teamUrl);
+
+            PerformanceBasedDTO.PerformanceTeam team;
+
+            if (IsTeamEvent && TeamID.HasValue)
+            {
+                team = teams?.FirstOrDefault(t =>
+                    t.RegionID == RegionID &&
+                    t.TeamID == TeamID &&
+                    t.PerformanceID == eliminationEventId);
+            }
+            else
+            {
+                team = teams?.FirstOrDefault(t =>
+                    t.RegionID == RegionID &&
+                    t.PlayerID == PlayerID &&
+                    t.PerformanceID == eliminationEventId);
+            }
+
+            if (team == null)
+            {
+                return null;
+            }
+
+            string scoresUrl = $"/PerformanceScore/Score/{eliminationEventId}";
+            var scores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(scoresUrl)
+                         ?? new List<PerformanceBasedDTO.PerformanceScore>();
+
+            var eliminationScore = scores.FirstOrDefault(s =>
+                s.PerformanceTeamID == team.ID &&
+                s.SportSubcategoryID == _selectedSubcategoryId &&
+                ((IsTeamEvent && s.TeamID.HasValue) || (!IsTeamEvent && !s.TeamID.HasValue)));
+
+            return eliminationScore?.Rank;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting elimination rank: {ex.Message}", Severity.Warning);
+            return null;
+        }
+    }
+
+    private async Task OnSubcategoryChanged(int? newValue)
+    {
+        _selectedSubcategoryId = newValue;
+    
+        _scoreValue = 0;
+        _existingScoreId = null;
+    
+        if (_selectedSubcategoryId.HasValue && _opposingTeamId.HasValue)
+        {
+            await LoadExistingScore();
+        }
+        else
+        {
+            StateHasChanged(); // Ensure UI updates even if we don't load
+        }
+    }
+
+    private async Task FilterSubcategoriesByMainCategory()
+    {
+        if (string.IsNullOrEmpty(_selectedMainCategory))
+        {
+            _filteredSubcategories = new List<SportsDTO.SportSubcategories>();
+            return;
+        }
+
+        _filteredSubcategories = _sportSubcategories
+            .Where(sc => sc.MainCategory == _selectedMainCategory)
+            .ToList();
+
+        StateHasChanged();
+    }
+
+    private async Task GetGenderCategoriesAsync()
+    {
+        try
+        {
+            string url = "/Sports/GenderCategories";
+            _sportGenderCategories = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url)
+                                     ?? new List<SportsDTO.SportGenderCategories>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading gender categories: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        try
+        {
+            string url = "/Schools/Levels";
+            _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url)
+                            ?? new List<SchoolsDTO.SchoolLevels>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading school levels: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task GetSportSubCategoriesAsync()
+    {
+        if (_selectedEvent == null) return;
+
+        try
+        {
+            var parameters = new List<string>();
+
+            if (_selectedEvent.SportID.HasValue)
+                parameters.Add($"sportID={_selectedEvent.SportID}");
+
+            if (_selectedEvent.LevelID.HasValue)
+                parameters.Add($"schoolLevelID={_selectedEvent.LevelID}");
+
+            if (_selectedEvent.GenderID.HasValue)
+                parameters.Add($"sportGenderCategoryID={_selectedEvent.GenderID}");
+
+            if (!string.IsNullOrEmpty(_selectedMainCategory))
+                parameters.Add($"mainCategory={Uri.EscapeDataString(_selectedMainCategory)}");
+
+            string url = "/Sports/Subcategories";
+            if (parameters.Any())
+                url += "?" + string.Join("&", parameters);
+
+            var filteredSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
+
+            if (filteredSubcategories != null && filteredSubcategories.Any())
+            {
+                _sportSubcategories = filteredSubcategories;
+            }
+            else
+            {
+                string fallbackUrl = "/Sports/Subcategories";
+                _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(fallbackUrl)
+                                      ?? new List<SportsDTO.SportSubcategories>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading sport subcategories: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ConfirmSaveScore()
+    {
+        if (!_selectedSubcategoryId.HasValue || _scoreValue <= 0 || !_opposingTeamId.HasValue)
+        {
+            Snackbar.Add("Please select a category and enter a valid score", Severity.Warning);
+            return;
+        }
+
+        string action = _existingScoreId.HasValue ? "update" : "add";
+
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Confirm Save Score",
+            message: $"Are you sure you want to {action} this score?",
+            yesText: "Yes",
+            cancelText: "Cancel"
+        );
+
+        if (result == true)
+        {
+            await SaveScore();
+        }
+    }
+
+    private async Task SaveScore()
+    {
+        try
+        {
+            if (!_selectedSubcategoryId.HasValue || _scoreValue <= 0 || !_opposingTeamId.HasValue)
+            {
+                Snackbar.Add("Please select a category and enter a valid score", Severity.Warning);
+                return;
+            }
+
+            var scoreData = new PerformanceBasedDTO.PerformanceScore()
+            {
+                PerformanceID = EventID.Value,
+                PerformanceTeamID = _opposingTeamId.Value,
+                SportSubcategoryID = _selectedSubcategoryId.Value,
+                Score = (decimal)_scoreValue,
+                Rank = 0, 
+                UserID = null,
+                UpdatedAt = DateTime.Now,
+                TeamID = IsTeamEvent ? TeamID : null
+            };
+
+            bool success = false;
+
+            if (_existingScoreId.HasValue)
+            {
+                // Update existing score
+                scoreData.ID = _existingScoreId.Value;
+                string url = $"/PerformanceScore/Score/{_existingScoreId.Value}";
+                success = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(url, scoreData);
+
+                if (success)
+                {
+                    Snackbar.Add("Score updated successfully!", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Failed to update score", Severity.Error);
+                }
+            }
+            else
+            {
+                // Create new score
+                string url = "/PerformanceScore/Score";
+                var result = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(url, scoreData);
+                success = result != null;
+
+                if (success)
+                {
+                    Snackbar.Add("Score saved successfully!", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Failed to save score", Severity.Error);
+                }
+            }
+
+            if (success)
+            {
+                await CalculateAndUpdateRanks();
+
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving score: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CalculateAndUpdateRanks()
+    {
+        if (!EventID.HasValue || !_selectedSubcategoryId.HasValue) return;
+
+        try
+        {
+            string url = $"/PerformanceScore/Score/{EventID}";
+            var allScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(url)
+                            ?? new List<PerformanceBasedDTO.PerformanceScore>();
+
+            // Filter by current subcategory
+            var scores = allScores
+                .Where(s => s.SportSubcategoryID == _selectedSubcategoryId.Value)
+                .ToList();
+
+            if (!scores.Any()) return;
+
+            // Order scores by descending (higher score = higher rank)
+            var orderedScores = scores.OrderByDescending(s => s.Score).ToList();
+
+            // Calculate ranks (same score = same rank)
+            int currentRank = 1;
+            decimal previousScore = -1;
+            int sameScoreCount = 0;
+
+            for (int i = 0; i < orderedScores.Count; i++)
+            {
+                if (orderedScores[i].Score == previousScore)
+                {
+                    sameScoreCount++;
+                }
+                else
+                {
+                    currentRank += sameScoreCount;
+                    sameScoreCount = 1;
+                    previousScore = orderedScores[i].Score;
+                }
+
+                orderedScores[i].Rank = currentRank;
+            }
+
+            // Update all scores with new ranks
+            foreach (var score in orderedScores)
+            {
+                string updateUrl = $"/PerformanceScore/Score/{score.ID}";
+                await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(updateUrl, score);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error calculating ranks: {ex.Message}", Severity.Error);
+        }
+    }
+
+
+
+
+    // Data models
+    public class PerformanceBasedDTO
+    {
+        public class PerformanceEvent
+        {
+            public int ID { get; set; }
+            public int? SportID { get; set; }
+            public string MainCategory { get; set; }
+            public int? LevelID { get; set; }
+            public int? GenderID { get; set; }
+            public int StageID { get; set; }
+        }
+
+        public class PerformanceTeam
+        {
+            public int ID { get; set; }
+            public int PerformanceID { get; set; }
+            public int? TeamID { get; set; }
+            public int RegionID { get; set; }
+            public string PlayerID { get; set; }
+        }
+
+        public class PerformanceScore
+        {
+            public int ID { get; set; }
+            public int PerformanceID { get; set; }
+            public int PerformanceTeamID { get; set; }
+            public int SportSubcategoryID { get; set; }
+            public decimal Score { get; set; }
+            public int Rank { get; set; }
+            public string? UserID { get; set; }
+            public DateTime UpdatedAt { get; set; }
+            public int? TeamID { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+            public string? MainCategory { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolRegions
+        {
+            public int ID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+        }
+
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+    }
+
+    public class ProfilePlayersDTO
+    {
+        public class Players
+        {
+            public string ID { get; set; } = string.Empty;
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+    }
+
+}

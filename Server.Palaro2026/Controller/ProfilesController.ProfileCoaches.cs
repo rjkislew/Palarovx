@@ -17,7 +17,16 @@ namespace Server.Palaro2026.Controller
                ID = profileCoaches.ID,
                FirstName = profileCoaches.FirstName,
                LastName = profileCoaches.LastName,
+               MiddleInitial = profileCoaches.MiddleInitial,
+               Sex = profileCoaches.Sex,
+               BirthDate = profileCoaches.BirthDate,
+               Designation = profileCoaches.Designation,
+               SportID = profileCoaches.SportID,
+               GenderCategoryID = profileCoaches.GenderCategoryID,
                SchoolRegionID = profileCoaches.SchoolRegionID,
+               SchoolDivisionID = profileCoaches.SchoolDivisionID,
+               SchoolID = profileCoaches.SchoolID,
+               SportCategoryID = profileCoaches.SportCategoryID
            };
 
         [HttpGet("Coach")] // /api/Profiles/Coach
@@ -25,7 +34,16 @@ namespace Server.Palaro2026.Controller
         [FromQuery] string? ID = null,
         [FromQuery] string? firstName = null,
         [FromQuery] string? lastName = null,
-        [FromQuery] int? schoolRegionID = null)
+        [FromQuery] string? middleInitial = null,
+        [FromQuery] string? sex = null,
+        [FromQuery] DateTime? birthDate = null,
+        [FromQuery] string? designation = null,
+        [FromQuery] int? sportsID = null,
+        [FromQuery] int? genderCategoryID = null,
+        [FromQuery] int? sportCategoryID = null,
+        [FromQuery] int? schoolRegionID = null,
+        [FromQuery] int? schoolDivisionID = null,
+        [FromQuery] int? schoolID = null)
         {
             var query = _context.ProfileCoaches.AsQueryable();
 
@@ -37,9 +55,36 @@ namespace Server.Palaro2026.Controller
 
             if (!string.IsNullOrEmpty(lastName))
                 query = query.Where(x => x.LastName!.Contains(lastName));
+            
+            if (!string.IsNullOrEmpty(middleInitial))
+                query = query.Where(x => x.MiddleInitial!.Contains(middleInitial));
+            
+            if (!string.IsNullOrEmpty(sex))
+                query = query.Where(x => x.Sex!.Contains(sex));
+            
+            if (birthDate.HasValue)
+                query = query.Where(x => x.BirthDate == birthDate.Value);
+            
+            if (!string.IsNullOrEmpty(designation))
+                query = query.Where(x => x.Designation!.Contains(designation));
+            
+            if (sportCategoryID.HasValue)
+                query = query.Where(x => x.SportCategoryID == sportCategoryID.Value);
+            
+            if (sportsID.HasValue)
+                query = query.Where(x => x.SportID == sportsID.Value);
+            
+            if (genderCategoryID.HasValue)
+                query = query.Where(x => x.GenderCategoryID == genderCategoryID.Value);
 
             if (schoolRegionID.HasValue)
                 query = query.Where(x => x.SchoolRegionID == schoolRegionID.Value);
+            
+            if (schoolDivisionID.HasValue)
+                query = query.Where(x => x.SchoolDivisionID == schoolDivisionID.Value);
+            
+            if (schoolID.HasValue)
+                query = query.Where(x => x.SchoolID == schoolID.Value);
 
             return await query
                 .Select(x => ProfileCoachesDTOMapper(x))
@@ -55,7 +100,16 @@ namespace Server.Palaro2026.Controller
                 ID = profileCoaches.ID,
                 FirstName = profileCoaches.FirstName,
                 LastName = profileCoaches.LastName,
+                MiddleInitial = profileCoaches.MiddleInitial,
+                Sex = profileCoaches.Sex,
+                BirthDate = profileCoaches.BirthDate,
+                Designation = profileCoaches.Designation,
+                SportID = profileCoaches.SportID,
+                GenderCategoryID = profileCoaches.GenderCategoryID,
                 SchoolRegionID = profileCoaches.SchoolRegionID,
+                SchoolDivisionID = profileCoaches.SchoolDivisionID,
+                SchoolID = profileCoaches.SchoolID,
+                SportCategoryID = profileCoaches.SportCategoryID
             };
 
             _context.ProfileCoaches.Add(profileCoachesDTO);
@@ -95,7 +149,17 @@ namespace Server.Palaro2026.Controller
             existingCoachProfile.FirstName = profileCoaches.FirstName;
             existingCoachProfile.LastName = profileCoaches.LastName;
             existingCoachProfile.SchoolRegionID = profileCoaches.SchoolRegionID;
+            existingCoachProfile.Sex = profileCoaches.Sex;
+            existingCoachProfile.Designation = profileCoaches.Designation;
+            existingCoachProfile.MiddleInitial = profileCoaches.MiddleInitial;
+            existingCoachProfile.BirthDate = profileCoaches.BirthDate;
+            existingCoachProfile.SportID = profileCoaches.SportID;
+            existingCoachProfile.GenderCategoryID = profileCoaches.GenderCategoryID;
+            existingCoachProfile.SchoolDivisionID = profileCoaches.SchoolDivisionID;
+            existingCoachProfile.SchoolID = profileCoaches.SchoolID;
+            existingCoachProfile.SportCategoryID = profileCoaches.SportCategoryID;
 
+            
             try
             {
                 await _context.SaveChangesAsync();
@@ -142,7 +206,7 @@ namespace Server.Palaro2026.Controller
         }
 
         [HttpDelete("Coach/{id}")] // /api/Profiles/Coach/{id}
-        public async Task<IActionResult> DeleteProfileCoaches(int id)
+        public async Task<IActionResult> DeleteProfileCoaches(string id)
         {
             var ProfileCoaches = await _context.ProfileCoaches.FindAsync(id);
             if (ProfileCoaches == null)

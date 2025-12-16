@@ -17,6 +17,11 @@ namespace Server.Palaro2026.Controller
                LastName = profilePlayers.LastName,
                SchoolID = profilePlayers.SchoolID,
                SportID = profilePlayers.SportID,
+               MiddleInitial = profilePlayers.MiddleInitial,
+               Sex = profilePlayers.Sex,
+               BirthDate = profilePlayers.BirthDate,
+               LRN = profilePlayers.LRN,
+               SportCategoryID = profilePlayers.SportCategoryID,
            };
 
         [HttpGet("Player")] // /api/Profiles/Player
@@ -25,7 +30,12 @@ namespace Server.Palaro2026.Controller
         [FromQuery] string? firstName = null,
         [FromQuery] string? lastName = null,
         [FromQuery] int? schoolID = null,
-        [FromQuery] int? sportID = null)
+        [FromQuery] int? sportID = null,
+        [FromQuery] string? middleInitial = null,
+        [FromQuery] string? sex = null,
+        [FromQuery] DateTime? birthDate = null,
+        [FromQuery] string? lrn = null,
+        [FromQuery] int? sportCategoryID = null)
         {
             var query = _context.ProfilePlayers.AsQueryable();
 
@@ -40,11 +50,25 @@ namespace Server.Palaro2026.Controller
 
             if (schoolID.HasValue)
                 query = query.Where(x => x.SchoolID == schoolID.Value);
+            
+            if (sportCategoryID.HasValue)
+                query = query.Where(x => x.SportCategoryID == sportCategoryID.Value);
 
             if (sportID.HasValue)
                 query = query.Where(x => x.SportID == sportID.Value);
-
-
+            
+            if (!string.IsNullOrEmpty(middleInitial))
+                query = query.Where(x => x.MiddleInitial!.Contains(middleInitial));
+            
+            if (!string.IsNullOrEmpty(sex))
+                query = query.Where(x => x.Sex!.Contains(sex));
+            
+            if (birthDate.HasValue)
+                query = query.Where(x => x.BirthDate == birthDate.Value);
+            
+            if (!string.IsNullOrEmpty(lrn))
+                query = query.Where(p => p.LRN != null && p.LRN.Contains(lrn));
+            
             return await query
                 .Select(x => ProfilePlayersDTOMapper(x))
                 .AsNoTracking()
@@ -61,6 +85,11 @@ namespace Server.Palaro2026.Controller
                 LastName = profilePlayers.LastName,
                 SchoolID = profilePlayers.SchoolID,
                 SportID = profilePlayers.SportID,
+                MiddleInitial = profilePlayers.MiddleInitial,
+                Sex = profilePlayers.Sex,
+                BirthDate = profilePlayers.BirthDate,
+                LRN = profilePlayers.LRN,
+                SportCategoryID = profilePlayers.SportCategoryID,
             };
 
             _context.ProfilePlayers.Add(profilePlayersDTO);
@@ -99,8 +128,14 @@ namespace Server.Palaro2026.Controller
 
             existingPlayerProfile.FirstName = profilePlayers.FirstName;
             existingPlayerProfile.LastName = profilePlayers.LastName;
+            existingPlayerProfile.MiddleInitial = profilePlayers.MiddleInitial;
+            existingPlayerProfile.Sex = profilePlayers.Sex;
+            existingPlayerProfile.BirthDate = profilePlayers.BirthDate;
+            existingPlayerProfile.LRN = profilePlayers.LRN;
             existingPlayerProfile.SchoolID = profilePlayers.SchoolID;
             existingPlayerProfile.SportID = profilePlayers.SportID;
+            existingPlayerProfile.SportCategoryID = profilePlayers.SportCategoryID;
+
 
             try
             {

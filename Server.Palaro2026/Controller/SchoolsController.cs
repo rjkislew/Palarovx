@@ -28,7 +28,7 @@ namespace Server.Palaro2026.Controller
             {
                 var schools = await _context.Schools
                     .Include(s => s.SchoolDivision)
-                        .ThenInclude(d => d!.SchoolRegion)
+                    .ThenInclude(d => d!.SchoolRegion)
                     .Include(s => s.SchoolLevels)
                     .AsNoTracking()
                     .ToListAsync();
@@ -42,7 +42,10 @@ namespace Server.Palaro2026.Controller
                         Level = s.SchoolLevels?.Level,
                         Division = s.SchoolDivision?.Division,
                         Region = s.SchoolDivision?.SchoolRegion?.Region,
-                        Abbreviation = s.SchoolDivision?.SchoolRegion?.Abbreviation
+                        Abbreviation = s.SchoolDivision?.SchoolRegion?.Abbreviation,
+                        SchoolAddress = s.SchoolAddress,
+                        SchoolCode = s.SchoolCode,
+                        SchoolType = s.SchoolType
                     })
                     .ToList();
 

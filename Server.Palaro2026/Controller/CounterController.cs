@@ -81,8 +81,8 @@ namespace Server.Palaro2026.Controller
                     NumberOfSchoolsParticipating = schoolsList.Count(),
                     NumberOfCoaches = coachesList.Count(),
                     NumberOfPlayers = playersList.Count(),
-                    NumberOfMalePlayers = playersList.Where(e => e.Sex == "Male").Count(),
-                    NumberOfFemalePlayers = playersList.Where(e => e.Sex == "Female").Count(),
+                    NumberOfMalePlayers = playersList.Where(e => e.Sex == "M").Count(),
+                    NumberOfFemalePlayers = playersList.Where(e => e.Sex == "F").Count(),
                 };
 
                 return Ok(result);
