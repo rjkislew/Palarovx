@@ -31,12 +31,6 @@ public class EventsDTO
             public string ID { get; set; } = null!;
             public string? EventStage { get; set; }
             public List<EventVersusTeams>? EventVersusList { get; set; }
-            //
-            //
-            public List<EventVersusTeamScores>? EventVersusScoreList { get; set; }
-            //
-            
-
             public string? Category { get; set; }
             public string? Sport { get; set; }
             public string? GamePhase { get; set; }
@@ -74,19 +68,6 @@ public class EventsDTO
             public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
             public DateTime? RecentUpdateAt { get; set; }
         }
-        //
-        public class EventVersusTeamScores
-        {
-            public int ID { get; set; }
-            public string? Point { get; set; }
-            public string? Region { get; set; }
-            public string? Abbreviation { get; set; }
-            public string? Rank { get; set; }
-            public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
-            public DateTime? RecentUpdateAt { get; set; }
-        }
-
-        //
 
         public class EventVersusTeamPlayers
         {
@@ -105,9 +86,6 @@ public class EventsDTO
             public string ID { get; set; } = null!;
             public string? EventStage { get; set; }
             public List<EventVersusTeams>? EventVersusList { get; set; }
-            //
-            public List<EventVersusTeamScores>? EventVersusScoreList { get; set; }
-            //
             public string? Category { get; set; }
             public string? Sport { get; set; }
             //
@@ -234,32 +212,6 @@ public class EventsDTO
     {
         public int ID { get; set; }
         public int? EventVersusID { get; set; }
-        //
-        public int? EventVersusTeamScoreID { get; set; }
-        //
         public string? ProfilePlayerID { get; set; }
     }
-
-    ///
-    public class EventVersusTeamScores
-    {
-        public int ID { get; set; }
-        public string? EventID { get; set; }
-        public int? SchoolRegionID { get; set; }
-        public int PhaseNumber { get; set; }
-        public string? Point { get; set; }
-        public string? Rank { get; set; }
-        public DateTime? RecentUpdateAt { get; set; }
-    }
-
-    public class EventVersusTeamsScoreUpdateDTO
-    {
-        public int PhaseNumber { get; set; }
-        public string? Point { get; set; }
-        public int? SchoolRegionID { get; set; }
-        public string? EventID { get; set; }
-        public string? Rank { get; set; }
-        public DateTime? RecentUpdateAt { get; set; }
-    }
-    //
 }

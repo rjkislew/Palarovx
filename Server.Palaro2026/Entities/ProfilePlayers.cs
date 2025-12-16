@@ -12,7 +12,7 @@ public partial class ProfilePlayers
 
     public string? LastName { get; set; }
 
-    public string? Gender { get; set; }
+    public string? Sex { get; set; }
 
     public int? SchoolID { get; set; }
 

@@ -1,0 +1,1186 @@
+﻿@page "/score/teammatch"
+@inject APIService apiService
+@inject ISnackbar Snackbar
+
+<PageTitle>Team Match Scores | PALARO 2026</PageTitle>
+<MudText Typo="Typo.h6" Align="Align.Center">Team Match Scores</MudText>
+
+<!-- FILTERS SECTION -->
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudText Typo="Typo.h6" Class="mb-4">Event Filters</MudText>
+    <MudGrid Spacing="3" Justify="Justify.Center">
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport"
+                       T="int?"
+                       ShrinkLabel Variant="Variant.Outlined"
+                       SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                  {
+                                                      _selectedSchoolLevelAndGenderID = null;
+                                                      _selectedSportSubcategoryIDValue = null;
+                                                      _selectedMainCategoryValue = null;
+                                                      await FilterSchoolLevelAndGenderAsync();
+                                                  }))">
+                <MudSelectItem T="int?" Value="4">Badminton</MudSelectItem>
+                <MudSelectItem T="int?" Value="5">Baseball</MudSelectItem>
+                <MudSelectItem T="int?" Value="6">Basketball</MudSelectItem>
+                <MudSelectItem T="int?" Value="11">Football</MudSelectItem>
+                <MudSelectItem T="int?" Value="12">Futsal</MudSelectItem>
+                <MudSelectItem T="int?" Value="15">Softball</MudSelectItem>
+                <MudSelectItem T="int?" Value="14">Sepak Takraw</MudSelectItem>
+                <MudSelectItem T="int?" Value="17">Table Tennis</MudSelectItem>
+                <MudSelectItem T="int?" Value="19">Tennis</MudSelectItem>
+                <MudSelectItem T="int?" Value="20">Volleyball</MudSelectItem>
+                <MudSelectItem T="int?" Value="25">Bocce</MudSelectItem>
+                <MudSelectItem T="int?" Value="26">Goal Ball</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense"
+                       Label="School Level and Gender" T="string"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       Disabled="_selectedSportIDValue == null"
+                       SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                  {
+                                                      _selectedSportSubcategoryIDValue = null;
+                                                      _selectedMainCategoryValue = null;
+                                                      await GetSportSubCategoriesSLGAsync();
+                                                      LoadMainCategories();
+                                                  }))">
+                <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
+                    <MudSelectItem T="string" Value="@combinedID">
+                        @combinedID
+                    </MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedMainCategoryValue" Margin="Margin.Dense"
+                       Label="Event" T="string"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                @foreach (var mc in _sportMainCat)
+                {
+                    <MudSelectItem Value="@mc">@mc</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense"
+                       Label="Category" T="int?"
+                       HelperText="@((_sportSubcategories?.Any() != true && _selectedSchoolLevelAndGenderID != null) ? "No subcategory available for this gender or school level." : null)"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                <MudVirtualize Items="@GetFilteredSubcategories()" Context="subCategory">
+                    <MudSelectItem T="int?" Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense"
+                       Label="Stage" T="int?"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable>
+                <MudVirtualize Items="_eventStages" Context="eventStage">
+                    <MudSelectItem T="int?" Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid Class="mt-3" Justify="Justify.Center">
+        <MudItem xs="12" sm="4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="ApplyFilters" FullWidth StartIcon="@Icons.Material.Filled.Search">
+                Apply Filters
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                       OnClick="ClearFilters" FullWidth StartIcon="@Icons.Material.Filled.Clear">
+                Clear Filters
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<!-- SELECTED EVENT INFO -->
+@if (SelectedEvent != null)
+{
+    <MudPaper Class="pa-3 mb-4" Elevation="1" Style="background-color: #e3f2fd;">
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="4">
+                <MudText Typo="Typo.body2"><strong>Sport:</strong> @SelectedEvent.Sport - @SelectedEvent.Subcategory</MudText>
+            </MudItem>
+            @* <MudItem xs="12" sm="4">
+                <MudText Typo="Typo.body2"><strong>Event:</strong> @SelectedEvent.Subcategory</MudText>
+            </MudItem> *@
+            <MudItem xs="12" sm="4">
+                <MudText Typo="Typo.body2"><strong>Level and Gender:</strong> @SelectedEvent.Level - @SelectedEvent.Gender</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudText Typo="Typo.body2"><strong>Level:</strong> @SelectedEvent.EventStage</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+
+<!-- MATCH CARDS -->
+<MudItem xs="12">
+    <MudDivider Class="my-2" />
+    <MudText Typo="Typo.h6" Align="Align.Center" GutterBottom="true" Class="mt-4">Team Match Results</MudText>
+    <MudDivider Class="my-2" />
+
+    @if (_combinedMatches.Any())
+    {
+        <MudGrid Spacing="2" Class="mt-2">
+            @foreach (var matchGroup in GetFilteredMatchGroups())
+            {
+                var sportConfig = GetSportConfig(matchGroup.Sport);
+                var editingPhase = GetEditingPhase(matchGroup.EventID);
+
+                <MudItem xs="12" md="6" lg="4">
+                    <MudCard Elevation="2" Class="mb-4">
+                        <MudCardContent>
+                            <MudStack Row="true" Justify="Justify.Center" Align="Align.Center" Class="mb-3">
+                                <MudText Typo="Typo.h6" Color="Color.Primary">
+                                    @matchGroup.Sport - @matchGroup.EventStage
+                                </MudText>
+                            </MudStack>
+
+                            <MudGrid Spacing="2">
+                                @foreach (var team in matchGroup.Teams)
+                                {
+                                    <MudItem xs="6">
+                                        <MudStack>
+                                            <MudStack Spacing="0" Style="width: 100%" AlignItems="AlignItems.Center">
+                                                <MudText Class="text-center" Typo="Typo.h6" Style="font-weight: bold">@team.RegionAbbreviation</MudText>
+                                                <MudText Class="text-center" Typo="Typo.caption">@team.Region</MudText>
+                                            </MudStack>
+                                            <MudStack Row Style="width: 100%" Justify="Justify.Center">
+                                                <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{team.Region}.webp")" Height="120" />
+                                            </MudStack>
+                                            <MudText Typo="Typo.h6" Align="Align.Center" Color="Color.Primary" Class="mt-2">
+                                                @GetTeamTotalScore(team)
+                                            </MudText>
+                                        </MudStack>
+
+                                        <MudDivider Class="my-2" />
+
+                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                            @foreach (var phase in Enumerable.Range(1, matchGroup.MaxPhase))
+                                            {
+                                                var match = team.GetMatchByPhase(phase);
+                                                var isEditingPhase = phase == editingPhase;
+
+                                                <MudChip T="string"
+                                                         Size="Size.Small"
+                                                         Color="Color.Primary"
+                                                         Variant="@(IsSetWinner(team, phase) ? Variant.Outlined : (isEditingPhase ? Variant.Filled : Variant.Outlined))"
+                                                         OnClick="@(() => SetEditingPhase(matchGroup.EventID, phase))">
+                                                    @(match?.Score ?? 0)
+                                                </MudChip>
+                                            }
+                                        </MudStack>
+                                    </MudItem>
+                                }
+                            </MudGrid>
+
+                        @if (IsSetBasedSport(matchGroup.Sport))
+                        {
+                            <MudStack Row="true" Justify="Justify.Center" Align="Align.Center" Class="my-2">
+                                <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: bold;">
+                                    @GetSetScoreDisplay(matchGroup)
+                                </MudText>
+                            </MudStack>
+
+                            @if (!IsSetCompleted(matchGroup, editingPhase))
+                            {
+                                <MudStack Row="true" Justify="Justify.Center" Align="Align.Center" Class="my-2">
+                                    <MudButton Variant="Variant.Text"
+                                               Color="Color.Success"
+                                               Size="Size.Small"
+                                               OnClick="@(() => CompleteSet(matchGroup.EventID, editingPhase))"
+                                               Disabled="_isLoading || !CanCompleteSet(matchGroup, editingPhase)"
+                                               StartIcon="@Icons.Material.Filled.Check">
+                                        Set @editingPhase Done
+                                    </MudButton>
+                                </MudStack>
+                            }
+
+                            @if (IsSetCompleted(matchGroup, editingPhase))
+                            {
+                                <MudStack Row="true" Justify="Justify.Center" Align="Align.Center" Class="my-2">
+                                    <MudButton Variant="Variant.Text"
+                                               Size="Size.Small"
+                                               Color="Color.Warning"
+                                               OnClick="@(() => ReopenSet(matchGroup.EventID, editingPhase))"
+                                               Disabled="_isLoading"
+                                               Class="ml-2">
+                                        Reopen
+                                    </MudButton>
+                                </MudStack>
+                            }
+                            }
+
+                            <MudDivider Class="my-3" />
+
+                            <MudStack Row="true" Justify="Justify.FlexStart" Align="Align.Center">
+                                <MudItem xs="4"></MudItem>
+
+                                <MudItem xs="4">
+                                    <MudText Typo="Typo.body1" Color="Color.Secondary" Align="Align.Center">
+                                        @sportConfig.PhaseLabel @editingPhase Scores
+                                    </MudText>
+                                </MudItem>
+
+                                <MudItem xs="4">
+                                    <MudStack Row="true" Spacing="1" Justify="Justify.FlexEnd">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                                       Color="Color.Primary"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => GeneratePhaseForEvent(matchGroup.EventID))"
+                                                       Disabled="_isLoading" />
+                                        @if (matchGroup.MaxPhase > 1)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                           Color="Color.Error"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => DeleteLastPhase(matchGroup.EventID, matchGroup.MaxPhase))"
+                                                           Disabled="_isLoading" />
+                                        }
+                                    </MudStack>
+                                </MudItem>
+                            </MudStack>
+
+
+                            <!-- Scoring Controls -->
+                            <MudGrid Spacing="2" Class="mt-2">
+                                @foreach (var team in matchGroup.Teams)
+                                {
+                                    <MudItem xs="6">
+                                        @{
+                                            var match = team.GetMatchByPhase(editingPhase);
+                                        }
+                                        @if (match != null)
+                                        {
+                                            <MudStack Row="true" Align="Align.Center" Spacing="2" Justify="Justify.Center">
+                                                @if (sportConfig.HasMultiplePointOptions)
+                                                {
+                                                    <MudStack Spacing="1" Align="Align.Center" Justify="Justify.Center">
+                                                        <MudPaper Class="px-3" Elevation="0">
+                                                            <MudText Typo="Typo.h6" Align="Align.Center" Style="font-weight: bold;">
+                                                                @match.Score
+                                                            </MudText>
+                                                        </MudPaper>
+                                                        <MudDivider />
+
+                                                        <MudStack Class="mt-2" Row="true" Spacing="1" Align="Align.Center" Justify="Justify.Center">
+
+                                                            <MudIconButton Icon="@Icons.Material.Filled.Remove"
+                                                                           Size="Size.Small"
+                                                                           Color="Color.Error"
+                                                                           OnClick="@(() => DecrementScore(match, 1))"
+                                                                           Disabled="_isLoading || match.Score <= 0" />
+
+                                                            @foreach (var pointValue in sportConfig.PointValues)
+                                                            {
+                                                                <MudIconButton Size="Size.Small"
+                                                                               Variant="Variant.Outlined"
+                                                                               Color="Color.Primary"
+                                                                               OnClick="@(() => AddPoints(match, pointValue))"
+                                                                               Disabled="_isLoading"
+                                                                               Style="min-width: 40px; padding: 4px;">
+                                                                    +@pointValue
+                                                                </MudIconButton>
+                                                            }
+                                                        </MudStack>
+                                                    </MudStack>
+                                                }
+                                                else
+                                                {
+                                                    <MudStack Spacing="1" Align="Align.Center" Justify="Justify.Center">
+
+                                                        <MudPaper Class="px-3" Elevation="0">
+                                                            <MudText Typo="Typo.h6" Align="Align.Center" Style="font-weight: bold;">
+                                                                @match.Score
+                                                            </MudText>
+                                                        </MudPaper>
+                                                        <MudDivider />
+
+
+                                                        <MudStack Class="mt-2 my-3" Row="true" Spacing="4" Align="Align.Center" Justify="Justify.Center">
+                                                            <MudIconButton Icon="@Icons.Material.Filled.Remove"
+                                                                           Size="Size.Small"
+                                                                           Color="Color.Error"
+                                                                           OnClick="@(() => DecrementScore(match, 1))"
+                                                                           Disabled="_isLoading || match.Score <= 0" />
+
+                                                            <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                                                           Size="Size.Small"
+                                                                           Color="Color.Success"
+                                                                           OnClick="@(() => IncrementScore(match, 1))"
+                                                                           Disabled="_isLoading" />
+                                                        </MudStack>
+                                                    </MudStack>
+                                                }
+                                            </MudStack>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Warning" Align="Align.Center">
+                                                Loading...
+                                            </MudText>
+                                        }
+                                    </MudItem>
+                                }
+                            </MudGrid>
+
+                            <!-- Auto-save status -->
+                            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-2">
+                                @if (_autoSaveStatus.ContainsKey(matchGroup.EventID))
+                                {
+                                    var status = _autoSaveStatus[matchGroup.EventID];
+                                    <MudText Typo="Typo.caption" Color="@(status.IsSaving ? Color.Warning : Color.Success)">
+                                        @(status.IsSaving ? "Saving..." : "All changes saved")
+                                    </MudText>
+                                }
+                            </MudStack>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <MudPaper Class="pa-8 text-center" Elevation="2">
+            <MudText Typo="Typo.h6" Color="Color.Secondary">
+                No matches found. Generate or load matches to get started.
+            </MudText>
+        </MudPaper>
+    }
+</MudItem>
+
+@code {
+    private List<TeamMatchDTO> _matches = new();
+    private List<CombinedMatch> _combinedMatches = new();
+    private string? _eventId;
+    private string searchString = "";
+    private bool _isLoading;
+    private int _maxPhase = 0;
+    private List<int> _phases = new();
+
+    private Dictionary<string, AutoSaveStatus> _autoSaveStatus = new();
+    private Timer? _autoSaveTimer;
+    private readonly TimeSpan _autoSaveDelay = TimeSpan.FromMilliseconds(1000);
+    private readonly object _saveQueueLock = new object();
+    private Dictionary<int, DateTime> _scoreChangeTimes = new Dictionary<int, DateTime>();
+
+    private int? _selectedSportIDValue;
+    private string? _selectedSchoolLevelAndGenderID;
+    private string? _selectedMainCategoryValue;
+    private int? _selectedSportSubcategoryIDValue;
+    private int? _selectedEventStagesIDValue;
+
+    private List<EventsDTO.EventStages>? _eventStages;
+    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
+
+    private List<string> _combinedSchoolLevelAndGenderNames = new();
+    private List<string> _sportMainCat = new();
+    private TeamEventDTO? SelectedEvent;
+
+    public class AutoSaveStatus
+    {
+        public bool IsSaving { get; set; }
+        public DateTime LastSaved { get; set; }
+        public string EventID { get; set; } = "";
+    }
+
+    public class TeamMatchDTO
+    {
+        public int ID { get; set; }
+        public string? EventID { get; set; }
+        public int EventVersusID { get; set; }
+        public int RegionID { get; set; }
+        public int Phase { get; set; }
+        public int Score { get; set; }
+        public bool IsWinner { get; set; }
+        public bool IsSetWinner { get; set; }
+        public string? Region { get; set; }
+        public string? RegionAbbreviation { get; set; }
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Gender { get; set; }
+        public string? Level { get; set; }
+        public string? EventStage { get; set; }
+    }
+
+    public class TeamEventDTO
+    {
+        public string? ID { get; set; }
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Gender { get; set; }
+        public string? Level { get; set; }
+        public string? EventStage { get; set; }
+    }
+
+    public class CombinedMatch
+    {
+        public string? EventID { get; set; }
+        public int EventVersusID { get; set; }
+        public int RegionID { get; set; }
+        public string? Region { get; set; }
+        public string? RegionAbbreviation { get; set; }
+        public Dictionary<int, TeamMatchDTO> PhaseMatches { get; set; } = new();
+
+        public TeamMatchDTO? GetMatchByPhase(int phase)
+        {
+            return PhaseMatches.ContainsKey(phase) ? PhaseMatches[phase] : null;
+        }
+    }
+
+    public class MarkSetWinnerDTO
+    {
+        public string EventID { get; set; } = "";
+        public int Phase { get; set; }
+        public int WinningRegionID { get; set; }
+    }
+
+    public class MatchGroup
+    {
+        public string EventID { get; set; } = "";
+        public string Sport { get; set; } = "";
+        public string EventStage { get; set; } = "";
+        public List<CombinedMatch> Teams { get; set; } = new();
+        public int MaxPhase => Teams.Any() ? Teams.Max(t => t.PhaseMatches.Keys.Max()) : 0;
+    }
+
+    private Dictionary<string, int> _editingPhases = new Dictionary<string, int>();
+
+    public class SportConfig
+    {
+        public string PhaseLabel { get; set; } = "Set";
+        public string PhaseAbbreviation { get; set; } = "S";
+        public bool HasMultiplePointOptions { get; set; } = false;
+        public int[] PointValues { get; set; } = new int[] { 1 };
+    }
+
+    public class EventsDTO
+    {
+        public class EventStages
+        {
+            public int ID { get; set; }
+            public string? Stage { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+            public string? MainCategory { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableOptions();
+        await LoadMatches();
+
+        _autoSaveTimer = new Timer(async _ => await ProcessAutoSaveQueue(), null, _autoSaveDelay, _autoSaveDelay);
+    }
+
+    public void Dispose()
+    {
+        _autoSaveTimer?.Dispose();
+    }
+
+    private async Task ProcessAutoSaveQueue()
+    {
+        List<int> matchesToSave = new List<int>();
+
+        lock (_saveQueueLock)
+        {
+            var now = DateTime.Now;
+            foreach (var kvp in _scoreChangeTimes)
+            {
+                if (now - kvp.Value >= _autoSaveDelay)
+                {
+                    matchesToSave.Add(kvp.Key);
+                }
+            }
+
+            foreach (var matchId in matchesToSave)
+            {
+                _scoreChangeTimes.Remove(matchId);
+            }
+        }
+
+        foreach (var matchId in matchesToSave)
+        {
+            var match = _matches.FirstOrDefault(m => m.ID == matchId);
+            if (match != null)
+            {
+                await AutoSaveMatch(match);
+            }
+        }
+    }
+
+    private async Task AutoSaveMatch(TeamMatchDTO match)
+    {
+        if (match == null || string.IsNullOrEmpty(match.EventID)) return;
+
+        if (!_autoSaveStatus.ContainsKey(match.EventID))
+        {
+            _autoSaveStatus[match.EventID] = new AutoSaveStatus { EventID = match.EventID };
+        }
+        _autoSaveStatus[match.EventID].IsSaving = true;
+
+        StateHasChanged();
+
+        try
+        {
+            var update = new
+            {
+                match.ID,
+                match.Score,
+                match.IsWinner
+            };
+
+            bool saved = await apiService.PutAsync($"score/TeamMatch/{match.ID}", update);
+
+            if (saved)
+            {
+                _autoSaveStatus[match.EventID].IsSaving = false;
+                _autoSaveStatus[match.EventID].LastSaved = DateTime.Now;
+
+                Snackbar.Add($"Score saved for {match.RegionAbbreviation}", Severity.Success, config =>
+                {
+                    config.VisibleStateDuration = 1000;
+                    config.HideTransitionDuration = 500;
+                    config.ShowTransitionDuration = 500;
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _autoSaveStatus[match.EventID].IsSaving = false;
+            Snackbar.Add($"Error auto-saving score: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async void IncrementScore(TeamMatchDTO match)
+    {
+        if (match != null)
+        {
+            match.Score++;
+            await AutoSaveMatch(match);
+        }
+    }
+
+    private async void DecrementScore(TeamMatchDTO match)
+    {
+        if (match != null && match.Score > 0)
+        {
+            match.Score--;
+            await AutoSaveMatch(match);
+        }
+    }
+
+    private async Task LoadAvailableOptions()
+    {
+        try
+        {
+            await GetEventStagesAsync();
+            await GetGenderCategoriesAsync();
+            await GetSchoolLevelsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading options: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task GetEventStagesAsync()
+    {
+        try
+        {
+            string url = "/Events/Stages";
+            _eventStages = await apiService.GetAsync<EventsDTO.EventStages>(url);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading event stages: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task GetGenderCategoriesAsync()
+    {
+        try
+        {
+            string url = "/Sports/GenderCategories";
+            _sportGenderCategories = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading gender categories: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        try
+        {
+            string url = "/Schools/Levels";
+            _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading school levels: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task GetSportSubCategoriesSLGAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+        {
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+            return;
+        }
+
+        try
+        {
+            var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+            var schoolLevelName = parts[0];
+            var genderName = parts[1];
+
+            var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+            var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
+
+            if (schoolLevelID != null && genderID != null && _selectedSportIDValue != null)
+            {
+                _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+                    $"/Sports/Subcategories?sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}");
+            }
+            else
+            {
+                _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading sport subcategories: {ex.Message}", Severity.Warning);
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+        }
+    }
+
+    private List<SportsDTO.SportSubcategories> GetFilteredSubcategories()
+    {
+        if (_sportSubcategories == null) return new List<SportsDTO.SportSubcategories>();
+        return !string.IsNullOrEmpty(_selectedMainCategoryValue)
+            ? _sportSubcategories.Where(sc => sc.MainCategory == _selectedMainCategoryValue).ToList()
+            : _sportSubcategories.Where(sc => string.IsNullOrEmpty(sc.MainCategory)).ToList();
+    }
+
+    private async Task FilterSchoolLevelAndGenderAsync()
+    {
+        if (_selectedSportIDValue == null)
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        try
+        {
+            var subcats = await apiService.GetAsync<SportsDTO.SportSubcategories>($"/Sports/Subcategories?sportID={_selectedSportIDValue}");
+            if (subcats != null && subcats.Any())
+            {
+                var schoolLevelIDs = subcats.Where(x => x.SchoolLevelID.HasValue).Select(x => x.SchoolLevelID.Value).Distinct();
+                var genderIDs = subcats.Where(x => x.SportGenderCategoryID.HasValue).Select(x => x.SportGenderCategoryID.Value).Distinct();
+
+                var schoolLevelNames = _schoolLevels?.Where(s => schoolLevelIDs.Contains(s.ID)).Select(s => s.Level) ?? new List<string>();
+                var genderNames = _sportGenderCategories?.Where(g => genderIDs.Contains(g.ID)).Select(g => g.Gender) ?? new List<string>();
+
+                _combinedSchoolLevelAndGenderNames = schoolLevelNames.SelectMany(s => genderNames, (s, g) => $"{s} - {g}").ToList();
+            }
+            else
+            {
+                _combinedSchoolLevelAndGenderNames = new List<string>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading school levels and genders: {ex.Message}", Severity.Warning);
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+        }
+    }
+
+    private void LoadMainCategories()
+    {
+        _sportMainCat = _sportSubcategories?.Where(sc => !string.IsNullOrEmpty(sc.MainCategory))
+            .Select(sc => sc.MainCategory!).Distinct().ToList() ?? new List<string>();
+    }
+
+    private async Task ApplyFilters()
+    {
+        try
+        {
+            var queryParams = new List<string>();
+
+            if (_selectedSportSubcategoryIDValue.HasValue)
+            {
+                var subcategoryName = _sportSubcategories?.FirstOrDefault(s => s.ID == _selectedSportSubcategoryIDValue.Value)?.Subcategory;
+                if (!string.IsNullOrEmpty(subcategoryName))
+                    queryParams.Add($"subcategory={Uri.EscapeDataString(subcategoryName)}");
+            }
+
+            if (!string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+            {
+                var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+                if (parts.Length == 2)
+                {
+                    queryParams.Add($"level={Uri.EscapeDataString(parts[0])}");
+                    queryParams.Add($"gender={Uri.EscapeDataString(parts[1])}");
+                }
+            }
+
+            if (_selectedEventStagesIDValue.HasValue)
+            {
+                var stageName = _eventStages?.FirstOrDefault(e => e.ID == _selectedEventStagesIDValue.Value)?.Stage;
+                if (!string.IsNullOrEmpty(stageName))
+                    queryParams.Add($"eventStage={Uri.EscapeDataString(stageName)}");
+            }
+
+            var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+
+            var events = await apiService.GetAsync<TeamEventDTO>($"/score/TeamMatch/events{queryString}");
+
+            if (events != null && events.Any())
+            {
+                SelectedEvent = events.First();
+                _eventId = SelectedEvent.ID;
+
+                var existingMatches = await apiService.GetAsync<TeamMatchDTO>($"score/TeamMatch?eventId={_eventId}");
+
+                if (existingMatches == null || !existingMatches.Any(m => m.Phase == 1))
+                {
+                    await GeneratePhaseForEvent(_eventId);
+                    Snackbar.Add($"Found event. Generated Phase 1 matches for {SelectedEvent.Subcategory}", Severity.Success);
+                }
+                else
+                {
+                    await LoadMatches();
+                    Snackbar.Add($"Found event. Loaded existing matches for {SelectedEvent.Subcategory}", Severity.Success);
+                }
+            }
+            else
+            {
+                SelectedEvent = null;
+                _eventId = null;
+                _matches = new List<TeamMatchDTO>();
+                _combinedMatches = new List<CombinedMatch>();
+                Snackbar.Add("No team events found with the selected filters", Severity.Warning);
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ClearFilters()
+    {
+        _selectedSchoolLevelAndGenderID = null;
+        _selectedMainCategoryValue = null;
+        _selectedSportSubcategoryIDValue = null;
+        _selectedEventStagesIDValue = null;
+        SelectedEvent = null;
+        _eventId = null;
+        _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+        _combinedSchoolLevelAndGenderNames = new List<string>();
+        _sportMainCat = new List<string>();
+
+        await LoadMatches();
+        Snackbar.Add("Filters cleared", Severity.Info);
+        StateHasChanged();
+    }
+
+    private async Task LoadMatches()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var url = string.IsNullOrWhiteSpace(_eventId)
+                ? "score/TeamMatch"
+                : $"score/TeamMatch?eventId={_eventId}";
+
+            var result = await apiService.GetAsync<TeamMatchDTO>(url);
+            _matches = result?.ToList() ?? new();
+
+            _maxPhase = _matches.Any() ? _matches.Max(m => m.Phase) : 0;
+            _phases = Enumerable.Range(1, _maxPhase).ToList();
+
+            _combinedMatches = _matches
+                .GroupBy(m => new { m.EventID, m.EventVersusID, m.Region, m.RegionAbbreviation })
+                .Select(g => new CombinedMatch
+                    {
+                        EventID = g.Key.EventID,
+                        EventVersusID = g.Key.EventVersusID,
+                        Region = g.Key.Region,
+                        RegionAbbreviation = g.Key.RegionAbbreviation,
+                        PhaseMatches = g.ToDictionary(m => m.Phase, m => m)
+                    })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading matches: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private List<MatchGroup> GetFilteredMatchGroups()
+    {
+        var filteredMatches = _combinedMatches.Where(FilterFunc).ToList();
+
+        return filteredMatches
+            .GroupBy(m => m.EventID)
+            .Select(g => new MatchGroup
+                {
+                    EventID = g.Key ?? "",
+                    Sport = g.First().PhaseMatches.Values.FirstOrDefault()?.Sport ?? "",
+                    EventStage = g.First().PhaseMatches.Values.FirstOrDefault()?.EventStage ?? "",
+                    Teams = g.ToList()
+                })
+            .ToList();
+    }
+
+    private bool FilterFunc(CombinedMatch combinedMatch)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+
+        return (combinedMatch.Region?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
+            || (combinedMatch.RegionAbbreviation?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
+            || (combinedMatch.EventID?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    private int GetTeamTotalScore(CombinedMatch team)
+    {
+        return team.PhaseMatches.Values.Sum(m => m.Score);
+    }
+
+    // Set-based sports diriiiiiiii
+    private bool IsSetBasedSport(string sportName)
+    {
+        var setBasedSports = new[] { "Volleyball", "Badminton", "Table Tennis", "Tennis" };
+        return setBasedSports.Contains(sportName, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private string GetSetScoreDisplay(MatchGroup matchGroup)
+    {
+        if (matchGroup.Teams.Count < 2) return "0 - 0";
+
+        var team1Sets = GetSetsWonByTeam(matchGroup.Teams[0]);
+        var team2Sets = GetSetsWonByTeam(matchGroup.Teams[1]);
+
+        return $"{team1Sets} - {team2Sets}";
+    }
+
+    private int GetSetsWonByTeam(CombinedMatch team)
+    {
+        return team.PhaseMatches.Values.Count(match => match.IsSetWinner);
+    }
+
+    private bool IsSetCompleted(MatchGroup matchGroup, int phase)
+    {
+        return matchGroup.Teams.Any(team => IsSetWinner(team, phase));
+    }
+
+    private bool IsSetWinner(CombinedMatch team, int phase)
+    {
+        var match = team.GetMatchByPhase(phase);
+        return match?.IsSetWinner == true;
+    }
+
+    private bool CanCompleteSet(MatchGroup matchGroup, int phase)
+    {
+        if (matchGroup.Teams.Count < 2) return false;
+
+        var team1Match = matchGroup.Teams[0].GetMatchByPhase(phase);
+        var team2Match = matchGroup.Teams[1].GetMatchByPhase(phase);
+
+        if (team1Match == null || team2Match == null) return false;
+
+        return team1Match.Score != team2Match.Score;
+    }
+
+    private async Task CompleteSet(string eventId, int phase)
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var matchGroup = GetFilteredMatchGroups().FirstOrDefault(mg => mg.EventID == eventId);
+            if (matchGroup == null || matchGroup.Teams.Count < 2)
+            {
+                Snackbar.Add("Cannot complete set: Invalid match data", Severity.Error);
+                return;
+            }
+
+            var team1Match = matchGroup.Teams[0].GetMatchByPhase(phase);
+            var team2Match = matchGroup.Teams[1].GetMatchByPhase(phase);
+
+            if (team1Match == null || team2Match == null)
+            {
+                Snackbar.Add("Cannot complete set: Missing match data", Severity.Error);
+                return;
+            }
+
+            int winningRegionId;
+            if (team1Match.Score > team2Match.Score)
+            {
+                winningRegionId = team1Match.RegionID;
+            }
+            else if (team2Match.Score > team1Match.Score)
+            {
+                winningRegionId = team2Match.RegionID;
+            }
+            else
+            {
+                Snackbar.Add("Cannot complete set: Scores are tied", Severity.Warning);
+                return;
+            }
+
+            var request = new MarkSetWinnerDTO
+                {
+                    EventID = eventId,
+                    Phase = phase,
+                    WinningRegionID = winningRegionId
+                };
+
+            var result = await apiService.PostAndReadAsync<object>("score/TeamMatch/MarkSetWinner", request);
+            await LoadMatches();
+
+            Snackbar.Add($"Set {phase} completed! {winningRegionId} wins the set.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error completing set: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReopenSet(string eventId, int phase)
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var request = new MarkSetWinnerDTO
+                {
+                    EventID = eventId,
+                    Phase = phase,
+                    WinningRegionID = 0
+                };
+
+            var result = await apiService.PostAndReadAsync<object>("score/TeamMatch/MarkSetWinner", request);
+            await LoadMatches();
+
+            Snackbar.Add($"Set {phase} reopened for editing", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error reopening set: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private SportConfig GetSportConfig(string sportName) => sportName?.ToLower() switch
+    {
+        "basketball" => new SportConfig { PhaseLabel = "Quarter", PhaseAbbreviation = "Q", HasMultiplePointOptions = true, PointValues = new int[] { 1, 2, 3 } },
+        "baseball" or "softball" => new SportConfig { PhaseLabel = "Inning", PhaseAbbreviation = "I" },
+        "football" or "futsal" or "goalball" => new SportConfig { PhaseLabel = "Half", PhaseAbbreviation = "H" },
+        "bocce" => new SportConfig { PhaseLabel = "End", PhaseAbbreviation = "E" },
+        _ => new SportConfig()
+    };
+
+    private int GetEditingPhase(string eventId)
+    {
+        if (_editingPhases.ContainsKey(eventId))
+        {
+            var matchGroup = GetFilteredMatchGroups().FirstOrDefault(mg => mg.EventID == eventId);
+            var maxPhase = matchGroup?.MaxPhase ?? 0;
+
+            if (_editingPhases[eventId] <= maxPhase)
+            {
+                return _editingPhases[eventId];
+            }
+        }
+
+        var defaultMatchGroup = GetFilteredMatchGroups().FirstOrDefault(mg => mg.EventID == eventId);
+        return defaultMatchGroup?.MaxPhase ?? 1;
+    }
+
+    private void SetEditingPhase(string eventId, int phase)
+    {
+        _editingPhases[eventId] = phase;
+        StateHasChanged();
+    }
+
+    private async void AddPoints(TeamMatchDTO match, int points)
+    {
+        if (match != null)
+        {
+            match.Score += points;
+            await AutoSaveMatch(match);
+        }
+    }
+
+    private async void IncrementScore(TeamMatchDTO match, int increment = 1)
+    {
+        if (match != null)
+        {
+            match.Score += increment;
+            await AutoSaveMatch(match);
+        }
+    }
+
+    private async void DecrementScore(TeamMatchDTO match, int decrement = 1)
+    {
+        if (match != null && match.Score >= decrement)
+        {
+            match.Score -= decrement;
+            await AutoSaveMatch(match);
+        }
+    }
+
+    private async Task GeneratePhaseForEvent(string eventId)
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var existingMatches = await apiService.GetAsync<TeamMatchDTO>($"score/TeamMatch?eventId={eventId}");
+            int nextPhase = 1;
+
+            if (existingMatches != null && existingMatches.Any())
+            {
+                int highestPhase = existingMatches.Max(x => x.Phase);
+                nextPhase = highestPhase + 1;
+            }
+
+            var body = new { EventID = eventId, Phase = nextPhase, Score = 0, IsWinner = false };
+            await apiService.PostAndReadAsync<object>("score/TeamMatch/GeneratePhaseMatches", body);
+            await LoadMatches();
+
+            SetEditingPhase(eventId, nextPhase);
+
+            Snackbar.Add($"Generated {GetSportConfig(SelectedEvent?.Sport ?? "").PhaseLabel.ToLower()} {nextPhase} matches successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error adding {GetSportConfig(SelectedEvent?.Sport ?? "").PhaseLabel.ToLower()}: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteLastPhase(string eventId, int phaseToDelete)
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var matchesToDelete = _matches
+                .Where(m => m.EventID == eventId && m.Phase == phaseToDelete)
+                .ToList();
+
+            if (!matchesToDelete.Any())
+            {
+                Snackbar.Add($"No matches found for {GetSportConfig(SelectedEvent?.Sport ?? "").PhaseLabel.ToLower()} {phaseToDelete}", Severity.Warning);
+                return;
+            }
+
+            foreach (var match in matchesToDelete)
+            {
+                await apiService.DeleteAsync($"score/TeamMatch/{match.ID}");
+            }
+
+            await LoadMatches();
+
+            var newMaxPhase = phaseToDelete - 1;
+            if (newMaxPhase > 0)
+            {
+                SetEditingPhase(eventId, newMaxPhase);
+            }
+            else
+            {
+                _editingPhases.Remove(eventId);
+            }
+
+            Snackbar.Add($"Deleted {GetSportConfig(SelectedEvent?.Sport ?? "").PhaseLabel.ToLower()} {phaseToDelete} for {eventId} successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error deleting {GetSportConfig(SelectedEvent?.Sport ?? "").PhaseLabel.ToLower()}: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

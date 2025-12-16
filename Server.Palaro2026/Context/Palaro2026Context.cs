@@ -23,9 +23,6 @@ public partial class Palaro2026Context : DbContext
     public virtual DbSet<EventVersusTeamPlayers> EventVersusTeamPlayers { get; set; }
 
     public virtual DbSet<EventVersusTeams> EventVersusTeams { get; set; }
-    //
-    public virtual DbSet<EventVersusTeamScores> EventVersusTeamScores { get; set; }
-    //
 
     public virtual DbSet<Events> Events { get; set; }
 
@@ -130,12 +127,6 @@ public partial class Palaro2026Context : DbContext
                 .HasForeignKey(d => d.EventVersusID)
                 .HasConstraintName("FK_EventVersusTeamPlayers_EventVersus");
 
-            //
-            entity.HasOne(d => d.EventVersusTeamScores).WithMany(p => p.EventVersusTeamPlayers)
-                .HasForeignKey(d => d.EventVersusTeamScoreID)
-                .HasConstraintName("FK_EventVersusTeamPlayers_EventVersusTeamScores");
-            //
-
             entity.HasOne(d => d.ProfilePlayer).WithMany(p => p.EventVersusTeamPlayers)
                 .HasForeignKey(d => d.ProfilePlayerID)
                 .HasConstraintName("FK_EventVersusTeamPlayers_ProfilePlayers");
@@ -165,42 +156,6 @@ public partial class Palaro2026Context : DbContext
                 .HasConstraintName("FK_EventVersus_SchoolRegions");
         });
 
-        //
-        modelBuilder.Entity<EventVersusTeamScores>(entity =>
-        {
-            entity.HasKey(e => e.ID).HasName("PK__EventVer__3214EC2725F5AC34");
-
-            entity.Property(e => e.EventID)
-                .HasMaxLength(20)
-                .IsUnicode(false);
-
-            entity.Property(e => e.SchoolRegionID);
-
-            entity.Property(e => e.PhaseNumber)
-                .IsRequired();
-
-            entity.Property(e => e.Point)
-                .HasMaxLength(50)
-                .IsUnicode(false);
-
-            entity.Property(e => e.Rank)
-                .HasMaxLength(20)
-                .IsUnicode(false);
-
-            entity.Property(e => e.RecentUpdateAt)
-                .HasColumnType("datetime");
-
-            entity.HasOne(d => d.Event)
-                .WithMany(p => p.EventVersusTeamScores)
-                .HasForeignKey(d => d.EventID)
-                .HasConstraintName("FK_EventVersusTeamScores_Events");
-
-            entity.HasOne(d => d.SchoolRegion)
-                .WithMany(p => p.EventVersusTeamScores)
-                .HasForeignKey(d => d.SchoolRegionID)
-                .HasConstraintName("FK_EventVersusTeamScores_SchoolRegions");
-        });
-        //
 
         modelBuilder.Entity<Events>(entity =>
         {
@@ -344,7 +299,7 @@ public partial class Palaro2026Context : DbContext
             entity.Property(e => e.LastName)
                 .HasMaxLength(100)
                 .IsUnicode(false);
-            entity.Property(e => e.Gender)
+            entity.Property(e => e.Sex)
                 .HasMaxLength(6)
                 .IsUnicode(false);
 

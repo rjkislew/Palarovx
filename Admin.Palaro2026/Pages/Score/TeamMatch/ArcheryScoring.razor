@@ -1,0 +1,2612 @@
+﻿@page "/score/archery"
+@inject ISnackbar Snackbar
+@inject APIService apiService
+
+<PageTitle>Archery Scoring | PALARO 2026</PageTitle>
+<MudText Typo="Typo.h6" Align="Align.Center">Archery Scoring</MudText>
+
+<!-- FILTERS SECTION -->
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudText Typo="Typo.h6" Class="mb-4">Event Filters</MudText>
+    <MudGrid Spacing="3" Justify="Justify.Center">
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport"
+                       T="int?"
+                       ShrinkLabel Variant="Variant.Outlined"
+                       SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                  {
+                                                      _selectedSchoolLevelAndGenderID = null;
+                                                      _selectedSportSubcategoryIDValue = null;
+                                                      _selectedMainCategoryValue = null;
+                                                      await FilterSchoolLevelAndGenderAsync();
+                                                  }))">
+                <MudSelectItem T="int?" Value="1">Archery</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense"
+                       Label="School Level and Gender" T="string"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       Disabled="_selectedSportIDValue == null"
+                       SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                  {
+                                                      _selectedSportSubcategoryIDValue = null;
+                                                      _selectedMainCategoryValue = null;
+                                                      await GetSportSubCategoriesSLGAsync();
+                                                      LoadMainCategories();
+                                                  }))">
+                <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
+                    <MudSelectItem T="string" Value="@combinedID">
+                        @combinedID
+                    </MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedMainCategoryValue" Margin="Margin.Dense"
+                       Label="Event" T="string"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                @foreach (var mc in _sportMainCat)
+                {
+                    <MudSelectItem Value="@mc">@mc</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense"
+                       Label="Category" T="int?"
+                       HelperText="@((_sportSubcategories?.Any() != true && _selectedSchoolLevelAndGenderID != null) ? "No subcategory available for this gender or school level." : null)"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                <MudVirtualize Items="@GetFilteredSubcategories()" Context="subCategory">
+                    <MudSelectItem T="int?" Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense"
+                       Label="Stage" T="int?"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable>
+                <MudVirtualize Items="_eventStages" Context="eventStage">
+                    <MudSelectItem T="int?" Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid Class="mt-3" Justify="Justify.Center">
+        <MudItem xs="12" sm="4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="ApplyFilters" FullWidth StartIcon="@Icons.Material.Filled.Search">
+                Apply Filters
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                       OnClick="ClearFilters" FullWidth StartIcon="@Icons.Material.Filled.Clear">
+                Clear Filters
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<!-- SELECTED EVENT INFO -->
+@if (SelectedEvent != null)
+{
+    <MudPaper Class="pa-3 mb-4" Elevation="1" Style="background-color: #e3f2fd;">
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="4">
+                <MudText Typo="Typo.body2"><strong>Category:</strong> @SelectedEvent.SportMainCat - @SelectedEvent.Subcategory</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="5">
+                <MudText Typo="Typo.body2"><strong>Level and Gender:</strong> @SelectedEvent.Level - @SelectedEvent.Gender</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="3">
+                <MudText Typo="Typo.body2"><strong>Stage:</strong> @SelectedEvent.EventStage</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+
+@if (Regions == null)
+{
+    <MudText Align="Align.Center" Class="ma-4">Please apply filters to see regions</MudText>
+}
+else if (!Regions.Any())
+{
+    <MudText Align="Align.Center" Class="ma-4">No regions found. Please apply filters to see regions.</MudText>
+}
+else
+{
+    <MudDropContainer T="RegionItem"
+                      Items="Regions"
+                      ItemsSelector="SelectItemsForZone"
+                      ItemDropped="OnItemDropped"
+                      @key="@($"dropcontainer_{SelectedRound}")">
+
+        <ChildContent>
+            <MudPaper Class="pa-2 mt-4 mb-4"
+                      Elevation="3"
+                      Style="position:sticky; top:0; z-index:1000; background-color:white;">
+
+                <MudGrid Class="my-2" Justify="Justify.Center" Style="align-items:center" Spacing="4">
+                    @if (IsOlympicRound)
+                    {
+                        <MudItem xs="12" sm="3">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Success" OnClick="AddMatch" FullWidth>
+                                Add Match
+                            </MudButton>
+                        </MudItem>
+                    }
+                    else
+                    {
+                        <MudItem xs="12" sm="3">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Success" OnClick="NextRound" FullWidth>
+                                Next Round
+                            </MudButton>
+                        </MudItem>
+                    }
+                    <MudItem xs="12" sm="3">
+                        <MudSelect T="int" Label="Preview Round" FullWidth
+                                   Value="SelectedRound"
+                                   ValueChanged="OnRoundChanged">
+                            @foreach (var roundNum in Enumerable.Range(1, AllRounds.Count))
+                            {
+                                <MudSelectItem Value="@roundNum">Round @roundNum</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+
+                <MudText Typo="Typo.subtitle1" Align="Align.Center">Regions (Round @SelectedRound) - Total: @Regions.Count</MudText>
+                <MudDropZone T="RegionItem"
+                             Identifier="Unassigned"
+                             Class="d-flex flex-wrap justify-center pa-2"
+                             Style="min-height:100px; gap:6px; border:1px dashed gray;" />
+            </MudPaper>
+
+            @if (IsOlympicRound)
+            {
+                <!-- OLYMPIC ROUND -->
+                <MudGrid Spacing="3" Justify="Justify.Center">
+                    @foreach (var match in GetOlympicRoundMatches())
+                    {
+                        <MudItem xs="12" lg="10">
+                            <MudCard Elevation="2" Class="my-4">
+                                <MudCardContent>
+                                    <MudGrid Spacing="2" Align="Align.Center" Class="mb-3">
+                                        <MudItem xs="12">
+                                            <MudGrid Spacing="2" Align="Align.Center">
+                                                <MudItem xs="6">
+                                                    <MudText Typo="Typo.h5" Color="Color.Primary">
+                                                        Match @match.Lane
+                                                        @if (match != null)
+                                                        {
+                                                            var categoryType = match.ShotsPerEnd == 2 ? "Team" : "Individual";
+                                                            <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Variant="Variant.Filled" Class="ml-2">
+                                                                @categoryType (@match.ShotsPerEnd shots/end, @match.EndsPerMatch ends)
+                                                            </MudChip>
+                                                        }
+                                                    </MudText>
+                                                </MudItem>
+                                                <MudItem xs="6">
+                                                    <MudGrid Justify="Justify.FlexEnd">
+                                                        <MudButton Variant="Variant.Text"
+                                                                   Color="Color.Error"
+                                                                   Size="Size.Small"
+                                                                   OnClick="@(() => DeleteMatch(match.Lane))"
+                                                                   StartIcon="@Icons.Material.Filled.Close">
+                                                        </MudButton>
+                                                    </MudGrid>
+                                                </MudItem>
+                                            </MudGrid>
+                                        </MudItem>
+                                    </MudGrid>
+
+                                    <!-- Total Set Points -->
+                                    <MudGrid Spacing="2" Align="Align.Center" Class="mb-2">
+                                        <MudItem xs="5">
+                                            <MudStack Justify="Justify.Center" Style="align-items:center">
+                                                <MudDropZone T="RegionItem"
+                                                             Identifier="@($"{SelectedRound}_{match.Lane}_A")"
+                                                             Class="pa-1 d-flex justify-center align-center"
+                                                             Style="min-height:60px; width:200px; border:1px dashed gray; background-color: #f8f9fa; border-radius: 4px;">
+                                                    @if (!string.IsNullOrEmpty(match.RegionA) && match.RegionA != "Assign Region")
+                                                    {
+                                                        <MudText Typo="Typo.body2" Align="Align.Center" Class="font-weight-bold">
+                                                            @{
+                                                                var regionA = Regions.FirstOrDefault(r => r.Id == match.RegionAId);
+                                                                var displayNameA = regionA?.DisplayName ?? match.RegionA;
+                                                            }
+                                                            @* @displayNameA *@
+                                                        </MudText>
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
+                                                            Drop Region A here
+                                                        </MudText>
+                                                    }
+                                                </MudDropZone>
+                                            </MudStack>
+                                        </MudItem>
+                                        <MudItem xs="2">
+                                            <MudPaper Class="pa-2 text-center" Elevation="1" Style="background-color: #e3f2fd;">
+                                                <MudText Typo="Typo.h5" Color="Color.Primary" Class="font-weight-bold">
+                                                    @match.SetPointsA - @match.SetPointsB
+                                                </MudText>
+                                                <MudText Typo="Typo.caption" Align="Align.Center">Sets</MudText>
+                                                <MudText Typo="Typo.caption" Align="Align.Center" Color="Color.Secondary">
+                                                    @{
+                                                        var currentSet = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
+                                                        var currentTotalA = currentSet?.TotalA ?? 0;
+                                                        var currentTotalB = currentSet?.TotalB ?? 0;
+                                                    }
+                                                    Current: @currentTotalA - @currentTotalB
+                                                </MudText>
+                                            </MudPaper>
+                                        </MudItem>
+                                        <MudItem xs="5">
+                                            <MudStack Justify="Justify.Center" Style="align-items:center">
+                                                <MudDropZone T="RegionItem"
+                                                             Identifier="@($"{SelectedRound}_{match.Lane}_B")"
+                                                             Class="pa-1 d-flex justify-center align-center"
+                                                             Style="min-height:60px; width:200px; border:1px dashed gray; background-color: #f8f9fa; border-radius: 4px;">
+                                                    @if (!string.IsNullOrEmpty(match.RegionB) && match.RegionB != "Assign Region")
+                                                    {
+                                                        <MudText Typo="Typo.body2" Align="Align.Center" Class="font-weight-bold">
+                                                            @{
+                                                                var regionB = Regions.FirstOrDefault(r => r.Id == match.RegionBId);
+                                                                var displayNameB = regionB?.DisplayName ?? match.RegionB;
+                                                            }
+                                                            @* @displayNameB *@
+                                                        </MudText>
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
+                                                            Drop Region B here
+                                                        </MudText>
+                                                    }
+                                                </MudDropZone>
+                                            </MudStack>
+                                        </MudItem>
+                                    </MudGrid>
+
+                                    <MudDivider Class="my-3" />
+
+                                    <!-- Sets Display -->
+                                    <MudGrid Spacing="2" Align="Align.Center">
+                                        <MudGrid Spacing="2" Class="mt-2">
+                                            <MudItem xs="12">
+                                                <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
+                                                    <MudIconButton Color="Color.Success"
+                                                                   Icon="@Icons.Material.Filled.Add"
+                                                                   Size="Size.Small"
+                                                                   OnClick="@(() => AddSet(match.Lane))"
+                                                                   Disabled="@(match.Sets.Count >= match.EndsPerMatch)">
+                                                    </MudIconButton>
+                                                    <MudText Typo="Typo.body2">Sets (@match.Sets.Count/@match.EndsPerMatch)</MudText>
+                                                    <MudIconButton Color="Color.Error"
+                                                                   Icon="@Icons.Material.Filled.Remove"
+                                                                   Size="Size.Small"
+                                                                   OnClick="@(() => RemoveSet(match.Lane))"
+                                                                   Disabled="@(match.Sets.Count <= 1)">
+                                                    </MudIconButton>
+                                                </MudStack>
+                                            </MudItem>
+                                        </MudGrid>
+
+                                        <MudItem xs="12">
+                                            <!-- Set Selection Tabs -->
+                                            <MudGrid Spacing="1" Class="mb-2">
+                                                <MudItem xs="12">
+                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                                        @foreach (var set in match.Sets)
+                                                        {
+                                                            <MudButton Variant="@(match.CurrentSet == set.SetNumber ? Variant.Filled : Variant.Outlined)"
+                                                                       Color="@(match.CurrentSet == set.SetNumber ? Color.Primary : Color.Default)"
+                                                                       Size="Size.Small"
+                                                                       OnClick="@(() => SwitchSet(match.Lane, set.SetNumber))"
+                                                                       Style="min-width: 40px;">
+                                                                @set.SetNumber
+                                                            </MudButton>
+                                                        }
+                                                    </MudStack>
+                                                </MudItem>
+                                            </MudGrid>
+
+                                            <!-- Current Set Display -->
+                                            @{
+                                                var currentSet = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
+                                                if (currentSet != null)
+                                                {
+                                                    <MudGrid Spacing="2" Align="Align.Center">
+                                                        <!-- REGION A -->
+                                                        <MudItem xs="5">
+                                                            <MudPaper Class="pa-2" Elevation="1">
+                                                                <MudStack Spacing="1">
+                                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                                                        <MudText Typo="Typo.caption" Align="Align.Center">@match.RegionA</MudText>
+                                                                        <MudText Typo="Typo.caption" Align="Align.Center">Set @currentSet.SetNumber</MudText>
+                                                                    </MudStack>
+
+                                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                                                        @for (int shot = 0; shot < match.ShotsPerEnd; shot++)
+                                                                        {
+                                                                            if (shot < currentSet.ShotsA.Count)
+                                                                            {
+                                                                                var shotData = currentSet.ShotsA[shot];
+                                                                                var displayValue = shotData.ShotScore == 0 ? "M" : (shotData.IsBullseye ? "X" : shotData.ShotScore.ToString());
+                                                                                <MudChip T="string" Size="Size.Small"
+                                                                                         Color="@(shotData.ShotScore == 0 ? Color.Error : shotData.IsBullseye ? Color.Secondary : Color.Primary)"
+                                                                                         Variant="Variant.Filled"
+                                                                                         Style="min-width: 25px; height: 25px; justify-content: center; font-size: 0.8rem;">
+                                                                                    @displayValue
+                                                                                </MudChip>
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                <MudChip T="string" Size="Size.Small"
+                                                                                         Variant="Variant.Outlined"
+                                                                                         Style="min-width: 25px; height: 25px; justify-content: center; border-style: dashed; font-size: 0.8rem;">
+                                                                                    -
+                                                                                </MudChip>
+                                                                            }
+                                                                        }
+                                                                    </MudStack>
+
+                                                                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Primary" Class="font-weight-bold">
+                                                                        Total: @currentSet.TotalA
+                                                                    </MudText>
+                                                                </MudStack>
+                                                            </MudPaper>
+                                                        </MudItem>
+
+                                                        <MudItem xs="2">
+                                                            <MudStack Justify="Justify.Center" Style="align-items:center" Class="mt-8">
+                                                                <MudText Typo="Typo.caption" Align="Align.Center">vs</MudText>
+                                                            </MudStack>
+                                                        </MudItem>
+
+                                                        <!-- REGION B -->
+                                                        <MudItem xs="5">
+                                                            <MudPaper Class="pa-2" Elevation="1">
+                                                                <MudStack Spacing="1">
+                                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                                                        <MudText Typo="Typo.caption" Align="Align.Center">@match.RegionB</MudText>
+                                                                        <MudText Typo="Typo.caption" Align="Align.Center">Set @currentSet.SetNumber</MudText>
+                                                                    </MudStack>
+
+                                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                                                        @for (int shot = 0; shot < match.ShotsPerEnd; shot++)
+                                                                        {
+                                                                            if (shot < currentSet.ShotsB.Count)
+                                                                            {
+                                                                                var shotData = currentSet.ShotsB[shot];
+                                                                                var displayValue = shotData.ShotScore == 0 ? "M" : (shotData.IsBullseye ? "X" : shotData.ShotScore.ToString());
+                                                                                <MudChip T="string" Size="Size.Small"
+                                                                                         Color="@(shotData.ShotScore == 0 ? Color.Error : shotData.IsBullseye ? Color.Secondary : Color.Primary)"
+                                                                                         Variant="Variant.Filled"
+                                                                                         Style="min-width: 25px; height: 25px; justify-content: center; font-size: 0.8rem;">
+                                                                                    @displayValue
+                                                                                </MudChip>
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                <MudChip T="string" Size="Size.Small"
+                                                                                         Variant="Variant.Outlined"
+                                                                                         Style="min-width: 25px; height: 25px; justify-content: center; border-style: dashed; font-size: 0.8rem;">
+                                                                                    -
+                                                                                </MudChip>
+                                                                            }
+                                                                        }
+                                                                    </MudStack>
+
+                                                                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Primary" Class="font-weight-bold">
+                                                                        Total: @currentSet.TotalB
+                                                                    </MudText>
+                                                                </MudStack>
+                                                            </MudPaper>
+                                                        </MudItem>
+                                                    </MudGrid>
+                                                }
+                                            }
+                                        </MudItem>
+                                    </MudGrid>
+
+                                    <MudDivider Class="my-3" />
+
+                                    <!-- Score Buttons -->
+                                    <MudGrid Spacing="2">
+                                        <!-- Region A Score Buttons -->
+                                        <MudItem xs="12" sm="6">
+                                            <MudPaper Class="pa-2" Elevation="1" Style="background-color: #f8f9fa;">
+                                                <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-2 font-weight-bold">
+                                                    @match.RegionA Score
+                                                </MudText>
+                                                @{
+                                                    var currentSetA = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
+                                                    var shotsA = currentSetA?.ShotsA ?? new List<ShotData>();
+                                                    var nextShotA = shotsA.Any() ? shotsA.Max(s => s.ShotNo) + 1 : 1;
+                                                    var scoreRowsA = new[] {
+                                                                    new[] { "X", "10", "9", "8", "7", "6" },
+                                                                    new[] { "5", "4", "3", "2", "1", "M" }
+                                                                    };
+                                                }
+                                                @foreach (var rowScores in scoreRowsA)
+                                                {
+                                                    <MudItem xs="12">
+                                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1" Breakpoint="Breakpoint.None">
+                                                            @foreach (var score in rowScores)
+                                                            {
+                                                                <MudButton Size="Size.Small"
+                                                                           Variant="Variant.Outlined"
+                                                                           Color="@(score == "M" ? Color.Error : score == "X" ? Color.Secondary : Color.Primary)"
+                                                                           OnClick="@(() => RecordOlympicShotForRegion(match.Lane, nextShotA, "A", score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), score == "X"))"
+                                                                           Disabled="@(match.RegionAId == 0 || shotsA.Count >= match.ShotsPerEnd)"
+                                                                           Style="min-width: 30px; height: 30px; padding: 0; font-size: 0.9rem;">
+                                                                    @score
+                                                                </MudButton>
+                                                            }
+                                                        </MudStack>
+                                                    </MudItem>
+                                                }
+                                                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
+                                                    Shots: @shotsA.Count/@match.ShotsPerEnd
+                                                </MudText>
+                                                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
+                                                    @{
+                                                        var nextShotDisplayA = shotsA.Count < match.ShotsPerEnd ? (nextShotA).ToString() : "Complete";
+                                                    }
+                                                    Next Shot: @nextShotDisplayA
+                                                </MudText>
+                                            </MudPaper>
+                                        </MudItem>
+
+                                        <!-- Region B Score Buttons -->
+                                        <MudItem xs="12" sm="6">
+                                            <MudPaper Class="pa-2" Elevation="1" Style="background-color: #f8f9fa;">
+                                                <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-2 font-weight-bold">
+                                                    @match.RegionB Score
+                                                </MudText>
+                                                @{
+                                                    var currentSetB = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
+                                                    var shotsB = currentSetB?.ShotsB ?? new List<ShotData>();
+                                                    var nextShotB = shotsB.Any() ? shotsB.Max(s => s.ShotNo) + 1 : 1;
+                                                    var scoreRowsB = new[] {
+                                    new[] { "X", "10", "9", "8", "7", "6" },
+                                    new[] { "5", "4", "3", "2", "1", "M" }
+                                    };
+                                                }
+                                                @foreach (var rowScores in scoreRowsB)
+                                                {
+                                                    <MudItem xs="12">
+                                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1" Breakpoint="Breakpoint.None">
+                                                            @foreach (var score in rowScores)
+                                                            {
+                                                                <MudButton Size="Size.Small"
+                                                                           Variant="Variant.Outlined"
+                                                                           Color="@(score == "M" ? Color.Error : score == "X" ? Color.Secondary : Color.Primary)"
+                                                                           OnClick="@(() => RecordOlympicShotForRegion(match.Lane, nextShotB, "B", score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), score == "X"))"
+                                                                           Disabled="@(match.RegionBId == 0 || shotsB.Count >= match.ShotsPerEnd)"
+                                                                           Style="min-width: 30px; height: 30px; padding: 0; font-size: 0.9rem;">
+                                                                    @score
+                                                                </MudButton>
+                                                            }
+                                                        </MudStack>
+                                                    </MudItem>
+                                                }
+                                                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
+                                                    Shots: @shotsB.Count/@match.ShotsPerEnd
+                                                </MudText>
+                                                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
+                                                    @{
+                                                        var nextShotDisplayB = shotsB.Count < match.ShotsPerEnd ? (nextShotB).ToString() : "Complete";
+                                                    }
+                                                    Next Shot: @nextShotDisplayB
+                                                </MudText>
+                                            </MudPaper>
+                                        </MudItem>
+                                    </MudGrid>
+
+                                    <!-- Reset Buttons -->
+                                    <MudGrid Spacing="2" Class="mt-2">
+                                        <MudItem xs="12">
+                                            <MudStack Row="true" Justify="Justify.Center" Spacing="2">
+                                                <MudButton Variant="Variant.Outlined"
+                                                           Color="Color.Warning"
+                                                           OnClick="@(() => ResetCurrentSet(match.Lane))"
+                                                           Disabled="@(!HasShotsInCurrentSet(match))"
+                                                           Size="Size.Small">
+                                                    Reset Current Set
+                                                </MudButton>
+                                                <MudButton Variant="Variant.Outlined"
+                                                           Color="Color.Error"
+                                                           OnClick="@(() => ResetAllSets(match.Lane))"
+                                                           Disabled="@(!match.Sets.Any(s => s.ShotsA.Any() || s.ShotsB.Any()))"
+                                                           Size="Size.Small">
+                                                    Reset All Sets
+                                                </MudButton>
+                                            </MudStack>
+                                        </MudItem>
+                                    </MudGrid>
+
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+            else
+            {
+                <!-- 1440 ROUND -->
+                <MudGrid Justify="Justify.Center">
+                    <MudItem xs="12" lg="5">
+                        <MudPaper Elevation="2" Class="pa-4 my-4">
+                            <MudGrid Spacing="2" Justify="Justify.Center" Style="align-items:center" Class="mb-4">
+                                <MudItem xs="4">
+                                    <!-- tba haha -->
+                                </MudItem>
+                                <MudItem xs="4">
+                                    <MudText Typo="Typo.h6" Color="Color.Primary" Align="Align.Center">Round @SelectedRound</MudText>
+                                </MudItem>
+                                <MudItem xs="4">
+                                    <MudGrid Spacing="1" Justify="Justify.FlexEnd" Style="align-items:center">
+                                        <MudItem>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                                           Color="Color.Success"
+                                                           OnClick="AddLane"
+                                                           Size="Size.Small" />
+                                        </MudItem>
+                                        <MudItem>
+                                            <MudText Typo="Typo.body2" Class="px-1">Lane</MudText>
+                                        </MudItem>
+                                        <MudItem>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Remove"
+                                                           Color="Color.Error"
+                                                           OnClick="RemoveLastLane"
+                                                           Disabled="@(Lanes.Count <= 1)"
+                                                           Size="Size.Small" />
+                                        </MudItem>
+                                    </MudGrid>
+                                </MudItem>
+                            </MudGrid>
+
+                            @foreach (var lane in Lanes)
+                            {
+                                var region = Regions.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+
+                                <MudGrid Spacing="2" Class="my-3">
+                                    <MudItem xs="12">
+                                        <MudGrid Spacing="2" Justify="Justify.Center" Style="align-items:center">
+                                            <MudItem xs="12" sm="3">
+                                                <MudText Typo="Typo.h6" Align="Align.Center">Lane @lane</MudText>
+                                            </MudItem>
+
+                                            <!-- Region Assignment -->
+                                            <MudItem xs="12" sm="6">
+                                                <MudStack Justify="Justify.Center" Style="align-items:center">
+                                                    <MudDropZone T="RegionItem"
+                                                                 Identifier="@($"{SelectedRound}_{lane}")"
+                                                                 Class="pa-1 d-flex justify-center align-center"
+                                                                 Style="min-height:60px; width:200px; border:1px dashed gray; background-color: #f8f9fa; border-radius: 4px;">
+                                                        @if (region == null)
+                                                        {
+                                                            <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
+                                                                Drop region here
+                                                            </MudText>
+                                                        }
+                                                    </MudDropZone>
+                                                </MudStack>
+                                            </MudItem>
+
+                                            <!-- Total Score -->
+                                            <MudItem xs="12" sm="3">
+                                                <MudGrid Justify="Justify.Center">
+                                                    <MudItem>
+                                                        <MudPaper Class="pa-2 text-center" Elevation="0" Style="background-color: #e3f2fd; border-radius: 4px; min-width: 80px;">
+                                                            <MudText Typo="Typo.h6" Color="Color.Primary" Align="Align.Center" Class="font-weight-bold">
+                                                                @GetLaneRoundScore(lane)
+                                                            </MudText>
+                                                            <MudText Typo="Typo.caption" Align="Align.Center">
+                                                                Total Score
+                                                            </MudText>
+                                                        </MudPaper>
+                                                    </MudItem>
+                                                </MudGrid>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </MudItem>
+
+                                    <!-- Sets Management Section -->
+                                    <MudItem xs="12">
+                                        <MudPaper Class="pa-3 mb-3" Elevation="1" Style="background-color: #f8f9fa;">
+                                            <MudGrid Spacing="2" Align="Align.Center">
+                                                <MudItem xs="12">
+                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
+                                                        <MudIconButton Color="Color.Success"
+                                                                       Icon="@Icons.Material.Filled.Add"
+                                                                       Size="Size.Small"
+                                                                       OnClick="@(() => AddSet1440(lane))"
+                                                                       Disabled="@(Get1440SetCount(lane) >= 6)">
+                                                        </MudIconButton>
+                                                        <MudText Typo="Typo.body2">Sets (@Get1440SetCount(lane)/6 sets)</MudText>
+                                                        <MudIconButton Color="Color.Error"
+                                                                       Icon="@Icons.Material.Filled.Remove"
+                                                                       Size="Size.Small"
+                                                                       OnClick="@(() => RemoveSet1440(lane))"
+                                                                       Disabled="@(Get1440SetCount(lane) <= 1)">
+                                                        </MudIconButton>
+                                                    </MudStack>
+                                                </MudItem>
+
+                                                <!-- Set Selection Tabs -->
+                                                @if (Get1440SetCount(lane) > 0)
+                                                {
+                                                    var availableSets = Get1440AvailableSets(lane);
+                                                    var currentSetNumber = GetCurrentSetForLane(lane);
+                                                    var shotsInCurrentSet = GetShotsForLaneAndSet(lane, currentSetNumber);
+                                                    var setTotal = shotsInCurrentSet.Sum(s => s.ShotScore);
+
+                                                    <MudItem xs="12">
+                                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1" Class="mb-2">
+                                                            @foreach (var setNumber in availableSets)
+                                                            {
+                                                                <MudButton Variant="@(currentSetNumber == setNumber ? Variant.Filled : Variant.Outlined)"
+                                                                           Color="@(currentSetNumber == setNumber ? Color.Primary : Color.Default)"
+                                                                           Size="Size.Small"
+                                                                           OnClick="@(() => SwitchSet1440(lane, setNumber))"
+                                                                           Style="min-width: 35px;">
+                                                                    @setNumber
+                                                                </MudButton>
+                                                            }
+                                                        </MudStack>
+                                                    </MudItem>
+
+                                                    <!-- Current Set Display -->
+                                                    <MudItem xs="12">
+                                                        <MudPaper Class="pa-2" Elevation="0" Style="background-color: white;">
+                                                            <MudStack Spacing="1" Align="Align.Center">
+                                                                <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
+                                                                    <MudText Typo="Typo.body2" Class="font-weight-bold">Set @currentSetNumber</MudText>
+                                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                                        @shotsInCurrentSet.Count/6 shots
+                                                                    </MudText>
+                                                                </MudStack>
+
+                                                                <!-- Shots in Current Set -->
+                                                                <MudStack Row="true" Justify="Justify.Center" Spacing="0">
+                                                                    @for (int shot = 1; shot <= 6; shot++)
+                                                                    {
+                                                                        var shotData = shotsInCurrentSet.FirstOrDefault(s => s.ShotNo == shot);
+                                                                        if (shotData != null)
+                                                                        {
+                                                                            var displayValue = shotData.ShotScore == 0 ? "M" : (shotData.IsBullseye ? "X" : shotData.ShotScore.ToString());
+                                                                            <MudChip T="string" Size="Size.Small"
+                                                                                     Color="@(shotData.ShotScore == 0 ? Color.Error : shotData.IsBullseye ? Color.Secondary : Color.Primary)"
+                                                                                     Variant="Variant.Filled"
+                                                                                     Style="min-width: 25px; height: 25px; justify-content: center; font-size: 0.8rem; font-weight: bold;">
+                                                                                @displayValue
+                                                                            </MudChip>
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            <MudChip T="string" Size="Size.Small"
+                                                                                     Variant="Variant.Outlined"
+                                                                                     Style="min-width: 25px; height: 25px; justify-content: center; border-style: dashed; font-size: 0.8rem;">
+                                                                                -
+                                                                            </MudChip>
+                                                                        }
+                                                                    }
+                                                                </MudStack>
+
+                                                                <!-- Set Total -->
+                                                                <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
+                                                                    <MudText Typo="Typo.body1" Color="Color.Primary" Class="font-weight-bold">
+                                                                        Set Total: @setTotal
+                                                                    </MudText>
+                                                                </MudStack>
+                                                            </MudStack>
+                                                        </MudPaper>
+                                                    </MudItem>
+                                                }
+                                            </MudGrid>
+                                        </MudPaper>
+                                    </MudItem>
+
+                                    <!-- Score Buttons -->
+                                    @if (Get1440SetCount(lane) > 0)
+                                    {
+                                        <MudItem xs="12" Class="mb-2">
+                                            <MudPaper Class="pa-3" Elevation="1" Style="background-color: #f8f9fa;">
+                                                @{
+                                                    var currentSetNum = GetCurrentSetForLane(lane);
+                                                    var shotsInSet = GetShotsForLaneAndSet(lane, currentSetNum);
+                                                    var nextShotNum = shotsInSet.Any() ? shotsInSet.Max(s => s.ShotNo) + 1 : 1;
+                                                    var scoreRows = new[] {
+                                                                    new[] { "X", "10", "9", "8", "7", "6" },
+                                                                    new[] { "5", "4", "3", "2", "1", "M" }
+                                                                    };
+                                                }
+
+                                                <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-2 font-weight-bold">
+                                                    Score for Set @currentSetNum
+                                                </MudText>
+
+                                                @foreach (var rowScores in scoreRows)
+                                                {
+                                                    <MudItem xs="12">
+                                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1" Breakpoint="Breakpoint.None">
+                                                            @foreach (var score in rowScores)
+                                                            {
+                                                                <MudButton Size="Size.Small"
+                                                                           Variant="Variant.Outlined"
+                                                                           Color="@(score == "M" ? Color.Error : score == "X" ? Color.Secondary : Color.Primary)"
+                                                                           OnClick="@(() => Record1440RoundShot(lane, nextShotNum, currentSetNum, score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), score == "X"))"
+                                                                           Disabled="@(region == null || shotsInSet.Count >= 6)"
+                                                                           Style="min-width: 30px; height: 30px; padding: 0; font-size: 0.9rem;">
+                                                                    @score
+                                                                </MudButton>
+                                                            }
+                                                        </MudStack>
+                                                    </MudItem>
+                                                }
+
+                                                <MudStack Row="true" Justify="Justify.Center" Spacing="2" Class="mt-2">
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                        Shots in set: @shotsInSet.Count/6
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                        Next shot: @(shotsInSet.Count < 6 ? nextShotNum.ToString() : "Complete")
+                                                    </MudText>
+                                                </MudStack>
+
+                                                <!-- Reset Buttons -->
+                                                <MudStack Row="true" Justify="Justify.Center" Spacing="2" Class="mt-3">
+                                                    <MudButton Variant="Variant.Outlined"
+                                                               Color="Color.Warning"
+                                                               OnClick="@(() => ResetCurrentSet1440(lane))"
+                                                               Disabled="@(!shotsInSet.Any())"
+                                                               Size="Size.Small">
+                                                        Reset Current Set
+                                                    </MudButton>
+                                                    <MudButton Variant="Variant.Outlined"
+                                                               Color="Color.Error"
+                                                               OnClick="@(() => ResetAllSets1440(lane))"
+                                                               Disabled="@(!GetAllShotsForLane(lane).Any())"
+                                                               Size="Size.Small">
+                                                        Reset All Sets
+                                                    </MudButton>
+                                                </MudStack>
+                                            </MudPaper>
+                                        </MudItem>
+                                    }
+                                    <MudDivider Class="my-2" />
+                                </MudGrid>
+                            }
+                        </MudPaper>
+                    </MudItem>
+
+                    <!-- Total Scores Summary -->
+                    <MudItem xs="12" lg="4">
+                        <MudPaper Class="pa-4 mt-4" Elevation="2">
+                            <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-3">Overall Score</MudText>
+                            <MudGrid Spacing="2">
+                                @foreach (var regionScore in GetAllRegionScoresForRound().OrderByDescending(rs => rs.TotalScore))
+                                {
+                                    <MudItem xs="12">
+                                        <MudPaper Class="pa-2" Elevation="0">
+                                            <MudGrid Spacing="2" Align="Align.Center">
+                                                <MudItem xs="9">
+                                                    <MudGrid Spacing="1" Align="Align.Center">
+                                                        <MudItem xs="12">
+                                                            <MudStack Row="true" Spacing="1" Align="Align.Center">
+                                                                <MudText Typo="Typo.body1" Class="font-weight-bold">
+                                                                    @regionScore.RegionName
+                                                                </MudText>
+                                                                @if (!string.IsNullOrEmpty(regionScore.AssignedLane))
+                                                                {
+                                                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled">
+                                                                        @(regionScore.IsUnassigned ? "Unassigned" : $"Lane {regionScore.Lane}")
+                                                                    </MudChip>
+                                                                }
+                                                                @if (regionScore.ShotCount > 0)
+                                                                {
+                                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                                        (@regionScore.ShotCount shots)
+                                                                    </MudText>
+                                                                }
+                                                            </MudStack>
+                                                        </MudItem>
+                                                    </MudGrid>
+                                                </MudItem>
+                                                <MudItem xs="3">
+                                                    <MudText Typo="Typo.h6" Color="Color.Primary" Align="Align.Right" Class="font-weight-bold">
+                                                        @regionScore.TotalScore
+                                                    </MudText>
+                                                </MudItem>
+                                            </MudGrid>
+                                            <MudDivider Class="my-2" />
+                                        </MudPaper>
+                                    </MudItem>
+                                }
+                            </MudGrid>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            }
+        </ChildContent>
+
+        <ItemRenderer Context="item">
+            @{
+                var hasDataInCurrentRound = HasDataInCurrentRound(item);
+                var chipColor = hasDataInCurrentRound ? Color.Secondary : Color.Primary;
+            }
+            <MudChip T="string"
+                     Variant="Variant.Filled"
+                     Color="@chipColor"
+                     Class="ma-1 cursor-move"
+                     Style="max-width: 130px; height: auto; min-height: 52px; padding: 8px 12px; display: flex; align-items: center;">
+                <MudStack Spacing="0" Style="line-height: 1.3; text-align: center; width: 100%;">
+                    <MudText Typo="Typo.body2"
+                             Class="font-weight-bold"
+                             Style="font-size: 0.75rem; margin-bottom: 2px;">
+                        @item.Name
+                    </MudText>
+                    @if (!string.IsNullOrEmpty(item.PlayerName))
+                    {
+                        <MudText Typo="Typo.caption"
+                                 Style="font-size: 0.65rem; word-break: break-word; opacity: 0.9;">
+                            @item.PlayerName
+                        </MudText>
+                    }
+                </MudStack>
+            </MudChip>
+        </ItemRenderer>
+    </MudDropContainer>
+}
+
+@code {
+    private List<RegionItem>? Regions;
+    private List<int> Lanes = new List<int> { 1, 2, 3, 4 };
+    private List<List<RegionItem>> AllRounds = new();
+    private int CurrentRound = 1;
+    private int SelectedRound = 1;
+    private List<OlympicMatch> OlympicMatches = new List<OlympicMatch>();
+    private int NextMatchNumber = 1;
+
+    private int? _selectedSportIDValue = 1;
+    private string? _selectedSchoolLevelAndGenderID;
+    private string? _selectedMainCategoryValue;
+    private int? _selectedSportSubcategoryIDValue;
+    private int? _selectedEventStagesIDValue;
+
+    private List<EventsDTO.EventStages>? _eventStages;
+    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
+
+    private List<string> _combinedSchoolLevelAndGenderNames = new();
+    private List<string> _sportMainCat = new();
+
+    private Dictionary<int, int> _1440CurrentSets = new Dictionary<int, int>();
+    private Dictionary<int, int> _1440SetCounts = new Dictionary<int, int>();
+    private List<ArcheryScoringDTO> _1440Shots = new List<ArcheryScoringDTO>();
+
+    private Dictionary<int, List<int>> _1440AvailableSets = new Dictionary<int, List<int>>();
+
+    private ArcheryEventDTO? SelectedEvent;
+    private List<ArcheryScoringDTO> Shots = new();
+
+    private bool IsOlympicRound => SelectedEvent?.SportMainCat?.ToLower().Contains("olympic") == true;
+
+    public class RegionItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string AssignedLane { get; set; } = "Unassigned";
+        public int RoundNumber { get; set; } = 1;
+        public string Position { get; set; } = "";
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+
+        public string DisplayName =>
+            !string.IsNullOrEmpty(PlayerName) ? $"{Name} - {PlayerName}" : Name;
+    }
+
+    public class ArcheryEventDTO
+    {
+        public string? ID { get; set; }
+        public DateTime? Date { get; set; }
+        public TimeSpan? Time { get; set; }
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Gender { get; set; }
+        public string? Level { get; set; }
+        public string? EventStage { get; set; }
+        public string? SportMainCat { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public int RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+    }
+
+    public class ArcheryScoringDTO
+    {
+        public int ID { get; set; }
+        public string? EventID { get; set; }
+        public int? EventVersusID { get; set; }
+        public int RoundNo { get; set; }
+        public int ShotNo { get; set; }
+        public int ShotScore { get; set; }
+        public bool IsBullseye { get; set; }
+        public bool IsWinner { get; set; }
+        public int RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+        public int? Lane { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public int EndNo { get; set; } = 1;
+
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Gender { get; set; }
+        public string? Level { get; set; }
+        public string? EventStage { get; set; }
+    }
+
+    public class CreateArcheryScoringDTO
+    {
+        public string? EventID { get; set; }
+        public int? EventVersusID { get; set; }
+        public int RoundNo { get; set; }
+        public int ShotNo { get; set; }
+        public int ShotScore { get; set; }
+        public bool IsBullseye { get; set; }
+        public bool IsWinner { get; set; }
+        public int RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public int Lane { get; set; }
+        public int EndNo { get; set; }
+    }
+
+    public class UpdateArcheryScoringDTO
+    {
+        public int ID { get; set; }
+        public int? RoundNo { get; set; }
+        public int? ShotNo { get; set; }
+        public int? ShotScore { get; set; }
+        public bool? IsBullseye { get; set; }
+        public bool? IsWinner { get; set; }
+        public int? RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public int? Lane { get; set; }
+        public int? EndNo { get; set; }
+    }
+
+    private class LaneScore
+    {
+        public int Lane { get; set; }
+        public string Region { get; set; } = "";
+        public int TotalScore { get; set; }
+    }
+
+    public class RegionRoundScore
+    {
+        public int RegionId { get; set; }
+        public string RegionName { get; set; } = "";
+        public int TotalScore { get; set; }
+        public int ShotCount { get; set; }
+        public bool IsUnassigned { get; set; }
+        public string AssignedLane { get; set; } = "";
+        public int? Lane { get; set; }
+    }
+
+    public class OlympicMatch
+    {
+        public int Lane { get; set; }
+        public int RegionAId { get; set; }
+        public int RegionBId { get; set; }
+        public string RegionA { get; set; } = "Assign Region";
+        public string RegionB { get; set; } = "Assign Region";
+        public int SetPointsA { get; set; }
+        public int SetPointsB { get; set; }
+        public int CurrentSet { get; set; } = 1;
+        public List<OlympicSet> Sets { get; set; } = new List<OlympicSet>();
+
+        public int ShotsPerEnd { get; set; } = 3;
+        public int EndsPerMatch { get; set; } = 5;
+    }
+
+    public class OlympicSet
+    {
+        public int SetNumber { get; set; }
+        public List<ShotData> ShotsA { get; set; } = new List<ShotData>();
+        public List<ShotData> ShotsB { get; set; } = new List<ShotData>();
+        public int TotalA => ShotsA.Sum(s => s.ShotScore);
+        public int TotalB => ShotsB.Sum(s => s.ShotScore);
+
+        public bool IsCompleted(OlympicMatch match)
+        {
+            return ShotsA.Count >= match.ShotsPerEnd && ShotsB.Count >= match.ShotsPerEnd;
+        }
+
+        public int SetWinner(OlympicMatch match)
+        {
+            if (!IsCompleted(match)) return 0;
+            if (TotalA > TotalB) return 1;
+            if (TotalB > TotalA) return 2;
+            return 0;
+        }
+    }
+
+    public class ShotData
+    {
+        public int ShotNo { get; set; }
+        public int ShotScore { get; set; }
+        public bool IsBullseye { get; set; }
+        public int EndNo { get; set; }
+        public int RegionId { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class EventsDTO
+    {
+        public class EventStages
+        {
+            public int ID { get; set; }
+            public string? Stage { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+            public string? MainCategory { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableOptions();
+        await FilterSchoolLevelAndGenderAsync();
+    }
+
+    private async Task LoadAvailableOptions()
+    {
+        try
+        {
+            await GetEventStagesAsync();
+            await GetGenderCategoriesAsync();
+            await GetSchoolLevelsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading options: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task GetEventStagesAsync()
+    {
+        string url = "/Events/Stages";
+        _eventStages = await apiService.GetAsync<EventsDTO.EventStages>(url);
+    }
+
+    private async Task GetGenderCategoriesAsync()
+    {
+        string url = "/Sports/GenderCategories";
+        _sportGenderCategories = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url);
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        string url = "/Schools/Levels";
+        _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
+    }
+
+    private async Task GetSportSubCategoriesSLGAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+        {
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+            return;
+        }
+
+        var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+        var schoolLevelName = parts[0];
+        var genderName = parts[1];
+
+        var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+        var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
+
+        if (schoolLevelID != null && genderID != null && _selectedSportIDValue != null)
+        {
+            _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+                $"/Sports/Subcategories?sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}");
+        }
+        else
+        {
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+        }
+    }
+
+    private List<SportsDTO.SportSubcategories> GetFilteredSubcategories()
+    {
+        if (_sportSubcategories == null) return new List<SportsDTO.SportSubcategories>();
+        return !string.IsNullOrEmpty(_selectedMainCategoryValue)
+            ? _sportSubcategories.Where(sc => sc.MainCategory == _selectedMainCategoryValue).ToList()
+            : _sportSubcategories.Where(sc => string.IsNullOrEmpty(sc.MainCategory)).ToList();
+    }
+
+    private async Task FilterSchoolLevelAndGenderAsync()
+    {
+        if (_selectedSportIDValue == null)
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        var subcats = await apiService.GetAsync<SportsDTO.SportSubcategories>($"/Sports/Subcategories?sportID={_selectedSportIDValue}");
+        if (subcats == null || !subcats.Any())
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        var schoolLevelIDs = subcats.Where(x => x.SchoolLevelID.HasValue).Select(x => x.SchoolLevelID.Value).Distinct();
+        var genderIDs = subcats.Where(x => x.SportGenderCategoryID.HasValue).Select(x => x.SportGenderCategoryID.Value).Distinct();
+
+        var schoolLevelNames = _schoolLevels?.Where(s => schoolLevelIDs.Contains(s.ID)).Select(s => s.Level) ?? new List<string>();
+        var genderNames = _sportGenderCategories?.Where(g => genderIDs.Contains(g.ID)).Select(g => g.Gender) ?? new List<string>();
+
+        _combinedSchoolLevelAndGenderNames = schoolLevelNames.SelectMany(s => genderNames, (s, g) => $"{s} - {g}").ToList();
+    }
+
+    private void LoadMainCategories()
+    {
+        _sportMainCat = _sportSubcategories?.Where(sc => !string.IsNullOrEmpty(sc.MainCategory))
+            .Select(sc => sc.MainCategory!).Distinct().ToList() ?? new List<string>();
+    }
+
+    private async Task ApplyFilters()
+    {
+        try
+        {
+            var queryParams = new List<string>();
+
+            if (_selectedSportSubcategoryIDValue.HasValue)
+            {
+                var subcategoryName = _sportSubcategories?.FirstOrDefault(s => s.ID == _selectedSportSubcategoryIDValue.Value)?.Subcategory;
+                if (!string.IsNullOrEmpty(subcategoryName))
+                    queryParams.Add($"subcategory={Uri.EscapeDataString(subcategoryName)}");
+            }
+
+            if (!string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+            {
+                var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+                if (parts.Length == 2)
+                {
+                    queryParams.Add($"level={Uri.EscapeDataString(parts[0])}");
+                    queryParams.Add($"gender={Uri.EscapeDataString(parts[1])}");
+                }
+            }
+
+            if (_selectedEventStagesIDValue.HasValue)
+            {
+                var stageName = _eventStages?.FirstOrDefault(e => e.ID == _selectedEventStagesIDValue.Value)?.Stage;
+                if (!string.IsNullOrEmpty(stageName))
+                    queryParams.Add($"eventStage={Uri.EscapeDataString(stageName)}");
+            }
+
+            var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+            var events = await apiService.GetAsync<ArcheryEventDTO>($"/score/ArcheryScoring/events{queryString}");
+
+            if (events != null && events.Any())
+            {
+                var baseRegions = events
+                    .Where(evt => !string.IsNullOrEmpty(evt.Abbreviation))
+                    .GroupBy(evt => evt.Abbreviation)
+                    .Select(group => new RegionItem
+                        {
+                            Id = group.First().RegionID,
+                            Name = group.Key!,
+                            AssignedLane = "Unassigned",
+                            RoundNumber = 1,
+                            PlayerID = group.First().PlayerID,
+                            PlayerName = group.First().PlayerName
+                        })
+                        .ToList();
+
+                AllRounds.Clear();
+                var firstRound = baseRegions.Select(r => new RegionItem
+                    {
+                        Id = r.Id,
+                        Name = r.Name,
+                        AssignedLane = "Unassigned",
+                        RoundNumber = 1,
+                        PlayerID = r.PlayerID,
+                        PlayerName = r.PlayerName
+                    }).ToList();
+                AllRounds.Add(firstRound);
+
+                Regions = firstRound;
+                SelectedEvent = events.First();
+                SelectedRound = 1;
+                CurrentRound = 1;
+
+                OlympicMatches.Clear();
+                NextMatchNumber = 1;
+
+                await LoadExistingArcheryData();
+
+                if (IsOlympicRound && OlympicMatches.Count == 0)
+                {
+                    var (shotsPerEnd, endsPerMatch) = GetMatchConfiguration();
+
+                    var firstMatch = new OlympicMatch
+                        {
+                            Lane = NextMatchNumber++,
+                            CurrentSet = 1,
+                            RegionA = "Assign Region",
+                            RegionB = "Assign Region",
+                            ShotsPerEnd = shotsPerEnd,
+                            EndsPerMatch = endsPerMatch
+                        };
+
+                    firstMatch.Sets.Add(new OlympicSet { SetNumber = 1 });
+
+                    OlympicMatches.Add(firstMatch);
+
+                    var categoryType = SelectedEvent?.Subcategory?.ToLower().Contains("team") == true &&
+                                      !SelectedEvent.Subcategory.ToLower().Contains("mixed") ? "Team" :
+                                      SelectedEvent?.Subcategory?.ToLower().Contains("mixed") == true ? "Mixed Team" : "Individual";
+
+                    Snackbar.Add($"Initialized Match 1 ({categoryType} - {shotsPerEnd} shots/end, {endsPerMatch} ends)", Severity.Info);
+                }
+
+                if (SelectedRound <= AllRounds.Count)
+                {
+                    Regions = AllRounds[SelectedRound - 1];
+                }
+
+                Snackbar.Add($"Found {events.Count} events with {Regions.Count} regions. Loaded {AllRounds.Count} round(s).", Severity.Success);
+            }
+            else
+            {
+                Regions = new List<RegionItem>();
+                SelectedEvent = null;
+                OlympicMatches.Clear();
+                NextMatchNumber = 1;
+                Snackbar.Add("No Archery events found with the selected filters", Severity.Warning);
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
+            Regions = new List<RegionItem>();
+            OlympicMatches.Clear();
+        }
+    }
+
+    private async Task ClearFilters()
+    {
+        _selectedSchoolLevelAndGenderID = null;
+        _selectedMainCategoryValue = null;
+        _selectedSportSubcategoryIDValue = null;
+        _selectedEventStagesIDValue = null;
+        SelectedEvent = null;
+        Regions = new List<RegionItem>();
+        _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+        _combinedSchoolLevelAndGenderNames = new List<string>();
+        _sportMainCat = new List<string>();
+        AllRounds.Clear();
+        CurrentRound = 1;
+        SelectedRound = 1;
+        Shots.Clear();
+        Lanes = new List<int> { 1, 2, 3, 4 };
+
+        OlympicMatches.Clear();
+        NextMatchNumber = 1;
+
+        Snackbar.Add("Filters cleared", Severity.Info);
+        StateHasChanged();
+    }
+
+    private async Task LoadExistingArcheryData()
+    {
+        try
+        {
+            if (SelectedEvent == null) return;
+
+            var existingShots = await apiService.GetAsync<ArcheryScoringDTO>($"/score/ArcheryScoring/event/{SelectedEvent.ID}?t={DateTime.Now.Ticks}");
+
+            if (existingShots != null && existingShots.Any())
+            {
+                Shots = existingShots.ToList();
+
+                if (IsOlympicRound)
+                {
+                    await ReconstructOlympicMatchesFromDataAsync();
+                }
+                else
+                {
+                    await Initialize1440RoundData();
+                }
+            }
+            else
+            {
+                Shots = new List<ArcheryScoringDTO>();
+                await Initialize1440RoundData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading existing archery data: {ex.Message}", Severity.Warning);
+            _logger.LogError(ex, "Error in LoadExistingArcheryData");
+            Shots = new List<ArcheryScoringDTO>();
+        }
+    }
+
+    private async Task ReconstructOlympicMatchesFromDataAsync()
+    {
+        try
+        {
+            OlympicMatches.Clear();
+
+            var matchLanes = Shots.Select(s => s.Lane).Distinct().Where(l => l.HasValue).Select(l => l.Value).ToList();
+            var (defaultShotsPerEnd, defaultEndsPerMatch) = GetMatchConfiguration();
+
+            foreach (var lane in matchLanes)
+            {
+                var match = new OlympicMatch
+                    {
+                        Lane = lane,
+                        CurrentSet = 1,
+                        ShotsPerEnd = defaultShotsPerEnd,
+                        EndsPerMatch = defaultEndsPerMatch
+                    };
+
+                var regionsInLane = Shots.Where(s => s.Lane == lane)
+                                        .Select(s => new { s.RegionID, s.Region })
+                                        .Distinct()
+                                        .ToList();
+
+                var assignedRegions = Regions?
+                    .Where(r => r.AssignedLane.StartsWith($"{SelectedRound}_{lane}_"))
+                    .ToList() ?? new List<RegionItem>();
+
+                foreach (var assignedRegion in assignedRegions)
+                {
+                    if (assignedRegion.Position == "A")
+                    {
+                        match.RegionAId = assignedRegion.Id;
+                        match.RegionA = assignedRegion.Name;
+                    }
+                    else if (assignedRegion.Position == "B")
+                    {
+                        match.RegionBId = assignedRegion.Id;
+                        match.RegionB = assignedRegion.Name;
+                    }
+                }
+
+                if (match.RegionAId == 0 && regionsInLane.Count >= 1)
+                {
+                    match.RegionAId = regionsInLane[0].RegionID;
+                    match.RegionA = regionsInLane[0].Region ?? "Unknown";
+                    
+                    var regionA = Regions?.FirstOrDefault(r => r.Id == match.RegionAId);
+                    if (regionA != null)
+                    {
+                        regionA.AssignedLane = $"{SelectedRound}_{lane}_A";
+                        regionA.Position = "A";
+                    }
+                }
+                if (match.RegionBId == 0 && regionsInLane.Count >= 2)
+                {
+                    match.RegionBId = regionsInLane[1].RegionID;
+                    match.RegionB = regionsInLane[1].Region ?? "Unknown";
+                    
+                    var regionB = Regions?.FirstOrDefault(r => r.Id == match.RegionBId);
+                    if (regionB != null)
+                    {
+                        regionB.AssignedLane = $"{SelectedRound}_{lane}_B";
+                        regionB.Position = "B";
+                    }
+                }
+
+                var allEnds = Shots.Where(s => s.Lane == lane).Select(s => s.EndNo).Distinct().OrderBy(e => e).ToList();
+
+                foreach (var endNo in allEnds.Where(e => e <= match.EndsPerMatch))
+                {
+                    var set = match.Sets.FirstOrDefault(s => s.SetNumber == endNo);
+                    if (set == null)
+                    {
+                        set = new OlympicSet { SetNumber = endNo };
+                        match.Sets.Add(set);
+                    }
+
+                    if (match.RegionAId > 0)
+                    {
+                        var shotsA = Shots.Where(s => s.Lane == lane && s.RegionID == match.RegionAId && s.EndNo == endNo)
+                                         .OrderBy(s => s.ShotNo)
+                                         .Select(s => new ShotData
+                                             {
+                                                 ShotNo = s.ShotNo,
+                                                 ShotScore = s.ShotScore,
+                                                 IsBullseye = s.IsBullseye,
+                                                 EndNo = s.EndNo,
+                                                 RegionId = s.RegionID,
+                                                 CreatedAt = s.CreatedAt
+                                             }).ToList();
+                        set.ShotsA = shotsA;
+                    }
+
+                    if (match.RegionBId > 0)
+                    {
+                        var shotsB = Shots.Where(s => s.Lane == lane && s.RegionID == match.RegionBId && s.EndNo == endNo)
+                                         .OrderBy(s => s.ShotNo)
+                                         .Select(s => new ShotData
+                                             {
+                                                 ShotNo = s.ShotNo,
+                                                 ShotScore = s.ShotScore,
+                                                 IsBullseye = s.IsBullseye,
+                                                 EndNo = s.EndNo,
+                                                 RegionId = s.RegionID,
+                                                 CreatedAt = s.CreatedAt
+                                             }).ToList();
+                        set.ShotsB = shotsB;
+                    }
+                }
+
+                if (!match.Sets.Any())
+                {
+                    match.Sets.Add(new OlympicSet { SetNumber = 1 });
+                }
+
+                if (match.Sets.Any(s => s.ShotsA.Any() || s.ShotsB.Any()))
+                {
+                    match.CurrentSet = match.Sets.Where(s => s.ShotsA.Any() || s.ShotsB.Any()).Max(s => s.SetNumber);
+                }
+                else
+                {
+                    match.CurrentSet = 1;
+                }
+
+                await CalculateSetPointsAsync(match);
+
+                OlympicMatches.Add(match);
+            }
+
+            if (OlympicMatches.Any())
+            {
+                NextMatchNumber = OlympicMatches.Max(m => m.Lane) + 1;
+            }
+            else
+            {
+                NextMatchNumber = 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error reconstructing Olympic matches: {ex.Message}", Severity.Error);
+            _logger.LogError(ex, "Error in ReconstructOlympicMatchesFromDataAsync");
+        }
+    }
+
+    private void NextRound()
+    {
+        if (Regions == null || !Regions.Any())
+        {
+            Snackbar.Add("No regions available. Please apply filters first.", Severity.Warning);
+            return;
+        }
+
+        CurrentRound++;
+
+        var newRound = Regions.Select(region => new RegionItem
+            {
+                Id = region.Id,
+                Name = region.Name,
+                AssignedLane = "Unassigned",
+                RoundNumber = CurrentRound,
+                PlayerID = region.PlayerID,
+                PlayerName = region.PlayerName
+            }).ToList();
+
+        AllRounds.Add(newRound);
+        SelectedRound = CurrentRound;
+        Regions = newRound;
+
+        Snackbar.Add($"Round {CurrentRound} created with {Regions.Count} regions!", Severity.Success);
+        StateHasChanged();
+    }
+
+
+    private async Task OnRoundChanged(int roundNumber)
+    {
+        if (roundNumber >= 1 && roundNumber <= AllRounds.Count)
+        {
+            SelectedRound = roundNumber;
+            Regions = AllRounds[roundNumber - 1];
+
+            await LoadExistingArcheryData();
+
+            StateHasChanged();
+        }
+        else
+        {
+            Snackbar.Add($"Round {roundNumber} is not available. Total rounds: {AllRounds.Count}", Severity.Warning);
+        }
+    }
+
+    private void AddLane()
+    {
+        try
+        {
+            var newLaneNumber = Lanes.Any() ? Lanes.Max() + 1 : 1;
+            Lanes.Add(newLaneNumber);
+
+            Snackbar.Add($"Lane {newLaneNumber} added successfully!", Severity.Success);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error adding lane: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void RemoveLastLane()
+    {
+        if (Lanes.Count <= 1)
+        {
+            Snackbar.Add("Cannot remove the last lane", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var laneToRemove = Lanes.Max();
+            var regionsInLane = Regions?.Where(r => r.AssignedLane == $"{SelectedRound}_{laneToRemove}").ToList();
+
+            if (regionsInLane?.Any() == true)
+            {
+                foreach (var region in regionsInLane)
+                {
+                    region.AssignedLane = "Unassigned";
+                }
+                Snackbar.Add($"Removed Lane {laneToRemove} and unassigned {regionsInLane.Count} region(s)", Severity.Info);
+            }
+            else
+            {
+                Snackbar.Add($"Removed Lane {laneToRemove}", Severity.Info);
+            }
+
+            Lanes.Remove(laneToRemove);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error removing lane: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private bool SelectItemsForZone(RegionItem item, string dropzone)
+    {
+        if (IsOlympicRound && dropzone.Contains("_A") || dropzone.Contains("_B"))
+        {
+            var parts = dropzone.Split('_');
+            if (parts.Length == 3)
+            {
+                var matchNumber = int.Parse(parts[1]);
+                var position = parts[2];
+                return item.RoundNumber == SelectedRound && item.AssignedLane == $"{SelectedRound}_{matchNumber}_{position}";
+            }
+        }
+
+        return item.RoundNumber == SelectedRound && item.AssignedLane == dropzone;
+    }
+
+    private async Task OnItemDropped(MudItemDropInfo<RegionItem> info)
+    {
+        try
+        {
+            foreach (var round in AllRounds)
+            {
+                var existingAssignment = round.FirstOrDefault(r => r.Id == info.Item.Id && r.RoundNumber == SelectedRound);
+                if (existingAssignment != null)
+                {
+                    if (existingAssignment.AssignedLane != "Unassigned" && existingAssignment.AssignedLane.Contains("_"))
+                    {
+                        var oldParts = existingAssignment.AssignedLane.Split('_');
+                        if (oldParts.Length == 3)
+                        {
+                            var oldLane = int.Parse(oldParts[1]);
+                            var oldPosition = oldParts[2];
+
+                            var oldMatch = OlympicMatches.FirstOrDefault(m => m.Lane == oldLane);
+                            if (oldMatch != null)
+                            {
+                                if (oldPosition == "A")
+                                {
+                                    oldMatch.RegionAId = 0;
+                                    oldMatch.RegionA = "Assign Region";
+                                }
+                                else if (oldPosition == "B")
+                                {
+                                    oldMatch.RegionBId = 0;
+                                    oldMatch.RegionB = "Assign Region";
+                                }
+                            }
+                        }
+                    }
+
+                    existingAssignment.AssignedLane = "Unassigned";
+                    existingAssignment.Position = "";
+                }
+            }
+
+            info.Item.AssignedLane = info.DropzoneIdentifier;
+            info.Item.RoundNumber = SelectedRound;
+
+            if (IsOlympicRound && info.DropzoneIdentifier.Contains("_"))
+            {
+                var parts = info.DropzoneIdentifier.Split('_');
+                if (parts.Length == 3)
+                {
+                    var roundNumber = int.Parse(parts[0]);
+                    var matchNumber = int.Parse(parts[1]);
+                    var position = parts[2];
+
+                    info.Item.Position = position;
+
+                    var match = OlympicMatches.FirstOrDefault(m => m.Lane == matchNumber);
+                    if (match == null)
+                    {
+                        match = new OlympicMatch
+                            {
+                                Lane = matchNumber,
+                                CurrentSet = 1
+                            };
+                        match.Sets.Add(new OlympicSet { SetNumber = 1 });
+                        OlympicMatches.Add(match);
+                    }
+
+                    if (position == "A")
+                    {
+                        if (match.RegionAId > 0 && match.RegionAId != info.Item.Id)
+                        {
+                            var oldRegion = Regions.FirstOrDefault(r => r.Id == match.RegionAId);
+                            if (oldRegion != null)
+                            {
+                                oldRegion.AssignedLane = "Unassigned";
+                                oldRegion.Position = "";
+                            }
+                        }
+                        match.RegionAId = info.Item.Id;
+                        match.RegionA = info.Item.Name;
+                    }
+                    else if (position == "B")
+                    {
+                        if (match.RegionBId > 0 && match.RegionBId != info.Item.Id)
+                        {
+                            var oldRegion = Regions.FirstOrDefault(r => r.Id == match.RegionBId);
+                            if (oldRegion != null)
+                            {
+                                oldRegion.AssignedLane = "Unassigned";
+                                oldRegion.Position = "";
+                            }
+                        }
+                        match.RegionBId = info.Item.Id;
+                        match.RegionB = info.Item.Name;
+                    }
+                }
+            }
+
+            var displayText = info.DropzoneIdentifier == "Unassigned" ? "Unassigned" :
+                             info.DropzoneIdentifier.Replace($"{SelectedRound}_", "").Replace("_A", " (Position A)").Replace("_B", " (Position B)");
+            Snackbar.Add($"{info.Item.Name} assigned to {displayText} (Round {SelectedRound})", Severity.Success);
+
+            await SaveLaneAssignment(info.Item);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error during drag and drop: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SaveLaneAssignment(RegionItem region)
+    {
+        try
+        {
+            if (SelectedEvent != null)
+            {
+                Snackbar.Add($"Saved {region.Name} assignment successfully!", Severity.Success);
+            }
+            else if (region.AssignedLane == "Unassigned")
+            {
+                Snackbar.Add($"{region.Name} unassigned", Severity.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving assignment: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private List<RegionItem> GetRegionsInLane(int lane)
+    {
+        return Regions?.Where(r => r.AssignedLane.StartsWith($"{SelectedRound}_{lane}")).ToList() ?? new List<RegionItem>();
+    }
+
+    private async Task RecordShot(int lane, int score, bool isBullseye = false)
+    {
+        try
+        {
+            var regionsInLane = GetRegionsInLane(lane);
+            if (!regionsInLane.Any())
+            {
+                Snackbar.Add($"No regions assigned to Lane {lane}", Severity.Warning);
+                return;
+            }
+
+            if (SelectedEvent == null)
+            {
+                Snackbar.Add("No event selected", Severity.Error);
+                return;
+            }
+
+            var currentSet = GetCurrentSetForLane(lane);
+            var shotsInSet = GetShotsForLaneAndSet(lane, currentSet);
+            var nextShotNo = shotsInSet.Any() ? shotsInSet.Max(s => s.ShotNo) + 1 : 1;
+
+            await Record1440RoundShot(lane, nextShotNo, currentSet, score, isBullseye);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error recording shot: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task Initialize1440RoundData()
+    {
+        if (SelectedEvent == null || Regions == null) return;
+
+        foreach (var lane in Lanes)
+        {
+            if (!_1440AvailableSets.ContainsKey(lane))
+            {
+                _1440AvailableSets[lane] = new List<int>();
+            }
+
+            if (!_1440CurrentSets.ContainsKey(lane))
+            {
+                _1440CurrentSets[lane] = 1;
+            }
+
+            if (!_1440SetCounts.ContainsKey(lane))
+            {
+                _1440SetCounts[lane] = 1;
+            }
+
+            await LoadExistingSetsForLane(lane);
+
+            if (_1440AvailableSets[lane].Count == 0)
+            {
+                _1440AvailableSets[lane].Add(1);
+            }
+        }
+    }
+
+    private async Task LoadExistingSetsForLane(int lane)
+    {
+        if (SelectedEvent == null) return;
+
+        var region = Regions.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+        if (region == null) return;
+
+        var existingSets = Shots
+            .Where(s => s.EventID == SelectedEvent.ID &&
+                       s.RoundNo == SelectedRound &&
+                       s.Lane == lane &&
+                       s.RegionID == region.Id)
+            .Select(s => s.EndNo)
+            .Distinct()
+            .OrderBy(s => s)
+            .ToList();
+
+        if (existingSets.Any())
+        {
+            _1440AvailableSets[lane] = existingSets;
+            _1440SetCounts[lane] = existingSets.Max();
+            _1440CurrentSets[lane] = existingSets.Max();
+        }
+        else
+        {
+            _1440AvailableSets[lane] = new List<int> { 1 };
+            _1440SetCounts[lane] = 1;
+            _1440CurrentSets[lane] = 1;
+        }
+    }
+
+    private int GetCurrentSetForLane(int lane)
+    {
+        if (!_1440CurrentSets.ContainsKey(lane))
+        {
+            _1440CurrentSets[lane] = 1;
+        }
+
+        if (_1440CurrentSets[lane] > Get1440SetCount(lane))
+        {
+            _1440CurrentSets[lane] = Get1440SetCount(lane);
+        }
+
+        return _1440CurrentSets[lane];
+    }
+
+    private int Get1440SetCount(int lane)
+    {
+        if (!_1440SetCounts.ContainsKey(lane))
+        {
+            _1440SetCounts[lane] = 1;
+        }
+        return _1440SetCounts[lane];
+    }
+
+    private List<int> Get1440AvailableSets(int lane)
+    {
+        if (!_1440AvailableSets.ContainsKey(lane))
+        {
+            _1440AvailableSets[lane] = new List<int> { 1 };
+        }
+        return _1440AvailableSets[lane];
+    }
+
+    private void AddSet1440(int lane)
+    {
+        if (Get1440SetCount(lane) < 6)
+        {
+            _1440SetCounts[lane] = Get1440SetCount(lane) + 1;
+
+            if (SelectedEvent != null && Regions != null)
+            {
+                var region = Regions.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+                if (region != null)
+                {
+                    var newSetNumber = _1440SetCounts[lane];
+                    if (!_1440AvailableSets[lane].Contains(newSetNumber))
+                    {
+                        _1440AvailableSets[lane].Add(newSetNumber);
+                    }
+                }
+            }
+
+            _1440CurrentSets[lane] = _1440SetCounts[lane];
+
+            StateHasChanged();
+            Snackbar.Add($"Added Set {_1440SetCounts[lane]} for Lane {lane}", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add($"Maximum 6 sets reached for Lane {lane}", Severity.Warning);
+        }
+    }
+
+    private void RemoveSet1440(int lane)
+    {
+        var currentSetCount = Get1440SetCount(lane);
+        if (currentSetCount > 1)
+        {
+            var setToRemove = currentSetCount;
+
+            var shotsInSet = GetShotsForLaneAndSet(lane, setToRemove);
+            if (shotsInSet.Any())
+            {
+                Snackbar.Add($"Cannot remove Set {setToRemove} because it contains data. Please reset the set first.", Severity.Warning);
+                return;
+            }
+
+            if (_1440AvailableSets.ContainsKey(lane))
+            {
+                _1440AvailableSets[lane].Remove(setToRemove);
+            }
+
+            _1440SetCounts[lane] = currentSetCount - 1;
+
+            if (_1440CurrentSets[lane] > _1440SetCounts[lane])
+            {
+                _1440CurrentSets[lane] = _1440SetCounts[lane];
+            }
+
+            StateHasChanged();
+            Snackbar.Add($"Removed Set {setToRemove} for Lane {lane}", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add($"Cannot remove the last set for Lane {lane}", Severity.Warning);
+        }
+    }
+
+    private void SwitchSet1440(int lane, int setNumber)
+    {
+        if (setNumber >= 1 && setNumber <= Get1440SetCount(lane))
+        {
+            _1440CurrentSets[lane] = setNumber;
+            StateHasChanged();
+        }
+    }
+
+    private List<ArcheryScoringDTO> GetShotsForLaneAndSet(int lane, int setNumber)
+    {
+        if (SelectedEvent == null) return new List<ArcheryScoringDTO>();
+
+        var region = Regions!.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+        if (region == null) return new List<ArcheryScoringDTO>();
+
+        return Shots
+            .Where(s => s.EventID == SelectedEvent.ID &&
+                       s.RoundNo == SelectedRound &&
+                       s.Lane == lane &&
+                       s.RegionID == region.Id &&
+                       s.EndNo == setNumber)
+            .OrderBy(s => s.ShotNo)
+            .ToList();
+    }
+
+    private List<ArcheryScoringDTO> GetAllShotsForLane(int lane)
+    {
+        if (SelectedEvent == null) return new List<ArcheryScoringDTO>();
+
+        var region = Regions!.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+        if (region == null) return new List<ArcheryScoringDTO>();
+
+        return Shots
+            .Where(s => s.EventID == SelectedEvent.ID &&
+                       s.RoundNo == SelectedRound &&
+                       s.Lane == lane &&
+                       s.RegionID == region.Id)
+            .ToList();
+    }
+
+    private async Task Record1440RoundShot(int lane, int shotNo, int setNumber, int score, bool isBullseye)
+    {
+        try
+        {
+            var region = Regions!.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+            if (region == null)
+            {
+                Snackbar.Add($"No region assigned to Lane {lane}", Severity.Warning);
+                return;
+            }
+
+            if (SelectedEvent == null)
+            {
+                Snackbar.Add("No event selected", Severity.Error);
+                return;
+            }
+
+            var existingShot = Shots.FirstOrDefault(s =>
+                s.EventID == SelectedEvent.ID &&
+                s.RoundNo == SelectedRound &&
+                s.Lane == lane &&
+                s.RegionID == region.Id &&
+                s.EndNo == setNumber &&
+                s.ShotNo == shotNo);
+
+            if (existingShot != null)
+            {
+                Snackbar.Add("Shot already recorded for this position", Severity.Warning);
+                return;
+            }
+
+            var shotsInSet = GetShotsForLaneAndSet(lane, setNumber);
+            if (shotsInSet.Count >= 6)
+            {
+                Snackbar.Add("Maximum 6 shots per set already recorded", Severity.Warning);
+                return;
+            }
+
+            var shotDto = new
+            {
+                EventID = SelectedEvent.ID,
+                RoundNo = SelectedRound,
+                ShotNo = shotNo,
+                ShotScore = score,
+                IsBullseye = isBullseye,
+                IsWinner = false,
+                RegionID = region.Id,
+                PlayerID = region.PlayerID,
+                Lane = lane,
+                EndNo = setNumber
+            };
+
+            var result = await apiService.PostAsync<object, int>("/score/ArcheryScoring/1440", shotDto);
+            if (result > 0)
+            {
+                await LoadExistingArcheryData();
+                var scoreDisplay = score == 0 ? "M" : (isBullseye ? "X" : score.ToString());
+                Snackbar.Add($"Recorded shot: {region.DisplayName} scored {scoreDisplay} on Lane {lane}, Set {setNumber}", Severity.Success);
+                StateHasChanged();
+            }
+            else if (result == -1)
+            {
+                Snackbar.Add("Shot already recorded for this combination. Refreshing data...", Severity.Warning);
+                await LoadExistingArcheryData();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error recording shot: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ResetCurrentSet1440(int lane)
+    {
+        try
+        {
+            var region = Regions!.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+            if (region == null) return;
+
+            var currentSet = GetCurrentSetForLane(lane);
+            await apiService.DeleteAsync($"/score/ArcheryScoring/region/{region.Id}/round/{SelectedRound}/lane/{lane}/end/{currentSet}");
+
+            await LoadExistingArcheryData();
+            Snackbar.Add($"Set {currentSet} on Lane {lane} reset", Severity.Info);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error resetting set: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ResetAllSets1440(int lane)
+    {
+        try
+        {
+            var region = Regions!.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+            if (region == null) return;
+
+            await apiService.DeleteAsync($"/score/ArcheryScoring/region/{region.Id}/round/{SelectedRound}/lane/{lane}");
+
+            await LoadExistingArcheryData();
+            Snackbar.Add($"All sets on Lane {lane} reset", Severity.Info);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error resetting all sets: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private int GetLaneRoundScore(int lane)
+    {
+        if (SelectedEvent == null) return 0;
+
+        var region = Regions!.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+        if (region == null) return 0;
+
+        return Shots
+            .Where(s => s.EventID == SelectedEvent.ID &&
+                       s.RoundNo == SelectedRound &&
+                       s.Lane == lane &&
+                       s.RegionID == region.Id)
+            .Sum(s => s.ShotScore);
+    }
+
+    private int GetLaneShotCount(int lane)
+    {
+        if (SelectedEvent == null) return 0;
+
+        var region = Regions!.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+        if (region == null) return 0;
+
+        return Shots
+            .Count(s => s.EventID == SelectedEvent.ID &&
+                       s.RoundNo == SelectedRound &&
+                       s.Lane == lane &&
+                       s.RegionID == region.Id);
+    }
+
+    private List<ArcheryScoringDTO> GetRecentShots(int lane)
+    {
+        if (SelectedEvent == null) return new List<ArcheryScoringDTO>();
+
+        var region = Regions!.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+        if (region == null) return new List<ArcheryScoringDTO>();
+
+        return Shots
+            .Where(s => s.EventID == SelectedEvent.ID &&
+                       s.RoundNo == SelectedRound &&
+                       s.Lane == lane &&
+                       s.RegionID == region.Id)
+            .OrderBy(s => s.ShotNo)
+            .ToList();
+    }
+
+    private List<RegionRoundScore> GetAllRegionScoresForRound()
+    {
+        var regionScores = new List<RegionRoundScore>();
+
+        if (Regions == null || SelectedEvent == null)
+            return regionScores;
+
+        var allRegions = new List<RegionItem>();
+        foreach (var round in AllRounds)
+        {
+            allRegions.AddRange(round);
+        }
+
+        var uniqueRegions = allRegions.GroupBy(r => r.Id)
+                                      .Select(g => g.First())
+                                      .ToList();
+
+        foreach (var region in uniqueRegions)
+        {
+            var regionShots = Shots
+                .Where(s => s.EventID == SelectedEvent.ID &&
+                           s.RegionID == region.Id)
+                .ToList();
+
+            var totalScore = regionShots.Sum(s => s.ShotScore);
+            var shotCount = regionShots.Count;
+
+            var latestRound = allRegions
+                .Where(r => r.Id == region.Id)
+                .OrderByDescending(r => r.RoundNumber)
+                .FirstOrDefault();
+
+            var isUnassigned = latestRound?.AssignedLane == "Unassigned";
+            int? actualLane = null;
+
+            if (regionShots.Any())
+            {
+                actualLane = regionShots.First().Lane;
+                isUnassigned = false;
+            }
+            else
+            {
+                actualLane = isUnassigned ? null : ParseAssignedLane(latestRound?.AssignedLane ?? "");
+            }
+
+            regionScores.Add(new RegionRoundScore
+                {
+                    RegionId = region.Id,
+                    RegionName = region.Name,
+                    TotalScore = totalScore,  
+                    ShotCount = shotCount,
+                    IsUnassigned = isUnassigned,
+                    AssignedLane = latestRound?.AssignedLane ?? "Unassigned",
+                    Lane = actualLane
+                });
+        }
+
+        return regionScores;
+    }
+
+    private int? ParseAssignedLane(string assignedLane)
+    {
+        if (assignedLane == "Unassigned") return null;
+
+        try
+        {
+            var parts = assignedLane.Split('_');
+            if (parts.Length >= 2 && int.TryParse(parts[1], out int lane))
+            {
+                return lane;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error parsing assigned lane: {ex.Message}");
+        }
+        return null;
+    }
+
+    private bool HasDataInCurrentRound(RegionItem region)
+    {
+        if (SelectedEvent == null || region == null)
+            return false;
+
+        return Shots.Any(s => s.EventID == SelectedEvent.ID &&
+                             s.RoundNo == SelectedRound &&
+                             s.RegionID == region.Id);
+    }
+
+
+
+    private List<OlympicMatch> GetOlympicRoundMatches()
+    {
+        return OlympicMatches.Where(m => m.Lane > 0).OrderBy(m => m.Lane).ToList();
+    }
+
+
+    private void DeleteMatch(int lane)
+    {
+        var match = OlympicMatches.FirstOrDefault(m => m.Lane == lane);
+        if (match != null)
+        {
+            if (match.RegionAId > 0)
+            {
+                var regionA = Regions.FirstOrDefault(r => r.Id == match.RegionAId);
+                if (regionA != null) regionA.AssignedLane = "Unassigned";
+            }
+            if (match.RegionBId > 0)
+            {
+                var regionB = Regions.FirstOrDefault(r => r.Id == match.RegionBId);
+                if (regionB != null) regionB.AssignedLane = "Unassigned";
+            }
+
+            OlympicMatches.Remove(match);
+            Snackbar.Add($"Match {lane} deleted", Severity.Success);
+            StateHasChanged();
+        }
+    }
+
+    private async Task RecordOlympicShotForRegion(int lane, int shotNo, string position, int score, bool isBullseye)
+    {
+        try
+        {
+            var match = OlympicMatches.FirstOrDefault(m => m.Lane == lane);
+            if (match == null)
+            {
+                Snackbar.Add("Match not found", Severity.Error);
+                return;
+            }
+
+            int regionId = position == "A" ? match.RegionAId : match.RegionBId;
+            string regionName = position == "A" ? match.RegionA : match.RegionB;
+
+            var regionItem = Regions.FirstOrDefault(r => r.Id == regionId);
+
+            if (regionId == 0 || regionName == "Assign Region")
+            {
+                Snackbar.Add($"No valid region assigned to position {position}", Severity.Warning);
+                return;
+            }
+
+            if (SelectedEvent == null)
+            {
+                Snackbar.Add("No event selected", Severity.Error);
+                return;
+            }
+
+            var currentSetNumber = match.CurrentSet;
+            var currentShotsInDb = await GetEndShotsFromDatabase(lane, regionId, currentSetNumber);
+            var nextShotNo = currentShotsInDb.Any() ? currentShotsInDb.Max(s => s.ShotNo) + 1 : 1;
+
+            if (nextShotNo > match.ShotsPerEnd)
+            {
+                Snackbar.Add($"Maximum {match.ShotsPerEnd} shots per set already recorded", Severity.Warning);
+                return;
+            }
+
+            var shotDto = new
+            {
+                EventID = SelectedEvent.ID,
+                RoundNo = SelectedRound,
+                ShotNo = nextShotNo,
+                ShotScore = score,
+                IsBullseye = isBullseye,
+                IsWinner = false,
+                RegionID = regionId,
+                PlayerID = regionItem?.PlayerID,
+                Lane = lane,
+                EndNo = currentSetNumber
+            };
+
+            var result = await apiService.PostAsync<object, int>("/score/ArcheryScoring/olympic", shotDto);
+            if (result > 0)
+            {
+                await UpdateLocalMatchStateForSet(match, currentSetNumber);
+                await CalculateSetPointsAsync(match);
+
+                var scoreDisplay = score == 0 ? "M" : (isBullseye ? "X" : score.ToString());
+                Snackbar.Add($"Recorded shot: {regionItem?.DisplayName ?? regionName} scored {scoreDisplay} (Set {currentSetNumber}, Shot {nextShotNo})", Severity.Success);
+                StateHasChanged();
+            }
+            else if (result == -1)
+            {
+                Snackbar.Add("Shot already recorded for this combination. Refreshing data...", Severity.Warning);
+                await UpdateLocalMatchStateForSet(match, currentSetNumber);
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error recording shot: {ex.Message}", Severity.Error);
+        }
+    }
+
+    [Inject] private ILogger<ArcheryScoringDTO> _logger { get; set; }
+    private async Task<List<ShotData>> GetEndShotsFromDatabase(int lane, int regionId, int endNo)
+    {
+        if (SelectedEvent == null) return new List<ShotData>();
+
+        try
+        {
+            var shotsFromApi = await apiService.GetAsync<ArcheryScoringDTO>($"/score/ArcheryScoring/lane/{lane}/round/{SelectedRound}/end/{endNo}?eventId={SelectedEvent.ID}");
+
+            return shotsFromApi?
+                .Where(s => s.RegionID == regionId)
+                .OrderBy(s => s.ShotNo)
+                .Select(s => new ShotData
+                    {
+                        ShotNo = s.ShotNo,
+                        ShotScore = s.ShotScore,
+                        IsBullseye = s.IsBullseye,
+                        EndNo = s.EndNo,
+                        RegionId = s.RegionID,
+                        CreatedAt = s.CreatedAt
+                    })
+                .ToList() ?? new List<ShotData>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting shots from database");
+            return new List<ShotData>();
+        }
+    }
+
+    private async Task CalculateSetPointsAsync(OlympicMatch match)
+    {
+        try
+        {
+            match.SetPointsA = 0;
+            match.SetPointsB = 0;
+
+            foreach (var set in match.Sets.ToList())
+            {
+                await UpdateLocalMatchStateForSet(match, set.SetNumber);
+
+                var currentSet = match.Sets.FirstOrDefault(s => s.SetNumber == set.SetNumber);
+                if (currentSet != null && currentSet.IsCompleted(match))
+                {
+                    switch (currentSet.SetWinner(match))
+                    {
+                        case 1:
+                            match.SetPointsA += 2;
+                            break;
+                        case 2:
+                            match.SetPointsB += 2;
+                            break;
+                        case 0:
+                            match.SetPointsA += 1;
+                            match.SetPointsB += 1;
+                            break;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calculating set points for match {Lane}", match.Lane);
+        }
+    }
+
+
+
+    private void AddSet(int lane)
+    {
+        var match = OlympicMatches.FirstOrDefault(m => m.Lane == lane);
+        if (match != null && match.Sets.Count < match.EndsPerMatch)
+        {
+            var newSetNumber = match.Sets.Count + 1;
+
+            var setExistsInDb = Shots.Any(s =>
+                s.Lane == lane &&
+                s.RoundNo == SelectedRound &&
+                s.EndNo == newSetNumber);
+
+            if (!setExistsInDb)
+            {
+                match.Sets.Add(new OlympicSet { SetNumber = newSetNumber });
+            }
+
+            match.CurrentSet = newSetNumber;
+            StateHasChanged();
+
+            Snackbar.Add($"Switched to Set {newSetNumber}", Severity.Info);
+        }
+        else if (match != null && match.Sets.Count >= match.EndsPerMatch)
+        {
+            Snackbar.Add($"Maximum {match.EndsPerMatch} sets per match reached", Severity.Warning);
+        }
+    }
+
+    private void RemoveSet(int lane)
+    {
+        var match = OlympicMatches.FirstOrDefault(m => m.Lane == lane);
+        if (match != null && match.Sets.Count > 1)
+        {
+            var setToRemove = match.Sets.Last();
+            match.Sets.Remove(setToRemove);
+
+            if (match.CurrentSet > match.Sets.Count)
+            {
+                match.CurrentSet = match.Sets.Count;
+            }
+            StateHasChanged();
+        }
+    }
+
+
+    private async Task SwitchSet(int lane, int setNumber)
+    {
+        var match = OlympicMatches.FirstOrDefault(m => m.Lane == lane);
+        if (match != null)
+        {
+            match.CurrentSet = setNumber;
+
+            if (!match.Sets.Any(s => s.SetNumber == setNumber))
+            {
+                match.Sets.Add(new OlympicSet { SetNumber = setNumber });
+            }
+
+            await UpdateLocalMatchStateForSet(match, setNumber);
+            StateHasChanged();
+        }
+    }
+
+    private async Task UpdateLocalMatchStateForSet(OlympicMatch match, int setNumber)
+    {
+        var currentSet = match.Sets.FirstOrDefault(s => s.SetNumber == setNumber);
+        if (currentSet == null)
+        {
+            currentSet = new OlympicSet { SetNumber = setNumber };
+            match.Sets.Add(currentSet);
+        }
+
+        if (match.RegionAId > 0)
+        {
+            var shotsA = await GetEndShotsFromDatabase(match.Lane, match.RegionAId, setNumber);
+            currentSet.ShotsA = shotsA;
+        }
+
+        if (match.RegionBId > 0)
+        {
+            var shotsB = await GetEndShotsFromDatabase(match.Lane, match.RegionBId, setNumber);
+            currentSet.ShotsB = shotsB;
+        }
+    }
+
+    private bool HasShotsInCurrentSet(OlympicMatch match)
+    {
+        var currentSet = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
+        return currentSet?.ShotsA.Any() == true || currentSet?.ShotsB.Any() == true;
+    }
+
+    private async Task ResetCurrentSet(int lane)
+    {
+        var match = OlympicMatches.FirstOrDefault(m => m.Lane == lane);
+        if (match == null) return;
+
+        try
+        {
+            if (match.RegionAId > 0)
+            {
+                await apiService.DeleteAsync($"/score/ArcheryScoring/olympic/match/{lane}/round/{SelectedRound}/end/{match.CurrentSet}");
+            }
+            if (match.RegionBId > 0)
+            {
+                await apiService.DeleteAsync($"/score/ArcheryScoring/olympic/match/{lane}/round/{SelectedRound}/end/{match.CurrentSet}");
+            }
+
+            await LoadExistingArcheryData();
+            Snackbar.Add($"Set {match.CurrentSet} in Match {lane} reset", Severity.Info);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error resetting set: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ResetAllSets(int lane)
+    {
+        var match = OlympicMatches.FirstOrDefault(m => m.Lane == lane);
+        if (match == null) return;
+
+        try
+        {
+            if (match.RegionAId > 0 || match.RegionBId > 0)
+            {
+                await apiService.DeleteAsync($"/score/ArcheryScoring/olympic/match/{lane}/round/{SelectedRound}");
+            }
+
+            await LoadExistingArcheryData();
+            Snackbar.Add($"All sets in Match {lane} reset", Severity.Info);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error resetting all sets: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void AddMatch()
+    {
+        if (Regions == null || Regions.Count(r => r.AssignedLane == "Unassigned") < 2)
+        {
+            Snackbar.Add("Need at least 2 unassigned regions to create a match", Severity.Warning);
+            return;
+        }
+
+        var (shotsPerEnd, endsPerMatch) = GetMatchConfiguration();
+
+        var newMatch = new OlympicMatch
+            {
+                Lane = NextMatchNumber++,
+                CurrentSet = 1,
+                RegionA = "Assign Region",
+                RegionB = "Assign Region",
+                ShotsPerEnd = shotsPerEnd,
+                EndsPerMatch = endsPerMatch
+            };
+
+        newMatch.Sets.Add(new OlympicSet { SetNumber = 1 });
+
+        OlympicMatches.Add(newMatch);
+
+        var categoryType = SelectedEvent?.Subcategory?.ToLower().Contains("team") == true &&
+                          !SelectedEvent.Subcategory.ToLower().Contains("mixed") ? "Team" :
+                          SelectedEvent?.Subcategory?.ToLower().Contains("mixed") == true ? "Mixed Team" : "Individual";
+
+        Snackbar.Add($"Match {newMatch.Lane} created ({categoryType} - {shotsPerEnd} shots/end, {endsPerMatch} ends)", Severity.Success);
+        StateHasChanged();
+    }
+
+    private (int shotsPerEnd, int endsPerMatch) GetMatchConfiguration()
+    {
+        if (SelectedEvent?.Subcategory == null)
+            return (3, 5);
+
+        var subcategory = SelectedEvent.Subcategory.ToLower();
+
+        if (subcategory.Contains("team") && !subcategory.Contains("mixed"))
+        {
+            return (2, 4);
+        }
+        else if (subcategory.Contains("mixed"))
+        {
+            return (2, 4);
+        }
+        else
+        {
+            return (3, 5);
+        }
+    }
+}

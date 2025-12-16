@@ -1,0 +1,785 @@
+﻿@page "/score/field-events"
+@inject ISnackbar Snackbar
+@inject APIService apiService
+
+<PageTitle>Field Events Scoring | PALARO 2026</PageTitle>
+<MudText Typo="Typo.h6" Align="Align.Center">Athletics - Field Events Scoring</MudText>
+
+<!-- FILTERS SECTION -->
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudText Typo="Typo.h6" Class="mb-4">Event Filters</MudText>
+    <MudGrid Spacing="3" Justify="Justify.Center">
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport"
+                       T="int?"
+                       ShrinkLabel Variant="Variant.Outlined">
+                <MudSelectItem T="int?" Value="3">Athletics</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense"
+                       Label="School Level and Gender" T="string"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                  {
+                                                      _selectedSportSubcategoryIDValue = null;
+                                                      _selectedEventStagesIDValue = null;
+                                                      await GetSportSubcategoriesAsync();
+                                                      await GetEventStagesAsync();
+                                                  }))">
+                <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
+                    <MudSelectItem T="string" Value="@combinedID">
+                        @combinedID
+                    </MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedMainCategoryValue" Margin="Margin.Dense"
+                       Label="Event Category" T="string"
+                       ShrinkLabel Variant="Variant.Outlined">
+@*                 <MudSelectItem T="string" Value="Field Events">Field Events</MudSelectItem>
+ *@            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense"
+                       Label="Event" T="int?"
+                       HelperText="@((_sportSubcategories?.Any() != true && _selectedSchoolLevelAndGenderID != null) ? "No event available for this selection." : null)"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                <MudVirtualize Items="_sportSubcategories" Context="subCategory">
+                    <MudSelectItem T="int?" Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense"
+                       Label="Stage" T="int?"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       Disabled="@(!_eventStages?.Any() == true)">
+                <MudVirtualize Items="_eventStages" Context="eventStage">
+                    <MudSelectItem T="int?" Value="@eventStage.ID">@eventStage.Stage</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid Class="mt-3" Justify="Justify.Center">
+        <MudItem xs="12" sm="4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="ApplyFilters" FullWidth StartIcon="@Icons.Material.Filled.Search"
+                       Disabled="@(_selectedSchoolLevelAndGenderID == null || _selectedSportSubcategoryIDValue == null || _selectedEventStagesIDValue == null)">
+                Apply Filters
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                       OnClick="ClearFilters" FullWidth StartIcon="@Icons.Material.Filled.Clear">
+                Clear Filters
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<!-- SELECTED EVENT INFO -->
+@if (SelectedEvent != null)
+{
+    <MudPaper Class="pa-3 mb-4" Elevation="1" Style="background-color: #e3f2fd;">
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="3">
+                <MudText Typo="Typo.body2"><strong>Sport:</strong> @SelectedEvent.Sport - @SelectedEvent.SportMainCat</MudText>
+            </MudItem>
+            @* <MudItem xs="12" sm="3">
+                <MudText Typo="Typo.body2"><strong>Category:</strong> @SelectedEvent.SportMainCat</MudText>
+            </MudItem> *@
+            <MudItem xs="12" sm="3">
+                <MudText Typo="Typo.body2"><strong>Event:</strong> @SelectedEvent.Subcategory</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="3">
+                <MudText Typo="Typo.body2"><strong>Level and Gender:</strong> @SelectedEvent.Level - @SelectedEvent.Gender</MudText>
+            </MudItem>
+            @* <MudItem xs="12" sm="3">
+                <MudText Typo="Typo.body2"><strong>Level:</strong> @SelectedEvent.Level</MudText>
+            </MudItem> *@
+            <MudItem xs="12" sm="3">
+                <MudText Typo="Typo.body2"><strong>Stage:</strong> @SelectedEvent.EventStage</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+
+<!-- SCORING  -->
+@if (SelectedEvent != null && Regions != null && Regions.Any())
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2">
+        <MudText Typo="Typo.h6" Class="mb-4">Field Event Scoring - @SelectedEvent.Subcategory</MudText>
+        <MudText Typo="Typo.body2" Class="mb-3">Enter results for each attempt (in meters):</MudText>
+
+        <MudTable Items="@ScoringRows" Dense="true" Hover="true" Breakpoint="Breakpoint.None">
+            <HeaderContent>
+                <MudTh>Region</MudTh>
+                <MudTh>Player</MudTh>
+                @for (int i = 1; i <= 3; i++)
+                {
+                    <MudTh>Attempt @i</MudTh>
+                }
+                <MudTh>Best Result</MudTh>
+                <MudTh>Rank</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                @{
+                    var row = context;
+                }
+                <MudTd>@row.RegionName</MudTd>
+                <MudTd>@row.PlayerName</MudTd>
+                @for (int i = 0; i < 3; i++)
+                {
+                    var attemptIndex = i;
+                    <MudTd>
+                        <MudTextField @bind-Value="row.AttemptResults[attemptIndex]"
+                                      Variant="Variant.Text"
+                                      Dense="true"
+                                      Immediate="true"
+                                      OnBlur="@(() => CalculateBestResult(row))"
+                                      Style="max-width: 100px;"
+                                      Placeholder="0.00" />
+                    </MudTd>
+                }
+                <MudTd>
+                    <MudText Typo="Typo.body2" Class="@(row.BestResult > 0 ? "font-weight-bold" : "")">
+                        @row.BestResult.ToString("F2")
+                    </MudText>
+                </MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2" Class="@(row.Rank > 0 ? "font-weight-bold" : "")">
+                        @(row.Rank > 0 ? $"#{row.Rank}" : "-")
+                    </MudText>
+                </MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Clear"
+                                   Color="Color.Error"
+                                   Size="Size.Small"
+                                   OnClick="@(() => ClearRowResults(row))"
+                                   Title="Clear results" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+
+        <MudGrid Class="mt-4" Justify="Justify.Center" Spacing="3">
+            <MudItem xs="12" sm="4">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="CalculateAllRankings" FullWidth
+                           StartIcon="@Icons.Material.Filled.Calculate">
+                    Calculate Rankings
+                </MudButton>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudButton Variant="Variant.Filled" Color="Color.Success"
+                           OnClick="SaveAllResults" FullWidth
+                           StartIcon="@Icons.Material.Filled.Save"
+                           Disabled="@_isSaving">
+                    @if (_isSaving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Save All Results
+                </MudButton>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                           OnClick="LoadSavedResults" FullWidth
+                           StartIcon="@Icons.Material.Filled.Refresh">
+                    Load Saved Data
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+else if (SelectedEvent == null && (_selectedSchoolLevelAndGenderID != null || _selectedSportSubcategoryIDValue != null || _selectedEventStagesIDValue != null))
+{
+    <MudText Align="Align.Center" Class="ma-4">No event found with the selected filters</MudText>
+}
+else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
+{
+    <MudText Align="Align.Center" Class="ma-4">No regions/participants found for this event</MudText>
+}
+
+@code {
+    private List<ScoringRow> ScoringRows = new();
+    private List<RegionItem>? Regions;
+
+    private int? _selectedSportIDValue = 3;
+    private string? _selectedMainCategoryValue = "Field Events";
+    private string? _selectedSchoolLevelAndGenderID;
+    private int? _selectedSportSubcategoryIDValue;
+    private int? _selectedEventStagesIDValue;
+
+    private List<EventStages>? _eventStages;
+    private List<SportGenderCategories>? _sportGenderCategories;
+    private List<SchoolLevels>? _schoolLevels;
+    private List<SportSubcategories>? _sportSubcategories;
+    private List<SchoolRegions>? _allRegions;
+
+    private List<string> _combinedSchoolLevelAndGenderNames = new();
+
+    private EventInfo? SelectedEvent;
+    private bool _isSaving = false;
+
+    public class SaveFieldEventsRequest
+    {
+        public string EventID { get; set; } = null!;
+        public List<SaveFieldEventData> Results { get; set; } = new();
+    }
+
+    public class SaveFieldEventData
+    {
+        public string EventID { get; set; } = null!;
+        public int RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public int AttemptNo { get; set; }
+        public decimal Result { get; set; }
+        public int? Rank { get; set; }
+    }
+
+    public class FieldEventResult
+    {
+        public string EventID { get; set; } = null!;
+        public int RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public int AttemptNo { get; set; }
+        public decimal Result { get; set; }
+        public int? Rank { get; set; }
+    }
+
+    public class FieldEventRanking
+    {
+        public int RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public decimal BestResult { get; set; }
+        public string RegionAbbreviation { get; set; } = null!;
+        public string? PlayerName { get; set; }
+        public int Rank { get; set; }
+    }
+
+    public class ScoringRow
+    {
+        private decimal?[] _attemptResults = new decimal?[3];
+
+        public int RegionID { get; set; }
+        public string RegionName { get; set; } = "";
+        public string? PlayerID { get; set; }
+        public string PlayerName { get; set; } = "";
+
+        public decimal?[] AttemptResults
+        {
+            get => _attemptResults;
+            set
+            {
+                if (value == null || value.Length != 3)
+                {
+                    _attemptResults = new decimal?[3];
+                    if (value != null)
+                    {
+                        for (int i = 0; i < Math.Min(value.Length, 3); i++)
+                        {
+                            _attemptResults[i] = value[i];
+                        }
+                    }
+                }
+                else
+                {
+                    _attemptResults = value;
+                }
+            }
+        }
+
+        public decimal BestResult { get; set; }
+        public int Rank { get; set; }
+
+        public void SetAttemptResult(int attemptNo, decimal? result)
+        {
+            if (attemptNo >= 1 && attemptNo <= 3)
+            {
+                if (_attemptResults == null)
+                    _attemptResults = new decimal?[3];
+
+                _attemptResults[attemptNo - 1] = result;
+            }
+        }
+
+        public decimal? GetAttemptResult(int attemptNo)
+        {
+            if (_attemptResults == null || attemptNo < 1 || attemptNo > 3)
+                return null;
+
+            return _attemptResults[attemptNo - 1];
+        }
+    }
+
+    public class RegionItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+    }
+
+    public class EventInfo
+    {
+        public string? ID { get; set; }
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Gender { get; set; }
+        public string? Level { get; set; }
+        public string? EventStage { get; set; }
+        public string? SportMainCat { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public int? RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+    }
+
+    public class SchoolRegions
+    {
+        public int ID { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
+    public class EventStages
+    {
+        public int ID { get; set; }
+        public string? Stage { get; set; }
+    }
+
+    public class SportSubcategories
+    {
+        public int ID { get; set; }
+        public string? Subcategory { get; set; }
+        public int? SportID { get; set; }
+        public int? SportGenderCategoryID { get; set; }
+        public int? SchoolLevelID { get; set; }
+        public string? MainCategory { get; set; }
+    }
+
+    public class SportGenderCategories
+    {
+        public int ID { get; set; }
+        public string? Gender { get; set; }
+    }
+
+    public class SchoolLevels
+    {
+        public int ID { get; set; }
+        public string? Level { get; set; }
+    }
+
+    public class FieldEventRankingResult
+    {
+        public string RegionName { get; set; } = "";
+        public string? PlayerName { get; set; }
+        public string Result { get; set; } = "";
+        public string AssignedLane { get; set; } = "";
+        public int Rank { get; set; }
+        public double NumericResult { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableOptions();
+    }
+
+    private async Task LoadAvailableOptions()
+    {
+        try
+        {
+            await GetGenderCategoriesAsync();
+            await GetSchoolLevelsAsync();
+            await GetAllRegionsAsync();
+            await FilterSchoolLevelAndGenderAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading options: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task GetGenderCategoriesAsync()
+    {
+        string url = "/Sports/GenderCategories";
+        _sportGenderCategories = await apiService.GetAsync<SportGenderCategories>(url);
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        string url = "/Schools/Levels";
+        _schoolLevels = await apiService.GetAsync<SchoolLevels>(url);
+    }
+
+    private async Task GetEventStagesAsync()
+    {
+        string url = "/Events/Stages";
+        _eventStages = await apiService.GetAsync<EventStages>(url);
+    }
+
+    private async Task GetAllRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+        _allRegions = await apiService.GetAsync<SchoolRegions>(url);
+    }
+
+    private async Task GetSportSubcategoriesAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+        {
+            _sportSubcategories = new List<SportSubcategories>();
+            return;
+        }
+
+        var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+        if (parts.Length != 2)
+        {
+            _sportSubcategories = new List<SportSubcategories>();
+            return;
+        }
+
+        var schoolLevelName = parts[0];
+        var genderName = parts[1];
+
+        var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+        var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
+
+        if (schoolLevelID != null && genderID != null)
+        {
+            _sportSubcategories = await apiService.GetAsync<SportSubcategories>(
+                $"/Sports/Subcategories?sportID=3&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}&mainCategory=Field Events");
+        }
+        else
+        {
+            _sportSubcategories = new List<SportSubcategories>();
+        }
+    }
+
+    private async Task FilterSchoolLevelAndGenderAsync()
+    {
+        var subcats = await apiService.GetAsync<SportSubcategories>(
+            "/Sports/Subcategories?sportID=3&mainCategory=Field Events");
+
+        if (subcats == null || !subcats.Any())
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        var schoolLevelIDs = subcats.Where(x => x.SchoolLevelID.HasValue).Select(x => x.SchoolLevelID.Value).Distinct();
+        var genderIDs = subcats.Where(x => x.SportGenderCategoryID.HasValue).Select(x => x.SportGenderCategoryID.Value).Distinct();
+
+        var schoolLevelNames = _schoolLevels?.Where(s => schoolLevelIDs.Contains(s.ID)).Select(s => s.Level) ?? new List<string>();
+        var genderNames = _sportGenderCategories?.Where(g => genderIDs.Contains(g.ID)).Select(g => g.Gender) ?? new List<string>();
+
+        _combinedSchoolLevelAndGenderNames = schoolLevelNames.SelectMany(s => genderNames, (s, g) => $"{s} - {g}").Distinct().ToList();
+    }
+
+    private async Task ApplyFilters()
+    {
+        try
+        {
+            var queryParams = new List<string>();
+
+            queryParams.Add("sport=Athletics");
+            queryParams.Add("mainCategory=Field Events");
+
+            if (_selectedSportSubcategoryIDValue.HasValue)
+            {
+                var subcategoryName = _sportSubcategories?.FirstOrDefault(s => s.ID == _selectedSportSubcategoryIDValue.Value)?.Subcategory;
+                if (!string.IsNullOrEmpty(subcategoryName))
+                    queryParams.Add($"subcategory={Uri.EscapeDataString(subcategoryName)}");
+            }
+
+            if (!string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+            {
+                var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+                if (parts.Length == 2)
+                {
+                    queryParams.Add($"level={Uri.EscapeDataString(parts[0])}");
+                    queryParams.Add($"gender={Uri.EscapeDataString(parts[1])}");
+                }
+            }
+
+            if (_selectedEventStagesIDValue.HasValue)
+            {
+                var stageName = _eventStages?.FirstOrDefault(e => e.ID == _selectedEventStagesIDValue.Value)?.Stage;
+                if (!string.IsNullOrEmpty(stageName))
+                    queryParams.Add($"eventStage={Uri.EscapeDataString(stageName)}");
+            }
+
+            var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+
+            var events = await apiService.GetAsync<EventInfo>($"FieldEvents/Sports/AthleticsFieldEvents{queryString}");
+
+            if (events != null && events.Any())
+            {
+                var uniqueRegions = new List<RegionItem>();
+                var scoringRows = new List<ScoringRow>();
+
+                foreach (var evt in events)
+                {
+                    if (!string.IsNullOrEmpty(evt.Abbreviation) && evt.RegionID.HasValue)
+                    {
+                        var matchingRegion = _allRegions?.FirstOrDefault(r =>
+                            r.ID == evt.RegionID.Value ||
+                            r.Abbreviation == evt.Abbreviation);
+
+                        if (matchingRegion != null && !uniqueRegions.Any(r => r.Id == matchingRegion.ID))
+                        {
+                            var regionItem = new RegionItem
+                                {
+                                    Id = matchingRegion.ID,
+                                    Name = matchingRegion.Abbreviation ?? matchingRegion.Region ?? "Unknown"
+                                };
+
+                            if (!string.IsNullOrEmpty(evt.PlayerID) && !string.IsNullOrEmpty(evt.PlayerName))
+                            {
+                                regionItem.PlayerID = evt.PlayerID;
+                                regionItem.PlayerName = evt.PlayerName;
+                            }
+
+                            uniqueRegions.Add(regionItem);
+
+                            scoringRows.Add(new ScoringRow
+                                {
+                                    RegionID = matchingRegion.ID,
+                                    RegionName = regionItem.Name,
+                                    PlayerID = regionItem.PlayerID,
+                                    PlayerName = regionItem.PlayerName
+                                });
+                        }
+                    }
+                }
+
+                Regions = uniqueRegions;
+                ScoringRows = scoringRows;
+                SelectedEvent = events.First();
+
+                // Load any saved data
+                await LoadSavedResults();
+
+                Snackbar.Add($"Loaded {events.Count} events with {Regions.Count} participants", Severity.Success);
+            }
+            else
+            {
+                Regions = new List<RegionItem>();
+                ScoringRows = new List<ScoringRow>();
+                SelectedEvent = null;
+                Snackbar.Add("No events found with the selected filters", Severity.Warning);
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
+            Regions = new List<RegionItem>();
+            ScoringRows = new List<ScoringRow>();
+        }
+    }
+
+    private async Task ClearFilters()
+    {
+        _selectedSchoolLevelAndGenderID = null;
+        _selectedSportSubcategoryIDValue = null;
+        _selectedEventStagesIDValue = null;
+        SelectedEvent = null;
+        Regions = new List<RegionItem>();
+        ScoringRows = new List<ScoringRow>();
+        _sportSubcategories = new List<SportSubcategories>();
+        _eventStages = new List<EventStages>();
+
+        Snackbar.Add("Filters cleared", Severity.Info);
+        StateHasChanged();
+    }
+
+    private void CalculateBestResult(ScoringRow row)
+    {
+        decimal best = 0;
+        if (row.AttemptResults != null)
+        {
+            foreach (var result in row.AttemptResults)
+            {
+                if (result.HasValue && result.Value > best)
+                {
+                    best = result.Value;
+                }
+            }
+        }
+        row.BestResult = best;
+        StateHasChanged();
+    }
+
+    private void ClearRowResults(ScoringRow row)
+    {
+        if (row.AttemptResults != null)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                row.AttemptResults[i] = null;
+            }
+        }
+        row.BestResult = 0;
+        row.Rank = 0;
+        StateHasChanged();
+    }
+
+    private void CalculateAllRankings()
+    {
+        var rowsWithResults = ScoringRows
+            .Where(r => r.BestResult > 0)
+            .OrderByDescending(r => r.BestResult)
+            .ToList();
+
+        foreach (var row in ScoringRows)
+        {
+            row.Rank = 0;
+        }
+
+        for (int i = 0; i < rowsWithResults.Count; i++)
+        {
+            rowsWithResults[i].Rank = i + 1;
+        }
+
+        Snackbar.Add($"Rankings calculated for {rowsWithResults.Count} participants", Severity.Success);
+        StateHasChanged();
+    }
+
+    private async Task SaveAllResults()
+    {
+        if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
+        {
+            Snackbar.Add("No event selected", Severity.Warning);
+            return;
+        }
+
+        _isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            var saveData = new List<SaveFieldEventData>();
+
+            foreach (var row in ScoringRows)
+            {
+                if (row.AttemptResults != null)
+                {
+                    for (int attempt = 1; attempt <= 3; attempt++)
+                    {
+                        var result = row.GetAttemptResult(attempt);
+                        if (result.HasValue)
+                        {
+                            saveData.Add(new SaveFieldEventData
+                                {
+                                    EventID = SelectedEvent.ID!,
+                                    RegionID = row.RegionID,
+                                    PlayerID = row.PlayerID,
+                                    AttemptNo = attempt,
+                                    Result = result.Value,
+                                    Rank = row.Rank > 0 ? row.Rank : (int?)null
+                                });
+                        }
+                    }
+                }
+            }
+
+            if (saveData.Count == 0)
+            {
+                Snackbar.Add("No results to save", Severity.Warning);
+                return;
+            }
+
+            var request = new SaveFieldEventsRequest
+                {
+                    EventID = SelectedEvent.ID!,
+                    Results = saveData
+                };
+
+            await apiService.PostAsync("FieldEvents/SaveResults", request);
+
+            Snackbar.Add("Results saved successfully!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving results: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadSavedResults()
+    {
+        if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
+        {
+            Snackbar.Add("No event selected", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var savedData = await apiService.GetAsync<FieldEventResult>(
+                $"FieldEvents/GetResults/{SelectedEvent.ID}");
+
+            if (savedData != null && savedData.Any())
+            {
+                foreach (var row in ScoringRows)
+                {
+                    if (row.AttemptResults != null)
+                    {
+                        for (int i = 0; i < 3; i++)
+                        {
+                            row.AttemptResults[i] = null;
+                        }
+                    }
+                    row.BestResult = 0;
+                    row.Rank = 0;
+                }
+
+                foreach (var result in savedData)
+                {
+                    var row = ScoringRows.FirstOrDefault(r => r.RegionID == result.RegionID);
+                    if (row != null && result.AttemptNo >= 1 && result.AttemptNo <= 3)
+                    {
+                        row.SetAttemptResult(result.AttemptNo, result.Result);
+                        if (result.Rank.HasValue)
+                        {
+                            row.Rank = result.Rank.Value;
+                        }
+                    }
+                }
+
+                foreach (var row in ScoringRows)
+                {
+                    CalculateBestResult(row);
+                }
+
+                Snackbar.Add($"Loaded {savedData.Count} saved results", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("No saved data found", Severity.Info);
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading saved data: {ex.Message}", Severity.Warning);
+        }
+    }
+}

@@ -1,0 +1,1227 @@
+﻿@page "/score/time-distance"
+@inject ISnackbar Snackbar
+@inject APIService apiService
+
+<PageTitle>Time-Based and Distance-Based Scoring | PALARO 2026</PageTitle>
+<MudText Typo="Typo.h6" Align="Align.Center">Athletics & Swimming Scoring</MudText>
+
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudText Typo="Typo.h6" Class="mb-4">Event Filters</MudText>
+    <MudGrid Spacing="3" Justify="Justify.Center">
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedSportIDValue" Margin="Margin.Dense" Label="Sport"
+                       T="int?"
+                       ShrinkLabel Variant="Variant.Outlined"
+                       SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                  {
+                                                      _selectedSchoolLevelAndGenderID = null;
+                                                      _selectedSportSubcategoryIDValue = null;
+                                                      _selectedMainCategoryValue = null;
+                                                      await FilterSchoolLevelAndGenderAsync();
+                                                  }))">
+                <MudSelectItem T="int?" Value="3">Athletics</MudSelectItem>
+                <MudSelectItem T="int?" Value="16">Swimming</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense"
+                       Label="School Level and Gender" T="string"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       Disabled="_selectedSportIDValue == null"
+                       SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                  {
+                                                      _selectedSportSubcategoryIDValue = null;
+                                                      _selectedMainCategoryValue = null;
+                                                      await GetSportSubCategoriesSLGAsync();
+                                                      LoadMainCategories();
+                                                  }))">
+                <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
+                    <MudSelectItem T="string" Value="@combinedID">
+                        @combinedID
+                    </MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedMainCategoryValue" Margin="Margin.Dense"
+                       Label="Event" T="string"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                @foreach (var mc in _sportMainCat)
+                {
+                    <MudSelectItem Value="@mc">@mc</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect @bind-Value="_selectedSportSubcategoryIDValue" Margin="Margin.Dense"
+                       Label="Category" T="int?"
+                       HelperText="@((_sportSubcategories?.Any() != true && _selectedSchoolLevelAndGenderID != null) ? "No subcategory available for this gender or school level." : null)"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                       Disabled="@(!_sportSubcategories?.Any() == true || _selectedSchoolLevelAndGenderID == null)">
+                <MudVirtualize Items="@GetFilteredSubcategories()" Context="subCategory">
+                    <MudSelectItem T="int?" Value="@subCategory.ID">@subCategory.Subcategory</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="2">
+            <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense"
+                       Label="Stage" T="int?"
+                       ShrinkLabel Variant="Variant.Outlined" Clearable>
+                <MudVirtualize Items="_eventStages" Context="eventStage">
+                    <MudSelectItem T="int?" Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
+                </MudVirtualize>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid Class="mt-3" Justify="Justify.Center">
+        <MudItem xs="12" sm="4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="ApplyFilters" FullWidth StartIcon="@Icons.Material.Filled.Search">
+                Apply Filters
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                       OnClick="ClearFilters" FullWidth StartIcon="@Icons.Material.Filled.Clear">
+                Clear Filters
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<!-- SELECTED EVENT INFO -->
+@if (SelectedEvent != null)
+{
+    <MudPaper Class="pa-3 mb-4" Elevation="1" Style="background-color: #e3f2fd;">
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="4">
+                <MudText Typo="Typo.body2"><strong>Event:</strong> @SelectedEvent.Sport - @SelectedEvent.Subcategory</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="5">
+                <MudText Typo="Typo.body2"><strong>Level and Gender:</strong> @SelectedEvent.Level - @SelectedEvent.Gender</MudText>
+            </MudItem>
+            @* <MudItem xs="12" sm="3">
+                <MudText Typo="Typo.body2"><strong>Level:</strong> @SelectedEvent.Level</MudText>
+            </MudItem> *@
+            <MudItem xs="12" sm="3">
+                <MudText Typo="Typo.body2"><strong>Stage:</strong> @SelectedEvent.EventStage</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+
+<!-- REGIONS AND SCORING SECTION -->
+@if (Regions == null)
+{
+    <MudText Align="Align.Center" Class="ma-4">Please apply filters to see regions</MudText>
+}
+else if (!Regions.Any())
+{
+    <MudText Align="Align.Center" Class="ma-4">No regions found. Please apply filters to see regions.</MudText>
+}
+else
+{
+    <MudDropContainer T="RegionItem"
+                      Items="Regions"
+                      ItemsSelector="SelectItemsForZone"
+                      ItemDropped="OnItemDropped">
+
+        <ChildContent>
+            <!-- Unassigned Regions -->
+            <MudPaper Class="pa-2 mb-4"
+                      Elevation="3"
+                      Style="position:sticky; top:0; z-index:1000; background-color:white;">
+                <MudText Typo="Typo.subtitle1" Align="Align.Center">
+                    Regions (@Regions.Count total)
+                </MudText>
+                <MudDropZone T="RegionItem"
+                             Identifier="Unassigned"
+                             Class="d-flex flex-wrap justify-center pa-2"
+                             Style="min-height:100px; gap:6px; border:1px dashed gray;" />
+            </MudPaper>
+
+            <!-- Heat Management -->
+            <MudGrid Class="my-2" Justify="Justify.Center" Spacing="4">
+                <MudItem xs="12" sm="3">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Success" OnClick="AddHeat" FullWidth>
+                        Add Heat
+                    </MudButton>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="RemoveLastHeat" FullWidth
+                               Disabled="@(Heats.Count <= 1)">
+                        Remove Last Heat
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.h6" Align="Align.Center">For Time and Distance Based Scoring</MudText>
+
+            <!-- Heats Display -->
+            <MudGrid Spacing="3" Class="mt-2" Justify="Justify.Center">
+                @foreach (var heat in Heats)
+                {
+                    bool isLastHeat = heat == Heats.Last();
+                    bool isHeatSaved = SavedHeats.Contains(heat);
+
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudPaper Elevation="2" Class="pa-3" Style="position:relative;">
+
+                            @if (isLastHeat && Heats.Count > 1 && !isHeatSaved)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Cancel"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               Style="position:absolute; top:4px; right:4px;"
+                                               OnClick="@(() => RemoveHeat(heat))"
+                                               Title="Remove this heat" />
+                            }
+
+                            <MudGrid Class="align-center">
+                                <MudItem xs="4"></MudItem>
+
+                                <MudItem xs="4" Class="d-flex justify-center">
+                                    <MudText Typo="Typo.subtitle1">@heat</MudText>
+                                </MudItem>
+
+                                <MudItem xs="4" Class="d-flex justify-end">
+                                    @if (isHeatSaved)
+                                    {
+                                        <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Size="Size.Small">
+                                            <MudIcon Icon="@Icons.Material.Filled.Check" Class="mr-1" />
+                                            Saved
+                                        </MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudIconButton Color="Color.Primary"
+                                                       Size="Size.Medium"
+                                                       OnClick="@(() => SaveHeatData(heat))"
+                                                       Disabled="@(_isSaving || SelectedEvent == null)"
+                                                       Icon="@Icons.Material.Filled.Save">
+                                            @if (_isSaving && _currentSavingHeat == heat)
+                                            {
+                                                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                            }
+                                        </MudIconButton>
+                                    }
+                                </MudItem>
+                            </MudGrid>
+
+                            <MudDivider Class="my-2" />
+
+                            @foreach (var lane in GetLanesForHeat(heat))
+                            {
+                                var laneKey = $"{heat}-{lane}";
+                                bool isLastLane = lane == GetLanesForHeat(heat).Last();
+                                bool isLaneSaved = isHeatSaved;
+
+                                <MudGrid AlignItems="Center" Class="my-1">
+                                    <MudItem xs="12" sm="2" Class="mt-3">
+                                        <MudText Typo="Typo.body2">@lane</MudText>
+                                    </MudItem>
+
+                                    <MudItem xs="12" sm="7" Style="position:relative;">
+                                        @if (isLastLane && GetLanesForHeat(heat).Count > 1 && !isLaneSaved)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Cancel"
+                                                           Color="Color.Error"
+                                                           Size="Size.Medium"
+                                                           Style="position:absolute; top:4px; right:-20px; z-index:10;"
+                                                           OnClick="@(() => RemoveLane(heat, lane))"
+                                                           Title="Remove this lane" />
+                                        }
+                                        <MudDropZone T="RegionItem"
+                                                     Identifier="@laneKey"
+                                                     Class="pa-1 flex-grow-1"
+                                                     AllowDrop="@(!isLaneSaved)"
+                                                     Style="@GetDropZoneStyle(isLaneSaved)">
+                                        </MudDropZone>
+                                    </MudItem>
+
+                                    <!-- Result field -->
+                                    <MudItem xs="12" sm="3">
+                                        <MudTextField @bind-Value="LaneResults[laneKey]"
+                                                      Placeholder="Result"
+                                                      Variant="Variant.Outlined"
+                                                      Dense="false"
+                                                      FullWidth="true"
+                                                      ReadOnly="@isLaneSaved"
+                                                      Style="height:48px;"
+                                                      InputClass="@(isLaneSaved ? "mud-input-readonly" : "")" />
+                                    </MudItem>
+                                </MudGrid>
+                            }
+
+                            <MudDivider Class="my-2" />
+
+                            @if (!isHeatSaved)
+                            {
+                                <MudGrid Justify="Justify.Center">
+                                    <MudItem xs="12" sm="4">
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Success"
+                                                   OnClick="@(() => AddLane(heat))"
+                                                   FullWidth>
+                                            + Lane
+                                        </MudButton>
+                                    </MudItem>
+                                    <MudItem xs="12" sm="4">
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                                   OnClick="@(() => RemoveLastLane(heat))"
+                                                   Disabled="@(GetLanesForHeat(heat).Count <= 1)"
+                                                   FullWidth>
+                                            - Lane
+                                        </MudButton>
+                                    </MudItem>
+                                </MudGrid>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+
+            <!-- RANKING SECTION -->
+            @if (Regions != null && Regions.Any() && SelectedEvent != null)
+            {
+                <MudGrid Spacing="3" Class="mt-4" Justify="Justify.Center">
+                    <MudItem xs="12" md="8">
+                        <MudPaper Class="pa-4" Elevation="2">
+                            <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-3">Event Rankings</MudText>
+
+                            @if (!HasResults())
+                            {
+                                <MudText Align="Align.Center" Color="Color.Secondary" Class="ma-4">
+                                    No results recorded yet. Enter results in the lanes above to see rankings.
+                                </MudText>
+                            }
+                            else
+                            {
+                                <MudGrid Spacing="2">
+                                    @{
+                                        var rankings = CalculateRankings();
+                                        int rank = 1;
+                                    }
+
+                                    @foreach (var result in rankings.OrderBy(r => r.Rank))
+                                    {
+                                        var displayName = !string.IsNullOrEmpty(result.PlayerName)
+                                        ? $"{result.RegionName} - {result.PlayerName}"
+                                        : result.RegionName;
+
+                                        <MudItem xs="12">
+                                            
+                                                <MudGrid Spacing="2" Align="Align.Center">
+                                                    <MudItem xs="10">
+                                                        <MudStack Row="true" Spacing="1" Align="Align.Center">
+                                                            <MudText Typo="Typo.body1" Class="font-weight-bold">
+                                                                @displayName
+                                                            </MudText>
+                                                            @if (!string.IsNullOrEmpty(result.AssignedLane))
+                                                            {
+                                                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                                                                    @result.AssignedLane
+                                                                </MudChip>
+                                                            }
+                                                        </MudStack>
+                                                    </MudItem>
+
+                                                    <!-- Result -->
+                                                    <MudItem xs="2">
+                                                        <MudText Typo="Typo.body2" Align="Align.Right">
+                                                            @result.Result
+                                                        </MudText>
+                                                    </MudItem>
+                                                </MudGrid>
+                                            <MudDivider Class="my-2" />
+                                        </MudItem>
+                                        rank++;
+                                    }
+                                </MudGrid>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            }
+        </ChildContent>
+
+        <ItemRenderer Context="item">
+            @{
+                var isItemSaved = IsRegionInSavedHeat(item);
+                var displayText = !string.IsNullOrEmpty(item.PlayerName)
+                ? $"{item.Name} - {item.PlayerName}"
+                : item.Name;
+            }
+            <MudChip T="string" Color="@(isItemSaved ? Color.Secondary : Color.Primary)"
+                     Variant="Variant.Filled"
+                     Class="ma-1"
+                     OnClick="() => { }"
+                     Style="@(isItemSaved ? "cursor: not-allowed; opacity: 0.7;" : "cursor: move;")">
+                @displayText
+            </MudChip>
+        </ItemRenderer>
+
+    </MudDropContainer>
+}
+
+@code {
+    private List<RegionItem>? Regions;
+    private List<string> Heats = new();
+    private Dictionary<string, List<string>> HeatLanes = new();
+    private Dictionary<string, string> LaneResults = new();
+
+    private int? _selectedSportIDValue;
+    private string? _selectedSchoolLevelAndGenderID;
+    private string? _selectedMainCategoryValue;
+    private int? _selectedSportSubcategoryIDValue;
+    private int? _selectedEventStagesIDValue;
+
+    private List<EventsDTO.EventStages>? _eventStages;
+    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
+    private List<SchoolRegions>? _allRegions;
+
+    private List<string> _combinedSchoolLevelAndGenderNames = new();
+    private List<string> _sportMainCat = new();
+
+    private EventInfo? SelectedEvent;
+
+    private bool _isSaving = false;
+    private bool _hasLoadedSavedData = false;
+    private string? _currentSavingHeat;
+    private HashSet<string> SavedHeats = new HashSet<string>();
+    private Dictionary<int, (string? PlayerID, string? PlayerName)> _regionPlayerMap = new();
+
+    public class SavedScoringData
+    {
+        public List<SavedHeat> Heats { get; set; } = new();
+        public List<SavedAssignment> Assignments { get; set; } = new();
+    }
+
+    public class SavedHeat
+    {
+        public string HeatName { get; set; } = "";
+        public int HeatOrder { get; set; }
+        public List<SavedLane> Lanes { get; set; } = new();
+    }
+
+    public class SavedLane
+    {
+        public string LaneName { get; set; } = "";
+        public int LaneOrder { get; set; }
+        public string? Result { get; set; }
+        public int? RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+        public string? RegionAbbreviation { get; set; }
+    }
+
+    public class SavedAssignment
+    {
+        public int RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string RegionAbbreviation { get; set; } = "";
+        public string AssignedTable { get; set; } = "";
+    }
+
+    public class RegionItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string AssignedTable { get; set; } = "Unassigned";
+        public string? PlayerName { get; set; }
+    }
+
+    public class EventInfo
+    {
+        public string? ID { get; set; }
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Gender { get; set; }
+        public string? Level { get; set; }
+        public string? EventStage { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public int? RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+    }
+
+    public class SchoolRegions
+    {
+        public int ID { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
+    public class EventsDTO
+    {
+        public class EventStages
+        {
+            public int ID { get; set; }
+            public string? Stage { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+            public string? MainCategory { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+    }
+
+    public class RankingResult
+    {
+        public string RegionName { get; set; } = "";
+        public string? PlayerName { get; set; }
+        public string Result { get; set; } = "";
+        public string AssignedLane { get; set; } = "";
+        public int Rank { get; set; }
+        public double NumericResult { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableOptions();
+        InitializeDefaultHeat();
+    }
+
+    private async Task LoadAvailableOptions()
+    {
+        try
+        {
+            await GetEventStagesAsync();
+            await GetGenderCategoriesAsync();
+            await GetSchoolLevelsAsync();
+            await GetAllRegionsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading options: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task GetEventStagesAsync()
+    {
+        string url = "/Events/Stages";
+        _eventStages = await apiService.GetAsync<EventsDTO.EventStages>(url);
+    }
+
+    private async Task GetGenderCategoriesAsync()
+    {
+        string url = "/Sports/GenderCategories";
+        _sportGenderCategories = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url);
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        string url = "/Schools/Levels";
+        _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
+    }
+
+    private async Task GetAllRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+        _allRegions = await apiService.GetAsync<SchoolRegions>(url);
+    }
+
+    private async Task GetSportSubCategoriesSLGAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+        {
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+            return;
+        }
+
+        var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+        var schoolLevelName = parts[0];
+        var genderName = parts[1];
+
+        var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+        var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
+
+        if (schoolLevelID != null && genderID != null && _selectedSportIDValue != null)
+        {
+            _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+                $"/Sports/Subcategories?sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}");
+        }
+        else
+        {
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+        }
+    }
+
+    private List<SportsDTO.SportSubcategories> GetFilteredSubcategories()
+    {
+        if (_sportSubcategories == null)
+            return new List<SportsDTO.SportSubcategories>();
+
+        if (!string.IsNullOrEmpty(_selectedMainCategoryValue))
+            return _sportSubcategories
+                .Where(sc => sc.MainCategory == _selectedMainCategoryValue)
+                .ToList();
+
+        return _sportSubcategories
+            .Where(sc => string.IsNullOrEmpty(sc.MainCategory))
+            .ToList();
+    }
+
+    private async Task FilterSchoolLevelAndGenderAsync()
+    {
+        if (_selectedSportIDValue == null)
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        var subcats = await apiService.GetAsync<SportsDTO.SportSubcategories>(
+            $"/Sports/Subcategories?sportID={_selectedSportIDValue}");
+
+        if (subcats == null || !subcats.Any())
+        {
+            _combinedSchoolLevelAndGenderNames = new List<string>();
+            return;
+        }
+
+        var schoolLevelIDs = subcats.Where(x => x.SchoolLevelID.HasValue).Select(x => x.SchoolLevelID.Value).Distinct();
+        var genderIDs = subcats.Where(x => x.SportGenderCategoryID.HasValue).Select(x => x.SportGenderCategoryID.Value).Distinct();
+
+        var schoolLevelNames = _schoolLevels?.Where(s => schoolLevelIDs.Contains(s.ID)).Select(s => s.Level) ?? new List<string>();
+        var genderNames = _sportGenderCategories?.Where(g => genderIDs.Contains(g.ID)).Select(g => g.Gender) ?? new List<string>();
+
+        _combinedSchoolLevelAndGenderNames = schoolLevelNames.SelectMany(s => genderNames, (s, g) => $"{s} - {g}").ToList();
+    }
+
+    private void LoadMainCategories()
+    {
+        _sportMainCat = _sportSubcategories?.Where(sc => !string.IsNullOrEmpty(sc.MainCategory))
+            .Select(sc => sc.MainCategory!).Distinct().ToList() ?? new List<string>();
+    }
+
+    private async Task ApplyFilters()
+    {
+        try
+        {
+            var queryParams = new List<string>();
+
+            if (_selectedSportIDValue.HasValue)
+            {
+                var sportName = _selectedSportIDValue.Value switch
+                {
+                    3 => "Athletics",
+                    16 => "Swimming",
+                    _ => null
+                };
+
+                if (!string.IsNullOrEmpty(sportName))
+                    queryParams.Add($"sport={Uri.EscapeDataString(sportName)}");
+            }
+
+            if (_selectedSportSubcategoryIDValue.HasValue)
+            {
+                var subcategoryName = _sportSubcategories?.FirstOrDefault(s => s.ID == _selectedSportSubcategoryIDValue.Value)?.Subcategory;
+                if (!string.IsNullOrEmpty(subcategoryName))
+                    queryParams.Add($"subcategory={Uri.EscapeDataString(subcategoryName)}");
+            }
+
+            if (!string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+            {
+                var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+                if (parts.Length == 2)
+                {
+                    queryParams.Add($"level={Uri.EscapeDataString(parts[0])}");
+                    queryParams.Add($"gender={Uri.EscapeDataString(parts[1])}");
+                }
+            }
+
+            if (_selectedEventStagesIDValue.HasValue)
+            {
+                var stageName = _eventStages?.FirstOrDefault(e => e.ID == _selectedEventStagesIDValue.Value)?.Stage;
+                if (!string.IsNullOrEmpty(stageName))
+                    queryParams.Add($"eventStage={Uri.EscapeDataString(stageName)}");
+            }
+
+            var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+
+            var events = await apiService.GetAsync<EventInfo>($"TimeDistanceEvents/Sports/AthleticsSwimming{queryString}");
+
+            if (events != null && events.Any())
+            {
+                var uniqueRegions = new List<RegionItem>();
+                _regionPlayerMap.Clear();
+
+                foreach (var evt in events)
+                {
+                    if (!string.IsNullOrEmpty(evt.Abbreviation) && evt.RegionID.HasValue)
+                    {
+                        var matchingRegion = _allRegions?.FirstOrDefault(r =>
+                            r.ID == evt.RegionID.Value ||
+                            r.Abbreviation == evt.Abbreviation);
+
+                        if (matchingRegion != null && !uniqueRegions.Any(r => r.Id == matchingRegion.ID))
+                        {
+                            var regionItem = new RegionItem
+                                {
+                                    Id = matchingRegion.ID,
+                                    Name = matchingRegion.Abbreviation ?? matchingRegion.Region ?? "Unknown",
+                                    AssignedTable = "Unassigned"
+                                };
+
+                            if (!string.IsNullOrEmpty(evt.PlayerID) && !string.IsNullOrEmpty(evt.PlayerName))
+                            {
+                                _regionPlayerMap[matchingRegion.ID] = (evt.PlayerID, evt.PlayerName);
+                                regionItem.PlayerName = evt.PlayerName;
+                            }
+
+                            uniqueRegions.Add(regionItem);
+                        }
+                    }
+                }
+
+                Regions = uniqueRegions;
+                SelectedEvent = events.First();
+
+                await LoadSavedScoringData();
+
+                Snackbar.Add($"Found {events.Count} events with {Regions.Count} regions", Severity.Success);
+            }
+            else
+            {
+                Regions = new List<RegionItem>();
+                SelectedEvent = null;
+                Snackbar.Add("No events found with the selected filters", Severity.Warning);
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
+            Regions = new List<RegionItem>();
+        }
+    }
+
+    private async Task ClearFilters()
+    {
+        _selectedSportIDValue = null;
+        _selectedSchoolLevelAndGenderID = null;
+        _selectedMainCategoryValue = null;
+        _selectedSportSubcategoryIDValue = null;
+        _selectedEventStagesIDValue = null;
+        SelectedEvent = null;
+        Regions = new List<RegionItem>();
+        _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+        _combinedSchoolLevelAndGenderNames = new List<string>();
+        _sportMainCat = new List<string>();
+        _hasLoadedSavedData = false;
+        _regionPlayerMap.Clear();
+        SavedHeats.Clear();
+
+        Heats.Clear();
+        HeatLanes.Clear();
+        LaneResults.Clear();
+        InitializeDefaultHeat();
+
+        Snackbar.Add("Filters cleared", Severity.Info);
+        StateHasChanged();
+    }
+
+    private void AddHeat()
+    {
+        var newHeat = $"Heat {Heats.Count + 1}";
+        Heats.Add(newHeat);
+        var lanes = new List<string> { "Lane 1", "Lane 2", "Lane 3", "Lane 4" };
+        HeatLanes[newHeat] = lanes;
+
+        foreach (var lane in lanes)
+            LaneResults[$"{newHeat}-{lane}"] = "";
+
+        Snackbar.Add($"{newHeat} added", Severity.Success);
+        StateHasChanged();
+    }
+
+    private void RemoveHeat(string heatName)
+    {
+        if (Heats.Contains(heatName))
+        {
+            foreach (var lane in GetLanesForHeat(heatName))
+            {
+                var laneKey = $"{heatName}-{lane}";
+                foreach (var region in Regions!)
+                {
+                    if (region.AssignedTable == laneKey)
+                    {
+                        region.AssignedTable = "Unassigned";
+                    }
+                }
+                LaneResults.Remove(laneKey);
+            }
+
+            Heats.Remove(heatName);
+            HeatLanes.Remove(heatName);
+            SavedHeats.Remove(heatName);
+
+            Snackbar.Add($"{heatName} removed", Severity.Info);
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveLastHeat()
+    {
+        if (Heats.Count > 1)
+        {
+            var lastHeat = Heats.Last();
+            RemoveHeat(lastHeat);
+        }
+    }
+
+    private void AddLane(string heat)
+    {
+        if (HeatLanes.TryGetValue(heat, out var lanes))
+        {
+            var newLane = $"Lane {lanes.Count + 1}";
+            lanes.Add(newLane);
+            LaneResults[$"{heat}-{newLane}"] = "";
+            Snackbar.Add($"{newLane} added to {heat}", Severity.Success);
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveLane(string heat, string laneName)
+    {
+        if (HeatLanes.TryGetValue(heat, out var lanes) && lanes.Contains(laneName))
+        {
+            var laneKey = $"{heat}-{laneName}";
+            foreach (var region in Regions!)
+            {
+                if (region.AssignedTable == laneKey)
+                {
+                    region.AssignedTable = "Unassigned";
+                }
+            }
+
+            LaneResults.Remove(laneKey);
+
+            lanes.Remove(laneName);
+
+            Snackbar.Add($"{laneName} removed from {heat}", Severity.Info);
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveLastLane(string heat)
+    {
+        if (HeatLanes.TryGetValue(heat, out var lanes) && lanes.Count > 1)
+        {
+            var lastLane = lanes.Last();
+            RemoveLane(heat, lastLane);
+        }
+    }
+
+    private List<string> GetLanesForHeat(string heat)
+    {
+        if (HeatLanes.TryGetValue(heat, out var lanes))
+            return lanes;
+        return new List<string>();
+    }
+
+    private bool SelectItemsForZone(RegionItem item, string dropzone)
+        => item.AssignedTable == dropzone;
+
+    private async Task OnItemDropped(MudItemDropInfo<RegionItem> info)
+    {
+        if (IsDropzoneInSavedHeat(info.DropzoneIdentifier))
+        {
+            Snackbar.Add("Cannot move regions to saved heats", Severity.Warning);
+            return;
+        }
+
+        if (IsRegionInSavedHeat(info.Item))
+        {
+            Snackbar.Add("Cannot move regions from saved heats", Severity.Warning);
+            return;
+        }
+
+        info.Item.AssignedTable = info.DropzoneIdentifier;
+        Snackbar.Add($"{info.Item.Name} moved to {info.Item.AssignedTable}", Severity.Success);
+        StateHasChanged();
+    }
+
+    private async Task SaveHeatData(string heatName)
+    {
+        if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
+        {
+            Snackbar.Add("No event selected. Please apply filters first.", Severity.Warning);
+            return;
+        }
+
+        _isSaving = true;
+        _currentSavingHeat = heatName;
+        StateHasChanged();
+
+        try
+        {
+            var existingData = await LoadExistingScoringData();
+
+            existingData.Heats = existingData.Heats
+                .Where(h => h.HeatName != heatName)
+                .ToList();
+
+            existingData.Assignments = existingData.Assignments
+                .Where(a => !a.AssignedTable.StartsWith(heatName + "-"))
+                .ToList();
+
+            var newHeatData = BuildHeatData(heatName);
+            existingData.Heats.AddRange(newHeatData);
+            existingData.Assignments.AddRange(BuildAssignmentsForHeat(heatName));
+
+            var saveRequest = new
+            {
+                EventID = SelectedEvent.ID,
+                Heats = existingData.Heats,
+                Assignments = existingData.Assignments
+            };
+
+            await apiService.PostAsync("TimeDistanceEvents/Sports/AthleticsSwimming", saveRequest);
+
+            SavedHeats.Add(heatName);
+            _hasLoadedSavedData = true;
+            Snackbar.Add($"{heatName} data saved successfully!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving {heatName} data: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+            _currentSavingHeat = null;
+            StateHasChanged();
+        }
+    }
+
+    private List<SavedHeat> BuildHeatData(string heatName)
+    {
+        var lanes = GetLanesForHeat(heatName);
+        var laneData = new List<SavedLane>();
+
+        var laneOrder = 1;
+        foreach (var lane in lanes)
+        {
+            var laneKey = $"{heatName}-{lane}";
+            var regionInLane = Regions?.FirstOrDefault(r => r.AssignedTable == laneKey);
+
+            string? playerId = null;
+            string? playerName = null;
+
+            if (regionInLane != null && _regionPlayerMap.ContainsKey(regionInLane.Id))
+            {
+                playerId = _regionPlayerMap[regionInLane.Id].PlayerID;
+                playerName = _regionPlayerMap[regionInLane.Id].PlayerName;
+            }
+
+            laneData.Add(new SavedLane
+                {
+                    LaneName = lane,
+                    LaneOrder = laneOrder++,
+                    Result = LaneResults.ContainsKey(laneKey) ? LaneResults[laneKey] : null,
+                    RegionID = regionInLane?.Id,
+                    PlayerID = playerId,
+                    PlayerName = playerName,
+                    RegionAbbreviation = regionInLane?.Name
+                });
+        }
+
+        return new List<SavedHeat>
+    {
+        new SavedHeat
+        {
+            HeatName = heatName,
+            HeatOrder = Heats.IndexOf(heatName) + 1,
+            Lanes = laneData
+        }
+    };
+    }
+
+    private List<SavedAssignment> BuildAssignmentsForHeat(string heatName)
+    {
+        var assignments = new List<SavedAssignment>();
+        var lanes = GetLanesForHeat(heatName);
+
+        if (Regions != null)
+        {
+            foreach (var lane in lanes)
+            {
+                var laneKey = $"{heatName}-{lane}";
+                var regionInLane = Regions.FirstOrDefault(r => r.AssignedTable == laneKey);
+
+                if (regionInLane != null)
+                {
+                    string? playerId = null;
+                    if (_regionPlayerMap.ContainsKey(regionInLane.Id))
+                    {
+                        playerId = _regionPlayerMap[regionInLane.Id].PlayerID;
+                    }
+
+                    assignments.Add(new SavedAssignment
+                        {
+                            RegionID = regionInLane.Id,
+                            PlayerID = playerId,
+                            RegionAbbreviation = regionInLane.Name,
+                            AssignedTable = regionInLane.AssignedTable
+                        });
+                }
+            }
+        }
+
+        return assignments;
+    }
+
+    private async Task<SavedScoringData> LoadExistingScoringData()
+    {
+        try
+        {
+            var savedData = await apiService.GetSingleAsync<SavedScoringData>($"TimeDistanceEvents/Sports/AthleticsSwimming/{SelectedEvent.ID}");
+            return savedData ?? new SavedScoringData();
+        }
+        catch (Exception ex) when (ex.Message.Contains("JsonElement") || ex.Message.Contains("!="))
+        {
+            return new SavedScoringData();
+        }
+        catch
+        {
+            return new SavedScoringData();
+        }
+    }
+
+    private bool IsRegionInSavedHeat(RegionItem region)
+    {
+        if (string.IsNullOrEmpty(region.AssignedTable) || region.AssignedTable == "Unassigned")
+            return false;
+
+        var parts = region.AssignedTable.Split('-');
+        if (parts.Length >= 1)
+        {
+            var heatName = parts[0].Trim();
+            return SavedHeats.Contains(heatName);
+        }
+
+        return false;
+    }
+
+    private bool IsDropzoneInSavedHeat(string dropzoneIdentifier)
+    {
+        if (string.IsNullOrEmpty(dropzoneIdentifier) || dropzoneIdentifier == "Unassigned")
+            return false;
+
+        var parts = dropzoneIdentifier.Split('-');
+        if (parts.Length >= 1)
+        {
+            var heatName = parts[0].Trim();
+            return SavedHeats.Contains(heatName);
+        }
+
+        return false;
+    }
+
+    private string GetDropZoneStyle(bool isLaneSaved)
+    {
+        var baseStyle = "min-height:50px; border:1px dashed gray; border-radius:6px;";
+        if (isLaneSaved)
+        {
+            return baseStyle + " background-color: #f5f5f5; cursor: not-allowed;";
+        }
+        return baseStyle;
+    }
+
+    private async Task LoadSavedScoringData()
+    {
+        if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
+            return;
+
+        try
+        {
+            var savedData = await apiService.GetSingleAsync<SavedScoringData>($"TimeDistanceEvents/Sports/AthleticsSwimming/{SelectedEvent.ID}");
+
+            if (savedData != null && (savedData.Heats.Any() || savedData.Assignments.Any()))
+            {
+                Heats.Clear();
+                HeatLanes.Clear();
+                LaneResults.Clear();
+                SavedHeats.Clear();
+
+                if (Regions != null)
+                {
+                    foreach (var region in Regions)
+                    {
+                        region.AssignedTable = "Unassigned";
+                    }
+                }
+
+                foreach (var savedHeat in savedData.Heats.OrderBy(h => h.HeatOrder))
+                {
+                    if (!string.IsNullOrEmpty(savedHeat.HeatName))
+                    {
+                        Heats.Add(savedHeat.HeatName);
+                        var lanes = new List<string>();
+
+                        foreach (var savedLane in savedHeat.Lanes.OrderBy(l => l.LaneOrder))
+                        {
+                            if (!string.IsNullOrEmpty(savedLane.LaneName))
+                            {
+                                lanes.Add(savedLane.LaneName);
+
+                                var laneKey = $"{savedHeat.HeatName}-{savedLane.LaneName}";
+
+                                LaneResults[laneKey] = savedLane.Result ?? "";
+
+                                if (savedLane.RegionID.HasValue)
+                                {
+                                    var region = Regions?.FirstOrDefault(r => r.Id == savedLane.RegionID.Value);
+
+                                    if (region != null)
+                                    {
+                                        region.AssignedTable = laneKey;
+                                        if (!string.IsNullOrEmpty(savedLane.PlayerName))
+                                        {
+                                            region.PlayerName = savedLane.PlayerName;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        HeatLanes[savedHeat.HeatName] = lanes;
+                        SavedHeats.Add(savedHeat.HeatName);
+                    }
+                }
+
+                foreach (var assignment in savedData.Assignments)
+                {
+                    var region = Regions?.FirstOrDefault(r => r.Id == assignment.RegionID);
+
+                    if (region != null && !string.IsNullOrEmpty(assignment.AssignedTable))
+                    {
+                        region.AssignedTable = assignment.AssignedTable;
+
+                        var heatName = assignment.AssignedTable.Split('-')[0].Trim();
+                        if (!SavedHeats.Contains(heatName))
+                        {
+                            SavedHeats.Add(heatName);
+                        }
+                    }
+                }
+
+                _hasLoadedSavedData = true;
+                Snackbar.Add($"Loaded {savedData.Heats.Count} heats with {savedData.Heats.Sum(h => h.Lanes.Count)} lanes from saved data", Severity.Success);
+            }
+            else
+            {
+                InitializeDefaultHeat();
+                Snackbar.Add("No saved data found. Initialized with default heat.", Severity.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading saved data: {ex.Message}", Severity.Warning);
+            InitializeDefaultHeat();
+        }
+    }
+
+    private void InitializeDefaultHeat()
+    {
+        if (Heats.Count == 0)
+        {
+            Heats = new List<string> { "Heat 1" };
+            HeatLanes["Heat 1"] = new List<string> { "Lane 1", "Lane 2", "Lane 3", "Lane 4" };
+
+            foreach (var lane in HeatLanes["Heat 1"])
+            {
+                LaneResults[$"Heat 1-{lane}"] = "";
+            }
+        }
+    }
+
+    private bool HasResults()
+    {
+        return LaneResults.Values.Any(result => !string.IsNullOrEmpty(result));
+    }
+
+    private List<RankingResult> CalculateRankings()
+    {
+        var rankings = new List<RankingResult>();
+
+        if (Regions == null) return rankings;
+
+        foreach (var region in Regions)
+        {
+            if (!string.IsNullOrEmpty(region.AssignedTable) &&
+                region.AssignedTable != "Unassigned" &&
+                LaneResults.ContainsKey(region.AssignedTable) &&
+                !string.IsNullOrEmpty(LaneResults[region.AssignedTable]))
+            {
+                var result = LaneResults[region.AssignedTable];
+                if (TryParseResult(result, out double numericResult))
+                {
+                    rankings.Add(new RankingResult
+                        {
+                            RegionName = region.Name,
+                            PlayerName = region.PlayerName,
+                            Result = result,
+                            AssignedLane = region.AssignedTable,
+                            NumericResult = numericResult
+                        });
+                }
+            }
+        }
+
+        bool isTimeBased = SelectedEvent?.Sport?.ToLower() == "swimming" ||
+                          (SelectedEvent?.Subcategory?.ToLower().Contains("meter") == true &&
+                           SelectedEvent?.Subcategory?.ToLower().Contains("run") == true);
+
+        return isTimeBased
+            ? rankings.OrderBy(r => r.NumericResult).Select((r, i) => { r.Rank = i + 1; return r; }).ToList()
+            : rankings.OrderByDescending(r => r.NumericResult).Select((r, i) => { r.Rank = i + 1; return r; }).ToList();
+    }
+
+    private bool TryParseResult(string result, out double numericResult)
+    {
+        if (result.Contains(":") || result.Contains("."))
+        {
+            if (TimeSpan.TryParse(result, out TimeSpan timeResult))
+            {
+                numericResult = timeResult.TotalSeconds;
+                return true;
+            }
+        }
+
+        return double.TryParse(result, out numericResult);
+    }
+}
