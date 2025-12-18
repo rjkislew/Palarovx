@@ -109,43 +109,6 @@
 
 
                             </MudGrid>
-
-                            @if (!IsEditMode && _selectedSportIDValue.HasValue && _selectedMainCategoryValue != null)
-                            {
-                                <!-- Archery Alert -->
-                                @if (_selectedMainCategoryValue?.Equals("1440 Round", StringComparison.OrdinalIgnoreCase) == true)
-                                {
-                                    <MudAlert Severity="Severity.Info" Class="mt-2" Variant="Variant.Filled">
-                                        <MudText Typo="Typo.body2">
-                                            @* <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-1" Size="Size.Small" /> *@
-                                            <strong>Multiple Events Created:</strong> This Archery 1440 Round will generate 5 events (Overall + 30m, 50m, 60m, 70m distances) with identical team assignments.
-                                        </MudText>
-                                    </MudAlert>
-                                }
-
-                                <!-- DanceSport Alert -->
-                                @if (_selectedMainCategoryValue?.Equals("Latin American", StringComparison.OrdinalIgnoreCase) == true)
-                                {
-                                    <MudAlert Severity="Severity.Info" Class="mt-2" Variant="Variant.Filled">
-                                        <MudText Typo="Typo.body2">
-                                            @* <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-1" Size="Size.Small"  *@/>
-                                            <strong>Multiple Events Created:</strong> This Latin American DanceSport will generate 5 single dance events:
-                                            ChaChaCha, Jive, Pasodoble, Rumba, and Samba.
-                                        </MudText>
-                                    </MudAlert>
-                                }
-
-                                @if (_selectedMainCategoryValue?.Equals("Modern Standard", StringComparison.OrdinalIgnoreCase) == true)
-                                {
-                                    <MudAlert Severity="Severity.Info" Class="mt-2" Variant="Variant.Filled">
-                                        <MudText Typo="Typo.body2">
-                                            @* <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-1" Size="Size.Small" /> *@
-                                            <strong>Multiple Events Created:</strong> This Modern Standard DanceSport will generate 5 single dance events:
-                                            Tango, Foxtrot, Quickstep, Viennese Waltz, and Waltz.
-                                        </MudText>
-                                    </MudAlert>
-                                }
-                            }
                         </MudStack>
                     </MudItem>
 
@@ -821,249 +784,11 @@ else
     }
 
     // ------------------------------
-    // Event CRUD 
+    // Event CRUD
     // ------------------------------
-    private async Task<bool> IsArcherySport()
-    {
-        if (_selectedSportIDValue == null) return false;
-
-        var sportsUrl = $"/Sports?id={_selectedSportIDValue}";
-        var sports = await apiService.GetAsync<SportsDTO.Sports>(sportsUrl);
-
-        if (sports == null || !sports.Any()) return false;
-
-        var sport = sports.First();
-        return sport.Sport?.Equals("Archery", StringComparison.OrdinalIgnoreCase) == true;
-    }
-
-    private async Task<bool> IsDanceSport()
-    {
-        if (_selectedSportIDValue == null) return false;
-
-        var sportsUrl = $"/Sports?id={_selectedSportIDValue}";
-        var sports = await apiService.GetAsync<SportsDTO.Sports>(sportsUrl);
-
-        if (sports == null || !sports.Any()) return false;
-
-        var sport = sports.First();
-        return sport.Sport?.Equals("DanceSports", StringComparison.OrdinalIgnoreCase) == true;
-    }
-
-    private bool IsDanceSportMainCategory()
-    {
-        return _selectedMainCategoryValue?.Equals("Latin American", StringComparison.OrdinalIgnoreCase) == true ||
-               _selectedMainCategoryValue?.Equals("Modern Standard", StringComparison.OrdinalIgnoreCase) == true;
-    }
-
-    private async Task Create1440RoundEvents()
-    {
-        var subcatUrl = $"/Events/Subcategories?mainCategory=1440 Round&sportID={_selectedSportIDValue}";
-
-        if (_selectedSchoolLevelAndGenderID != null)
-        {
-            var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
-            var schoolLevelName = parts[0];
-            var genderName = parts[1];
-            var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
-            var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
-
-            if (schoolLevelID != null && genderID != null)
-            {
-                subcatUrl += $"&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}";
-            }
-        }
-
-        var all1440Subcats = await apiService.GetAsync<SportsDTO.SportSubcategories>(subcatUrl);
-
-        if (all1440Subcats == null || !all1440Subcats.Any())
-        {
-            throw new Exception("No 1440 Round subcategories found");
-        }
-
-        var overallSubcat = all1440Subcats.FirstOrDefault(sc =>
-            sc.Subcategory?.Equals("1440 Round", StringComparison.OrdinalIgnoreCase) == true);
-
-        var distanceSubcats = all1440Subcats.Where(sc =>
-            sc.Subcategory?.Contains("Meter Distance") == true ||
-            sc.Subcategory?.Contains("-Meter") == true)
-            .OrderBy(sc =>
-            {
-                var match = System.Text.RegularExpressions.Regex.Match(sc.Subcategory ?? "", @"(\d+)");
-                return match.Success ? int.Parse(match.Value) : 999;
-            })
-            .ToList();
-
-        var eventsToCreate = new List<SportsDTO.SportSubcategories>();
-
-        if (overallSubcat != null)
-            eventsToCreate.Add(overallSubcat);
-
-        if (distanceSubcats.Any())
-            eventsToCreate.AddRange(distanceSubcats.Take(4));
-
-        int createdCount = 0;
-        foreach (var subcat in eventsToCreate)
-        {
-            await CreateEventWithSubcategory(subcat.ID, subcat.Subcategory);
-            createdCount++;
-        }
-
-        Snackbar.Add($"Successfully created {createdCount} events for 1440 Round Archery.", Severity.Success);
-    }
-
-    private async Task CreateDanceSportEvents()
-    {
-        if (!IsDanceSportMainCategory())
-        {
-            throw new Exception($"Invalid DanceSport main category: {_selectedMainCategoryValue}");
-        }
-
-        // Get all subcategories for this sport and school level/gender
-        var subcatUrl = $"/Sports/Subcategories?mainCategory={_selectedMainCategoryValue}&sportID={_selectedSportIDValue}";
-
-        if (_selectedSchoolLevelAndGenderID != null)
-        {
-            var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
-            var schoolLevelName = parts[0];
-            var genderName = parts[1];
-            var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
-            var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
-
-            if (schoolLevelID != null && genderID != null)
-            {
-                subcatUrl += $"&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}";
-            }
-        }
-
-        var allDanceSubcats = await apiService.GetAsync<SportsDTO.SportSubcategories>(subcatUrl);
-
-        if (allDanceSubcats == null || !allDanceSubcats.Any())
-        {
-            throw new Exception($"No {_selectedMainCategoryValue} subcategories found");
-        }
-
-        // Filter only "Single Dance" subcategories
-        var singleDanceSubcats = allDanceSubcats
-            .Where(sc => sc.Subcategory?.Contains("Single Dance", StringComparison.OrdinalIgnoreCase) == true)
-            .ToList();
-
-        if (!singleDanceSubcats.Any())
-        {
-            throw new Exception($"No single dance subcategories found for {_selectedMainCategoryValue}");
-        }
-
-        // Create events for each single dance
-        var createdCount = 0;
-
-        foreach (var subcat in singleDanceSubcats)
-        {
-            // Extract dance style name
-            var danceStyleName = subcat.Subcategory?.Replace("Single Dance - ", "")?.Trim() ?? subcat.Subcategory;
-
-            await CreateEventWithSubcategory(subcat.ID, danceStyleName);
-            createdCount++;
-        }
-
-        Snackbar.Add($"Successfully created {createdCount} single dance events for {_selectedMainCategoryValue} DanceSport.", Severity.Success);
-    }
-
-    private async Task CreateEventWithSubcategory(int? sportSubcategoryID, string? subcategoryName)
-    {
-        var addEvent = new EventsDTO.Events
-            {
-                ID = GenerateRandomString(20),
-                EventStageID = _selectedEventStagesIDValue,
-                SportSubcategoryID = sportSubcategoryID,
-                EventVenuesID = _selectedEventVenueIDValue,
-                EventStreamServiceID = _selectedEventStreamServiceIDValue,
-                EventStreamID = _selectedEventStreamIDValue,
-                OnStream = _isOnStream,
-                Date = _selectedDateValue,
-                Time = _selectedTimeValue,
-                GamePhase = null,
-                IsFinished = false,
-                Archived = false,
-                Deleted = false,
-                UserID = _selectedUserIDValue,
-                SportMainCat = _selectedMainCategoryValue
-            };
-
-        string eventUrl = "/Events";
-        var eventCreated = await apiService.PostAndReadAsync<EventsDTO.Events>(eventUrl, addEvent);
-
-        if (eventCreated == null)
-        {
-            throw new Exception($"Failed to create event for {subcategoryName}");
-        }
-
-        foreach (var team in _teamSelections)
-        {
-            if (!team.SelectedRegionID.HasValue)
-                continue;
-
-            var addEventVersusTeams = new EventsDTO.EventVersusTeams
-                {
-                    EventID = eventCreated.ID,
-                    SchoolRegionID = team.SelectedRegionID,
-                    RecentUpdateAt = _recentUpdateAt
-                };
-
-            string teamUrl = "/Events/VersusTeams";
-            var createdEventVersusTeams = await apiService.PostAndReadAsync<EventsDTO.EventVersusTeams>(teamUrl, addEventVersusTeams);
-
-            if (createdEventVersusTeams == null)
-            {
-                continue;
-            }
-
-            if (team.SelectedPlayerIDs?.Any() == true)
-            {
-                var addEventTeamPlayers = team.SelectedPlayerIDs
-                    .Select(playerID => new EventsDTO.EventVersusTeamPlayers
-                        {
-                            EventVersusID = createdEventVersusTeams.ID,
-                            ProfilePlayerID = playerID
-                        })
-                    .ToList();
-
-                string playersUrl = "/Events/VersusTeams/Players";
-                await apiService.PostAsync(playersUrl, addEventTeamPlayers);
-            }
-        }
-    }
-
     private async Task AddEventAsync()
     {
-        try
-        {
-            var isArchery = await IsArcherySport();
-            var is1440Round = _selectedMainCategoryValue?.Equals("1440 Round", StringComparison.OrdinalIgnoreCase) == true;
-            var isDanceSport = await IsDanceSport();
-            var isDanceSportMainCat = IsDanceSportMainCategory();
-
-            if (isArchery && is1440Round)
-            {
-                await Create1440RoundEvents();
-            }
-            else if (isDanceSport && isDanceSportMainCat)
-            {
-                await CreateDanceSportEvents();
-            }
-            else
-            {
-                await CreateSingleEvent();
-            }
-
-            Snackbar.Add("Event(s) added successfully.", Severity.Success);
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Failed to add event(s): {ex.Message}", Severity.Error);
-        }
-    }
-
-    private async Task CreateSingleEvent()
-    {
+        // 1. Create main event
         var addEvent = new EventsDTO.Events
             {
                 ID = GenerateRandomString(20),
@@ -1080,7 +805,8 @@ else
                 Archived = false,
                 Deleted = false,
                 UserID = _selectedUserIDValue,
-                SportMainCat = _selectedMainCategoryValue
+                SportMainCat = _selectedMainCategoryValue,
+                BracketID = _selectedBracketID
             };
 
         string eventUrl = "/Events";
@@ -1088,15 +814,17 @@ else
 
         if (eventCreated == null)
         {
-            throw new Exception("Failed to create event.");
+            Snackbar.Add("Failed to add event.", Severity.Error);
+            return;
         }
 
-        // Create versus teams
+        // 2. Loop through all team selections
         foreach (var team in _teamSelections)
         {
             if (!team.SelectedRegionID.HasValue)
-                continue;
+                continue; // skip if region not selected
 
+            // 2A. Create Versus Team first
             var addEventVersusTeams = new EventsDTO.EventVersusTeams
                 {
                     EventID = eventCreated.ID,
@@ -1109,27 +837,34 @@ else
 
             if (createdEventVersusTeams == null)
             {
+                Snackbar.Add($"Failed to add team for region {team.SelectedRegionID}.", Severity.Error);
                 continue;
             }
 
-            // Save players
+            // 2B. After the team is created, save players separately
             if (team.SelectedPlayerIDs?.Any() == true)
             {
                 var addEventTeamPlayers = team.SelectedPlayerIDs
                     .Select(playerID => new EventsDTO.EventVersusTeamPlayers
                         {
-                            EventVersusID = createdEventVersusTeams.ID,
+                            EventVersusID = createdEventVersusTeams.ID, // use the new team ID
                             ProfilePlayerID = playerID
                         })
                     .ToList();
 
                 string playersUrl = "/Events/VersusTeams/Players";
-                await apiService.PostAsync(playersUrl, addEventTeamPlayers);
+                var playersSuccess = await apiService.PostAsync(playersUrl, addEventTeamPlayers);
+
+                if (!playersSuccess)
+                {
+                    Snackbar.Add($"Failed to add players for team {createdEventVersusTeams.ID}.", Severity.Error);
+                }
             }
         }
+
+        Snackbar.Add("Event added successfully.", Severity.Success);
     }
 
-    //==============================================================
 
     private async Task UpdateEventAsync()
     {

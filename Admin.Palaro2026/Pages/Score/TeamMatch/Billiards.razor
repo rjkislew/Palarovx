@@ -106,9 +106,6 @@
             <MudItem xs="12" sm="5">
                 <MudText Typo="Typo.body2"><strong>Level and Gender:</strong> @SelectedEvent.Level - @SelectedEvent.Gender</MudText>
             </MudItem>
-            @* <MudItem xs="12" sm="3">
-                <MudText Typo="Typo.body2"><strong>Level:</strong> @SelectedEvent.Level</MudText>
-            </MudItem> *@
             <MudItem xs="12" sm="3">
                 <MudText Typo="Typo.body2"><strong>Stage:</strong> @SelectedEvent.EventStage</MudText>
             </MudItem>
@@ -119,11 +116,7 @@
 <!-- MATCH CARD -->
 <MudGrid Spacing="3">
     <MudItem xs="12">
-        @if (Regions == null)
-        {
-            <MudText Align="Align.Center" Class="ma-4">Please apply filters to see regions</MudText>
-        }
-        else if (!Regions.Any())
+        @if (Regions == null || !Regions.Any())
         {
             <MudText Align="Align.Center" Class="ma-4">No regions found. Please apply filters to see regions.</MudText>
         }
@@ -337,7 +330,7 @@
 </MudGrid>
 
 @code {
-    private List<RegionItem>? Regions;
+    private List<RegionItem> Regions = new();
     private List<string> Tables = new();
     private List<List<RegionItem>> AllSets = new();
     private int CurrentSet = 1;
@@ -680,6 +673,8 @@
             {
                 _regionPlayerMap.Clear();
                 _eliminatedRegions.Clear();
+                _tableResults.Clear();
+                AllSets.Clear();
 
                 BaseRegions = events
                     .Where(evt => !string.IsNullOrEmpty(evt.Abbreviation))
@@ -707,7 +702,6 @@
                     })
                     .ToList();
 
-                AllSets.Clear();
                 var firstSet = BaseRegions.Select(r => new RegionItem
                     {
                         Id = r.Id,
@@ -718,21 +712,14 @@
                         HasLost = false,
                         RoundEliminated = 0
                     }).ToList();
-                AllSets.Add(firstSet);
 
+                AllSets.Add(firstSet);
                 Regions = firstSet;
                 SelectedEvent = events.First();
                 SelectedSet = 1;
                 CurrentSet = 1;
 
-                _tableResults.Clear();
-
                 await LoadExistingBilliardsAssignments();
-
-                if (SelectedSet <= AllSets.Count)
-                {
-                    Regions = AllSets[SelectedSet - 1];
-                }
 
                 Snackbar.Add($"Found {events.Count} events with {Regions.Count} regions. Loaded {AllSets.Count} round(s).", Severity.Success);
             }
@@ -751,6 +738,7 @@
             Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
             Regions = new List<RegionItem>();
             BaseRegions = new List<RegionItem>();
+            StateHasChanged();
         }
     }
 
@@ -788,36 +776,63 @@
             {
                 var maxSetNo = existingAssignments.Max(a => a.SetNo);
 
-                while (AllSets.Count < maxSetNo)
+                for (int i = AllSets.Count; i < maxSetNo; i++)
                 {
-                    var newSetNumber = AllSets.Count + 1;
+                    var newSetNumber = i + 1;
 
-                    var previousRound = AllSets.Last();
-                    var winnersFromPreviousRound = previousRound
-                        .Where(r => r.HasWon) 
-                        .Select(r => new RegionItem
-                            {
-                                Id = r.Id,
-                                Name = r.Name,
-                                AssignedTable = "Unassigned",
-                                SetNumber = newSetNumber,
-                                PlayerName = r.PlayerName,
-                                HasLost = false,
-                                HasWon = false, 
-                                RoundEliminated = 0
-                            }).ToList();
+                    var previousRound = AllSets.LastOrDefault();
+                    if (previousRound != null && previousRound.Any())
+                    {
+                        var winnersFromPreviousRound = previousRound
+                            .Where(r => r.HasWon)
+                            .Select(r => new RegionItem
+                                {
+                                    Id = r.Id,
+                                    Name = r.Name,
+                                    AssignedTable = "Unassigned",
+                                    SetNumber = newSetNumber,
+                                    PlayerName = r.PlayerName,
+                                    HasLost = false,
+                                    HasWon = false,
+                                    RoundEliminated = 0
+                                }).ToList();
 
-                    AllSets.Add(winnersFromPreviousRound);
+                        AllSets.Add(winnersFromPreviousRound);
+                    }
+                    else
+                    {
+                        AllSets.Add(new List<RegionItem>());
+                    }
                 }
 
                 foreach (var assignment in existingAssignments)
                 {
-                    if (assignment.SetNo <= AllSets.Count && assignment.TableNo > 0 && !string.IsNullOrEmpty(assignment.PlayerPosition))
+                    if (assignment.SetNo > 0 && assignment.SetNo <= AllSets.Count)
                     {
                         var setToUpdate = AllSets[assignment.SetNo - 1];
-                        var regionInSet = setToUpdate.FirstOrDefault(r => r.Id == assignment.RegionID);
 
-                        if (regionInSet != null)
+                        var regionInSet = setToUpdate.FirstOrDefault(r => r.Id == assignment.RegionID);
+                        if (regionInSet == null)
+                        {
+                            var baseRegion = BaseRegions.FirstOrDefault(br => br.Id == assignment.RegionID);
+                            if (baseRegion != null)
+                            {
+                                regionInSet = new RegionItem
+                                    {
+                                        Id = baseRegion.Id,
+                                        Name = baseRegion.Name,
+                                        AssignedTable = "Unassigned",
+                                        SetNumber = assignment.SetNo,
+                                        PlayerName = baseRegion.PlayerName,
+                                        HasLost = false,
+                                        HasWon = false,
+                                        RoundEliminated = 0
+                                    };
+                                setToUpdate.Add(regionInSet);
+                            }
+                        }
+
+                        if (regionInSet != null && assignment.TableNo > 0 && !string.IsNullOrEmpty(assignment.PlayerPosition))
                         {
                             regionInSet.AssignedTable = $"{assignment.SetNo}_Table {assignment.TableNo}_{assignment.PlayerPosition}";
 
@@ -840,14 +855,6 @@
                             {
                                 regionInSet.PlayerName = assignment.PlayerName;
                             }
-                            else
-                            {
-                                var baseRegion = BaseRegions.FirstOrDefault(br => br.Id == assignment.RegionID);
-                                if (baseRegion != null)
-                                {
-                                    regionInSet.PlayerName = baseRegion.PlayerName;
-                                }
-                            }
                         }
                     }
                 }
@@ -857,12 +864,17 @@
                     CurrentSet = maxSetNo;
                 }
 
+                if (SelectedSet <= AllSets.Count)
+                {
+                    Regions = AllSets[SelectedSet - 1];
+                }
+
                 StateHasChanged();
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add("Error loading existing billiards assignments", Severity.Warning);
+            Snackbar.Add($"Error loading existing billiards assignments: {ex.Message}", Severity.Warning);
         }
     }
 
@@ -889,34 +901,41 @@
             return;
         }
 
-        CurrentSet++;
-
-        var winnersFromCurrentSet = AllSets[SelectedSet - 1]
+        var winnersFromCurrentSet = AllSets[CurrentSet - 1]
             .Where(r => r.HasWon && r.AssignedTable != "Unassigned")
             .Select(winner => new RegionItem
                 {
                     Id = winner.Id,
                     Name = winner.Name,
                     AssignedTable = "Unassigned",
-                    SetNumber = CurrentSet,
+                    SetNumber = CurrentSet + 1,
                     PlayerName = winner.PlayerName,
                     HasLost = false,
                     HasWon = false,
                     RoundEliminated = 0
                 }).ToList();
 
-        var eliminatedThisRound = AllSets[SelectedSet - 1]
+        var eliminatedThisRound = AllSets[CurrentSet - 1]
             .Where(r => r.HasLost)
             .Select(r => r.Id);
         _eliminatedRegions.UnionWith(eliminatedThisRound);
 
-        AllSets.Add(winnersFromCurrentSet);
-        SelectedSet = CurrentSet;
-        Regions = winnersFromCurrentSet;
+        if (winnersFromCurrentSet.Any())
+        {
+            CurrentSet++;
+            AllSets.Add(winnersFromCurrentSet);
+            SelectedSet = CurrentSet;
+            Regions = winnersFromCurrentSet;
 
-        ClearAllResultIndicatorsForSet(CurrentSet);
+            ClearAllResultIndicatorsForSet(CurrentSet);
 
-        Snackbar.Add($"Round {CurrentSet} created with {Regions.Count} winners advancing!", Severity.Success);
+            Snackbar.Add($"Round {CurrentSet} created with {Regions.Count} winners advancing!", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"No winners found in Round {CurrentSet}. Cannot create next round.", Severity.Warning);
+        }
+
         StateHasChanged();
     }
 
@@ -925,20 +944,18 @@
         if (setNumber >= 1 && setNumber <= AllSets.Count)
         {
             SelectedSet = setNumber;
+
             Regions = AllSets[setNumber - 1];
 
             foreach (var region in Regions)
             {
-                var baseRegion = BaseRegions.FirstOrDefault(br => br.Id == region.Id);
-                if (baseRegion != null && string.IsNullOrEmpty(region.PlayerName))
+                if (string.IsNullOrEmpty(region.PlayerName))
                 {
-                    region.PlayerName = baseRegion.PlayerName;
-                }
-
-                if (_eliminatedRegions.Contains(region.Id))
-                {
-                    region.HasLost = true;
-                    region.HasWon = false;
+                    var baseRegion = BaseRegions.FirstOrDefault(br => br.Id == region.Id);
+                    if (baseRegion != null)
+                    {
+                        region.PlayerName = baseRegion.PlayerName;
+                    }
                 }
             }
 

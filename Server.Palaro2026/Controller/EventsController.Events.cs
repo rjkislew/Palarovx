@@ -313,5 +313,41 @@ namespace Server.Palaro2026.Controller
         {
             return _context.Events.Any(e => e.ID == id);
         }
+
+        // For multiple event ni here -- archery 1440
+        [HttpGet("Subcategories")]
+        public async Task<ActionResult<IEnumerable<SportsDTO.SportSubcategories>>> GetSportSubcategories(
+            [FromQuery] int? sportID = null,
+            [FromQuery] int? schoolLevelID = null,
+            [FromQuery] int? sportGenderCategoryID = null,
+            [FromQuery] string? mainCategory = null)
+        {
+            var query = _context.SportSubcategories.AsQueryable();
+
+            if (sportID.HasValue)
+                query = query.Where(x => x.SportID == sportID.Value);
+
+            if (schoolLevelID.HasValue)
+                query = query.Where(x => x.SchoolLevelID == schoolLevelID.Value);
+
+            if (sportGenderCategoryID.HasValue)
+                query = query.Where(x => x.SportGenderCategoryID == sportGenderCategoryID.Value);
+
+            if (!string.IsNullOrEmpty(mainCategory))
+                query = query.Where(x => x.MainCategory == mainCategory);
+
+            return await query
+                .Select(x => new SportsDTO.SportSubcategories
+                {
+                    ID = x.ID,
+                    Subcategory = x.Subcategory,
+                    SportID = x.SportID,
+                    SportGenderCategoryID = x.SportGenderCategoryID,
+                    SchoolLevelID = x.SchoolLevelID,
+                    MainCategory = x.MainCategory
+                })
+                .AsNoTracking()
+                .ToListAsync();
+        }
     }
 }

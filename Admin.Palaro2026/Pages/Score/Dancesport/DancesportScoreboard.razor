@@ -208,12 +208,20 @@
                                             COUPLES
                                         </MudText>
 
-                                        <MudDropZone T="PerformanceTeamDropItem"
+                                        @* <MudDropZone T="PerformanceTeamDropItem"
                                                      Identifier="ALL"
                                                      Class="d-flex flex-wrap justify-center pa-2"
                                                      Style="min-height: 140px;
                                                 border: 2px dashed #673ab7;
                                                 background: rgba(103, 58, 183, 0.05);">
+                                        </MudDropZone> *@
+                                        <MudDropZone T="PerformanceTeamDropItem"
+                                                     Identifier="ALL"
+                                                     Items="@_teamDropItems"
+                                                     Class="d-flex flex-wrap justify-center pa-2"
+                                                     Style="min-height: 140px;
+                                                        border: 2px dashed #673ab7;
+                                                        background: rgba(103, 58, 183, 0.05);">
                                         </MudDropZone>
                                     </MudCard>
 
@@ -651,11 +659,14 @@
 
     private List<PerformanceBasedDTO.PerformanceTeam> GetOpposingTeamsForEvent(int eventId)
     {
-        return _allOpposingTeams?
+        if (_allOpposingTeams == null)
+            return new List<PerformanceBasedDTO.PerformanceTeam>();
+
+        return _allOpposingTeams
             .Where(team => team.PerformanceID == eventId)
             .GroupBy(team => team.RegionID)
             .Select(group => group.First())
-            .ToList() ?? new List<PerformanceBasedDTO.PerformanceTeam>();
+            .ToList();
     }
 
     private async Task GetSportsAsync()
@@ -1227,8 +1238,8 @@
             if (!string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
             {
                 var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
-                schoolLevelID = _schoolLevels.FirstOrDefault(x => x.Level == parts[0])?.ID;
-                genderID = _sportGenderCategories.FirstOrDefault(x => x.Gender == parts[1])?.ID;
+                schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == parts[0])?.ID;
+                genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == parts[1])?.ID;
 
                 if (schoolLevelID != null)
                     query = query.Where(e => e.LevelID == schoolLevelID);
@@ -1250,8 +1261,8 @@
                          + $"&mainCategory={_selectedMainCategoryValue}"
                          + $"&stageID={_selectedEventStagesIDValue}";
 
-            // --- CALL FILTERED DATA FROM API ---
             _scoreDancesportEvents = await apiService.GetAsync<PerformanceBasedDTO.PerformanceEvent>(url);
+
             _filtersApplied = true;
 
             await GetOpposingTeamsAsync();
@@ -1259,14 +1270,14 @@
 
             _teamDropItems.Clear();
 
-            foreach (var evt in _scoreDancesportEvents.Where(e => e.StageID != 4))
+            foreach (var evt in _scoreDancesportEvents?.Where(e => e.StageID != 4) ?? new List<PerformanceBasedDTO.PerformanceEvent>())
             {
                 InitializeDropTeams(evt.ID);
             }
 
-            Snackbar.Add("Filters applied", Severity.Success);
-
             StateHasChanged();
+
+            Snackbar.Add("Filters applied successfully.", Severity.Success);
         }
         catch (Exception ex)
         {
@@ -1276,24 +1287,31 @@
 
     private void InitializeDropTeams(int eventId)
     {
+        if (_allOpposingTeams == null)
+            return;
+
         var teams = GetOpposingTeamsForEvent(eventId);
+
+        if (teams.Count == 0)
+            return;
 
         foreach (var team in teams)
         {
             var regionName = GetRegionAbbreviation(team.RegionID);
 
-            // prevent duplicates when multiple events exist
-            if (_teamDropItems.Any(x =>
-                x.PerformanceTeamID == team.ID && x.EventID == eventId))
-                continue;
+            var existing = _teamDropItems.FirstOrDefault(x =>
+                x.PerformanceTeamID == team.ID && x.EventID == eventId);
 
-            _teamDropItems.Add(new PerformanceTeamDropItem
+            if (existing == null)
             {
-                PerformanceTeamID = team.ID,
-                EventID = eventId,
-                TeamName = regionName,
-                Zone = "ALL"
-            });
+                _teamDropItems.Add(new PerformanceTeamDropItem
+                    {
+                        PerformanceTeamID = team.ID,
+                        EventID = eventId,
+                        TeamName = regionName,
+                        Zone = "ALL"
+                    });
+            }
         }
     }
 
