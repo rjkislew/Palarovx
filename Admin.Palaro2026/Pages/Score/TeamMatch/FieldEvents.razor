@@ -1,6 +1,7 @@
 ﻿@page "/score/field-events"
 @inject ISnackbar Snackbar
 @inject APIService apiService
+@inject NavigationManager Navigation
 
 <PageTitle>Field Events Scoring | PALARO 2026</PageTitle>
 <MudText Typo="Typo.h6" Align="Align.Center">Athletics - Field Events Scoring</MudText>
@@ -40,7 +41,7 @@
             <MudSelect @bind-Value="_selectedMainCategoryValue" Margin="Margin.Dense"
                        Label="Event Category" T="string"
                        ShrinkLabel Variant="Variant.Outlined">
-@*                 <MudSelectItem T="string" Value="Field Events">Field Events</MudSelectItem>
+                @*                 <MudSelectItem T="string" Value="Field Events">Field Events</MudSelectItem>
  *@            </MudSelect>
         </MudItem>
 
@@ -219,6 +220,12 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
     private int? _selectedSportSubcategoryIDValue;
     private int? _selectedEventStagesIDValue;
 
+    private string? _selectedEventId;
+    private string? _storedSubcategoryName;
+    private string? _storedStageName;
+    private string? _storedLevelGender;
+    private string? _storedMainCategory = "Field Events";
+
     private List<EventStages>? _eventStages;
     private List<SportGenderCategories>? _sportGenderCategories;
     private List<SchoolLevels>? _schoolLevels;
@@ -264,6 +271,17 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
         public string RegionAbbreviation { get; set; } = null!;
         public string? PlayerName { get; set; }
         public int Rank { get; set; }
+    }
+
+    public class EventDetailsDTO
+    {
+        public string ID { get; set; } = null!;
+        public string? Sport { get; set; }
+        public string? Level { get; set; }
+        public string? Gender { get; set; }
+        public string? SportMainCat { get; set; }
+        public string? Subcategory { get; set; }
+        public string? EventStage { get; set; }
     }
 
     public class ScoringRow
@@ -390,9 +408,77 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
         public double NumericResult { get; set; }
     }
 
+    // protected override async Task OnInitializedAsync()
+    // {
+    //     // Parse query parameters
+    //     await ParseQueryParameters();
+
+    //     // If eventId is provided, auto-fill filters
+    //     if (!string.IsNullOrEmpty(_selectedEventId))
+    //     {
+    //         await LoadEventAndAutoFillFilters();
+    //     }
+    //     else
+    //     {
+    //         // Original initialization
+    //         await LoadAvailableOptions();
+    //     }
+    // }
+
     protected override async Task OnInitializedAsync()
     {
-        await LoadAvailableOptions();
+        // Parse query parameters
+        await ParseQueryParameters();
+
+        // If eventId is provided, auto-fill filters AND load data
+        if (!string.IsNullOrEmpty(_selectedEventId))
+        {
+            await LoadEventAndAutoFillFilters();
+            // Data will be loaded automatically in LoadEventAndAutoFillFilters
+        }
+        else
+        {
+            // Original initialization - just load options, don't load data
+            await LoadAvailableOptions();
+
+            // If we have stored parameters from URL (but no eventId), auto-select them
+            if (!string.IsNullOrEmpty(_storedLevelGender))
+            {
+                _selectedSchoolLevelAndGenderID = _storedLevelGender;
+                await GetSportSubcategoriesAsync();
+                await GetEventStagesAsync();
+
+                // Auto-select subcategory if we have it
+                if (!string.IsNullOrEmpty(_storedSubcategoryName) && _sportSubcategories != null)
+                {
+                    var subcat = _sportSubcategories.FirstOrDefault(s =>
+                        s.Subcategory != null && s.Subcategory.Equals(_storedSubcategoryName, StringComparison.OrdinalIgnoreCase));
+                    if (subcat != null)
+                    {
+                        _selectedSportSubcategoryIDValue = subcat.ID;
+                    }
+                }
+
+                // Auto-select stage if we have it
+                if (!string.IsNullOrEmpty(_storedStageName) && _eventStages != null)
+                {
+                    var stage = _eventStages.FirstOrDefault(e =>
+                        e.Stage != null && e.Stage.Equals(_storedStageName, StringComparison.OrdinalIgnoreCase));
+                    if (stage != null)
+                    {
+                        _selectedEventStagesIDValue = stage.ID;
+                    }
+                }
+
+                // If we have all required filters from URL, auto-load data
+                if (_selectedSchoolLevelAndGenderID != null &&
+                    _selectedSportSubcategoryIDValue != null &&
+                    _selectedEventStagesIDValue != null)
+                {
+                    await LoadDataAfterAutoFill();
+                }
+            }
+        }
     }
 
     private async Task LoadAvailableOptions()
@@ -587,6 +673,216 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
             Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
             Regions = new List<RegionItem>();
             ScoringRows = new List<ScoringRow>();
+        }
+    }
+
+    private async Task ParseQueryParameters()
+    {
+        try
+        {
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+            // Get query parameters
+            _selectedEventId = query["eventId"];
+
+            // Store filter parameters for later use
+            _storedLevelGender = query["levelGender"] ?? query["levelgender"];
+            _storedMainCategory = query["mainCat"] ?? query["maincat"] ?? "Field Events";
+            _storedSubcategoryName = query["subcategory"] ?? query["subcate"];
+            _storedStageName = query["stage"];
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error parsing query parameters: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task LoadEventAndAutoFillFilters()
+    {
+        try
+        {
+            // Load available options first
+            await LoadAvailableOptions();
+
+            // Get event details by ID
+            var eventDetails = await apiService.GetAsync<EventDetailsDTO>($"/Events/Details/{_selectedEventId}");
+
+            if (eventDetails != null && eventDetails.Any())
+            {
+                // Get the first event from the list
+                var eventDetail = eventDetails.FirstOrDefault();
+
+                if (eventDetail != null)
+                {
+                    // Set sport to Athletics (3)
+                    _selectedSportIDValue = 3;
+
+                    // Auto-fill school level and gender
+                    if (!string.IsNullOrEmpty(eventDetail.Level) && !string.IsNullOrEmpty(eventDetail.Gender))
+                    {
+                        _selectedSchoolLevelAndGenderID = $"{eventDetail.Level} - {eventDetail.Gender}";
+
+                        // Load subcategories for this combination
+                        await GetSportSubcategoriesAsync();
+                        await GetEventStagesAsync();
+
+                        // Auto-fill subcategory
+                        if (!string.IsNullOrEmpty(eventDetail.Subcategory) && _sportSubcategories != null)
+                        {
+                            var subcat = _sportSubcategories.FirstOrDefault(s =>
+                                s.Subcategory != null && (
+                                    s.Subcategory.Equals(eventDetail.Subcategory, StringComparison.OrdinalIgnoreCase) ||
+                                    eventDetail.Subcategory.Contains(s.Subcategory, StringComparison.OrdinalIgnoreCase) ||
+                                    s.Subcategory.Contains(eventDetail.Subcategory, StringComparison.OrdinalIgnoreCase)
+                                ));
+
+                            if (subcat != null)
+                            {
+                                _selectedSportSubcategoryIDValue = subcat.ID;
+                            }
+                        }
+
+                        // Auto-fill stage
+                        if (!string.IsNullOrEmpty(eventDetail.EventStage) && _eventStages != null)
+                        {
+                            var stage = _eventStages.FirstOrDefault(e =>
+                                e.Stage != null && e.Stage.Equals(eventDetail.EventStage, StringComparison.OrdinalIgnoreCase));
+                            if (stage != null)
+                            {
+                                _selectedEventStagesIDValue = stage.ID;
+                            }
+                        }
+
+                        // AUTO-LOAD DATA - Don't wait for user to click Apply Filters
+                        await LoadDataAfterAutoFill();
+                    }
+                    else
+                    {
+                        Snackbar.Add("Event details are incomplete", Severity.Warning);
+                    }
+                }
+                else
+                {
+                    Snackbar.Add("Event not found in the list", Severity.Error);
+                }
+            }
+            else
+            {
+                Snackbar.Add("Event not found", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading event: {ex.Message}", Severity.Error);
+            // Fall back to normal initialization
+            await FilterSchoolLevelAndGenderAsync();
+        }
+    }
+
+    private async Task LoadDataAfterAutoFill()
+    {
+        try
+        {
+            // Call the same logic as ApplyFilters but without user interaction
+            var queryParams = new List<string>();
+
+            queryParams.Add("sport=Athletics");
+            queryParams.Add("mainCategory=Field Events");
+
+            if (_selectedSportSubcategoryIDValue.HasValue)
+            {
+                var subcategoryName = _sportSubcategories?.FirstOrDefault(s => s.ID == _selectedSportSubcategoryIDValue.Value)?.Subcategory;
+                if (!string.IsNullOrEmpty(subcategoryName))
+                    queryParams.Add($"subcategory={Uri.EscapeDataString(subcategoryName)}");
+            }
+
+            if (!string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+            {
+                var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+                if (parts.Length == 2)
+                {
+                    queryParams.Add($"level={Uri.EscapeDataString(parts[0])}");
+                    queryParams.Add($"gender={Uri.EscapeDataString(parts[1])}");
+                }
+            }
+
+            if (_selectedEventStagesIDValue.HasValue)
+            {
+                var stageName = _eventStages?.FirstOrDefault(e => e.ID == _selectedEventStagesIDValue.Value)?.Stage;
+                if (!string.IsNullOrEmpty(stageName))
+                    queryParams.Add($"eventStage={Uri.EscapeDataString(stageName)}");
+            }
+
+            var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+
+            var events = await apiService.GetAsync<EventInfo>($"FieldEvents/Sports/AthleticsFieldEvents{queryString}");
+
+            if (events != null && events.Any())
+            {
+                var uniqueRegions = new List<RegionItem>();
+                var scoringRows = new List<ScoringRow>();
+
+                foreach (var evt in events)
+                {
+                    if (!string.IsNullOrEmpty(evt.Abbreviation) && evt.RegionID.HasValue)
+                    {
+                        var matchingRegion = _allRegions?.FirstOrDefault(r =>
+                            r.ID == evt.RegionID.Value ||
+                            r.Abbreviation == evt.Abbreviation);
+
+                        if (matchingRegion != null && !uniqueRegions.Any(r => r.Id == matchingRegion.ID))
+                        {
+                            var regionItem = new RegionItem
+                                {
+                                    Id = matchingRegion.ID,
+                                    Name = matchingRegion.Abbreviation ?? matchingRegion.Region ?? "Unknown"
+                                };
+
+                            if (!string.IsNullOrEmpty(evt.PlayerID) && !string.IsNullOrEmpty(evt.PlayerName))
+                            {
+                                regionItem.PlayerID = evt.PlayerID;
+                                regionItem.PlayerName = evt.PlayerName;
+                            }
+
+                            uniqueRegions.Add(regionItem);
+
+                            scoringRows.Add(new ScoringRow
+                                {
+                                    RegionID = matchingRegion.ID,
+                                    RegionName = regionItem.Name,
+                                    PlayerID = regionItem.PlayerID,
+                                    PlayerName = regionItem.PlayerName
+                                });
+                        }
+                    }
+                }
+
+                Regions = uniqueRegions;
+                ScoringRows = scoringRows;
+                SelectedEvent = events.First();
+
+                // Load any saved data
+                await LoadSavedResults();
+
+                Snackbar.Add($"Auto-loaded {events.Count} events with {Regions.Count} participants", Severity.Success);
+                StateHasChanged();
+            }
+            else
+            {
+                Regions = new List<RegionItem>();
+                ScoringRows = new List<ScoringRow>();
+                SelectedEvent = null;
+                Snackbar.Add("No events found with the selected filters", Severity.Warning);
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error auto-loading data: {ex.Message}", Severity.Error);
+            Regions = new List<RegionItem>();
+            ScoringRows = new List<ScoringRow>();
+            StateHasChanged();
         }
     }
 

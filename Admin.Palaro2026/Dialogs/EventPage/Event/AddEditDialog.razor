@@ -124,11 +124,11 @@
                                 }
 
                                 <!-- DanceSport Alert -->
-                                @if (_selectedMainCategoryValue?.Equals("Latin American", StringComparison.OrdinalIgnoreCase) == true)
+                                @* @if (_selectedMainCategoryValue?.Equals("Latin American", StringComparison.OrdinalIgnoreCase) == true)
                                 {
                                     <MudAlert Severity="Severity.Info" Class="mt-2" Variant="Variant.Filled">
                                         <MudText Typo="Typo.body2">
-                                            @* <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-1" Size="Size.Small"  *@/>
+                                            <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-1" Size="Size.Small" />
                                             <strong>Multiple Events Created:</strong> This Latin American DanceSport will generate 5 single dance events:
                                             ChaChaCha, Jive, Pasodoble, Rumba, and Samba.
                                         </MudText>
@@ -139,12 +139,12 @@
                                 {
                                     <MudAlert Severity="Severity.Info" Class="mt-2" Variant="Variant.Filled">
                                         <MudText Typo="Typo.body2">
-                                            @* <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-1" Size="Size.Small" /> *@
+                                            <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-1" Size="Size.Small" />
                                             <strong>Multiple Events Created:</strong> This Modern Standard DanceSport will generate 5 single dance events:
                                             Tango, Foxtrot, Quickstep, Viennese Waltz, and Waltz.
                                         </MudText>
                                     </MudAlert>
-                                }
+                                } *@
                             }
                         </MudStack>
                     </MudItem>
@@ -658,20 +658,51 @@ else
         _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
     }
 
+    // private async Task GetPlayerAsync(TeamSelection team)
+    // {
+    //     // validate first
+    //     if (!team.SelectedRegionID.HasValue || !_selectedSportSubcategoryIDValue.HasValue)
+    //     {
+    //         team.AvailablePlayers = new();
+    //         return;
+    //     }
+
+    //     string url = $"/Profiles/Player/Events?regionID={team.SelectedRegionID}&subCategoryID={_selectedSportSubcategoryIDValue}";
+    //     var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
+
+    //     // Assign players only for that specific team
+    //     team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+    // }
+
     private async Task GetPlayerAsync(TeamSelection team)
     {
-        // validate first
-        if (!team.SelectedRegionID.HasValue || !_selectedSportSubcategoryIDValue.HasValue)
+        if (!team.SelectedRegionID.HasValue)
         {
             team.AvailablePlayers = new();
             return;
         }
 
-        string url = $"/Profiles/Player/Events?regionID={team.SelectedRegionID}&subCategoryID={_selectedSportSubcategoryIDValue}";
-        var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
+        // For Archery events, we need to fetch players differently
+        var isArcherySport = await IsArcherySport();
 
-        // Assign players only for that specific team
-        team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+        if (isArcherySport && _selectedMainCategoryValue?.Equals("1440 Round", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            // For Archery 1440 Round, fetch players by sport ID and region
+            string url = $"/Profiles/Player/Events?regionID={team.SelectedRegionID}&sportID={_selectedSportIDValue}";
+            var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
+            team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+        }
+        else if (_selectedSportSubcategoryIDValue.HasValue)
+        {
+            // For regular sports, use subcategory ID
+            string url = $"/Profiles/Player/Events?regionID={team.SelectedRegionID}&subCategoryID={_selectedSportSubcategoryIDValue}";
+            var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
+            team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+        }
+        else
+        {
+            team.AvailablePlayers = new();
+        }
     }
 
     private async Task GetGenderCategoriesAsync()
@@ -827,33 +858,37 @@ else
     {
         if (_selectedSportIDValue == null) return false;
 
+        // Get sport name from local list first to avoid API call if possible
+        var sport = _sports?.FirstOrDefault(s => s.ID == _selectedSportIDValue);
+        if (sport != null)
+        {
+            return sport.Sport?.Equals("Archery", StringComparison.OrdinalIgnoreCase) == true;
+        }
+
+        // Fallback to API if not in local list
         var sportsUrl = $"/Sports?id={_selectedSportIDValue}";
         var sports = await apiService.GetAsync<SportsDTO.Sports>(sportsUrl);
-
-        if (sports == null || !sports.Any()) return false;
-
-        var sport = sports.First();
-        return sport.Sport?.Equals("Archery", StringComparison.OrdinalIgnoreCase) == true;
+        return sports?.Any(s => s.Sport?.Equals("Archery", StringComparison.OrdinalIgnoreCase) == true) == true;
     }
 
-    private async Task<bool> IsDanceSport()
-    {
-        if (_selectedSportIDValue == null) return false;
+    // private async Task<bool> IsDanceSport()
+    // {
+    //     if (_selectedSportIDValue == null) return false;
 
-        var sportsUrl = $"/Sports?id={_selectedSportIDValue}";
-        var sports = await apiService.GetAsync<SportsDTO.Sports>(sportsUrl);
+    //     var sportsUrl = $"/Sports?id={_selectedSportIDValue}";
+    //     var sports = await apiService.GetAsync<SportsDTO.Sports>(sportsUrl);
 
-        if (sports == null || !sports.Any()) return false;
+    //     if (sports == null || !sports.Any()) return false;
 
-        var sport = sports.First();
-        return sport.Sport?.Equals("DanceSports", StringComparison.OrdinalIgnoreCase) == true;
-    }
+    //     var sport = sports.First();
+    //     return sport.Sport?.Equals("DanceSports", StringComparison.OrdinalIgnoreCase) == true;
+    // }
 
-    private bool IsDanceSportMainCategory()
-    {
-        return _selectedMainCategoryValue?.Equals("Latin American", StringComparison.OrdinalIgnoreCase) == true ||
-               _selectedMainCategoryValue?.Equals("Modern Standard", StringComparison.OrdinalIgnoreCase) == true;
-    }
+    // private bool IsDanceSportMainCategory()
+    // {
+    //     return _selectedMainCategoryValue?.Equals("Latin American", StringComparison.OrdinalIgnoreCase) == true ||
+    //            _selectedMainCategoryValue?.Equals("Modern Standard", StringComparison.OrdinalIgnoreCase) == true;
+    // }
 
     private async Task Create1440RoundEvents()
     {
@@ -911,61 +946,61 @@ else
         Snackbar.Add($"Successfully created {createdCount} events for 1440 Round Archery.", Severity.Success);
     }
 
-    private async Task CreateDanceSportEvents()
-    {
-        if (!IsDanceSportMainCategory())
-        {
-            throw new Exception($"Invalid DanceSport main category: {_selectedMainCategoryValue}");
-        }
+    // private async Task CreateDanceSportEvents()
+    // {
+    //     if (!IsDanceSportMainCategory())
+    //     {
+    //         throw new Exception($"Invalid DanceSport main category: {_selectedMainCategoryValue}");
+    //     }
 
-        // Get all subcategories for this sport and school level/gender
-        var subcatUrl = $"/Sports/Subcategories?mainCategory={_selectedMainCategoryValue}&sportID={_selectedSportIDValue}";
+    //     // Get all subcategories for this sport and school level/gender
+    //     var subcatUrl = $"/Sports/Subcategories?mainCategory={_selectedMainCategoryValue}&sportID={_selectedSportIDValue}";
 
-        if (_selectedSchoolLevelAndGenderID != null)
-        {
-            var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
-            var schoolLevelName = parts[0];
-            var genderName = parts[1];
-            var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
-            var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
+    //     if (_selectedSchoolLevelAndGenderID != null)
+    //     {
+    //         var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+    //         var schoolLevelName = parts[0];
+    //         var genderName = parts[1];
+    //         var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+    //         var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
 
-            if (schoolLevelID != null && genderID != null)
-            {
-                subcatUrl += $"&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}";
-            }
-        }
+    //         if (schoolLevelID != null && genderID != null)
+    //         {
+    //             subcatUrl += $"&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}";
+    //         }
+    //     }
 
-        var allDanceSubcats = await apiService.GetAsync<SportsDTO.SportSubcategories>(subcatUrl);
+    //     var allDanceSubcats = await apiService.GetAsync<SportsDTO.SportSubcategories>(subcatUrl);
 
-        if (allDanceSubcats == null || !allDanceSubcats.Any())
-        {
-            throw new Exception($"No {_selectedMainCategoryValue} subcategories found");
-        }
+    //     if (allDanceSubcats == null || !allDanceSubcats.Any())
+    //     {
+    //         throw new Exception($"No {_selectedMainCategoryValue} subcategories found");
+    //     }
 
-        // Filter only "Single Dance" subcategories
-        var singleDanceSubcats = allDanceSubcats
-            .Where(sc => sc.Subcategory?.Contains("Single Dance", StringComparison.OrdinalIgnoreCase) == true)
-            .ToList();
+    //     // Filter only "Single Dance" subcategories
+    //     var singleDanceSubcats = allDanceSubcats
+    //         .Where(sc => sc.Subcategory?.Contains("Single Dance", StringComparison.OrdinalIgnoreCase) == true)
+    //         .ToList();
 
-        if (!singleDanceSubcats.Any())
-        {
-            throw new Exception($"No single dance subcategories found for {_selectedMainCategoryValue}");
-        }
+    //     if (!singleDanceSubcats.Any())
+    //     {
+    //         throw new Exception($"No single dance subcategories found for {_selectedMainCategoryValue}");
+    //     }
 
-        // Create events for each single dance
-        var createdCount = 0;
+    //     // Create events for each single dance
+    //     var createdCount = 0;
 
-        foreach (var subcat in singleDanceSubcats)
-        {
-            // Extract dance style name
-            var danceStyleName = subcat.Subcategory?.Replace("Single Dance - ", "")?.Trim() ?? subcat.Subcategory;
+    //     foreach (var subcat in singleDanceSubcats)
+    //     {
+    //         // Extract dance style name
+    //         var danceStyleName = subcat.Subcategory?.Replace("Single Dance - ", "")?.Trim() ?? subcat.Subcategory;
 
-            await CreateEventWithSubcategory(subcat.ID, danceStyleName);
-            createdCount++;
-        }
+    //         await CreateEventWithSubcategory(subcat.ID, danceStyleName);
+    //         createdCount++;
+    //     }
 
-        Snackbar.Add($"Successfully created {createdCount} single dance events for {_selectedMainCategoryValue} DanceSport.", Severity.Success);
-    }
+    //     Snackbar.Add($"Successfully created {createdCount} single dance events for {_selectedMainCategoryValue} DanceSport.", Severity.Success);
+    // }
 
     private async Task CreateEventWithSubcategory(int? sportSubcategoryID, string? subcategoryName)
     {
@@ -1038,17 +1073,17 @@ else
         {
             var isArchery = await IsArcherySport();
             var is1440Round = _selectedMainCategoryValue?.Equals("1440 Round", StringComparison.OrdinalIgnoreCase) == true;
-            var isDanceSport = await IsDanceSport();
-            var isDanceSportMainCat = IsDanceSportMainCategory();
+            // var isDanceSport = await IsDanceSport();
+            // var isDanceSportMainCat = IsDanceSportMainCategory();
 
             if (isArchery && is1440Round)
             {
                 await Create1440RoundEvents();
             }
-            else if (isDanceSport && isDanceSportMainCat)
-            {
-                await CreateDanceSportEvents();
-            }
+            // else if (isDanceSport && isDanceSportMainCat)
+            // {
+            //     await CreateDanceSportEvents();
+            // }
             else
             {
                 await CreateSingleEvent();
@@ -1506,7 +1541,6 @@ else
     {
         if (SelectedEventID == null) return;
 
-        // 1️⃣ Fetch the main event
         string url = $"/Events?id={SelectedEventID}";
         var events = await apiService.GetAsync<EventsDTO.Events>(url);
 
@@ -1577,6 +1611,39 @@ else
     // ------------------------------
     // Opposing Team
     // ------------------------------
+    // private async Task GetEventVersusTeamsAsync()
+    // {
+    //     if (SelectedEventID == null) return;
+
+    //     string url = $"/Events/VersusTeams?eventID={SelectedEventID}";
+    //     _eventVersusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(url);
+
+    //     if (_eventVersusTeams == null || !_eventVersusTeams.Any()) return;
+
+    //     _teamSelections = new List<TeamSelection>();
+
+    //     foreach (var team in _eventVersusTeams)
+    //     {
+    //         var teamSelection = new TeamSelection
+    //             {
+    //                 ExistingVersusTeamID = team.ID,
+    //                 SelectedRegionID = team.SchoolRegionID,
+    //                 SelectedPlayerIDs = new List<string>()
+    //             };
+
+    //         string playerUrl = $"/Events/VersusTeams/Players?eventVersusID={team.ID}";
+    //         var teamPlayers = await apiService.GetAsync<EventsDTO.EventVersusTeamPlayers>(playerUrl);
+    //         if (teamPlayers != null && teamPlayers.Any())
+    //         {
+    //             teamSelection.SelectedPlayerIDs = teamPlayers.Select(p => p.ProfilePlayerID).ToList();
+    //         }
+
+    //         // Fetch available players for this team’s region
+    //         await GetPlayerAsync(teamSelection);
+
+    //         _teamSelections.Add(teamSelection);
+    //     }
+    // }
     private async Task GetEventVersusTeamsAsync()
     {
         if (SelectedEventID == null) return;
@@ -1597,14 +1664,18 @@ else
                     SelectedPlayerIDs = new List<string>()
                 };
 
+            // Fetch players for this team
             string playerUrl = $"/Events/VersusTeams/Players?eventVersusID={team.ID}";
             var teamPlayers = await apiService.GetAsync<EventsDTO.EventVersusTeamPlayers>(playerUrl);
+
             if (teamPlayers != null && teamPlayers.Any())
             {
-                teamSelection.SelectedPlayerIDs = teamPlayers.Select(p => p.ProfilePlayerID).ToList();
+                teamSelection.SelectedPlayerIDs = teamPlayers
+                    .Where(p => !string.IsNullOrEmpty(p.ProfilePlayerID))
+                    .Select(p => p.ProfilePlayerID!)
+                    .ToList();
             }
 
-            // Fetch available players for this team’s region
             await GetPlayerAsync(teamSelection);
 
             _teamSelections.Add(teamSelection);

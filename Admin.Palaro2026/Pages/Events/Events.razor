@@ -8,6 +8,7 @@
 @inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
+@inject NavigationManager Navigation
 
 <PageTitle>Events Management | PALARO 2026</PageTitle>
 
@@ -151,7 +152,12 @@
                                 @if (eventDetail.EventVersusList != null && eventDetail.EventVersusList.Any() && eventDetail.IsFinished != true)
                                 {
                                     <MudStack>
-                                        <MudButton FullWidth Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" DropShadow="false" OnClick="() => ScoreBoardDialog(eventDetail.ID, eventDetail.SubCategoryID)">
+                                        @* <MudButton FullWidth Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" DropShadow="false" OnClick="() => ScoreBoardDialog(eventDetail.ID, eventDetail.SubCategoryID)">
+                                            View Scoreboard
+                                        </MudButton> *@
+                                        <MudButton FullWidth Variant="Variant.Filled" Color="Color.Primary"
+                                                   Size="Size.Small" DropShadow="false"
+                                                   OnClick="() => RedirectToScoreboard(eventDetail)">
                                             View Scoreboard
                                         </MudButton>
                                     </MudStack>
@@ -406,19 +412,19 @@
         }
     }
 
-    private async Task OpenAddEventDialogrj()
-    {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
+    // private async Task OpenAddEventDialogrj()
+    // {
+    //     var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
 
-        var dialog = await DialogService.ShowAsync<EventAddrj>("Add Event", options);
+    //     var dialog = await DialogService.ShowAsync<EventAddrj>("Add Event", options);
 
-        var result = await dialog.Result;
+    //     var result = await dialog.Result;
 
-        if (!result!.Canceled)
-        {
-            await GetEventsAsync();
-        }
-    }
+    //     if (!result!.Canceled)
+    //     {
+    //         await GetEventsAsync();
+    //     }
+    // }
 
 
     // opening dialog method: edit event dialog
@@ -510,5 +516,111 @@
         await dialog.Result;
 
         await GetEventsAsync();
+    }
+
+    // Add this dictionary to map sport names to scoreboard routes
+    private readonly Dictionary<string, string> _sportScoreboardRoutes = new()
+{
+    { "Archery", "/score/archery" },
+    { "Arnis", "/score/martialarts" },
+    { "Boxing", "/score/martialarts" },
+    { "Taekwondo", "/score/martialarts" },
+    { "Wrestling", "/score/martialarts" },
+    { "Wushu", "/score/martialarts" },
+    { "Pencak Silat", "/score/martialarts" },
+    { "Billiards", "/score/billiards" },
+    { "Chess", "/score/chess" },
+    { "Athletics", "/score/time-distance" }, 
+    { "Badminton", "/score/teammatch" },
+    { "Baseball", "/score/teammatch" },
+    { "Basketball", "/score/teammatch" },
+    { "Football", "/score/teammatch" },
+    { "Futsal", "/score/teammatch" },
+    { "Softball", "/score/teammatch" },
+    { "Sepak Takraw", "/score/teammatch" },
+    { "Table Tennis", "/score/teammatch" },
+    { "Tennis", "/score/teammatch" },
+    { "Volleyball", "/score/teammatch" },
+    { "Bocce", "/score/teammatch" },
+    { "Goal Ball", "/score/teammatch" },
+    { "Swimming", "/score/time-distance" }
+};
+
+    // Helper method to determine the correct scoreboard URL
+    // Update your dictionary and add a method to handle specific cases
+    private string GetScoreboardUrl(EventsDTO.EventDetails.Event eventDetail)
+    {
+        if (string.IsNullOrEmpty(eventDetail.Sport))
+            return "/score/teammatch";
+
+        // Check for Athletics field events
+        if (eventDetail.Sport == "Athletics" &&
+            eventDetail.SportMainCat?.Contains("Field", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "/score/field-events";
+        }
+
+        // Check for Arnis/Taekwondo forms events
+        if ((eventDetail.Sport == "Arnis" && eventDetail.Subcategory?.Contains("Anyo", StringComparison.OrdinalIgnoreCase) == true) ||
+            (eventDetail.Sport == "Taekwondo" && eventDetail.Subcategory?.Contains("Poomsae", StringComparison.OrdinalIgnoreCase) == true))
+        {
+            // Use the specific route for forms/kata
+            return "/arnis";  // or whatever route you want for forms
+        }
+
+        // For regular martial arts events (sparring)
+        if (eventDetail.Sport == "Arnis" || eventDetail.Sport == "Taekwondo" ||
+            eventDetail.Sport == "Boxing" || eventDetail.Sport == "Wrestling" ||
+            eventDetail.Sport == "Wushu" || eventDetail.Sport == "Pencak Silat")
+        {
+            return "/score/martialarts";
+        }
+
+        // Return from dictionary for other sports
+        return _sportScoreboardRoutes.TryGetValue(eventDetail.Sport, out var route)
+            ? route
+            : "/score/teammatch";
+    }
+
+    private async Task RedirectToScoreboard(EventsDTO.EventDetails.Event eventDetail)
+    {
+        try
+        {
+            // Get the scoreboard URL based on sport
+            var scoreboardUrl = GetScoreboardUrl(eventDetail);
+
+            // Build query parameters
+            var queryParams = new Dictionary<string, string>
+        {
+            { "eventId", eventDetail.ID }
+        };
+
+            // Pass all necessary filter parameters
+            if (!string.IsNullOrEmpty(eventDetail.Sport))
+                queryParams["sport"] = Uri.EscapeDataString(eventDetail.Sport);
+
+            if (!string.IsNullOrEmpty(eventDetail.Level) && !string.IsNullOrEmpty(eventDetail.Gender))
+                queryParams["levelGender"] = Uri.EscapeDataString($"{eventDetail.Level} - {eventDetail.Gender}");
+
+            if (!string.IsNullOrEmpty(eventDetail.SportMainCat))
+                queryParams["mainCategory"] = Uri.EscapeDataString(eventDetail.SportMainCat);
+
+            if (!string.IsNullOrEmpty(eventDetail.Subcategory))
+                queryParams["subcategory"] = Uri.EscapeDataString(eventDetail.Subcategory);
+
+            if (!string.IsNullOrEmpty(eventDetail.EventStage))
+                queryParams["stage"] = Uri.EscapeDataString(eventDetail.EventStage);
+
+            // Build the full URL with query string
+            var queryString = string.Join("&", queryParams.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+            var fullUrl = $"{scoreboardUrl}?{queryString}";
+
+            // Navigate to the scoreboard page
+            Navigation.NavigateTo(fullUrl);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error redirecting to scoreboard: {ex.Message}", Severity.Error);
+        }
     }
 }

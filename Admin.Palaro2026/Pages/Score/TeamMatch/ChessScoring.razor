@@ -1,6 +1,7 @@
 ﻿@page "/score/chess"
 @inject ISnackbar Snackbar
 @inject APIService apiService
+@inject NavigationManager Navigation
 
 <PageTitle>Chess Scoring | PALARO 2026</PageTitle>
 <MudText Typo="Typo.h6" Align="Align.Center">Chess Match (Sets / Games)</MudText>
@@ -106,9 +107,6 @@
             <MudItem xs="12" sm="5">
                 <MudText Typo="Typo.body2"><strong>Level and Gender:</strong> @SelectedEvent.Level - @SelectedEvent.Gender</MudText>
             </MudItem>
-            @* <MudItem xs="12" sm="3">
-                <MudText Typo="Typo.body2"><strong>Level:</strong> @SelectedEvent.Level</MudText>
-            </MudItem> *@
             <MudItem xs="12" sm="3">
                 <MudText Typo="Typo.body2"><strong>Stage:</strong> @SelectedEvent.EventStage</MudText>
             </MudItem>
@@ -336,11 +334,11 @@
                                     <MudGrid Spacing="1" Style="align-items:center">
 
                                         <MudStack Row="true" Spacing="1" Style="align-items:center">
-                                                <MudText Typo="Typo.body1"
-                                                         Class="font-weight-bold"
-                                                         Color="@(rank <= 3 ? Color.Primary : Color.Default)">
-                                                    @regionStanding.RegionName
-                                                </MudText>
+                                            <MudText Typo="Typo.body1"
+                                                     Class="font-weight-bold"
+                                                     Color="@(rank <= 3 ? Color.Primary : Color.Default)">
+                                                @regionStanding.RegionName
+                                            </MudText>
 
                                             @if (!string.IsNullOrEmpty(regionStanding.PlayerName))
                                             {
@@ -349,25 +347,25 @@
                                                 </MudText>
                                             }
 
-                                                @if (regionStanding.GamesPlayed > 0)
-                                                {
+                                            @if (regionStanding.GamesPlayed > 0)
+                                            {
                                                 <MudStack Row="true" Spacing="1" Justify="Justify.FlexStart" Style="align-items:center">
-                                                            <MudText Typo="Typo.caption" Color="Color.Success">
-                                                                @regionStanding.Wins W
-                                                            </MudText>
-                                                            <MudText Typo="Typo.caption" Color="Color.Warning">
-                                                                @regionStanding.Draws D
-                                                            </MudText>
-                                                            <MudText Typo="Typo.caption" Color="Color.Error">
-                                                                @regionStanding.Losses L
-                                                            </MudText>
-                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                                                (@regionStanding.GamesPlayed games)
-                                                            </MudText>
-                                                        </MudStack>
-                                                }
-                                            </MudStack>
-                                        
+                                                    <MudText Typo="Typo.caption" Color="Color.Success">
+                                                        @regionStanding.Wins W
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Color="Color.Warning">
+                                                        @regionStanding.Draws D
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Color="Color.Error">
+                                                        @regionStanding.Losses L
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                        (@regionStanding.GamesPlayed games)
+                                                    </MudText>
+                                                </MudStack>
+                                            }
+                                        </MudStack>
+
                                     </MudGrid>
                                 </MudItem>
 
@@ -432,6 +430,11 @@
     private Dictionary<int, (string? PlayerID, string? PlayerName)> _regionPlayerMap = new();
 
     private List<RegionItem> BaseRegions = new();
+
+    // Add these private fields for query parameter handling
+    private string? _selectedEventId;
+    private string? _storedSubcategoryName;
+    private string? _storedStageName;
 
     public class RegionItem
     {
@@ -528,6 +531,16 @@
             public int ID { get; set; }
             public string? Stage { get; set; }
         }
+
+        public class EventDetails
+        {
+            public string ID { get; set; } = null!;
+            public string? EventStage { get; set; }
+            public string? SportMainCat { get; set; }
+            public string? Subcategory { get; set; }
+            public string? Gender { get; set; }
+            public string? Level { get; set; }
+        }
     }
 
     public class SportsDTO
@@ -558,11 +571,171 @@
         }
     }
 
+    // UPDATED OnInitializedAsync method
     protected override async Task OnInitializedAsync()
     {
-        await LoadAvailableOptions();
+        // Parse query parameters first
+        await ParseQueryParameters();
+
+        // If eventId is provided, auto-fill filters
+        if (!string.IsNullOrEmpty(_selectedEventId))
+        {
+            await LoadEventAndAutoFillFilters();
+        }
+        else
+        {
+            // Original initialization
+            await LoadAvailableOptions();
+            await FilterSchoolLevelAndGenderAsync();
+        }
+
         Tables = new List<string> { "Table 1", "Table 2", "Table 3", "Table 4" };
-        await FilterSchoolLevelAndGenderAsync();
+    }
+
+    // ADDED: ParseQueryParameters method
+    private async Task ParseQueryParameters()
+    {
+        try
+        {
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+            // Get query parameters
+            _selectedEventId = query["eventId"];
+
+            // Check for other parameters
+            var levelGender = query["levelGender"] ?? query["levelgender"];
+            var mainCat = query["mainCat"] ?? query["maincat"];
+            var subcategory = query["subcategory"] ?? query["subcate"];
+            var stage = query["stage"];
+            var sport = query["sport"];
+
+            // Store these for later use
+            if (!string.IsNullOrEmpty(levelGender))
+            {
+                _selectedSchoolLevelAndGenderID = levelGender;
+            }
+
+            if (!string.IsNullOrEmpty(mainCat))
+            {
+                _selectedMainCategoryValue = mainCat;
+            }
+
+            if (!string.IsNullOrEmpty(subcategory))
+            {
+                _storedSubcategoryName = Uri.UnescapeDataString(subcategory);
+            }
+
+            if (!string.IsNullOrEmpty(stage))
+            {
+                _storedStageName = Uri.UnescapeDataString(stage);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error parsing query parameters: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    // ADDED: LoadEventAndAutoFillFilters method
+    // ADDED: LoadEventAndAutoFillFilters method
+    private async Task LoadEventAndAutoFillFilters()
+    {
+        try
+        {
+            // Load available options first
+            await LoadAvailableOptions();
+            await FilterSchoolLevelAndGenderAsync();
+
+            // First, try to get all chess events
+            var allEvents = await apiService.GetAsync<ChessEventDTO>($"/ChessScoring/events");
+
+            if (allEvents != null && allEvents.Any())
+            {
+                // Filter by eventId client-side
+                var eventDetail = allEvents.FirstOrDefault(e => e.ID == _selectedEventId);
+
+                if (eventDetail != null)
+                {
+                    // Auto-fill school level and gender
+                    if (!string.IsNullOrEmpty(eventDetail.Level) && !string.IsNullOrEmpty(eventDetail.Gender))
+                    {
+                        _selectedSchoolLevelAndGenderID = $"{eventDetail.Level} - {eventDetail.Gender}";
+
+                        // Load subcategories for this combination
+                        await GetSportSubCategoriesSLGAsync();
+                        LoadMainCategories();
+
+                        // Auto-fill main category
+                        if (!string.IsNullOrEmpty(eventDetail.SportMainCat))
+                        {
+                            _selectedMainCategoryValue = eventDetail.SportMainCat;
+                        }
+
+                        // Auto-fill subcategory
+                        if (!string.IsNullOrEmpty(eventDetail.Subcategory) && _sportSubcategories != null)
+                        {
+                            var subcat = _sportSubcategories.FirstOrDefault(s =>
+                                s.Subcategory != null && (
+                                    s.Subcategory.Equals(eventDetail.Subcategory, StringComparison.OrdinalIgnoreCase) ||
+                                    eventDetail.Subcategory.Contains(s.Subcategory, StringComparison.OrdinalIgnoreCase) ||
+                                    s.Subcategory.Contains(eventDetail.Subcategory, StringComparison.OrdinalIgnoreCase)
+                                ));
+
+                            if (subcat != null)
+                            {
+                                _selectedSportSubcategoryIDValue = subcat.ID;
+                            }
+                            else
+                            {
+                                // Try to find by main category
+                                subcat = _sportSubcategories.FirstOrDefault(s =>
+                                    s.MainCategory == eventDetail.SportMainCat);
+                                if (subcat != null)
+                                {
+                                    _selectedSportSubcategoryIDValue = subcat.ID;
+                                }
+                            }
+                        }
+
+                        // Auto-fill stage
+                        if (!string.IsNullOrEmpty(eventDetail.EventStage) && _eventStages != null)
+                        {
+                            var stage = _eventStages.FirstOrDefault(e =>
+                                e.Stage != null && e.Stage.Equals(eventDetail.EventStage, StringComparison.OrdinalIgnoreCase));
+                            if (stage != null)
+                            {
+                                _selectedEventStagesIDValue = stage.ID;
+                            }
+                        }
+
+                        // Set SelectedEvent so ApplyFilters can use it
+                        SelectedEvent = eventDetail;
+
+                        // Apply filters automatically
+                        await ApplyFilters();
+                    }
+                    else
+                    {
+                        Snackbar.Add("Event details are incomplete", Severity.Warning);
+                    }
+                }
+                else
+                {
+                    Snackbar.Add("Event not found", Severity.Error);
+                }
+            }
+            else
+            {
+                Snackbar.Add("No chess events found", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading event: {ex.Message}", Severity.Error);
+            // Fall back to normal initialization
+            await FilterSchoolLevelAndGenderAsync();
+        }
     }
 
     private string? GetResultIndicator(string tableName, string color)
@@ -605,8 +778,6 @@
             _tableResults.Remove(key);
         }
     }
-
-
 
     private (decimal TotalPoints, int GamesPlayed, int Wins, int Draws, int Losses)
         CalculateRegionStatsForSet(RegionItem region, int setNumber)
@@ -708,10 +879,24 @@
         }
     }
 
+    // UPDATED: GetEventStagesAsync method
     private async Task GetEventStagesAsync()
     {
         string url = "/Events/Stages";
         _eventStages = await apiService.GetAsync<EventsDTO.EventStages>(url);
+
+        // Try to auto-select stage if we have a stored name
+        if (!string.IsNullOrEmpty(_storedStageName) && _eventStages != null)
+        {
+            var stage = _eventStages.FirstOrDefault(e =>
+                e.Stage != null && e.Stage.Equals(_storedStageName, StringComparison.OrdinalIgnoreCase));
+
+            if (stage != null)
+            {
+                _selectedEventStagesIDValue = stage.ID;
+                _storedStageName = null; // Clear after use
+            }
+        }
     }
 
     private async Task GetGenderCategoriesAsync()
@@ -726,6 +911,7 @@
         _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
     }
 
+    // UPDATED: GetSportSubCategoriesSLGAsync method
     private async Task GetSportSubCategoriesSLGAsync()
     {
         if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
@@ -745,6 +931,25 @@
         {
             _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(
                 $"/Sports/Subcategories?sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}");
+
+            // Try to auto-select subcategory if we have a stored name
+            if (!string.IsNullOrEmpty(_storedSubcategoryName) && _sportSubcategories != null)
+            {
+                // Try multiple matching strategies
+                var subcat = _sportSubcategories.FirstOrDefault(s =>
+                    s.Subcategory != null && (
+                        s.Subcategory.Equals(_storedSubcategoryName, StringComparison.OrdinalIgnoreCase) ||
+                        s.Subcategory.Replace(" ", "").Equals(_storedSubcategoryName.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) ||
+                        _storedSubcategoryName.Contains(s.Subcategory, StringComparison.OrdinalIgnoreCase) ||
+                        s.Subcategory.Contains(_storedSubcategoryName, StringComparison.OrdinalIgnoreCase)
+                    ));
+
+                if (subcat != null)
+                {
+                    _selectedSportSubcategoryIDValue = subcat.ID;
+                    _storedSubcategoryName = null; // Clear after use
+                }
+            }
         }
         else
         {
@@ -790,10 +995,21 @@
             .Select(sc => sc.MainCategory!).Distinct().ToList() ?? new List<string>();
     }
 
+    // UPDATED: ApplyFilters method
+    // UPDATED: ApplyFilters method
     private async Task ApplyFilters()
     {
         try
         {
+            // If we have a SelectedEvent (from LoadEventAndAutoFillFilters), use it directly
+            if (SelectedEvent != null && !string.IsNullOrEmpty(SelectedEvent.ID))
+            {
+                // Directly set up the regions for this specific event
+                await SetupRegionsForEvent(SelectedEvent);
+                return;
+            }
+
+            // Original filter logic for when no eventId is provided
             var queryParams = new List<string>();
 
             if (_selectedSportSubcategoryIDValue.HasValue)
@@ -825,58 +1041,7 @@
 
             if (events != null && events.Any())
             {
-                _regionPlayerMap.Clear();
-
-                BaseRegions = events
-                    .Where(evt => !string.IsNullOrEmpty(evt.Abbreviation))
-                    .GroupBy(evt => evt.Abbreviation)
-                    .Select(group =>
-                    {
-                        var firstEvent = group.First();
-                        var regionItem = new RegionItem
-                            {
-                                Id = firstEvent.RegionID,
-                                Name = group.Key!,
-                                AssignedTable = "Unassigned",
-                                SetNumber = 1,
-                                PlayerName = firstEvent.PlayerName
-                            };
-
-                        if (!string.IsNullOrEmpty(firstEvent.PlayerID))
-                        {
-                            _regionPlayerMap[firstEvent.RegionID] = (firstEvent.PlayerID, firstEvent.PlayerName);
-                        }
-
-                        return regionItem;
-                    })
-                    .ToList();
-
-                AllSets.Clear();
-                var firstSet = BaseRegions.Select(r => new RegionItem
-                    {
-                        Id = r.Id,
-                        Name = r.Name,
-                        AssignedTable = "Unassigned",
-                        SetNumber = 1,
-                        PlayerName = r.PlayerName
-                    }).ToList();
-                AllSets.Add(firstSet);
-
-                Regions = firstSet;
-                SelectedEvent = events.First();
-                SelectedSet = 1;
-                CurrentSet = 1;
-
-                _tableResults.Clear();
-
-                await LoadExistingChessAssignments();
-
-                if (SelectedSet <= AllSets.Count)
-                {
-                    Regions = AllSets[SelectedSet - 1];
-                }
-
-                Snackbar.Add($"Found {events.Count} events with {Regions.Count} regions. Loaded {AllSets.Count} set(s).", Severity.Success);
+                await SetupRegionsForEvent(events.First());
             }
             else
             {
@@ -893,6 +1058,93 @@
             Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
             Regions = new List<RegionItem>();
             BaseRegions = new List<RegionItem>();
+            StateHasChanged();
+        }
+    }
+
+    // ADDED: Helper method to set up regions for an event
+    private async Task SetupRegionsForEvent(ChessEventDTO eventItem)
+    {
+        _regionPlayerMap.Clear();
+
+        // Get all events with the same filters to get all regions
+        var queryParams = new List<string>();
+
+        if (!string.IsNullOrEmpty(eventItem.Subcategory))
+            queryParams.Add($"subcategory={Uri.EscapeDataString(eventItem.Subcategory)}");
+
+        if (!string.IsNullOrEmpty(eventItem.Level))
+            queryParams.Add($"level={Uri.EscapeDataString(eventItem.Level)}");
+
+        if (!string.IsNullOrEmpty(eventItem.Gender))
+            queryParams.Add($"gender={Uri.EscapeDataString(eventItem.Gender)}");
+
+        if (!string.IsNullOrEmpty(eventItem.EventStage))
+            queryParams.Add($"eventStage={Uri.EscapeDataString(eventItem.EventStage)}");
+
+        var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+        var allEvents = await apiService.GetAsync<ChessEventDTO>($"/ChessScoring/events{queryString}");
+
+        if (allEvents != null && allEvents.Any())
+        {
+            BaseRegions = allEvents
+                .Where(evt => !string.IsNullOrEmpty(evt.Abbreviation))
+                .GroupBy(evt => evt.Abbreviation)
+                .Select(group =>
+                {
+                    var firstEvent = group.First();
+                    var regionItem = new RegionItem
+                        {
+                            Id = firstEvent.RegionID,
+                            Name = group.Key!,
+                            AssignedTable = "Unassigned",
+                            SetNumber = 1,
+                            PlayerName = firstEvent.PlayerName
+                        };
+
+                    if (!string.IsNullOrEmpty(firstEvent.PlayerID))
+                    {
+                        _regionPlayerMap[firstEvent.RegionID] = (firstEvent.PlayerID, firstEvent.PlayerName);
+                    }
+
+                    return regionItem;
+                })
+                .ToList();
+
+            AllSets.Clear();
+            var firstSet = BaseRegions.Select(r => new RegionItem
+                {
+                    Id = r.Id,
+                    Name = r.Name,
+                    AssignedTable = "Unassigned",
+                    SetNumber = 1,
+                    PlayerName = r.PlayerName
+                }).ToList();
+            AllSets.Add(firstSet);
+
+            Regions = firstSet;
+            SelectedEvent = eventItem;
+            SelectedSet = 1;
+            CurrentSet = 1;
+
+            _tableResults.Clear();
+
+            await LoadExistingChessAssignments();
+
+            if (SelectedSet <= AllSets.Count)
+            {
+                Regions = AllSets[SelectedSet - 1];
+            }
+
+            Snackbar.Add($"Loaded {Regions.Count} regions for the selected event.", Severity.Success);
+        }
+        else
+        {
+            Regions = new List<RegionItem>();
+            BaseRegions = new List<RegionItem>();
+            SelectedEvent = null;
+            _tableResults.Clear();
+            Snackbar.Add("No regions found for the selected event", Severity.Warning);
         }
     }
 
@@ -902,6 +1154,7 @@
         _selectedMainCategoryValue = null;
         _selectedSportSubcategoryIDValue = null;
         _selectedEventStagesIDValue = null;
+        _selectedEventId = null; // Clear event ID too
         SelectedEvent = null;
         Regions = new List<RegionItem>();
         BaseRegions = new List<RegionItem>();
@@ -938,7 +1191,7 @@
                             Name = baseRegion.Name,
                             AssignedTable = "Unassigned",
                             SetNumber = newSetNumber,
-                            PlayerName = baseRegion.PlayerName 
+                            PlayerName = baseRegion.PlayerName
                         }).ToList();
                     AllSets.Add(newSet);
                 }
@@ -1015,7 +1268,7 @@
                 Name = baseRegion.Name,
                 AssignedTable = "Unassigned",
                 SetNumber = CurrentSet,
-                PlayerName = baseRegion.PlayerName 
+                PlayerName = baseRegion.PlayerName
             }).ToList();
 
         AllSets.Add(newSet);
@@ -1091,7 +1344,7 @@
                         TableNo = tableNo,
                         ColorGroup = colorGroup,
                         Score = 0,
-                        PlayerID = playerId 
+                        PlayerID = playerId
                     };
 
                 var result = await apiService.PostAsync<CreateChessScoringDTO, int>("/ChessScoring", createDto);

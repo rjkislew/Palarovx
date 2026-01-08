@@ -129,6 +129,7 @@ namespace Server.Palaro2026.Controller.Score
         // GET archery events with filters
         [HttpGet("events")]
         public async Task<ActionResult<IEnumerable<ArcheryEventDTO>>> GetArcheryEvents(
+            [FromQuery] string? eventId = null,
             [FromQuery] string? sport = null,
             [FromQuery] string? subcategory = null,
             [FromQuery] string? gender = null,
@@ -138,62 +139,72 @@ namespace Server.Palaro2026.Controller.Score
             try
             {
                 var sql = @"
-                    SELECT DISTINCT
-                        e.ID,
-                        e.Date,
-                        e.Time,
-                        s.Sport,
-                        ssc.Subcategory,
-                        sgc.Gender,
-                        sl.Level,
-                        es.Stage as EventStage,
-                        e.OnStream,
-                        e.IsFinished,
-                        e.SportMainCat,
-                        e.Archived,
-                        e.Deleted,
-                        sr.Region,
-                        sr.Abbreviation,
-                        sr.ID as RegionID,
-                        evtp.ProfilePlayerID as PlayerID,
-                        pp.FirstName + ' ' + pp.LastName as PlayerName
-                    FROM Events e
-                    INNER JOIN SportSubcategories ssc ON e.SportSubcategoryID = ssc.ID
-                    INNER JOIN Sports s ON ssc.SportID = s.ID
-                    INNER JOIN SportGenderCategories sgc ON ssc.SportGenderCategoryID = sgc.ID
-                    INNER JOIN SchoolLevels sl ON ssc.SchoolLevelID = sl.ID
-                    LEFT JOIN EventStages es ON e.EventStageID = es.ID
-                    LEFT JOIN EventVersusTeams evt ON e.ID = evt.EventID
-                    LEFT JOIN SchoolRegions sr ON evt.SchoolRegionID = sr.ID
-                    LEFT JOIN EventVersusTeamPlayers evtp ON evt.ID = evtp.EventVersusID
-                    LEFT JOIN ProfilePlayers pp ON evtp.ProfilePlayerID = pp.ID
-                    WHERE s.Sport = 'Archery'";
+            SELECT DISTINCT
+                e.ID,
+                e.Date,
+                e.Time,
+                s.Sport,
+                ssc.Subcategory,
+                sgc.Gender,
+                sl.Level,
+                es.Stage as EventStage,
+                e.OnStream,
+                e.IsFinished,
+                e.SportMainCat,
+                e.Archived,
+                e.Deleted,
+                sr.Region,
+                sr.Abbreviation,
+                sr.ID as RegionID,
+                evtp.ProfilePlayerID as PlayerID,
+                pp.FirstName + ' ' + pp.LastName as PlayerName
+            FROM Events e
+            INNER JOIN SportSubcategories ssc ON e.SportSubcategoryID = ssc.ID
+            INNER JOIN Sports s ON ssc.SportID = s.ID
+            INNER JOIN SportGenderCategories sgc ON ssc.SportGenderCategoryID = sgc.ID
+            INNER JOIN SchoolLevels sl ON ssc.SchoolLevelID = sl.ID
+            LEFT JOIN EventStages es ON e.EventStageID = es.ID
+            LEFT JOIN EventVersusTeams evt ON e.ID = evt.EventID
+            LEFT JOIN SchoolRegions sr ON evt.SchoolRegionID = sr.ID
+            LEFT JOIN EventVersusTeamPlayers evtp ON evt.ID = evtp.EventVersusID
+            LEFT JOIN ProfilePlayers pp ON evtp.ProfilePlayerID = pp.ID
+            WHERE s.Sport = 'Archery'";
 
                 var conditions = new List<string>();
                 var parameters = new DynamicParameters();
 
-                if (!string.IsNullOrEmpty(subcategory))
+                // If eventId is provided, use it as primary filter
+                if (!string.IsNullOrEmpty(eventId))
                 {
-                    conditions.Add("ssc.Subcategory = @Subcategory");
-                    parameters.Add("Subcategory", subcategory);
+                    conditions.Add("e.ID = @EventId");
+                    parameters.Add("EventId", eventId);
                 }
-
-                if (!string.IsNullOrEmpty(gender))
+                else
                 {
-                    conditions.Add("sgc.Gender = @Gender");
-                    parameters.Add("Gender", gender);
-                }
+                    // Use other filters only if eventId is not provided
+                    if (!string.IsNullOrEmpty(subcategory))
+                    {
+                        conditions.Add("ssc.Subcategory = @Subcategory");
+                        parameters.Add("Subcategory", subcategory);
+                    }
 
-                if (!string.IsNullOrEmpty(level))
-                {
-                    conditions.Add("sl.Level = @Level");
-                    parameters.Add("Level", level);
-                }
+                    if (!string.IsNullOrEmpty(gender))
+                    {
+                        conditions.Add("sgc.Gender = @Gender");
+                        parameters.Add("Gender", gender);
+                    }
 
-                if (!string.IsNullOrEmpty(eventStage))
-                {
-                    conditions.Add("es.Stage = @EventStage");
-                    parameters.Add("EventStage", eventStage);
+                    if (!string.IsNullOrEmpty(level))
+                    {
+                        conditions.Add("sl.Level = @Level");
+                        parameters.Add("Level", level);
+                    }
+
+                    if (!string.IsNullOrEmpty(eventStage))
+                    {
+                        conditions.Add("es.Stage = @EventStage");
+                        parameters.Add("EventStage", eventStage);
+                    }
                 }
 
                 if (conditions.Any())

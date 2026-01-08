@@ -128,8 +128,10 @@ namespace Server.Palaro2026.Controller
         }
 
         // GET chess events with filters
+        // UPDATE the GetChessEvents method in ChessScoringController.cs
         [HttpGet("events")]
         public async Task<ActionResult<IEnumerable<ChessEventDTO>>> GetChessEvents(
+            [FromQuery] string? eventId = null,
             [FromQuery] string? sport = null,
             [FromQuery] string? subcategory = null,
             [FromQuery] string? gender = null,
@@ -169,28 +171,38 @@ namespace Server.Palaro2026.Controller
                 var conditions = new List<string>();
                 var parameters = new DynamicParameters();
 
-                if (!string.IsNullOrEmpty(subcategory))
+                // If eventId is provided, use it as the primary filter
+                if (!string.IsNullOrEmpty(eventId))
                 {
-                    conditions.Add("ssc.Subcategory = @Subcategory");
-                    parameters.Add("Subcategory", subcategory);
+                    conditions.Add("e.ID = @EventId");
+                    parameters.Add("EventId", eventId);
                 }
-
-                if (!string.IsNullOrEmpty(gender))
+                else
                 {
-                    conditions.Add("sgc.Gender = @Gender");
-                    parameters.Add("Gender", gender);
-                }
+                    // Use other filters only if eventId is not provided
+                    if (!string.IsNullOrEmpty(subcategory))
+                    {
+                        conditions.Add("ssc.Subcategory = @Subcategory");
+                        parameters.Add("Subcategory", subcategory);
+                    }
 
-                if (!string.IsNullOrEmpty(level))
-                {
-                    conditions.Add("sl.Level = @Level");
-                    parameters.Add("Level", level);
-                }
+                    if (!string.IsNullOrEmpty(gender))
+                    {
+                        conditions.Add("sgc.Gender = @Gender");
+                        parameters.Add("Gender", gender);
+                    }
 
-                if (!string.IsNullOrEmpty(eventStage))
-                {
-                    conditions.Add("es.Stage = @EventStage");
-                    parameters.Add("EventStage", eventStage);
+                    if (!string.IsNullOrEmpty(level))
+                    {
+                        conditions.Add("sl.Level = @Level");
+                        parameters.Add("Level", level);
+                    }
+
+                    if (!string.IsNullOrEmpty(eventStage))
+                    {
+                        conditions.Add("es.Stage = @EventStage");
+                        parameters.Add("EventStage", eventStage);
+                    }
                 }
 
                 if (conditions.Any())

@@ -209,5 +209,112 @@ namespace Server.Palaro2026.Controller
                 return StatusCode(500, "Internal server error. Please try again later.");
             }
         }
+
+
+        // Add this method to your EventsController class
+        [HttpGet("Details/{id}")]
+        public async Task<ActionResult<List<EventsDTO.EventDetails.Event>>> GetEventDetailsById(string id)
+        {
+            try
+            {
+                var query = _context.Events
+                    .Include(e => e.SportSubcategory)
+                        .ThenInclude(ssc => ssc!.SportGenderCategory)
+                    .Include(e => e.SportSubcategory)
+                        .ThenInclude(ssc => ssc!.Sport)
+                            .ThenInclude(s => s!.SportCategory)
+                    .Include(e => e.SportSubcategory)
+                        .ThenInclude(ssc => ssc!.SchoolLevel)
+                    .Include(e => e.EventVenues)
+                    .Include(e => e.EventStage)
+                    .Include(e => e.EventStream)
+                        .ThenInclude(e => e!.EventStreamService)
+                    .Include(e => e.EventVersusTeams)
+                        .ThenInclude(ev => ev.SchoolRegion)
+                    .Include(e => e.EventVersusTeams)
+                        .ThenInclude(e => e.EventVersusTeamPlayers)
+                            .ThenInclude(e => e.ProfilePlayer)
+                                .ThenInclude(e => e!.School)
+                    .Include(u => u.User)
+                    .Where(e => e.ID == id)
+                    .AsQueryable();
+
+                // Execute
+                var eventEntities = await query.AsNoTracking().ToListAsync();
+
+                if (eventEntities == null || !eventEntities.Any())
+                {
+                    return NotFound($"Event with ID '{id}' not found.");
+                }
+
+                // Map to DTO
+                var eventDTO = eventEntities.Select(eventEntity => new EventsDTO.EventDetails.Event
+                {
+                    ID = eventEntity.ID,
+                    EventStage = eventEntity.EventStage?.Stage,
+                    EventVersusList = eventEntity.EventVersusTeams?
+                        .GroupBy(ev => new
+                        {
+                            ev.ID,
+                            ev.Score,
+                            ev.SchoolRegion?.Region,
+                            ev.SchoolRegion?.Abbreviation,
+                            ev.Rank,
+                            ev.RecentUpdateAt
+                        })
+                        .Select(evGroup => new EventsDTO.EventDetails.EventVersusTeams
+                        {
+                            ID = evGroup.Key.ID,
+                            Score = evGroup.Key.Score,
+                            Region = evGroup.Key.Region,
+                            Abbreviation = evGroup.Key.Abbreviation,
+                            Rank = evGroup.Key.Rank,
+                            RecentUpdateAt = evGroup.Key.RecentUpdateAt,
+                            EventVersusTeamPlayersList = evGroup
+                                .SelectMany(ev => ev.EventVersusTeamPlayers ?? new List<EventVersusTeamPlayers>())
+                                .Select(player => new EventsDTO.EventDetails.EventVersusTeamPlayers
+                                {
+                                    ID = player.ID,
+                                    EventVersusID = player.EventVersusID,
+                                    FirstName = player.ProfilePlayer?.FirstName,
+                                    LastName = player.ProfilePlayer?.LastName,
+                                    School = player.ProfilePlayer?.School?.School
+                                }).ToList()
+                        }).ToList() ?? new List<EventsDTO.EventDetails.EventVersusTeams>(),
+
+                    Category = eventEntity.SportSubcategory?.Sport?.SportCategory?.Category,
+                    Sport = eventEntity.SportSubcategory?.Sport?.Sport,
+                    SportMainCat = eventEntity.SportMainCat,
+                    SubCategoryID = eventEntity.SportSubcategory?.ID,
+                    Subcategory = eventEntity.SportSubcategory?.Subcategory,
+                    GamePhase = eventEntity.GamePhase,
+                    Gender = eventEntity.SportSubcategory?.SportGenderCategory?.Gender,
+                    Level = eventEntity.SportSubcategory?.SchoolLevel?.Level,
+                    Venue = eventEntity.EventVenues?.Venue,
+                    Address = eventEntity.EventVenues?.Address,
+                    Latitude = eventEntity.EventVenues?.Latitude ?? 0,
+                    Longitude = eventEntity.EventVenues?.Longitude ?? 0,
+                    Date = eventEntity.Date,
+                    Time = eventEntity.Time,
+                    OnStream = eventEntity.OnStream ?? false,
+                    StreamService = eventEntity.EventStream?.EventStreamService?.StreamService,
+                    StreamTitle = eventEntity.EventStream?.StreamTitle,
+                    StreamURL = eventEntity.EventStream?.StreamURL,
+                    IsFinished = eventEntity.IsFinished,
+                    Archived = eventEntity.Archived,
+                    Deleted = eventEntity.Deleted,
+                    FirstName = eventEntity.User?.FirstName,
+                    LastName = eventEntity.User?.LastName,
+                }).ToList();
+
+                return Ok(eventDTO);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception for debugging
+                // _logger.LogError(ex, "Error fetching event details for ID {Id}", id);
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
     }
 }

@@ -1,6 +1,7 @@
 ﻿@page "/score/teammatch"
 @inject APIService apiService
 @inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 
 <PageTitle>Team Match Scores | PALARO 2026</PageTitle>
 <MudText Typo="Typo.h6" Align="Align.Center">Team Match Scores</MudText>
@@ -385,6 +386,13 @@
     private int? _selectedSportSubcategoryIDValue;
     private int? _selectedEventStagesIDValue;
 
+    private string? _selectedEventId;
+    private string? _storedSubcategoryName;
+    private string? _storedStageName;
+    private string? _storedLevelGender;
+    private string? _storedMainCategory;
+    private string? _storedSportName;
+
     private List<EventsDTO.EventStages>? _eventStages;
     private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
     private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
@@ -478,6 +486,22 @@
             public int ID { get; set; }
             public string? Stage { get; set; }
         }
+
+
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? Sport { get; set; }
+                public string? Level { get; set; }
+                public string? Gender { get; set; }
+                public string? SportMainCat { get; set; }
+                public string? Subcategory { get; set; }
+                public string? EventStage { get; set; }
+                // Add other properties as needed
+            }
+        }
     }
 
     public class SportsDTO
@@ -510,10 +534,22 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadAvailableOptions();
-        await LoadMatches();
+        // Parse query parameters
+        await ParseQueryParameters();
 
-        _autoSaveTimer = new Timer(async _ => await ProcessAutoSaveQueue(), null, _autoSaveDelay, _autoSaveDelay);
+        // If eventId is provided, auto-fill filters
+        if (!string.IsNullOrEmpty(_selectedEventId))
+        {
+            await LoadEventAndAutoFillFilters();
+        }
+        else
+        {
+            // Original initialization
+            await LoadAvailableOptions();
+            await LoadMatches();
+
+            _autoSaveTimer = new Timer(async _ => await ProcessAutoSaveQueue(), null, _autoSaveDelay, _autoSaveDelay);
+        }
     }
 
     public void Dispose()
@@ -817,6 +853,156 @@
         {
             Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
         }
+    }
+
+    private async Task ParseQueryParameters()
+    {
+        try
+        {
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+            // Get query parameters
+            _selectedEventId = query["eventId"];
+
+            // Store filter parameters for later use
+            _storedSportName = query["sport"];
+            _storedLevelGender = query["levelGender"] ?? query["levelgender"];
+            _storedMainCategory = query["mainCat"] ?? query["maincat"];
+            _storedSubcategoryName = query["subcategory"] ?? query["subcate"];
+            _storedStageName = query["stage"];
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error parsing query parameters: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task LoadEventAndAutoFillFilters()
+    {
+        try
+        {
+            // Load available options first
+            await LoadAvailableOptions();
+
+            // Get event details by ID using the correct DTO
+            var eventDetails = await apiService.GetAsync<EventsDTO.EventDetails.Event>($"/Events/Details/{_selectedEventId}");
+
+            if (eventDetails != null && eventDetails.Any())
+            {
+                // Get the first event from the list
+                var eventDetail = eventDetails.FirstOrDefault();
+
+                if (eventDetail != null)
+                {
+                    // Auto-fill sport based on event
+                    _selectedSportIDValue = GetSportIdFromName(eventDetail.Sport);
+
+                    // Auto-fill school level and gender
+                    if (!string.IsNullOrEmpty(eventDetail.Level) && !string.IsNullOrEmpty(eventDetail.Gender))
+                    {
+                        _selectedSchoolLevelAndGenderID = $"{eventDetail.Level} - {eventDetail.Gender}";
+
+                        // Load subcategories for this combination
+                        await GetSportSubCategoriesSLGAsync();
+                        LoadMainCategories();
+
+                        // Auto-fill main category
+                        if (!string.IsNullOrEmpty(eventDetail.SportMainCat))
+                        {
+                            _selectedMainCategoryValue = eventDetail.SportMainCat;
+                        }
+
+                        // Auto-fill subcategory
+                        if (!string.IsNullOrEmpty(eventDetail.Subcategory) && _sportSubcategories != null)
+                        {
+                            var subcat = _sportSubcategories.FirstOrDefault(s =>
+                                s.Subcategory != null && (
+                                    s.Subcategory.Equals(eventDetail.Subcategory, StringComparison.OrdinalIgnoreCase) ||
+                                    eventDetail.Subcategory.Contains(s.Subcategory, StringComparison.OrdinalIgnoreCase) ||
+                                    s.Subcategory.Contains(eventDetail.Subcategory, StringComparison.OrdinalIgnoreCase)
+                                ));
+
+                            if (subcat != null)
+                            {
+                                _selectedSportSubcategoryIDValue = subcat.ID;
+                            }
+                            else
+                            {
+                                // Try to find by main category
+                                subcat = _sportSubcategories.FirstOrDefault(s =>
+                                    s.MainCategory == eventDetail.SportMainCat);
+                                if (subcat != null)
+                                {
+                                    _selectedSportSubcategoryIDValue = subcat.ID;
+                                }
+                            }
+                        }
+
+                        // Auto-fill stage
+                        if (!string.IsNullOrEmpty(eventDetail.EventStage) && _eventStages != null)
+                        {
+                            var stage = _eventStages.FirstOrDefault(e =>
+                                e.Stage != null && e.Stage.Equals(eventDetail.EventStage, StringComparison.OrdinalIgnoreCase));
+                            if (stage != null)
+                            {
+                                _selectedEventStagesIDValue = stage.ID;
+                            }
+                        }
+
+                        // Apply filters automatically
+                        await ApplyFilters();
+
+                        // Start auto-save timer
+                        _autoSaveTimer = new Timer(async _ => await ProcessAutoSaveQueue(), null, _autoSaveDelay, _autoSaveDelay);
+                    }
+                    else
+                    {
+                        Snackbar.Add("Event details are incomplete", Severity.Warning);
+                        await FilterSchoolLevelAndGenderAsync();
+                    }
+                }
+                else
+                {
+                    Snackbar.Add("Event not found in the list", Severity.Error);
+                    await FilterSchoolLevelAndGenderAsync();
+                }
+            }
+            else
+            {
+                Snackbar.Add("Event not found", Severity.Error);
+                await FilterSchoolLevelAndGenderAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading event: {ex.Message}", Severity.Error);
+            // Fall back to normal initialization
+            await FilterSchoolLevelAndGenderAsync();
+        }
+    }
+
+    private int? GetSportIdFromName(string? sportName)
+    {
+        if (string.IsNullOrEmpty(sportName)) return null;
+
+        var sportMap = new Dictionary<string, int>
+    {
+        { "Badminton", 4 },
+        { "Baseball", 5 },
+        { "Basketball", 6 },
+        { "Football", 11 },
+        { "Futsal", 12 },
+        { "Softball", 15 },
+        { "Sepak Takraw", 14 },
+        { "Table Tennis", 17 },
+        { "Tennis", 19 },
+        { "Volleyball", 20 },
+        { "Bocce", 25 },
+        { "Goal Ball", 26 }
+    };
+
+        return sportMap.TryGetValue(sportName, out var sportId) ? sportId : null;
     }
 
     private async Task ClearFilters()
