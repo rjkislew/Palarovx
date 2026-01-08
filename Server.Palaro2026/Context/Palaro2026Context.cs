@@ -276,6 +276,9 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.SportCategory).WithMany(p => p.ProfileCoaches)
                 .HasForeignKey(d => d.SportCategoryID)
                 .HasConstraintName("FK_ProfileCoaches_SportCategoryID");
+            entity.HasOne(d => d.UserID).WithMany(p => p.ProfileCoaches)
+                .HasForeignKey(d => d.UploadedBy)
+                .HasConstraintName("FK_ProfileCoaches_UploadedBy");
         });
 
         modelBuilder.Entity<ProfilePlayerSportCoaches>(entity =>
@@ -350,6 +353,10 @@ public partial class Palaro2026Context : DbContext
             entity.HasOne(d => d.SportCategory).WithMany(p => p.ProfilePlayers)
                 .HasForeignKey(d => d.SportCategoryID)
                 .HasConstraintName("FK_ProfilePlayers_SportCategoryID");
+
+            entity.HasOne(d => d.UserID).WithMany(p => p.ProfilePlayers)
+                .HasForeignKey(d => d.UploadedBy)
+                .HasConstraintName("FK_ProfilePlayers_UploadedBy");
         });
 
         modelBuilder.Entity<SchoolBilletingQuarters>(entity =>

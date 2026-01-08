@@ -112,7 +112,7 @@ public class CoachImportService : ICoachImportService
 
                 // Process the row
                 var coach = await ProcessCoachRow(worksheet, r, colMapping, sportsCache, regionsCache,
-                    schoolCacheByName);
+                    schoolCacheByName, uploadedBy);
                 if (coach != null)
                 {
                     coachesBatch.Add(coach);
@@ -320,7 +320,8 @@ public class CoachImportService : ICoachImportService
         int SchoolName, int SchoolLevel, int SchoolDivision, int Region) cols,
     Dictionary<string, int> sportsCache,
     Dictionary<string, int> regionsCache,
-    Dictionary<string, Schools> schoolCacheByName)
+    Dictionary<string, Schools> schoolCacheByName,
+    string uploadedBy)
 {
     string lastName = GetCellValue(worksheet, row, cols.LastName);
     string firstName = GetCellValue(worksheet, row, cols.FirstName);
@@ -431,7 +432,8 @@ public class CoachImportService : ICoachImportService
         SchoolID = schoolId,
         SchoolRegionID = await ResolveSchoolRegionId(GetCellValue(worksheet, row, cols.Region)),
         SchoolDivisionID = schoolDivisionId,
-        SportCategoryID = sportCategoryId
+        SportCategoryID = sportCategoryId,
+        UploadedBy = uploadedBy
     };
 }
 

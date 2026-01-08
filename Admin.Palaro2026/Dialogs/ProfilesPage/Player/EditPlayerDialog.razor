@@ -2,10 +2,14 @@
 @using System.Text.Json
 @using System.Threading.Tasks
 @using System.Text
+@using Microsoft.AspNetCore.Components
+
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
+@inject CookieService cookieService
+
 
 @if (_isLoaded == true)
 {
@@ -101,7 +105,7 @@
                 <MudButton Style="text-transform: none" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteProfilePlayerAsync">Delete</MudButton>
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudButton Style="text-transform: none" DropShadow="false" OnClick="Cancel">Cancel</MudButton>
-                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateProfileCoachAsync" Disabled="_editPlayerButtonDisabled">Update</MudButton>
+                    <MudButton Style="text-transform: none" DropShadow="false" OnClick="ConfirmUpdateProfilePlayerAsync" Disabled="_editPlayerButtonDisabled">Update</MudButton>
                 </MudStack>
             </MudStack>
         </DialogActions>
@@ -180,6 +184,7 @@ else
             public string? Sex { get; set; }
             public DateTime? BirthDate { get; set; }
             public string? LRN { get; set; }
+            public string? UploadedBy { get; set; }
         }
 
         public class ProfilePlayerSports
@@ -259,9 +264,40 @@ else
         await GetSportCategoriesAsync();
         await GetSportsAsync();
         await GetPlayerSportsAsync();
+        await GetCurrentUserIdAsync();
 
         // FIXED: Always load the dialog, don't require sports data
         _isLoaded = true;
+    }
+
+    private async Task<string> GetCurrentUserIdAsync()
+    {
+        try
+        {
+            // Try to get user ID from cookie first
+            var userId = await cookieService.GetCookie("userID");
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                return userId;
+            }
+
+            // If no user ID in cookie, check for token
+            var token = await cookieService.GetCookie("authenticationToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Snackbar.Add("User not authenticated. Please log in.", Severity.Error);
+                return string.Empty;
+            }
+
+            Snackbar.Add("Unable to retrieve user ID. Please log in again.", Severity.Warning);
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting user ID: {ex.Message}", Severity.Error);
+            return string.Empty;
+        }
     }
 
     private async Task GetProfilePlayerOnDialogOpenAsync(string? profilePlayerID)
@@ -455,7 +491,7 @@ else
         }
     }
 
-    private async Task ConfirmUpdateProfileCoachAsync()
+    private async Task ConfirmUpdateProfilePlayerAsync()
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
@@ -465,15 +501,17 @@ else
 
         if (result == true)
         {
-            await UpdateProfileCoachAsync();
+            await UpdateProfilePlayerAsync();
 
             MudDialog?.Close(DialogResult.Ok(true)); // Close MudDialog after updating
         }
     }
 
     // Update Player profile
-    private async Task UpdateProfileCoachAsync()
+    private async Task UpdateProfilePlayerAsync()
     {
+     var currentUserId = await GetCurrentUserIdAsync();
+
         var updatePlayerProfile = new ProfilesDTO.ProfilePlayers
             {
                 ID = selectedPlayerID,
@@ -484,7 +522,8 @@ else
                 MiddleInitial = _middleInitialValue,
                 Sex = _selectedSex,
                 BirthDate = _birthDateValue,
-                LRN = _lrnValue
+                LRN = _lrnValue,
+                UploadedBy = currentUserId
             };
 
         string url = $"/Profiles/Player/{selectedPlayerID}";

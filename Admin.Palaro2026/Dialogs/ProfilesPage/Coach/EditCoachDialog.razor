@@ -2,10 +2,14 @@
 @using System.Text.Json
 @using System.Threading.Tasks
 @using System.Text
+@using Microsoft.AspNetCore.Components
+
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
+@inject CookieService cookieService
+
 
 @if (_isLoaded == true)
 {
@@ -203,6 +207,7 @@ else
             public int? SchoolRegionID { get; set; }
             public int? SchoolDivisionID { get; set; }
             public int? SchoolID { get; set; }
+            public string? UploadedBy { get; set; }
         }
     }
 
@@ -281,9 +286,40 @@ else
         await GetSportCategoriesAsync();
         await GetSportsAsync();
         await GetSportGenderCategoriesAsync();
+        await GetCurrentUserIdAsync();
 
         // FIXED: Always load the dialog, don't require sports data
         _isLoaded = true;
+    }
+
+    private async Task<string> GetCurrentUserIdAsync()
+    {
+        try
+        {
+            // Try to get user ID from cookie first
+            var userId = await cookieService.GetCookie("userID");
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                return userId;
+            }
+
+            // If no user ID in cookie, check for token
+            var token = await cookieService.GetCookie("authenticationToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Snackbar.Add("User not authenticated. Please log in.", Severity.Error);
+                return string.Empty;
+            }
+
+            Snackbar.Add("Unable to retrieve user ID. Please log in again.", Severity.Warning);
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting user ID: {ex.Message}", Severity.Error);
+            return string.Empty;
+        }
     }
 
     private async Task GetProfileCoachOnDialogOpenAsync(string? profileCoachID)
@@ -453,7 +489,7 @@ else
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: $"Do you confirm deletion of coach {_dialogHeader}?",
+            message: $"Do you confirm deletion of {_selectedDesignation} {_dialogHeader}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
@@ -468,7 +504,7 @@ else
     {
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: $"Do you confirm changes of coach {_dialogHeader}?",
+            message: $"Do you confirm changes of {_selectedDesignation} {_dialogHeader}?",
             yesText: "Yes",
             cancelText: "Cancel");
 
@@ -482,6 +518,8 @@ else
     // Update Coach profile
     private async Task UpdateCoachProfileAsync()
     {
+        var currentUserId = await GetCurrentUserIdAsync();
+
         var updateCoachProfile = new ProfilesDTO.ProfileCoaches
         {
             ID = selectedCoachID,
@@ -496,7 +534,8 @@ else
             SchoolRegionID = _selectedSchoolRegionIDValue,
             SchoolDivisionID = _selectedSchoolDivisionIDValue,
             SchoolID = _selectedSchoolIDValue,
-            SportCategoryID = _selectedSportCategoryIDValue
+            SportCategoryID = _selectedSportCategoryIDValue,
+            UploadedBy = currentUserId
         };
 
         string url = $"/Profiles/Coach/{selectedCoachID}";
@@ -504,7 +543,7 @@ else
 
         if (success)
         {
-            Snackbar.Add($"Coach {_dialogHeader} has been updated successfully.", Severity.Success);
+            Snackbar.Add($"{_dialogHeader} has been updated successfully.", Severity.Success);
         }
         else
         {
@@ -520,7 +559,7 @@ else
 
         if (success)
         {
-            Snackbar.Add($"Coach {_dialogHeader} has been deleted successfully.", Severity.Success);
+            Snackbar.Add($"{_dialogHeader} has been deleted successfully.", Severity.Success);
         }
         else
         {

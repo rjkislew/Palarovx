@@ -1168,6 +1168,7 @@ else
 
     private async Task UpdateEventAsync()
     {
+
         if (SelectedEventID == null)
         {
             Snackbar.Add("No event selected for update.", Severity.Warning);
@@ -1243,38 +1244,8 @@ else
                 await apiService.PostAsync("/Events/VersusTeams/Players", playerList);
             }
         }
-
-        if (_uploadedFileBytes != null && _uploadedFileBytes.Length > 0 && !string.IsNullOrEmpty(_uploadedFileContentType))
-        {
-            try
-            {
-                using var content = new MultipartFormDataContent();
-                using var fileContent = new StreamContent(new MemoryStream(_uploadedFileBytes));
-
-                fileContent.Headers.ContentType = new MediaTypeHeaderValue(_uploadedFileContentType);
-                fileContent.Headers.ContentLength = _uploadedFileBytes.Length; // 👈 Important for ASP.NET to detect file size
-
-                var fileExtension = Path.GetExtension(_updateEventAttachmentValue)?.ToLower() ?? ".dat";
-
-                // 👇 Make sure the field name matches [FromForm] IFormFile attachmentFile
-                content.Add(fileContent, "attachmentFile", $"{SelectedEventID}{fileExtension}");
-
-                var uploadUrl = $"/Events/UploadAttachment/{SelectedEventID}";
-                var uploadSuccess = await apiService.PutFormAsync(uploadUrl, content);
-
-                if (!uploadSuccess)
-                {
-                    Snackbar.Add("Event updated, but attachment upload failed.", Severity.Warning);
-                    return;
-                }
-            }
-            catch (Exception ex)
-            {
-                Snackbar.Add($"Event updated, but attachment upload failed: {ex.Message}", Severity.Warning);
-                return;
-            }
-        }
-
+        
+        await UploadEventAttachmentAsync();
         Snackbar.Add("Event updated successfully.", Severity.Success);
         MudDialog?.Close(DialogResult.Ok(true));
     }
@@ -1434,40 +1405,47 @@ else
     {
         try
         {
+            // Define the maximum file size (in bytes)
             const int maxFileSize = 10 * 1024 * 1024; // 10 MB
 
+            // Check if the file size exceeds the maximum allowed
             if (file.Size > maxFileSize)
             {
                 Snackbar.Add("File size exceeds the maximum allowed size of 10 MB.", Severity.Error);
                 return;
             }
 
+            // Validate file type (image only)
             var allowedExtensions = new[] { ".jpeg", ".jpg", ".png", ".pdf", ".doc", ".docx" };
             var fileExtension = Path.GetExtension(file.Name).ToLower();
             if (!allowedExtensions.Contains(fileExtension))
             {
-                Snackbar.Add("Invalid file type. Allowed types: .jpeg, .jpg, .png, .pdf, .doc, .docx.", Severity.Error);
+                Snackbar.Add("Invalid file type. Only .webp is allowed.", Severity.Error);
                 return;
             }
 
+            // Open the file stream with the maxFileSize limit
             using var stream = file.OpenReadStream(maxFileSize);
+
+            // Create a memory stream to store the file in memory
             using var memoryStream = new MemoryStream();
+
+            // Copy the file data into the memory stream
             await stream.CopyToAsync(memoryStream);
 
-            // Store the actual stream bytes (no base64)
-            _updateEventAttachmentValue = file.Name;
+            // Convert the memory stream to a base64 string for temporary storage
+            var base64File = Convert.ToBase64String(memoryStream.ToArray());
 
-            // Keep file in memory for sending
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            _uploadedFileBytes = ms.ToArray();
-            _uploadedFileContentType = file.ContentType;
+            // Set the temporary variable to the base64 string of the file
+            _updateEventAttachmentValue = $"data:{file.ContentType};base64,{base64File}";
 
-
-            _eventAttachmentUploadState = Path.GetFileName(file.Name);
+            // Optionally display a success message
+            var fileName = Path.GetFileName(file.Name);
+            _eventAttachmentUploadState = $"Selected: {fileName}";
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"File upload failed: {ex.Message}");
             Snackbar.Add($"File upload failed: {ex.Message}", Severity.Error);
         }
     }

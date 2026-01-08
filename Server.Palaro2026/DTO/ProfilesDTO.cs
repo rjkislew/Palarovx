@@ -38,7 +38,8 @@ public class ProfilesDTO
         public int? SchoolDivisionID { get; set; }
         public int? SchoolID { get; set; }
         public int? SportCategoryID { get; set; }
-        
+        public string? UploadedBy { get; set; }
+
     }
 
     public class ProfilePlayerEvent
@@ -103,6 +104,7 @@ public class ProfilesDTO
         public DateTime? BirthDate { get; set; }
         public string? LRN { get; set; }
         public int? SportCategoryID { get; set; }
+        public string? UploadedBy { get; set; }
     }
 
     public class ProfilePlayerSports

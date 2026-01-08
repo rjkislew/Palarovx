@@ -19,6 +19,7 @@ public partial class ProfileCoaches
     public int? SchoolDivisionID { get; set; }
     public int? SchoolID { get; set; }
     public int? SportCategoryID { get; set; }
+    public string? UploadedBy { get; set; }
 
     [JsonIgnore]
     public virtual ICollection<ProfilePlayerSportCoaches> ProfilePlayerSportCoaches { get; set; } =
@@ -30,6 +31,7 @@ public partial class ProfileCoaches
     public virtual SchoolDivisions? SchoolDivision { get; set; }
     public virtual Schools? School { get; set; }
     public virtual SportCategories? SportCategory { get; set; }
+    public virtual Users? UserID { get; set; }
 }
 
 

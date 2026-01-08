@@ -2,10 +2,14 @@
 @using System.Text.Json
 @using System.Threading.Tasks
 @using System.Text
+@using Microsoft.AspNetCore.Components
+
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
+@inject CookieService cookieService
+
 
 @if (_isLoaded == true)
 {
@@ -202,6 +206,7 @@ else
             public int? SchoolRegionID { get; set; }
             public int? SchoolDivisionID { get; set; }
             public int? SchoolID { get; set; }
+            public string? UploadedBy { get; set; }
         }
     }
 
@@ -276,6 +281,7 @@ else
         await GetSportCategoriesAsync();
         await GetSchoolLevelsAsync();
         await GetSportGenderCategoriesAsync();
+        await GetCurrentUserIdAsync();
 
         if (_schoolRegions?.Any() == true)
         {
@@ -356,6 +362,36 @@ else
         await GetSportsAsync();
     }
 
+    private async Task<string> GetCurrentUserIdAsync()
+    {
+        try
+        {
+            // Try to get user ID from cookie first
+            var userId = await cookieService.GetCookie("userID");
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                return userId;
+            }
+
+            // If no user ID in cookie, check for token
+            var token = await cookieService.GetCookie("authenticationToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Snackbar.Add("User not authenticated. Please log in.", Severity.Error);
+                return string.Empty;
+            }
+
+            Snackbar.Add("Unable to retrieve user ID. Please log in again.", Severity.Warning);
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting user ID: {ex.Message}", Severity.Error);
+            return string.Empty;
+        }
+    }
+
     // Dialog Actions
     private void ClearFields()
     {
@@ -383,7 +419,7 @@ else
 
         bool? result = await DialogService.ShowMessageBox(
             title: "Notice",
-            message: $"Do you confirm addition of {_firstnameValue} {_lastnameValue} as coach?",
+            message: $"Do you confirm addition of {_firstnameValue} {_lastnameValue} as {_selectedDesignation }? ",
             yesText: "Yes",
             cancelText: "Cancel",
             options: options);
@@ -406,6 +442,8 @@ else
     // Add Coach profile
     private async Task AddCoachProfileAsync()
     {
+        var currentUserId = await GetCurrentUserIdAsync();
+
         var generatedID = GenerateRandomString(20);
         var addCoachProfile = new ProfilesDTO.ProfileCoaches
         {
@@ -421,7 +459,8 @@ else
             SchoolRegionID = _selectedSchoolRegionIDValue,
             SchoolDivisionID = _selectedSchoolDivisionIDValue,
             SchoolID = _selectedSchoolIDValue,
-            SportCategoryID = _selectedSportCategoryIDValue
+            SportCategoryID = _selectedSportCategoryIDValue,
+            UploadedBy = currentUserId
         };
 
         string url = "/Profiles/Coach";
@@ -429,11 +468,11 @@ else
 
         if (success)
         {
-            Snackbar.Add($"{_firstnameValue} {_lastnameValue} as coach added successfully.", Severity.Success);
+            Snackbar.Add($"{_firstnameValue} {_lastnameValue} added successfully.", Severity.Success);
         }
         else
         {
-            Snackbar.Add($"Failed to add {_firstnameValue} {_lastnameValue} as coach.", Severity.Error);
+            Snackbar.Add($"Failed to add {_firstnameValue} {_lastnameValue}.", Severity.Error);
         }
     }
 }

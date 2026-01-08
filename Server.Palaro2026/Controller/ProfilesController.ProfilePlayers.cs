@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Server.Palaro2026.Context;
 using Server.Palaro2026.DTO;
 using Server.Palaro2026.Entities;
+using System.Security.Claims;
 
 namespace Server.Palaro2026.Controller
 {
@@ -22,6 +23,7 @@ namespace Server.Palaro2026.Controller
                BirthDate = profilePlayers.BirthDate,
                LRN = profilePlayers.LRN,
                SportCategoryID = profilePlayers.SportCategoryID,
+               UploadedBy = profilePlayers.UploadedBy,
            };
 
         [HttpGet("Player")] // /api/Profiles/Player
@@ -35,7 +37,8 @@ namespace Server.Palaro2026.Controller
         [FromQuery] string? sex = null,
         [FromQuery] DateTime? birthDate = null,
         [FromQuery] string? lrn = null,
-        [FromQuery] int? sportCategoryID = null)
+        [FromQuery] int? sportCategoryID = null,
+        [FromQuery] string? uploadedBy = null)
         {
             var query = _context.ProfilePlayers.AsQueryable();
 
@@ -68,7 +71,10 @@ namespace Server.Palaro2026.Controller
             
             if (!string.IsNullOrEmpty(lrn))
                 query = query.Where(p => p.LRN != null && p.LRN.Contains(lrn));
-            
+
+            if (!string.IsNullOrEmpty(uploadedBy))
+                query = query.Where(x => x.UploadedBy == uploadedBy);
+
             return await query
                 .Select(x => ProfilePlayersDTOMapper(x))
                 .AsNoTracking()
@@ -78,6 +84,20 @@ namespace Server.Palaro2026.Controller
         [HttpPost("Player")] // /api/Profiles/Player
         public async Task<ActionResult<ProfilePlayers>> PostProfilePlayers(ProfilesDTO.ProfilePlayers profilePlayers)
         {
+            var loggedInUserId = User?.FindFirstValue(ClaimTypes.NameIdentifier) ??
+                        User?.FindFirstValue("sub");
+
+            // Always use the JWT user ID for manual entries (more secure)
+            if (!string.IsNullOrEmpty(loggedInUserId))
+            {
+                profilePlayers.UploadedBy = loggedInUserId;
+            }
+            else if (string.IsNullOrEmpty(profilePlayers.UploadedBy))
+            {
+                // Fallback if no JWT and no UploadedBy in DTO
+                profilePlayers.UploadedBy = "system";
+            }
+
             var profilePlayersDTO = new ProfilePlayers
             {
                 ID = profilePlayers.ID,
@@ -90,6 +110,7 @@ namespace Server.Palaro2026.Controller
                 BirthDate = profilePlayers.BirthDate,
                 LRN = profilePlayers.LRN,
                 SportCategoryID = profilePlayers.SportCategoryID,
+                UploadedBy = profilePlayers.UploadedBy,
             };
 
             _context.ProfilePlayers.Add(profilePlayersDTO);
@@ -135,6 +156,7 @@ namespace Server.Palaro2026.Controller
             existingPlayerProfile.SchoolID = profilePlayers.SchoolID;
             existingPlayerProfile.SportID = profilePlayers.SportID;
             existingPlayerProfile.SportCategoryID = profilePlayers.SportCategoryID;
+            existingPlayerProfile.UploadedBy = profilePlayers.UploadedBy;
 
 
             try

@@ -1,10 +1,14 @@
 ﻿@using Admin.Palaro2026.Dialogs.ScorePage.Dancesport
+@using Microsoft.AspNetCore.Components
 
-@page "/dancesport"
+
+@page "/score/dancesport"
 
 @inject APIService apiService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject CookieService cookieService
+
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge">
 
@@ -188,7 +192,7 @@
 
                     @if (eventItem.StageID != 4)
                     {
-                        <MudCard Class="pa-4 mt-3" Outlined="true">
+                        <MudCard>
 
                             <MudDropContainer T="PerformanceTeamDropItem"
                                               Items="_teamDropItems"
@@ -208,13 +212,6 @@
                                             COUPLES
                                         </MudText>
 
-                                        @* <MudDropZone T="PerformanceTeamDropItem"
-                                                     Identifier="ALL"
-                                                     Class="d-flex flex-wrap justify-center pa-2"
-                                                     Style="min-height: 140px;
-                                                border: 2px dashed #673ab7;
-                                                background: rgba(103, 58, 183, 0.05);">
-                                        </MudDropZone> *@
                                         <MudDropZone T="PerformanceTeamDropItem"
                                                      Identifier="ALL"
                                                      Items="@_teamDropItems"
@@ -248,12 +245,13 @@
                                                                  Style="min-height: 250px;
                                                             background: rgba(46, 125, 50, 0.03);
                                                             border: 1px solid rgba(46, 125, 50, 0.2);">
-                                                                 <div style="pointer-events:none;">
-                                                        <MudText Typo="Typo.subtitle2"
-                                                                 Class="text-success font-weight-bold text-center">
-                                                            DROP QUALIFIED COUPLES HERE
-                                                        </MudText>
-                                                        </div>
+                                                        @if (!_teamDropItems.Any(t => t.Zone == "QUALIFIED"))
+                                                        {
+                                                                <MudText Typo="Typo.subtitle2"
+                                                                         Class="text-success font-weight-bold text-center">
+                                                                    DROP QUALIFIED COUPLES HERE
+                                                                </MudText>
+                                                        }
                                                     </MudDropZone>
                                                 </MudCardContent>
                                             </MudCard>
@@ -279,12 +277,13 @@
                                                                  Style="min-height: 250px;
                                                             background: rgba(198, 40, 40, 0.03);
                                                             border: 1px solid rgba(198, 40, 40, 0.2);">
-                                                                 <div style="pointer-events:none;">
-                                                        <MudText Typo="Typo.subtitle2"
-                                                                 Class="text-error font-weight-bold text-center">
-                                                            DROP ELIMINATED COUPLES HERE
-                                                        </MudText>
-                                                        </div>
+                                                        @if (!_teamDropItems.Any(t => t.Zone == "ELIMINATED"))
+                                                        {
+                                                                <MudText Typo="Typo.subtitle2"
+                                                                         Class="text-error font-weight-bold text-center">
+                                                                    DROP ELIMINATED COUPLES HERE
+                                                                </MudText>
+                                                        }
                                                     </MudDropZone>
                                                 </MudCardContent>
                                             </MudCard>
@@ -298,7 +297,7 @@
                                     <MudChip T="string"
                                              Color="Color.Primary"
                                              Class="ma-1"
-                                             Style="max-width: 130px; height: auto; min-height: 52px; padding: 8px 12px; display: flex; align-items: center;">
+                                             Style="min-width: 130px; height: auto; min-height: 52px; padding: 8px 12px; display: flex; align-items: center;">
                                         @context.TeamName
                                     </MudChip>
                                 </ItemRenderer>
@@ -307,7 +306,7 @@
                             <MudButton Color="Color.Primary"
                                        Variant="Variant.Filled"
                                        Class="mt-4"
-                                       OnClick="SaveRank">
+                                       OnClick="ConfirmSaveRank">
                                 Save Result
                             </MudButton>
                         </MudCard>
@@ -411,21 +410,18 @@
                                         Add Rank
                                     </MudButton>
                                 </MudTd>
-                                @if (GetEventStageName(eventItem.StageID)?.Contains("Finals", StringComparison.OrdinalIgnoreCase) == true)
-                                {
-                                    <MudTd DataLabel="Overall Ranking">
-                                        @if (GetOverallRankPosition(context.RegionID, context.TeamPlayerIDs, eventItem.ID, "Latin American") > 0)
-                                        {
-                                            <MudText Typo="Typo.body2" Style="font-weight: bold;">
-                                                @GetOverallRankPosition(context.RegionID, context.TeamPlayerIDs, eventItem.ID, "Latin American")
-                                            </MudText>
-                                        }
-                                        else
-                                        {
-                                            <MudText Typo="Typo.body2">-</MudText>
-                                        }
-                                    </MudTd>
-                                }
+
+                                <MudTd DataLabel="Overall Ranking">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Grade A - 5 Dance")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Grade A - 5 Dance"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
+
                             </RowTemplate>
                             <NoRecordsContent>
                                 <MudText>No event found for Latin American</MudText>
@@ -529,21 +525,16 @@
                                         Add Rank
                                     </MudButton>
                                 </MudTd>
-                                @if (GetEventStageName(eventItem.StageID)?.Contains("Finals", StringComparison.OrdinalIgnoreCase) == true)
-                                {
-                                    <MudTd DataLabel="Overall Ranking">
-                                        @if (GetOverallRankPosition(context.RegionID, context.TeamPlayerIDs, eventItem.ID, "Modern Standard") > 0)
-                                        {
-                                            <MudText Typo="Typo.body2" Style="font-weight: bold;">
-                                                @GetOverallRankPosition(context.RegionID, context.TeamPlayerIDs, eventItem.ID, "Modern Standard")
-                                            </MudText>
-                                        }
-                                        else
-                                        {
-                                            <MudText Typo="Typo.body2">-</MudText>
-                                        }
-                                    </MudTd>
-                                }
+                                <MudTd DataLabel="Overall Ranking">
+                                    @if (GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Grade A - 5 Dance")) > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">@GetRank(context.RegionID, context.TeamPlayerIDs, eventItem.ID, GetLatinSubcategoryID(eventItem.LevelID, "Grade A - 5 Dance"))</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">-</MudText>
+                                    }
+                                </MudTd>
                             </RowTemplate>
                             <NoRecordsContent>
                                 <MudText>No event found for Modern Standard</MudText>
@@ -597,6 +588,7 @@
     private int? _selectedSportCategoryIDValue = 1;
     private int? _selectedSportIDValue = 10;
     private List<SportsDTO.Sports>? _sports;
+    private string _currentUserId = string.Empty;
 
     private List<string>? _subcategoryHeaders = new();
 
@@ -632,8 +624,39 @@
         await GetAllPlayersAsync();
         await FilterSchoolLevelAndGenderAsync();
         await GetScoreAsync();
+        await GetCurrentUserIdAsync();
         LoadMainCategories();
         _filteredSchoolLevelAndGenderNames = _combinedSchoolLevelAndGenderNames;
+    }
+
+    private async Task<string> GetCurrentUserIdAsync()
+    {
+        try
+        {
+            // Try to get user ID from cookie first
+            var userId = await cookieService.GetCookie("userID");
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                return userId;
+            }
+
+            // If no user ID in cookie, check for token
+            var token = await cookieService.GetCookie("authenticationToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Snackbar.Add("User not authenticated. Please log in.", Severity.Error);
+                return string.Empty;
+            }
+
+            Snackbar.Add("Unable to retrieve user ID. Please log in again.", Severity.Warning);
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting user ID: {ex.Message}", Severity.Error);
+            return string.Empty;
+        }
     }
 
     private async Task GetPerformanceEventsAsync()
@@ -785,6 +808,7 @@
                 "Paso Doble" => 167,
                 "Rumba" => 168,
                 "Samba" => 169,
+                "Grade A - 5 Dance" => 164,
                 _ => 0
             };
         }
@@ -797,6 +821,7 @@
                 "Paso Doble" => 179,
                 "Rumba" => 180,
                 "Samba" => 181,
+                "Grade A - 5 Dance" => 176,
                 _ => 0
             };
         }
@@ -819,6 +844,7 @@
                 "Quickstep" => 173,
                 "Viennese Waltz" => 174,
                 "Waltz" => 175,
+                "Grade A - 5 Dance" => 170,
                 _ => 0
             };
         }
@@ -831,6 +857,7 @@
                 "Quickstep" => 185,
                 "Viennese Waltz" => 186,
                 "Waltz" => 187,
+                "Grade A - 5 Dance" => 182,
                 _ => 0
             };
         }
@@ -1135,6 +1162,9 @@
                 return;
             }
 
+            var currentUserId = await GetCurrentUserIdAsync();
+
+
             foreach (var team in teamsToSave)
             {
                 int rankValue = team.Zone == "QUALIFIED" ? 1 : 0;
@@ -1156,7 +1186,7 @@
                     SportSubcategoryID = subcategoryId, 
                     Score = 0,
                     Rank = rankValue,
-                    UserID = null,
+                    UserID = currentUserId,
                     UpdatedAt = DateTime.Now,
                     TeamID = teamId
                 };
@@ -1185,6 +1215,23 @@
             Snackbar.Add($"Error saving qualification results: {ex.Message}", Severity.Error);
         }
     }
+
+
+    private async Task ConfirmSaveRank()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Notice",
+            message: "Are you sure you want to save the results?",
+            yesText: "Yes",
+            cancelText: "Cancel"
+        );
+
+        if (result == true)
+        {
+            await SaveRank();
+        }
+    }
+
 
     private int? GetTeamId(int performanceTeamId)
     {
@@ -1291,29 +1338,51 @@
             return;
 
         var teams = GetOpposingTeamsForEvent(eventId);
-
-        if (teams.Count == 0)
+        if (!teams.Any())
             return;
+
+        // 🔹 Get qualification subcategory for this event
+        int subcategoryId = GetQualificationSubcategoryId(eventId);
 
         foreach (var team in teams)
         {
             var regionName = GetRegionAbbreviation(team.RegionID);
 
-            var existing = _teamDropItems.FirstOrDefault(x =>
-                x.PerformanceTeamID == team.ID && x.EventID == eventId);
+            // prevent duplicates
+            var existingItem = _teamDropItems.FirstOrDefault(x =>
+                x.PerformanceTeamID == team.ID &&
+                x.EventID == eventId);
 
-            if (existing == null)
+            if (existingItem != null)
+                continue;
+
+            // 🔹 CHECK EXISTING SCORE
+            var existingScore = _allDancesportScores?
+                .FirstOrDefault(s =>
+                    s.PerformanceTeamID == team.ID &&
+                    s.PerformanceID == eventId &&
+                    s.SportSubcategoryID == subcategoryId);
+
+            string zone = "ALL";
+
+            if (existingScore != null)
             {
-                _teamDropItems.Add(new PerformanceTeamDropItem
-                    {
-                        PerformanceTeamID = team.ID,
-                        EventID = eventId,
-                        TeamName = regionName,
-                        Zone = "ALL"
-                    });
+                if (existingScore.Rank == 1)
+                    zone = "QUALIFIED";
+                else if (existingScore.Rank == 0)
+                    zone = "ELIMINATED";
             }
+
+            _teamDropItems.Add(new PerformanceTeamDropItem
+            {
+                PerformanceTeamID = team.ID,
+                EventID = eventId,
+                TeamName = regionName,
+                Zone = zone
+            });
         }
     }
+
 
     private async Task ClearFilters()
     {
@@ -1510,7 +1579,7 @@
             public int SportSubcategoryID { get; set; }
             public decimal Score { get; set; }
             public int Rank { get; set; }
-            public string UserID { get; set; } = string.Empty;
+            public string? UserID { get; set; }
             public DateTime UpdatedAt { get; set; }
             public int? TeamID { get; set; }
         }

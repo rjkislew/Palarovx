@@ -179,6 +179,7 @@ namespace Server.Palaro2026.Controller
 
                 // 4. Path to logos
                 var basePath = @"\\192.168.2.210\pgas_attachment\palaro2026\media\regions\team_logo";
+                //var basePath = @"D:\pgas_attachment\palaro2026\media\regions\team_logo";
                 if (!Directory.Exists(basePath))
                 {
                     Directory.CreateDirectory(basePath);

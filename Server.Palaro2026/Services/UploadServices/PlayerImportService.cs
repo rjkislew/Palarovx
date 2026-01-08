@@ -109,7 +109,7 @@ public class PlayerImportService : IPlayerImportService
 
                 // Process the row
                 var player = await ProcessPlayerRow(worksheet, r, colMapping, sportsCache, schoolCacheByCode,
-                    schoolCacheByNameAndLevel);
+                    schoolCacheByNameAndLevel, uploadedBy);
                 if (player != null)
                 {
                     playersBatch.Add(player);
@@ -322,7 +322,8 @@ public class PlayerImportService : IPlayerImportService
             cols,
         Dictionary<string, int> sportsCache,
         Dictionary<string, Schools> schoolCacheByCode,
-        Dictionary<string, Schools> schoolCacheByNameAndLevel)
+        Dictionary<string, Schools> schoolCacheByNameAndLevel,
+        string uploadedBy)
     
     {
         string lastName = GetCellValue(worksheet, row, cols.LastName);
@@ -425,7 +426,8 @@ public class PlayerImportService : IPlayerImportService
             LRN = lrn,
             SchoolID = schoolId,
             SportID = sportId,
-            SportCategoryID = sportCategoryId
+            SportCategoryID = sportCategoryId,
+            UploadedBy = uploadedBy
         };
     }
 

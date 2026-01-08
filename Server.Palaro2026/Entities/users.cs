@@ -37,6 +37,10 @@ public partial class Users
 
     [JsonIgnore]
     public virtual ICollection<News> News { get; set; } = new List<News>();
+    [JsonIgnore]
+    public virtual ICollection<ProfilePlayers> ProfilePlayers { get; set; } = new List<ProfilePlayers>();
+    [JsonIgnore]
+    public virtual ICollection<ProfileCoaches> ProfileCoaches { get; set; } = new List<ProfileCoaches>();
 
     public virtual UserRoles? Role { get; set; }
 }

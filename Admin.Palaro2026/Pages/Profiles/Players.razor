@@ -2,6 +2,9 @@
 
 @using System.Net.Http
 @using System.Text.Json
+@using Microsoft.AspNetCore.Components
+
+@inject CookieService cookieService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject APIService apiService
@@ -63,7 +66,8 @@
                         <col style="width: 10%" />
                         <col style="width: 15%" />
                         <col style="width: 10%" />
-                        <col style="width: 30%" />
+                        <col style="width: 20%" />
+                        <col style="width: 10%" />
                         <col style="width: 5%" />
                     </MudHidden>
                 </ColGroup>
@@ -241,6 +245,9 @@
                             }
                         </MudGrid>
                     </MudTd>
+                    <MudTd DataLabel="Image" Style="text-align: center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Upload" Class="pa-1"/>
+                    </MudTd>
                     <MudTd Style="text-align: center">
                         <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditPlayerDialog(player.ID)" />
                     </MudTd>
@@ -297,6 +304,7 @@
                 public string? Sex { get; set; }
                 public DateTime? BirthDate { get; set; }
                 public string? LRN { get; set; }
+                public string? UploadedBy { get; set; }
                 public List<ProfilePlayerSports>? ProfilePlayerSportsList { get; set; }
             }
 
@@ -509,6 +517,36 @@
 
         _profilePlayers = await apiService.GetAsync<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>(url);
     }
+
+    private async Task<string> GetCurrentUserIdAsync()
+    {
+        try
+        {
+            // Try to get user ID from cookie first
+            var userId = await cookieService.GetCookie("userID");
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                return userId;
+            }
+
+            // If no user ID in cookie, check for token
+            var token = await cookieService.GetCookie("authenticationToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Snackbar.Add("User not authenticated. Please log in.", Severity.Error);
+                return string.Empty;
+            }
+
+            Snackbar.Add("Unable to retrieve user ID. Please log in again.", Severity.Warning);
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting user ID: {ex.Message}", Severity.Error);
+            return string.Empty;
+        }
+    }
     
     private async Task OnFileUpload(InputFileChangeEventArgs e)
     {
@@ -524,11 +562,14 @@
 
         try
         {
+            var currentUserId = await GetCurrentUserIdAsync();
+
             using var stream = file.OpenReadStream(maxAllowedSize: 50_000_000);
 
             var content = new MultipartFormDataContent
             {
-                { new StreamContent(stream), "file", file.Name }
+                { new StreamContent(stream), "file", file.Name },
+                { new StringContent(currentUserId), "uploadedByUserId" }
             };
 
             // ✅ Correct backend route

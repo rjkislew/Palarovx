@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Server.Palaro2026.Context;
 using Server.Palaro2026.DTO;
 using Server.Palaro2026.Entities;
+using System.Security.Claims;
 
 
 namespace Server.Palaro2026.Controller
@@ -26,7 +27,8 @@ namespace Server.Palaro2026.Controller
                SchoolRegionID = profileCoaches.SchoolRegionID,
                SchoolDivisionID = profileCoaches.SchoolDivisionID,
                SchoolID = profileCoaches.SchoolID,
-               SportCategoryID = profileCoaches.SportCategoryID
+               SportCategoryID = profileCoaches.SportCategoryID,
+               UploadedBy = profileCoaches.UploadedBy
            };
 
         [HttpGet("Coach")] // /api/Profiles/Coach
@@ -43,7 +45,8 @@ namespace Server.Palaro2026.Controller
         [FromQuery] int? sportCategoryID = null,
         [FromQuery] int? schoolRegionID = null,
         [FromQuery] int? schoolDivisionID = null,
-        [FromQuery] int? schoolID = null)
+        [FromQuery] int? schoolID = null,
+        [FromQuery] string? uploadedBy = null)
         {
             var query = _context.ProfileCoaches.AsQueryable();
 
@@ -86,6 +89,9 @@ namespace Server.Palaro2026.Controller
             if (schoolID.HasValue)
                 query = query.Where(x => x.SchoolID == schoolID.Value);
 
+            if (!string.IsNullOrEmpty(uploadedBy))
+                query = query.Where(x => x.UploadedBy == uploadedBy);
+
             return await query
                 .Select(x => ProfileCoachesDTOMapper(x))
                 .AsNoTracking()
@@ -95,6 +101,20 @@ namespace Server.Palaro2026.Controller
         [HttpPost("Coach")] // /api/Profiles/Coach
         public async Task<ActionResult<ProfileCoaches>> PostProfileCoaches(ProfilesDTO.ProfileCoaches profileCoaches)
         {
+            var loggedInUserId = User?.FindFirstValue(ClaimTypes.NameIdentifier) ??
+                        User?.FindFirstValue("sub");
+
+            // Always use the JWT user ID for manual entries (more secure)
+            if (!string.IsNullOrEmpty(loggedInUserId))
+            {
+                profileCoaches.UploadedBy = loggedInUserId;
+            }
+            else if (string.IsNullOrEmpty(profileCoaches.UploadedBy))
+            {
+                // Fallback if no JWT and no UploadedBy in DTO
+                profileCoaches.UploadedBy = "system";
+            }
+
             var profileCoachesDTO = new ProfileCoaches
             {
                 ID = profileCoaches.ID,
@@ -109,7 +129,8 @@ namespace Server.Palaro2026.Controller
                 SchoolRegionID = profileCoaches.SchoolRegionID,
                 SchoolDivisionID = profileCoaches.SchoolDivisionID,
                 SchoolID = profileCoaches.SchoolID,
-                SportCategoryID = profileCoaches.SportCategoryID
+                SportCategoryID = profileCoaches.SportCategoryID,
+                UploadedBy = profileCoaches.UploadedBy,
             };
 
             _context.ProfileCoaches.Add(profileCoachesDTO);
@@ -158,8 +179,9 @@ namespace Server.Palaro2026.Controller
             existingCoachProfile.SchoolDivisionID = profileCoaches.SchoolDivisionID;
             existingCoachProfile.SchoolID = profileCoaches.SchoolID;
             existingCoachProfile.SportCategoryID = profileCoaches.SportCategoryID;
+            existingCoachProfile.UploadedBy = profileCoaches.UploadedBy;
 
-            
+
             try
             {
                 await _context.SaveChangesAsync();

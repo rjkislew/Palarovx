@@ -216,7 +216,8 @@ namespace Server.Palaro2026.Controller
                 }
 
                 // 4. Path to save
-                var basePath = @"\\192.168.2.210\pgas_attachment\palaro2026\media\events\official event records";
+                var basePath = @"D:\pgas_attachment\palaro2026\media\events\official event records";
+                //var basePath = @"\\192.168.2.210\pgas_attachment\palaro2026\media\events\official event records";
                 if (!Directory.Exists(basePath))
                 {
                     Directory.CreateDirectory(basePath);

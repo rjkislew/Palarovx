@@ -20,6 +20,7 @@ public partial class ProfilePlayers
     public string? LRN { get; set; }
     
     public int? SportCategoryID { get; set; }
+    public string? UploadedBy { get; set; }
     
     [JsonIgnore]
     public virtual ICollection<EventVersusTeamPlayers> EventVersusTeamPlayers { get; set; } = new List<EventVersusTeamPlayers>();
@@ -31,4 +32,5 @@ public partial class ProfilePlayers
 
     public virtual Sports? Sport { get; set; }
     public virtual SportCategories? SportCategory { get; set; }
+    public virtual Users? UserID { get; set; }
 }

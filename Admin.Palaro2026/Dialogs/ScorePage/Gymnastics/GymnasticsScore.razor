@@ -1,6 +1,10 @@
-﻿@inject ISnackbar Snackbar
+﻿@using Microsoft.AspNetCore.Components
+
+@inject ISnackbar Snackbar
 @inject APIService apiService
 @inject IDialogService DialogService
+@inject CookieService cookieService
+
 
 @if (_isLoaded == true)
 {
@@ -104,6 +108,7 @@
     private int? _opposingTeamId;
     private string _currentUserId = string.Empty;
     
+    private List<PerformanceBasedDTO.PerformanceTeam> _allOpposingTeams = new();
     private List<string> _teamPlayerNames = new();
 
     private List<SportsDTO.SportGenderCategories> _sportGenderCategories = new();
@@ -120,11 +125,13 @@
     {
         try
         {
-            await GetCurrentUser();
+            await GetCurrentUserIdAsync();
+            await LoadAllOpposingTeams();
             await LoadEventData();
             await LoadPlayerAndRegionData();
             await LoadSportData(); 
             await LoadOpposingTeam();
+            await AutoSelectSubcategory();
         }
         catch (Exception ex)
         {
@@ -132,9 +139,34 @@
         }
     }
 
-    private async Task GetCurrentUser()
+    private async Task<string> GetCurrentUserIdAsync()
     {
-        _currentUserId = "current_user_id";
+        try
+        {
+            // Try to get user ID from cookie first
+            var userId = await cookieService.GetCookie("userID");
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                return userId;
+            }
+
+            // If no user ID in cookie, check for token
+            var token = await cookieService.GetCookie("authenticationToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Snackbar.Add("User not authenticated. Please log in.", Severity.Error);
+                return string.Empty;
+            }
+
+            Snackbar.Add("Unable to retrieve user ID. Please log in again.", Severity.Warning);
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting user ID: {ex.Message}", Severity.Error);
+            return string.Empty;
+        }
     }
 
     private async Task LoadEventData()
@@ -410,12 +442,13 @@
 
             _eliminationRank = await GetPlayerEliminationRank(eliminationEventId.Value);
 
-            if (_eliminationRank.HasValue && _eliminationRank.Value >= 9)
+            if (_eliminationRank.HasValue && _eliminationRank.Value >= 11)
             {
                 _isScoreInputDisabled = true;
             }
             else
             {
+
                 _isScoreInputDisabled = false;
             }
         }
@@ -614,6 +647,135 @@
         }
     }
 
+    private async Task LoadAllOpposingTeams()
+    {
+        if (!EventID.HasValue) return;
+
+        try
+        {
+            string url = $"/PerformanceBased/OpposingTeams/{EventID}";
+            _allOpposingTeams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(url)
+                                ?? new List<PerformanceBasedDTO.PerformanceTeam>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading all opposing teams: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task AutoSelectSubcategory()
+    {
+        if (_selectedEvent == null || !_sportSubcategories.Any()) return;
+
+        // First filter subcategories to only show relevant ones
+        await FilterSubcategoriesByMainCategory();
+
+        // Check if we can auto-select based on player count
+        var playerCount = GetPlayerCountPerRegion(_selectedEvent);
+
+        if (playerCount.HasValue)
+        {
+            string targetSubcategoryName = playerCount.Value switch
+            {
+                2 => "(Aero) Mixed Pair",
+                3 => "(Aero) Trio",
+                >= 5 and <= 8 => "(Aero) Aerobic Dance",
+                _ => null
+            };
+
+            if (!string.IsNullOrEmpty(targetSubcategoryName))
+            {
+                var targetSubcategory = _sportSubcategories
+                    .FirstOrDefault(sc =>
+                        sc.Subcategory?.Contains(targetSubcategoryName) == true);
+
+                if (targetSubcategory != null)
+                {
+                    _selectedSubcategoryId = targetSubcategory.ID;
+                    await LoadExistingScore(); // Load existing score if any
+                    StateHasChanged();
+                }
+                else
+                {
+                    // Try fuzzy matching
+                    targetSubcategory = _sportSubcategories
+                        .FirstOrDefault(sc =>
+                            sc.Subcategory?.ToLower().Contains(targetSubcategoryName.ToLower().Replace("(aero) ", "")) == true);
+
+                    if (targetSubcategory != null)
+                    {
+                        _selectedSubcategoryId = targetSubcategory.ID;
+                        await LoadExistingScore();
+                        StateHasChanged();
+                    }
+                }
+            }
+        }
+    }
+
+    private int? GetPlayerCountPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        if (_allOpposingTeams == null || evt?.ID == null) return null;
+
+        // Group by RegionID and TeamID to get unique teams
+        var teamGroups = _allOpposingTeams
+            .Where(team => team.PerformanceID == evt.ID)
+            .GroupBy(team => new { team.RegionID, team.TeamID })
+            .ToList();
+
+        if (!teamGroups.Any()) return null;
+
+        // For individual events (no TeamID), count distinct players per region
+        if (!IsTeamEvent)
+        {
+            var regionGroups = _allOpposingTeams
+                .Where(team => team.PerformanceID == evt.ID)
+                .GroupBy(team => team.RegionID)
+                .ToList();
+
+            return regionGroups.FirstOrDefault()?.Count() ?? 0;
+        }
+
+        // For team events, count players in each team and find the most common count
+        var playerCounts = teamGroups
+            .Select(group => group.Count())
+
+            .Distinct()
+            .ToList();
+
+        // If all teams have the same player count, return that
+        if (playerCounts.Count == 1)
+        {
+            return playerCounts.First();
+        }
+
+        // Otherwise, find the most frequent player count
+        var mostFrequentCount = teamGroups
+            .GroupBy(group => group.Count())
+            .OrderByDescending(g => g.Count())
+            .FirstOrDefault()?.Key;
+
+        return mostFrequentCount;
+    }
+
+    private bool HasTwoPlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        var playerCount = GetPlayerCountPerRegion(evt);
+        return playerCount == 2;
+    }
+
+    private bool HasThreePlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        var playerCount = GetPlayerCountPerRegion(evt);
+        return playerCount == 3;
+    }
+
+    private bool HasFiveToEightPlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        var playerCount = GetPlayerCountPerRegion(evt);
+        return playerCount >= 5 && playerCount <= 8;
+    }
+
     private async Task ConfirmSaveScore()
     {
         if (!_selectedSubcategoryId.HasValue || _scoreValue <= 0 || !_opposingTeamId.HasValue)
@@ -647,6 +809,8 @@
                 return;
             }
 
+            var currentUserId = await GetCurrentUserIdAsync();
+
             var scoreData = new PerformanceBasedDTO.PerformanceScore()
             {
                 PerformanceID = EventID.Value,
@@ -654,7 +818,7 @@
                 SportSubcategoryID = _selectedSubcategoryId.Value,
                 Score = (decimal)_scoreValue,
                 Rank = 0, 
-                UserID = null,
+                UserID = currentUserId,
                 UpdatedAt = DateTime.Now,
                 TeamID = IsTeamEvent ? TeamID : null
             };
