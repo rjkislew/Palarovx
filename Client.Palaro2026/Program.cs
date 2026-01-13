@@ -26,6 +26,7 @@ builder.Services.AddMudServices();
 builder.Services.AddScoped<MapBoxService>();
 builder.Services.AddScoped<APIService>();
 builder.Services.AddScoped<ThemeService>();
+builder.Services.AddScoped<IChatService, ChatService>();
 
 await builder.Build().RunAsync();
 
