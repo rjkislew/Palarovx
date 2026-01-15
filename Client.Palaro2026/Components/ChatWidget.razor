@@ -1,22 +1,21 @@
 ﻿@using Client.Palaro2026.Services
 @using System.Text.Json
 @using System.Text.RegularExpressions
-@using System.Text 
+@using System.Text
 @inject IChatService ChatService
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
 <style>
+    /* ... (KEEP ALL YOUR EXISTING STYLES SAME AS BEFORE) ... */
     :root {
-        /* Minimalist Sports Palette */
-        --min-primary: #0f172a;    /* Deep Navy */
-        --min-accent: #f59e0b;     /* Sport Gold */
+        --min-primary: #0f172a;
+        --min-accent: #f59e0b;
         --min-bg: #ffffff;
         --min-gray: #f8fafc;
         --min-border: #e2e8f0;
     }
 
-    /* --- Chat Window --- */
     .chat-window {
         transition: all 0.3s ease-in-out;
         transform-origin: bottom right;
@@ -29,22 +28,26 @@
         background: var(--min-bg);
     }
 
-    .chat-window.open {
-        opacity: 1;
-        transform: translateY(0);
-        visibility: visible;
-        pointer-events: auto;
+        .chat-window.open {
+            opacity: 1;
+            transform: translateY(0);
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+    .chat-scroll-container::-webkit-scrollbar, .sports-grid::-webkit-scrollbar {
+        width: 4px;
     }
 
-    /* --- Scrollbar --- */
-    .chat-scroll-container::-webkit-scrollbar { width: 4px; }
-    .chat-scroll-container::-webkit-scrollbar-track { background: transparent; }
-    .chat-scroll-container::-webkit-scrollbar-thumb {
+    .chat-scroll-container::-webkit-scrollbar-track, .sports-grid::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .chat-scroll-container::-webkit-scrollbar-thumb, .sports-grid::-webkit-scrollbar-thumb {
         background-color: #cbd5e1;
         border-radius: 4px;
     }
 
-    /* --- Minimalist Bubbles --- */
     .bubble-user {
         background-color: var(--min-primary);
         color: white;
@@ -57,32 +60,41 @@
         border-radius: 16px 16px 16px 2px;
     }
 
-    /* --- FORMATTING STYLES (Para Plastar ang Output) --- */
     .bubble-content {
         line-height: 1.5;
-        font-size: 0.9rem;
+        font-size: 0.95rem;
     }
-    .bubble-content p {
-        margin-bottom: 8px; /* Space between paragraphs */
-        margin-top: 0;
-    }
-    .bubble-content ul, .bubble-content ol {
-        margin-top: 4px;
-        margin-bottom: 8px;
-        padding-left: 20px; /* Indent lists */
-    }
-    .bubble-content li {
-        margin-bottom: 4px;
-    }
-    .bubble-content strong {
-        font-weight: 700;
-        color: inherit;
-    }
-    /* Links inside bubbles */
-    .bubble-ai a { color: #0284c7; text-decoration: underline; }
-    .bubble-user a { color: #fbbf24; text-decoration: underline; }
 
-    /* --- Timestamp Styling --- */
+        .bubble-content p {
+            margin-bottom: 8px;
+            margin-top: 0;
+        }
+
+        .bubble-content ul, .bubble-content ol {
+            margin-top: 4px;
+            margin-bottom: 8px;
+            padding-left: 20px;
+        }
+
+        .bubble-content li {
+            margin-bottom: 4px;
+        }
+
+        .bubble-content strong {
+            font-weight: 700;
+            color: inherit;
+        }
+
+    .bubble-ai a {
+        color: #0284c7;
+        text-decoration: underline;
+    }
+
+    .bubble-user a {
+        color: #fbbf24;
+        text-decoration: underline;
+    }
+
     .msg-timestamp {
         font-size: 0.65rem;
         color: #94a3b8;
@@ -91,12 +103,11 @@
         margin-right: 4px;
     }
 
-    /* --- Expandable Input Area --- */
     .input-area {
         border-top: 1px solid var(--min-border);
         background: var(--min-bg);
         padding: 12px 16px;
-        align-items: flex-end; 
+        align-items: flex-end;
     }
 
     .clean-textarea {
@@ -106,33 +117,64 @@
         font-size: 0.9rem;
         color: #334155;
         background: transparent;
-        resize: none; 
-        max-height: 120px; 
+        resize: none;
+        max-height: 120px;
         overflow-y: auto;
         padding: 0;
-        margin-bottom: 4px; 
+        margin-bottom: 4px;
         font-family: inherit;
         line-height: 1.4;
     }
-    .clean-textarea::placeholder { color: #94a3b8; }
 
-    /* --- Typing Dots --- */
+        .clean-textarea::placeholder {
+            color: #94a3b8;
+        }
+
     .typing-dot {
-        width: 5px; height: 5px;
+        width: 5px;
+        height: 5px;
         background-color: #94a3b8;
         border-radius: 50%;
         animation: simpleBounce 1.4s infinite ease-in-out both;
     }
-    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-    @@keyframes simpleBounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
 
-    /* --- Mobile --- */
+        .typing-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+    @@keyframes simpleBounce {
+        0%, 80%, 100% {
+            transform: scale(0);
+        }
+
+        40% {
+            transform: scale(1);
+        }
+    }
+
+    .sports-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+        max-height: 220px;
+        overflow-y: auto;
+        padding: 4px;
+        width: 100%;
+    }
+
     @@media (max-width: 600px) {
         .chat-window {
-            bottom: 0 !important; right: 0 !important;
-            width: 100% !important; height: 100% !important;
-            max-height: 100vh !important; border-radius: 0 !important;
+            bottom: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-height: 100vh !important;
+            border-radius: 0 !important;
         }
     }
 </style>
@@ -140,17 +182,15 @@
 <!-- CHAT WINDOW -->
 <MudPaper Elevation="0"
           Class="@($"chat-window fixed d-flex flex-column overflow-hidden rounded-xl {(_isOpen ? "open" : "")}")"
-          Style="bottom:90px; right:20px; width:360px; height:600px; max-height:80vh; z-index:2000;">
+          Style="bottom:90px; right:20px; width:380px; height:650px; max-height:80vh; z-index:2000;">
 
-    <!-- MINIMAL HEADER -->
+    <!-- HEADER -->
     <div class="d-flex align-center px-4 py-3" style="background: white; border-bottom: 1px solid var(--min-border);">
         <MudImage Src="./media/images/palaro2026.png" Height="24" Width="24" ObjectFit="ObjectFit.Contain" Class="mr-3" />
-        
         <div class="d-flex flex-column flex-grow-1">
-            <MudText Typo="Typo.subtitle2" Class="fw-bold" Style="color: var(--min-primary);">Palaro Assistant</MudText>
-            <MudText Typo="Typo.caption" Style="color: #94a3b8; font-size: 0.7rem;">Online</MudText>
+            <MudText Typo="Typo.subtitle2" Class="fw-bold" Style="color: var(--min-primary);">Palaro Assistant 🤖</MudText>
+            <MudText Typo="Typo.caption" Style="color: #94a3b8; font-size: 0.7rem;">Online & Ready</MudText>
         </div>
-
         <MudIconButton Icon="@Icons.Material.Rounded.Close" Color="Color.Default" Size="Size.Small" OnClick="ToggleChat" />
     </div>
 
@@ -159,71 +199,144 @@
          @ref="_messagesContainer"
          style="background: white;">
 
+        <!-- 1. EMPTY STATE (Initial View) -->
         @if (_messages.Count == 0)
         {
-            <div class="d-flex flex-column align-center justify-center h-100 pb-10">
-                <!-- Large Logo in Empty State -->
+            <div class="d-flex flex-column align-center justify-center h-100 pb-10 fade-in">
                 <div class="d-flex align-center justify-center mb-4" style="width: 80px; height: 80px; background: #f8fafc; border-radius: 50%;">
-                     <MudImage Src="./media/images/palaro2026.png" Height="50" Width="50" ObjectFit="ObjectFit.Contain" />
+                    <MudImage Src="./media/images/palaro2026.png" Height="50" Width="50" ObjectFit="ObjectFit.Contain" />
                 </div>
-                
-                <MudText Typo="Typo.body2" Class="fw-bold" Style="color: var(--min-primary);">Welcome to Palaro 2026</MudText>
-                <MudText Typo="Typo.caption" Class="text-center mt-1 px-4" Style="color: #94a3b8;">
-                    Ask about schedules, sports results, or venues.
-                </MudText>
-                
-                <div class="mt-6 d-flex gap-2">
-                    <MudChip T="string" Size="Size.Small" OnClick="@(() => SetInputAndSend("Game Schedule"))" Variant="Variant.Outlined" Color="Color.Default">Schedule</MudChip>
-                    <MudChip T="string" Size="Size.Small" OnClick="@(() => SetInputAndSend("Venues"))" Variant="Variant.Outlined" Color="Color.Default">Venues</MudChip>
-                </div>
+
+                @if (!_showVenueSelection && !_showGuidelinesSelection)
+                {
+                    <MudText Typo="Typo.body2" Class="fw-bold" Style="color: var(--min-primary);">Mabuhay! 👋</MudText>
+                    <MudText Typo="Typo.caption" Class="text-center mt-1 px-4 mb-6" Style="color: #94a3b8;">
+                        I'm your Palaro 2026 companion. Ask me anything! 🇵🇭
+                    </MudText>
+
+                    <!-- Main Menu Chips -->
+                    <div class="d-flex flex-wrap justify-center gap-2 px-4">
+                        <MudChip T="string" Size="Size.Medium" OnClick="@(() => ToggleGuidelinesSelection(true))" Variant="Variant.Outlined" Color="Color.Primary" Icon="@Icons.Material.Filled.Description">📋 Guidelines</MudChip>
+                        <MudChip T="string" Size="Size.Medium" OnClick="@(() => ToggleVenueSelection(true))" Variant="Variant.Filled" Color="Color.Primary" Icon="@Icons.Material.Filled.Place">📍 Venues</MudChip>
+                    </div>
+                }
+                else if (_showGuidelinesSelection)
+                {
+                    <MudText Typo="Typo.body2" Class="fw-bold mb-1" Style="color: var(--min-primary);">Guidelines 📋</MudText>
+                    <MudText Typo="Typo.caption" Class="text-center mb-4" Style="color: #94a3b8;">Click to ask for guidelines.</MudText>
+                    <div class="sports-grid px-2">
+                        @foreach (var sport in _sportsList)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Dark" OnClick="@(() => SelectSportGuidelines(sport))" Class="m-0" Style="border-color: #e2e8f0; font-size: 0.75rem;">@sport</MudChip>
+                        }
+                    </div>
+                    <MudButton OnClick="@(() => ToggleGuidelinesSelection(false))" Variant="Variant.Text" Color="Color.Secondary" Size="Size.Small" StartIcon="@Icons.Material.Rounded.ArrowBack" Class="mt-4">Back to Menu</MudButton>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="fw-bold mb-1" Style="color: var(--min-primary);">Select a Sport 🏟️</MudText>
+                    <MudText Typo="Typo.caption" Class="text-center mb-4" Style="color: #94a3b8;">Click to ask for the venue.</MudText>
+                    <div class="sports-grid px-2">
+                        @foreach (var sport in _sportsList)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Dark" OnClick="@(() => SelectSportVenue(sport))" Class="m-0" Style="border-color: #e2e8f0; font-size: 0.75rem;">@sport</MudChip>
+                        }
+                    </div>
+                    <MudButton OnClick="@(() => ToggleVenueSelection(false))" Variant="Variant.Text" Color="Color.Secondary" Size="Size.Small" StartIcon="@Icons.Material.Rounded.ArrowBack" Class="mt-4">Back to Menu</MudButton>
+                }
             </div>
         }
         else
         {
-            <MudStack Spacing="3" Class="pb-4">
-                @foreach (var message in _messages)
-                {
-                    <div class="d-flex w-100 @(message.IsUser ? "justify-end" : "justify-start")">
-                        
-                        <!-- AI PROFILE PIC (Only shows if not user) -->
-                        @if (!message.IsUser)
-                        {
+            <!-- 2. CONVERSATION VIEW -->
+            <div class="d-flex flex-column h-100">
+                <MudStack Spacing="3" Class="flex-grow-1">
+                    @foreach (var message in _messages)
+                    {
+                        <div class="d-flex w-100 @(message.IsUser ? "justify-end" : "justify-start")">
+                            @if (!message.IsUser)
+                            {
+                                <MudAvatar Size="Size.Small" Class="mr-2 mt-1" Style="background: transparent;">
+                                    <MudImage Src="./media/images/palaro2026.png" ObjectFit="ObjectFit.Contain" />
+                                </MudAvatar>
+                            }
+                            <div class="d-flex flex-column" style="max-width: 80%;">
+                                <div class="pa-3 px-4 @(message.IsUser ? "bubble-user" : "bubble-ai")">
+                                    <div class="bubble-content">
+                                        @((MarkupString)GetFormattedMessage(message.Content))
+                                    </div>
+                                </div>
+                                <div class="d-flex @(message.IsUser ? "justify-end" : "justify-start")">
+                                    <span class="msg-timestamp">@message.Timestamp.ToString("h:mm tt")</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (_isSending)
+                    {
+                        <div class="d-flex w-100 justify-start">
                             <MudAvatar Size="Size.Small" Class="mr-2 mt-1" Style="background: transparent;">
                                 <MudImage Src="./media/images/palaro2026.png" ObjectFit="ObjectFit.Contain" />
                             </MudAvatar>
-                        }
-
-                        <div class="d-flex flex-column" style="max-width: 80%;">
-                            <!-- Bubble with Enhanced Content Class -->
-                            <div class="pa-3 px-4 @(message.IsUser ? "bubble-user" : "bubble-ai")">
-                                <div class="bubble-content">
-                                    @((MarkupString)GetFormattedMessage(message.Content))
-                                </div>
-                            </div>
-
-                            <!-- Timestamp -->
-                            <div class="d-flex @(message.IsUser ? "justify-end" : "justify-start")">
-                                <span class="msg-timestamp">@message.Timestamp.ToString("h:mm tt")</span>
+                            <div class="bubble-ai pa-3 px-4 d-flex align-center gap-1">
+                                <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
                             </div>
                         </div>
+                    }
+                </MudStack>
 
-                    </div>
-                }
-
-                @if (_isSending)
+                <!-- 3. BOTTOM SELECTION UI (Visible even if messages exist) -->
+                @if ((_showVenueSelection || _showGuidelinesSelection || _showMainMenu) && !_isSending)
                 {
-                    <div class="d-flex w-100 justify-start">
-                        <!-- AI Avatar for loading state too -->
-                        <MudAvatar Size="Size.Small" Class="mr-2 mt-1" Style="background: transparent;">
-                                <MudImage Src="./media/images/palaro2026.png" ObjectFit="ObjectFit.Contain" />
-                        </MudAvatar>
+                    <div class="d-flex flex-column align-center justify-center mt-4 pt-3 pb-2"
+                         style="border-top: 1px dashed var(--min-border); background: #fdfdfd;">
 
-                        <div class="bubble-ai pa-3 px-4 d-flex align-center gap-1">
-                            <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
-                        </div>
+                        @if (_showMainMenu)
+                        {
+                            <!-- MAIN MENU (Appears at bottom after clicking Back to Menu) -->
+                            <MudText Typo="Typo.caption" Class="fw-bold mb-3" Style="color: var(--min-primary);">Select an Option</MudText>
+                            <div class="d-flex flex-wrap justify-center gap-2 px-4">
+                                <MudChip T="string" Size="Size.Small" OnClick="@(() => ToggleGuidelinesSelection(true))" Variant="Variant.Outlined" Color="Color.Primary" Icon="@Icons.Material.Filled.Description">Guidelines</MudChip>
+                                <MudChip T="string" Size="Size.Small" OnClick="@(() => ToggleVenueSelection(true))" Variant="Variant.Filled" Color="Color.Primary" Icon="@Icons.Material.Filled.Place">Venues</MudChip>
+                            </div>
+                            <MudButton OnClick="@(() => CloseAllMenus())" Variant="Variant.Text" Color="Color.Default" Size="Size.Small" StartIcon="@Icons.Material.Rounded.Close" Class="mt-2">Hide Menu</MudButton>
+                        }
+                        else if (_showGuidelinesSelection)
+                        {
+                            <!-- GUIDELINES SUB-MENU -->
+                            <MudText Typo="Typo.caption" Class="fw-bold mb-3" Style="color: var(--min-primary);">📋 Select Sport for Guidelines</MudText>
+                            <div class="sports-grid px-2" style="max-height: 160px;">
+                                @foreach (var sport in _sportsList)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Dark" OnClick="@(() => SelectSportGuidelines(sport))" Class="m-0" Style="border-color: #e2e8f0; font-size: 0.75rem;">@sport</MudChip>
+                                }
+                            </div>
+                            <div class="d-flex gap-2 mt-3">
+                                <MudButton OnClick="@(() => { _wasInGuidelinesSelection = false; _showGuidelinesSelection = false; StateHasChanged(); })" Variant="Variant.Text" Color="Color.Secondary" Size="Size.Small" StartIcon="@Icons.Material.Rounded.ArrowBack">Back to Chat</MudButton>
+                                <!-- Back to Menu: Shows Main Menu Logic -->
+                                <MudButton OnClick="@(() => ShowMainMenu())" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Rounded.Home">Back to Menu</MudButton>
+                            </div>
+                        }
+                        else if (_showVenueSelection)
+                        {
+                            <!-- VENUE SUB-MENU -->
+                            <MudText Typo="Typo.caption" Class="fw-bold mb-3" Style="color: var(--min-primary);">🏟️ Select Sport for Venue</MudText>
+                            <div class="sports-grid px-2" style="max-height: 160px;">
+                                @foreach (var sport in _sportsList)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Dark" OnClick="@(() => SelectSportVenue(sport))" Class="m-0" Style="border-color: #e2e8f0; font-size: 0.75rem;">@sport</MudChip>
+                                }
+                            </div>
+                            <div class="d-flex gap-2 mt-3">
+                                <MudButton OnClick="@(() => { _wasInVenueSelection = false; _showVenueSelection = false; StateHasChanged(); })" Variant="Variant.Text" Color="Color.Secondary" Size="Size.Small" StartIcon="@Icons.Material.Rounded.ArrowBack">Back to Chat</MudButton>
+                                <!-- Back to Menu: Shows Main Menu Logic -->
+                                <MudButton OnClick="@(() => ShowMainMenu())" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Rounded.Home">Back to Menu</MudButton>
+                            </div>
+                        }
                     </div>
                 }
-            </MudStack>
+            </div>
         }
     </div>
 
@@ -243,7 +356,7 @@
                        Size="Size.Small"
                        Disabled="@(string.IsNullOrWhiteSpace(_messageInput) || _isSending)"
                        OnClick="SendMessage"
-                       Class="ml-2 mb-1" 
+                       Class="ml-2 mb-1"
                        Variant="Variant.Text" />
     </div>
 
@@ -263,12 +376,34 @@
     private string _messageInput = string.Empty;
     private bool _isOpen;
     private bool _isSending;
+
+    // UI States
+    private bool _showVenueSelection = false;
+    private bool _showGuidelinesSelection = false;
+    private bool _showMainMenu = false; // New: Controls the bottom main menu
+
+    // Memory States (To remember where we were)
+    private bool _wasInVenueSelection = false;
+    private bool _wasInGuidelinesSelection = false;
+
     private ElementReference _messagesContainer;
+
+    private List<string> _sportsList = new()
+    {
+        "Archery", "Arnis", "Athletics", "Badminton", "Baseball",
+        "Basketball (3x3)", "Basketball (Boys)", "Basketball (Girls)",
+        "Billiards", "Boxing", "Chess", "Dance Sports",
+        "Football", "Futsal", "Gymnastics", "Pencak Silat",
+        "Sepak Takraw", "Softball", "Swimming", "Table Tennis",
+        "Taekwondo", "Tennis", "Volleyball", "Wrestling",
+        "Weightlifting", "Wushu", "Paragames"
+    };
 
     protected override async Task OnInitializedAsync()
     {
         ChatService.OnMessagesChanged += OnMessagesChanged;
-        _messages = await ChatService.GetMessagesAsync();
+        var serviceMessages = await ChatService.GetMessagesAsync();
+        _messages = serviceMessages.ToList();
     }
 
     private void OnMessagesChanged() => _ = OnMessagesChangedAsync();
@@ -278,11 +413,89 @@
         var newMessages = await ChatService.GetMessagesAsync();
         if (_messages.Count != newMessages.Count)
         {
-            _messages = newMessages;
+            _messages = newMessages.ToList();
             await InvokeAsync(StateHasChanged);
             await ScrollToBottom();
         }
     }
+
+    // --- NAVIGATION LOGIC ---
+
+    // Switch to Venue List
+    private void ToggleVenueSelection(bool show)
+    {
+        _showVenueSelection = show;
+        _showGuidelinesSelection = false;
+        _showMainMenu = false; // Hide main menu when going deep
+
+        if (show)
+        {
+            _wasInVenueSelection = true;
+            _wasInGuidelinesSelection = false;
+        }
+        StateHasChanged();
+    }
+
+    // Switch to Guidelines List
+    private void ToggleGuidelinesSelection(bool show)
+    {
+        _showGuidelinesSelection = show;
+        _showVenueSelection = false;
+        _showMainMenu = false; // Hide main menu when going deep
+
+        if (show)
+        {
+            _wasInGuidelinesSelection = true;
+            _wasInVenueSelection = false;
+        }
+        StateHasChanged();
+    }
+
+    // Show the Main Menu (Chips) at the bottom
+    private void ShowMainMenu()
+    {
+        _showVenueSelection = false;
+        _showGuidelinesSelection = false;
+
+        // Reset memory so bot doesn't auto-open lists next time
+        _wasInVenueSelection = false;
+        _wasInGuidelinesSelection = false;
+
+        _showMainMenu = true;
+        StateHasChanged();
+    }
+
+    private void CloseAllMenus()
+    {
+        _showVenueSelection = false;
+        _showGuidelinesSelection = false;
+        _showMainMenu = false;
+        _wasInVenueSelection = false;
+        _wasInGuidelinesSelection = false;
+        StateHasChanged();
+    }
+
+    // User selected a sport
+    private async Task SelectSportVenue(string sport)
+    {
+        // Remember we were here so we can re-open after reply
+        _wasInVenueSelection = true;
+        _showVenueSelection = false; // Temporarily hide while sending
+
+        string question = $"Where is the venue for {sport}?";
+        await SetInputAndSend(question);
+    }
+
+    private async Task SelectSportGuidelines(string sport)
+    {
+        _wasInGuidelinesSelection = true;
+        _showGuidelinesSelection = false;
+
+        string question = $"Tell me the guidelines for {sport} in Palaro 2026.";
+        await SetInputAndSend(question);
+    }
+
+    // --- SENDING LOGIC ---
 
     private async Task SetInputAndSend(string text)
     {
@@ -293,11 +506,7 @@
 
     private async Task AutoExpandTextarea()
     {
-        try
-        {
-            await JS.InvokeVoidAsync("eval", "var el = document.getElementById('chatInputBox'); window.expandTextarea(el);");
-        }
-        catch { }
+        try { await JS.InvokeVoidAsync("eval", "var el = document.getElementById('chatInputBox'); window.expandTextarea(el);"); } catch { }
     }
 
     private async Task SendMessage()
@@ -309,24 +518,36 @@
 
         await JS.InvokeVoidAsync("eval", "var el = document.getElementById('chatInputBox'); if(el) el.style.height = 'auto';");
 
-        // Optimistic Update
-        _messages.Add(new ChatMessage 
-        { 
-            Content = textToSend, 
-            IsUser = true, 
-            Timestamp = DateTime.Now 
-        });
+        // Optimistic UI
+        _messages.Add(new ChatMessage { Content = textToSend, IsUser = true, Timestamp = DateTime.Now });
 
         _isSending = true;
-        StateHasChanged(); 
+        // Hide menus while thinking
+        _showMainMenu = false;
+        _showVenueSelection = false;
+        _showGuidelinesSelection = false;
+
+        StateHasChanged();
         await ScrollToBottom();
 
         await ChatService.SendMessageAsync(textToSend);
 
         var updatedMessages = await ChatService.GetMessagesAsync();
-        _messages = updatedMessages; 
-        
+        _messages = updatedMessages.ToList();
+
         _isSending = false;
+
+        // --- RESTORE UI STATE AFTER REPLY ---
+        if (_wasInVenueSelection)
+        {
+            _showVenueSelection = true;
+        }
+        else if (_wasInGuidelinesSelection)
+        {
+            _showGuidelinesSelection = true;
+        }
+        // If we weren't in a specific flow, we don't show the Main Menu automatically
+        // unless you want to. For now, it stays hidden until requested.
 
         await InvokeAsync(StateHasChanged);
         await ScrollToBottom();
@@ -334,51 +555,28 @@
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !e.ShiftKey)
-        {
-            await SendMessage();
-        }
+        if (e.Key == "Enter" && !e.ShiftKey) await SendMessage();
     }
 
     private async Task ToggleChat()
     {
         _isOpen = !_isOpen;
-        if (_isOpen)
-        {
-            await Task.Delay(100);
-            await ScrollToBottom();
-        }
+        if (_isOpen) { await Task.Delay(100); await ScrollToBottom(); }
     }
 
     private async Task ScrollToBottom()
     {
-        try
-        {
-            await JS.InvokeVoidAsync("eval", "var el = document.querySelector('.chat-scroll-container'); if(el) el.scrollTop = el.scrollHeight;");
-        }
-        catch { }
+        try { await JS.InvokeVoidAsync("eval", "var el = document.querySelector('.chat-scroll-container'); if(el) el.scrollTop = el.scrollHeight;"); } catch { }
     }
 
-    // --- ENHANCED FORMATTING LOGIC (Para Plastar) ---
     private string GetFormattedMessage(string content)
     {
         if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+        if (content.TrimStart().StartsWith("{")) { try { using var doc = JsonDocument.Parse(content); if (doc.RootElement.TryGetProperty("output", out var o)) content = o.GetString() ?? content; } catch { } }
 
-        // 1. JSON CLEANING
-        if (content.TrimStart().StartsWith("{"))
-        {
-            try
-            {
-                using var doc = JsonDocument.Parse(content);
-                if (doc.RootElement.TryGetProperty("output", out var o)) content = o.GetString() ?? content;
-            }
-            catch { }
-        }
-
-        // 2. ESCAPE HTML (Security First)
+        content = InjectEmojis(content);
         content = System.Net.WebUtility.HtmlEncode(content);
 
-        // 3. PROCESS MARKDOWN-LIKE SYNTAX LINE BY LINE
         var sb = new StringBuilder();
         var lines = content.Split('\n');
         bool inList = false;
@@ -386,79 +584,50 @@
         foreach (var line in lines)
         {
             var trimmedLine = line.Trim();
-
-            // Detect Bullet Points (- item or * item)
             if (trimmedLine.StartsWith("- ") || trimmedLine.StartsWith("* "))
             {
-                if (!inList)
-                {
-                    sb.Append("<ul>");
-                    inList = true;
-                }
-                var text = trimmedLine.Substring(2);
-                sb.Append($"<li>{FormatInline(text)}</li>");
+                if (!inList) { sb.Append("<ul>"); inList = true; }
+                sb.Append($"<li>{FormatInline(trimmedLine.Substring(2))}</li>");
             }
-            // Detect Numbered Lists (1. item)
             else if (Regex.IsMatch(trimmedLine, @"^\d+\.\s"))
             {
-                // Simple approach: treat numbered lists as bullets for chat simplicity, 
-                // or you could add 'inOrderedList' logic. 
-                // Let's stick to simple list for now to avoid complexity bugs.
-                if (!inList)
-                {
-                    sb.Append("<ul>");
-                    inList = true;
-                }
-                var text = Regex.Replace(trimmedLine, @"^\d+\.\s", "");
-                sb.Append($"<li>{FormatInline(text)}</li>");
+                if (!inList) { sb.Append("<ul>"); inList = true; }
+                sb.Append($"<li>{FormatInline(Regex.Replace(trimmedLine, @"^\d+\.\s", ""))}</li>");
             }
             else
             {
-                if (inList)
-                {
-                    sb.Append("</ul>");
-                    inList = false;
-                }
-
-                if (string.IsNullOrWhiteSpace(trimmedLine))
-                {
-                    // Empty lines become spacing
-                    continue; 
-                }
-
-                // Headers (### Header) -> Convert to Bold paragraph
-                if (trimmedLine.StartsWith("### ") || trimmedLine.StartsWith("## ") || trimmedLine.StartsWith("# "))
-                {
-                    var text = Regex.Replace(trimmedLine, @"^#+\s", "");
-                    sb.Append($"<p><strong>{FormatInline(text)}</strong></p>");
-                }
-                else
-                {
-                    // Standard Paragraph
-                    sb.Append($"<p>{FormatInline(trimmedLine)}</p>");
-                }
+                if (inList) { sb.Append("</ul>"); inList = false; }
+                if (string.IsNullOrWhiteSpace(trimmedLine)) continue;
+                if (trimmedLine.StartsWith("#")) sb.Append($"<p><strong>{FormatInline(Regex.Replace(trimmedLine, @"^#+\s", ""))}</strong></p>");
+                else sb.Append($"<p>{FormatInline(trimmedLine)}</p>");
             }
         }
-
         if (inList) sb.Append("</ul>");
-
         return sb.ToString();
     }
 
-    // Helper for Bold, Italic, Links inside lines
+    private string InjectEmojis(string text)
+    {
+        if (text.Contains("🏀") || text.Contains("🥇")) return text;
+        text = text.Replace("Basketball", "Basketball 🏀", StringComparison.OrdinalIgnoreCase)
+                   .Replace("Volleyball", "Volleyball 🏐", StringComparison.OrdinalIgnoreCase)
+                   .Replace("Swimming", "Swimming 🏊", StringComparison.OrdinalIgnoreCase)
+                   .Replace("Football", "Football ⚽", StringComparison.OrdinalIgnoreCase)
+                   .Replace("Gold", "Gold 🥇", StringComparison.OrdinalIgnoreCase)
+                   .Replace("Silver", "Silver 🥈", StringComparison.OrdinalIgnoreCase)
+                   .Replace("Bronze", "Bronze 🥉", StringComparison.OrdinalIgnoreCase)
+                   .Replace("Champion", "Champion 🏆", StringComparison.OrdinalIgnoreCase)
+                   .Replace("Schedule", "Schedule 📅", StringComparison.OrdinalIgnoreCase)
+                   .Replace("Venue", "Venue 📍", StringComparison.OrdinalIgnoreCase)
+                   .Replace("Palaro", "Palaro 🔥", StringComparison.OrdinalIgnoreCase);
+        return text;
+    }
+
     private string FormatInline(string text)
     {
-        // Bold (**text**)
         text = Regex.Replace(text, @"\*\*(.*?)\*\*", "<strong>$1</strong>");
-        
-        // Italic (*text*)
         text = Regex.Replace(text, @"\*(.*?)\*", "<em>$1</em>");
-
-        // Links
-        text = Regex.Replace(text, 
-            @"((http|https):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&amp;:/~\+#]*[\w\-\@?^=%&amp;/~\+#])?)", 
-            "<a href='$1' target='_blank'>$1</a>");
-
+        text = Regex.Replace(text, @"((http|https):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&amp;:/~\+#]*[\w\-\@?^=%&amp;/~\+#])?)", "<a href='$1' target='_blank'>$1</a>");
         return text;
     }
 
@@ -470,9 +639,6 @@
 
 <script suppress-error="BL9992">
     window.expandTextarea = function(el) {
-        if (el) {
-            el.style.height = 'auto';
-            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-        }
+        if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
     };
 </script>
