@@ -2,6 +2,7 @@
 @inject ISnackbar Snackbar
 @inject APIService apiService
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
 
 <PageTitle>Billiards Scoring | PALARO 2026</PageTitle>
 <MudText Typo="Typo.h6" Align="Align.Center">Billiards Match</MudText>
@@ -175,7 +176,39 @@
                     </MudPaper>
 
                     <MudDivider Class="my-2" />
-                    <MudText Typo="Typo.h6" Align="Align.Center">Match Tables (Knockout)</MudText>
+
+                    <MudGrid Class="" Style="align-items:center"
+                             Spacing="4">
+
+                        <!-- Left spacer -->
+                        <MudItem xs="4" />
+
+                        <!-- Center title -->
+                        <MudItem xs="4">
+                            <MudText Typo="Typo.h6" Align="Align.Center">
+                                Match Tables
+                            </MudText>
+                        </MudItem>
+
+                        <!-- Right button -->
+                        <MudItem xs="4">
+                            <MudStack Row="true" Justify="Justify.FlexEnd">
+                                <MudIconButton 
+                                               Icon="@Icons.Material.Filled.Settings"
+                                               OnClick="@(() => OpenEditEventDialog(SelectedEvent?.ID))">
+                                </MudIconButton>
+                                <MudButton Color="Color.Tertiary" Variant="Variant.Filled"
+                                           StartIcon="@Icons.Material.Filled.ArrowCircleRight"
+                                           OnClick="ProceedToNextStage">
+                                    Proceed to next stage
+                                </MudButton>
+                            </MudStack>
+                        </MudItem>
+
+                    </MudGrid>
+
+
+
                     <MudDivider Class="my-2" />
 
                     <MudGrid Spacing="3" Class="my-2" Justify="Justify.Center">
@@ -245,42 +278,76 @@
                                         </MudItem>
                                     </MudGrid>
 
-
+                                    <!-- SCORE INPUT SECTION -->
                                     <MudGrid Class="mt-1">
+                                        <!-- Player 1 Score Input -->
                                         <MudItem xs="6">
-                                            <MudButton Variant="Variant.Outlined"
-                                                       Color="Color.Success"
-                                                       FullWidth
-                                                       OnClick="@(() => UpdateScore(table, "win", "Player1"))"
-                                                       Title="Player 1 Wins (Player 2 is eliminated)">
-                                                Player 1 Wins
-                                            </MudButton>
+                                            <MudStack Style="text-align: center;">
+                                                <MudText Typo="Typo.caption" Class="mb-1" Align="Align.Center">Player 1 Score</MudText>
+                                                <MudStack Row="true" Justify="Justify.Center" Spacing="2">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Remove"
+                                                                   Size="Size.Small"
+                                                                   OnClick="@(() => AdjustScore(table, "Player1", -1))"
+                                                                   Disabled="@(GetPlayerScore(table, "Player1") <= 0 || IsMatchCompleted(table))" />
+
+                                                    @{
+                                                        var player1ScoreStr = GetPlayerScore(table, "Player1").ToString();
+                                                    }
+                                                    <MudText Typo="Typo.body2" Align="Align.Center">
+                                                        @player1ScoreStr
+                                                    </MudText>
+
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                                                   Size="Size.Small"
+                                                                   OnClick="@(() => AdjustScore(table, "Player1", 1))"
+                                                                   Disabled="@IsMatchCompleted(table)" />
+                                                </MudStack>
+                                            </MudStack>
                                         </MudItem>
+
+                                        <!-- Player 2 Score Input -->
                                         <MudItem xs="6">
-                                            <MudButton Variant="Variant.Outlined"
-                                                       Color="Color.Success"
-                                                       FullWidth
-                                                       OnClick="@(() => UpdateScore(table, "win", "Player2"))"
-                                                       Title="Player 2 Wins (Player 1 is eliminated)">
-                                                Player 2 Wins
-                                            </MudButton>
+                                            <MudStack Style="text-align: center;">
+                                                <MudText Typo="Typo.caption" Class="mb-1" Align="Align.Center">Player 2 Score</MudText>
+                                                <MudStack Row="true" Justify="Justify.Center" Spacing="2">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Remove"
+                                                                   Size="Size.Small"
+                                                                   OnClick="@(() => AdjustScore(table, "Player2", -1))"
+                                                                   Disabled="@(GetPlayerScore(table, "Player2") <= 0 || IsMatchCompleted(table))" />
+
+                                                    @{
+                                                        var player2ScoreStr = GetPlayerScore(table, "Player2").ToString();
+                                                    }
+                                                    <MudText Typo="Typo.body2" Align="Align.Center">
+                                                        @player2ScoreStr
+                                                    </MudText>
+
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                                                   Size="Size.Small"
+                                                                   OnClick="@(() => AdjustScore(table, "Player2", 1))"
+                                                                   Disabled="@IsMatchCompleted(table)" />
+                                                </MudStack>
+                                            </MudStack>
                                         </MudItem>
                                     </MudGrid>
 
-                                    @if (GetResultIndicator(table, "Player1") != null || GetResultIndicator(table, "Player2") != null)
-                                    {
-                                        <MudGrid Class="mt-1">
-                                            <MudItem xs="12">
-                                                <MudButton Variant="Variant.Text"
-                                                           Color="Color.Error"
-                                                           FullWidth
-                                                           OnClick="@(() => ClearTableScore(table))"
-                                                           Size="Size.Small">
-                                                    Clear Result
-                                                </MudButton>
-                                            </MudItem>
-                                        </MudGrid>
-                                    }
+                                    <!-- MATCH STATUS AND CONTROLS -->
+                                    <MudGrid Class="mt-2">
+                                        <MudItem xs="12">
+                                            @if (IsMatchCompleted(table))
+                                            {
+                                                <MudAlert Severity="Severity.Success" Variant="Variant.Filled" Dense>
+                                                    @GetMatchResultText(table)
+                                                </MudAlert>
+                                            }
+                                            else
+                                            {
+                                                <MudText Typo="Typo.body2" Class="text-center" Color="Color.Default">
+                                                    Race to @GetTargetScore(table) racks
+                                                </MudText>
+                                            }
+                                        </MudItem>
+                                    </MudGrid>
                                 </MudPaper>
                             </MudItem>
                         }
@@ -357,9 +424,10 @@
     private Dictionary<int, (string? PlayerID, string? PlayerName)> _regionPlayerMap = new();
     private HashSet<int> _eliminatedRegions = new HashSet<int>();
 
+    private Dictionary<string, (int player1Score, int player2Score, bool matchCompleted)> _tableScores = new();
+
     private List<RegionItem> BaseRegions = new();
 
-    // Add these private fields for query parameter handling
     private string? _selectedEventId;
     private string? _storedSubcategoryName;
     private string? _storedStageName;
@@ -394,6 +462,7 @@
         public int SetNo { get; set; }
         public int TableNo { get; set; }
         public string? PlayerPosition { get; set; }
+        public int? Score { get; set; }
         public bool? IsWinner { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
@@ -434,6 +503,7 @@
         public int SetNo { get; set; }
         public int TableNo { get; set; }
         public string? PlayerPosition { get; set; }
+        public int? Score { get; set; }
         public bool? IsWinner { get; set; }
         public string? PlayerID { get; set; }
     }
@@ -443,9 +513,48 @@
         public int ID { get; set; }
         public int? TableNo { get; set; }
         public string? PlayerPosition { get; set; }
+        public int? Score { get; set; }
         public bool? IsWinner { get; set; }
         public int? SetNo { get; set; }
         public string? PlayerID { get; set; }
+    }
+
+    public class ProgressionDTO
+    {
+        public class ProgressionTeamSelection
+        {
+            public int? SelectedRegionID { get; set; }
+            public List<string> SelectedPlayerIDs { get; set; } = new();
+            public List<ProfilePlayerDTO> AvailablePlayers { get; set; } = new();
+            public int ExistingVersusTeamID { get; set; }
+            public string? Score { get; set; }
+            public string? Rank { get; set; }
+        }
+
+        public class ProfilePlayerDTO
+        {
+            public string? ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+    }
+
+    public class WinnerResponse
+    {
+        public int ID { get; set; }
+        public int? SchoolRegionID { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? Score { get; set; }
+        public string? Rank { get; set; }
+        public List<PlayerResponse> Players { get; set; } = new();
+    }
+
+    public class PlayerResponse
+    {
+        public string? ProfilePlayerID { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
     }
 
     public class EventsDTO
@@ -459,6 +568,7 @@
         public class EventDetails
         {
             public string ID { get; set; } = null!;
+            public int? EventStageID { get; set; }
             public string? EventStage { get; set; }
             public List<EventVersusTeams>? EventVersusList { get; set; }
             public string? SportMainCat { get; set; }
@@ -469,17 +579,22 @@
             public string? Subcategory { get; set; }
             public string? Gender { get; set; }
             public string? Level { get; set; }
+            public int? EventVenuesID { get; set; }
             public string? Venue { get; set; }
             public decimal? Latitude { get; set; }
             public decimal? Longitude { get; set; }
             public DateTime? Date { get; set; }
             public TimeSpan? Time { get; set; }
             public bool? OnStream { get; set; }
+            public int? EventStreamID { get; set; }
+            public int? EventStreamServiceID { get; set; }
             public string? StreamService { get; set; }
             public string? StreamURL { get; set; }
             public bool? IsFinished { get; set; }
             public bool? Archived { get; set; }
             public bool? Deleted { get; set; }
+            public string? UserID { get; set; }
+            public int? BracketID { get; set; }
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
         }
@@ -487,6 +602,8 @@
         public class EventVersusTeams
         {
             public int ID { get; set; }
+            public string? EventID { get; set; }
+            public int? SchoolRegionID { get; set; }
             public string? Score { get; set; }
             public string? Region { get; set; }
             public string? Abbreviation { get; set; }
@@ -499,9 +616,29 @@
         {
             public int ID { get; set; }
             public int? EventVersusID { get; set; }
+            public string? ProfilePlayerID { get; set; }
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
             public string? School { get; set; }
+        }
+    }
+
+    public class ProfilesDTO
+    {
+        public class ProfilePlayerEvent
+        {
+            public string? ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public int? RegionID { get; set; }
+            public int? SubCategoryID { get; set; }
+        }
+
+        public class ProfilePlayer
+        {
+            public string? ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
         }
     }
 
@@ -533,7 +670,6 @@
         }
     }
 
-    // UPDATED OnInitializedAsync method
     protected override async Task OnInitializedAsync()
     {
         // Parse query parameters first
@@ -546,15 +682,14 @@
         }
         else
         {
-            // Original initialization
             await LoadAvailableOptions();
             await FilterSchoolLevelAndGenderAsync();
         }
 
         Tables = new List<string> { "Table 1", "Table 2", "Table 3", "Table 4" };
+        InitializeTableScores();
     }
 
-    // ADDED: ParseQueryParameters method
     private async Task ParseQueryParameters()
     {
         try
@@ -599,8 +734,6 @@
         }
     }
 
-    // ADDED: LoadEventAndAutoFillFilters method
-    // ADDED: LoadEventAndAutoFillFilters method
     private async Task LoadEventAndAutoFillFilters()
     {
         try
@@ -691,7 +824,6 @@
         catch (Exception ex)
         {
             Snackbar.Add($"Error loading event: {ex.Message}", Severity.Error);
-            // Fall back to normal initialization
             await FilterSchoolLevelAndGenderAsync();
         }
     }
@@ -764,13 +896,11 @@
         }
     }
 
-    // UPDATED: GetEventStagesAsync method
     private async Task GetEventStagesAsync()
     {
         string url = "/Events/Stages";
         _eventStages = await apiService.GetAsync<EventsDTO.EventStages>(url);
 
-        // Try to auto-select stage if we have a stored name
         if (!string.IsNullOrEmpty(_storedStageName) && _eventStages != null)
         {
             var stage = _eventStages.FirstOrDefault(e =>
@@ -779,7 +909,7 @@
             if (stage != null)
             {
                 _selectedEventStagesIDValue = stage.ID;
-                _storedStageName = null; // Clear after use
+                _storedStageName = null;
             }
         }
     }
@@ -796,7 +926,6 @@
         _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
     }
 
-    // UPDATED: GetSportSubCategoriesSLGAsync method
     private async Task GetSportSubCategoriesSLGAsync()
     {
         if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
@@ -832,7 +961,7 @@
                 if (subcat != null)
                 {
                     _selectedSportSubcategoryIDValue = subcat.ID;
-                    _storedSubcategoryName = null; // Clear after use
+                    _storedSubcategoryName = null; 
                 }
             }
         }
@@ -880,21 +1009,24 @@
             .Select(sc => sc.MainCategory!).Distinct().ToList() ?? new List<string>();
     }
 
-    // UPDATED: ApplyFilters method
+    // ApplyFilters method
     private async Task ApplyFilters()
     {
         try
         {
             var queryParams = new List<string>();
 
-            // If we have an eventId, use it as the primary filter
+            // Always include sport filter
+            queryParams.Add("sport=Billiards");
+
+            // If eventId exist, use it as the primary filter
             if (!string.IsNullOrEmpty(_selectedEventId))
             {
                 queryParams.Add($"eventId={Uri.EscapeDataString(_selectedEventId)}");
             }
             else
             {
-                // Use other filters only if eventId is not provided
+                // Add subcategory filter
                 if (_selectedSportSubcategoryIDValue.HasValue)
                 {
                     var subcategoryName = _sportSubcategories?.FirstOrDefault(s => s.ID == _selectedSportSubcategoryIDValue.Value)?.Subcategory;
@@ -902,6 +1034,7 @@
                         queryParams.Add($"subcategory={Uri.EscapeDataString(subcategoryName)}");
                 }
 
+                // Add school level and gender filters
                 if (!string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
                 {
                     var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
@@ -912,6 +1045,7 @@
                     }
                 }
 
+                // Add event stage filter
                 if (_selectedEventStagesIDValue.HasValue)
                 {
                     var stageName = _eventStages?.FirstOrDefault(e => e.ID == _selectedEventStagesIDValue.Value)?.Stage;
@@ -922,7 +1056,7 @@
 
             var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
 
-            // Use the BilliardsScoring events endpoint
+            // Use BilliardsScoring events endpoint
             var events = await apiService.GetAsync<BilliardsEventDTO>($"/BilliardsScoring/events{queryString}");
 
             if (events != null && events.Any())
@@ -930,6 +1064,7 @@
                 _regionPlayerMap.Clear();
                 _eliminatedRegions.Clear();
                 _tableResults.Clear();
+                _tableScores.Clear();
                 AllSets.Clear();
 
                 BaseRegions = events
@@ -971,10 +1106,13 @@
 
                 AllSets.Add(firstSet);
                 Regions = firstSet;
-                SelectedEvent = events.First();
+
+                // Select the first event for display
+                SelectedEvent = events.FirstOrDefault();
                 SelectedSet = 1;
                 CurrentSet = 1;
 
+                InitializeTableScores();
                 await LoadExistingBilliardsAssignments();
 
                 Snackbar.Add($"Found {events.Count} events with {Regions.Count} regions. Loaded {AllSets.Count} round(s).", Severity.Success);
@@ -985,6 +1123,7 @@
                 BaseRegions = new List<RegionItem>();
                 SelectedEvent = null;
                 _tableResults.Clear();
+                _tableScores.Clear();
                 Snackbar.Add("No Billiards events found with the selected filters", Severity.Warning);
             }
             StateHasChanged();
@@ -1004,7 +1143,7 @@
         _selectedMainCategoryValue = null;
         _selectedSportSubcategoryIDValue = null;
         _selectedEventStagesIDValue = null;
-        _selectedEventId = null; // Clear event ID too
+        _selectedEventId = null;
         SelectedEvent = null;
         Regions = new List<RegionItem>();
         BaseRegions = new List<RegionItem>();
@@ -1012,6 +1151,7 @@
         _combinedSchoolLevelAndGenderNames = new List<string>();
         _sportMainCat = new List<string>();
         _tableResults.Clear();
+        _tableScores.Clear();
         _eliminatedRegions.Clear();
         AllSets.Clear();
         CurrentSet = 1;
@@ -1093,6 +1233,24 @@
                         {
                             regionInSet.AssignedTable = $"{assignment.SetNo}_Table {assignment.TableNo}_{assignment.PlayerPosition}";
 
+                            // Load score from database
+                            var tableName = $"Table {assignment.TableNo}";
+                            var scoreKey = $"{assignment.SetNo}_{tableName}";
+                            if (!_tableScores.ContainsKey(scoreKey))
+                            {
+                                _tableScores[scoreKey] = (0, 0, false);
+                            }
+
+                            var currentScores = _tableScores[scoreKey];
+                            if (assignment.PlayerPosition == "Player1" && assignment.Score.HasValue)
+                            {
+                                _tableScores[scoreKey] = (assignment.Score.Value, currentScores.player2Score, currentScores.matchCompleted);
+                            }
+                            else if (assignment.PlayerPosition == "Player2" && assignment.Score.HasValue)
+                            {
+                                _tableScores[scoreKey] = (currentScores.player1Score, assignment.Score.Value, currentScores.matchCompleted);
+                            }
+
                             if (assignment.IsWinner.HasValue)
                             {
                                 regionInSet.HasLost = !assignment.IsWinner.Value;
@@ -1103,9 +1261,14 @@
                                     _eliminatedRegions.Add(regionInSet.Id);
                                 }
 
-                                var tableName = $"Table {assignment.TableNo}";
                                 var resultKey = $"{assignment.SetNo}_{tableName}_{assignment.PlayerPosition}";
                                 _tableResults[resultKey] = assignment.IsWinner == true ? "W" : "L";
+
+                                // Mark match as completed if winner is set
+                                if (assignment.IsWinner == true)
+                                {
+                                    _tableScores[scoreKey] = (_tableScores[scoreKey].player1Score, _tableScores[scoreKey].player2Score, true);
+                                }
                             }
 
                             if (!string.IsNullOrEmpty(assignment.PlayerName))
@@ -1273,6 +1436,7 @@
                         SetNo = region.SetNumber,
                         TableNo = tableNo,
                         PlayerPosition = playerPosition,
+                        Score = 0,
                         IsWinner = null,
                         PlayerID = playerId
                     };
@@ -1319,57 +1483,98 @@
         }
     }
 
-    private async Task UpdateScore(string tableName, string result, string playerPosition)
+    #region Score Management Methods
+
+    // Initialize table scores
+    private void InitializeTableScores()
     {
-        try
+        foreach (var table in Tables)
         {
-            var tableId = $"{SelectedSet}_{tableName}_{playerPosition}";
-            var region = Regions!.FirstOrDefault(r => r.AssignedTable == tableId);
-
-            if (region != null)
+            var key = $"{SelectedSet}_{table}";
+            if (!_tableScores.ContainsKey(key))
             {
-                var (tableNo, position) = ParseAssignedTable(tableId);
+                _tableScores[key] = (0, 0, false);
+            }
+        }
+    }
 
-                var opponentPosition = playerPosition == "Player1" ? "Player2" : "Player1";
-                var opponentTableId = $"{SelectedSet}_{tableName}_{opponentPosition}";
-                var opponentRegion = Regions!.FirstOrDefault(r => r.AssignedTable == opponentTableId);
+    // Get player score
+    private int GetPlayerScore(string tableName, string playerPosition)
+    {
+        var key = $"{SelectedSet}_{tableName}";
+        if (_tableScores.ContainsKey(key))
+        {
+            return playerPosition == "Player1" ? _tableScores[key].player1Score : _tableScores[key].player2Score;
+        }
+        return 0;
+    }
 
-                if (opponentRegion != null)
-                {
-                    ClearResultIndicatorsForTable(tableName);
+    // Get player score as string for binding
+    private string GetPlayerScoreString(string tableName, string playerPosition)
+    {
+        return GetPlayerScore(tableName, playerPosition).ToString();
+    }
 
-                    region.HasWon = false;
-                    region.HasLost = false;
-                    opponentRegion.HasWon = false;
-                    opponentRegion.HasLost = false;
+    // Set player score string 
+    private async Task SetPlayerScoreString(string tableName, string playerPosition, string value)
+    {
+        if (int.TryParse(value, out int score) && score >= 0)
+        {
+            var key = $"{SelectedSet}_{tableName}";
+            if (!_tableScores.ContainsKey(key))
+            {
+                _tableScores[key] = (0, 0, false);
+            }
 
-                    if (result == "win")
-                    {
-                        await UpdatePlayerResult(region.Id, SelectedSet, tableNo, position, true, region.Name);
-                        await UpdatePlayerResult(opponentRegion.Id, SelectedSet, tableNo, opponentPosition, false, opponentRegion.Name);
-
-                        SetResultIndicator(tableName, playerPosition, "W");
-                        SetResultIndicator(tableName, opponentPosition, "L");
-
-                        region.HasWon = true;
-                        opponentRegion.HasLost = true;
-                        opponentRegion.RoundEliminated = SelectedSet;
-                        _eliminatedRegions.Add(opponentRegion.Id);
-
-                        Snackbar.Add($"{region.Name} wins and advances! {opponentRegion.Name} is eliminated.", Severity.Success);
-                    }
-
-                    RefreshStandingsAfterScoreUpdate();
-                    StateHasChanged();
-                }
-                else
-                {
-                    Snackbar.Add($"No opponent assigned to {opponentPosition} side", Severity.Warning);
-                }
+            var current = _tableScores[key];
+            if (playerPosition == "Player1")
+            {
+                _tableScores[key] = (score, current.player2Score, current.matchCompleted);
             }
             else
             {
-                Snackbar.Add($"No region assigned to {playerPosition} side of {tableName}", Severity.Warning);
+                _tableScores[key] = (current.player1Score, score, current.matchCompleted);
+            }
+
+            // Find the region and save the score to database
+            var playerId = $"{SelectedSet}_{tableName}_{playerPosition}";
+            var region = Regions!.FirstOrDefault(r => r.AssignedTable == playerId);
+            if (region != null)
+            {
+                var tableNo = GetTableNumber(tableName);
+                await UpdatePlayerScore(region.Id, SelectedSet, tableNo, playerPosition, score);
+            }
+
+            await CheckForWinner(tableName);
+            StateHasChanged();
+        }
+    }
+
+    private async Task UpdatePlayerScore(int regionId, int setNo, int tableNo, string playerPosition, int score)
+    {
+        try
+        {
+            var recordId = await GetOrCreateBilliardsScoringId(regionId, setNo, tableNo, playerPosition);
+            if (recordId > 0)
+            {
+                string? playerId = null;
+                if (_regionPlayerMap.ContainsKey(regionId))
+                {
+                    playerId = _regionPlayerMap[regionId].PlayerID;
+                }
+
+                // just update the score , isWinner is null here
+                var updateDto = new UpdateBilliardsScoringDTO
+                    {
+                        ID = recordId,
+                        TableNo = tableNo,
+                        PlayerPosition = playerPosition,
+                        Score = score, 
+                        SetNo = setNo,
+                        PlayerID = playerId
+                    };
+
+                await apiService.PutAsync($"/BilliardsScoring/{recordId}", updateDto);
             }
         }
         catch (Exception ex)
@@ -1378,43 +1583,165 @@
         }
     }
 
-    private async Task ClearTableScore(string tableName)
+    // Adjust score with plus/minus buttons
+    private async Task AdjustScore(string tableName, string playerPosition, int adjustment)
+    {
+        var currentScore = GetPlayerScore(tableName, playerPosition);
+        var newScore = Math.Max(0, currentScore + adjustment);
+
+        await SetPlayerScoreString(tableName, playerPosition, newScore.ToString());
+    }
+
+    // Validate score input
+    private async Task ValidateScore(string tableName, string playerPosition)
+    {
+        var currentScore = GetPlayerScore(tableName, playerPosition);
+        if (currentScore < 0)
+        {
+            await SetPlayerScoreString(tableName, playerPosition, "0");
+        }
+    }
+
+    // Get target score based on event stage
+    private int GetTargetScore(string tableName)
+    {
+        if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.EventStage))
+        {
+            // Fallback to round-based scoring if no event stage info
+            if (SelectedSet == 1) return 4;
+            if (SelectedSet == 2) return 5;
+            return 6;
+        }
+
+        // Get target score based on event stage
+        var stage = SelectedEvent.EventStage.ToLower();
+
+        if (stage.Contains("elimination")) return 4;  // Elimination Round: Race to 4
+        if (stage.Contains("semi")) return 5;         // Semi-finals: Race to 5
+        if (stage.Contains("final")) return 6;        // Finals: Race to 6
+
+        // Default fallback based on round
+        if (SelectedSet == 1) return 4;
+        if (SelectedSet == 2) return 5;
+        return 6;
+    }
+
+    // Check if match is completed
+    private bool IsMatchCompleted(string tableName)
+    {
+        var key = $"{SelectedSet}_{tableName}";
+        return _tableScores.ContainsKey(key) && _tableScores[key].matchCompleted;
+    }
+
+    // Check for winner
+    private async Task CheckForWinner(string tableName)
+    {
+        var key = $"{SelectedSet}_{tableName}";
+        if (!_tableScores.ContainsKey(key)) return;
+
+        var scores = _tableScores[key];
+        var targetScore = GetTargetScore(tableName);
+
+        // Check if any player reached target score
+        if (scores.player1Score >= targetScore || scores.player2Score >= targetScore)
+        {
+            // Determine winner (whoever reaches target first)
+            var winner = scores.player1Score >= targetScore ? "Player1" : "Player2";
+            var loser = winner == "Player1" ? "Player2" : "Player1";
+
+            // Mark match as completed
+            _tableScores[key] = (scores.player1Score, scores.player2Score, true);
+
+            // Update regions
+            await UpdateMatchResult(tableName, winner, loser);
+        }
+    }
+
+    // Update match result
+    private async Task UpdateMatchResult(string tableName, string winnerPosition, string loserPosition)
     {
         try
         {
-            var player1Id = $"{SelectedSet}_{tableName}_Player1";
-            var player2Id = $"{SelectedSet}_{tableName}_Player2";
+            var winnerId = $"{SelectedSet}_{tableName}_{winnerPosition}";
+            var loserId = $"{SelectedSet}_{tableName}_{loserPosition}";
 
-            var player1 = Regions!.FirstOrDefault(r => r.AssignedTable == player1Id);
-            var player2 = Regions!.FirstOrDefault(r => r.AssignedTable == player2Id);
+            var winnerRegion = Regions!.FirstOrDefault(r => r.AssignedTable == winnerId);
+            var loserRegion = Regions!.FirstOrDefault(r => r.AssignedTable == loserId);
 
-            if (player1 != null || player2 != null)
+            if (winnerRegion != null && loserRegion != null)
             {
                 ClearResultIndicatorsForTable(tableName);
 
-                if (player1 != null)
-                {
-                    player1.HasLost = false;
-                    player1.HasWon = false;
-                    await ClearPlayerResult(player1.Id, SelectedSet, tableName);
-                }
+                // Set winner
+                SetResultIndicator(tableName, winnerPosition, "W");
+                winnerRegion.HasWon = true;
+                winnerRegion.HasLost = false;
 
-                if (player2 != null)
-                {
-                    player2.HasLost = false;
-                    player2.HasWon = false;
-                    await ClearPlayerResult(player2.Id, SelectedSet, tableName);
-                }
+                // Set loser
+                SetResultIndicator(tableName, loserPosition, "L");
+                loserRegion.HasLost = true;
+                loserRegion.HasWon = false;
+                loserRegion.RoundEliminated = SelectedSet;
+                _eliminatedRegions.Add(loserRegion.Id);
 
-                Snackbar.Add($"Results cleared for {tableName}", Severity.Info);
+                // Update in database
+                await UpdatePlayerResult(winnerRegion.Id, SelectedSet, GetTableNumber(tableName), winnerPosition, true, winnerRegion.Name);
+                await UpdatePlayerResult(loserRegion.Id, SelectedSet, GetTableNumber(tableName), loserPosition, false, loserRegion.Name);
+
+                // Update EventVersusTeams with winner/loser status
+                await MarkWinnersInEventVersusTeams(tableName, winnerPosition, loserPosition);
+
+                Snackbar.Add($"{winnerRegion.Name} wins {GetPlayerScore(tableName, winnerPosition)}-{GetPlayerScore(tableName, loserPosition)} and advances! {loserRegion.Name} is eliminated.", Severity.Success);
+
+                RefreshStandingsAfterScoreUpdate();
                 StateHasChanged();
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error clearing results: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error updating match result: {ex.Message}", Severity.Error);
         }
     }
+
+    // Get table number from table name
+    private int GetTableNumber(string tableName)
+    {
+        return int.Parse(tableName.Replace("Table ", ""));
+    }
+
+    // Get match result text
+    private string GetMatchResultText(string tableName)
+    {
+        var key = $"{SelectedSet}_{tableName}";
+        if (!_tableScores.ContainsKey(key)) return "";
+
+        var scores = _tableScores[key];
+        var winnerId = $"{SelectedSet}_{tableName}_{(scores.player1Score > scores.player2Score ? "Player1" : "Player2")}";
+        var winnerRegion = Regions!.FirstOrDefault(r => r.AssignedTable == winnerId);
+
+        return winnerRegion != null
+            ? $"{winnerRegion.Name} wins {scores.player1Score}-{scores.player2Score}"
+            : "Match Completed";
+    }
+
+    // Check if match can be updated
+    private bool CanUpdateMatch(string tableName)
+    {
+        var key = $"{SelectedSet}_{tableName}";
+        if (!_tableScores.ContainsKey(key)) return false;
+
+        var scores = _tableScores[key];
+        return !scores.matchCompleted && (scores.player1Score > 0 || scores.player2Score > 0);
+    }
+
+    // Update score manually
+    private async Task UpdateScore(string tableName)
+    {
+        await CheckForWinner(tableName);
+    }
+
+
+    #endregion
 
     private async Task UpdatePlayerResult(int regionId, int setNo, int tableNo, string playerPosition, bool isWinner, string regionName)
     {
@@ -1429,11 +1756,15 @@
                     playerId = _regionPlayerMap[regionId].PlayerID;
                 }
 
+                // Get the current score before updating
+                var currentScore = GetPlayerScore($"Table {tableNo}", playerPosition);
+
                 var updateDto = new UpdateBilliardsScoringDTO
                     {
                         ID = recordId,
                         TableNo = tableNo,
                         PlayerPosition = playerPosition,
+                        Score = currentScore,
                         IsWinner = isWinner,
                         SetNo = setNo,
                         PlayerID = playerId
@@ -1446,7 +1777,6 @@
             Snackbar.Add($"Error updating result for {regionName}: {ex.Message}", Severity.Error);
         }
     }
-
     private async Task ClearPlayerResult(int regionId, int setNo, string tableName)
     {
         try
@@ -1475,10 +1805,18 @@
         try
         {
             var existing = await apiService.GetAsync<BilliardsScoringDTO>($"/BilliardsScoring/event/{SelectedEvent?.ID}");
-            var record = existing?.FirstOrDefault(r => r.RegionID == regionId && r.SetNo == setNo && r.TableNo == tableNo && r.PlayerPosition == playerPosition);
+
+            // More specific query to find the exact record
+            var record = existing?.FirstOrDefault(r =>
+                r.RegionID == regionId &&
+                r.SetNo == setNo &&
+                r.TableNo == tableNo &&
+                r.PlayerPosition == playerPosition &&
+                r.EventID == SelectedEvent?.ID);
 
             if (record != null) return record.ID;
 
+            // Only create new if no existing record found
             string? playerId = null;
             if (_regionPlayerMap.ContainsKey(regionId))
             {
@@ -1492,6 +1830,7 @@
                     SetNo = setNo,
                     TableNo = tableNo,
                     PlayerPosition = playerPosition,
+                    Score = 0,
                     IsWinner = null,
                     PlayerID = playerId
                 };
@@ -1523,7 +1862,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error parsing assigned table: {ex.Message}");
+            // Console.WriteLine($"Error parsing assigned table: {ex.Message}");
         }
         return (0, "Unassigned");
     }
@@ -1540,6 +1879,11 @@
                     region.AssignedTable = "Unassigned";
                 }
             }
+
+            // Remove score tracking for this table
+            var key = $"{SelectedSet}_{tableName}";
+            _tableScores.Remove(key);
+
             ClearResultIndicatorsForTable(tableName);
             Snackbar.Add($"{tableName} removed.", Severity.Info);
             StateHasChanged();
@@ -1549,5 +1893,300 @@
     private void RefreshStandingsAfterScoreUpdate()
     {
         StateHasChanged();
+    }
+
+    private async Task OpenEditEventDialog(string? selectedEventID)
+    {
+        var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.SelectedEventID, selectedEventID },
+            { x => x.IsEditMode, true }
+        };
+
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseOnEscapeKey = true,
+                BackdropClick = false
+            };
+
+        var dialog = await DialogService.ShowAsync<AddEditDialog>("Edit Event", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            await LoadExistingBilliardsAssignments();
+        }
+    }
+
+    private async Task ProceedToNextStage()
+    {
+        try
+        {
+            // 1. Validate current event
+            if (SelectedEvent == null)
+            {
+                Snackbar.Add("No event selected. Please apply filters first.", Severity.Warning);
+                return;
+            }
+
+            // 2. Check if all matches in current stage are completed
+            var tablesWithResults = Tables.Where(table =>
+                GetResultIndicator(table, "Player1") == "W" ||
+                GetResultIndicator(table, "Player2") == "W"
+            ).ToList();
+
+            var tablesWithoutResults = Tables.Where(table =>
+                GetResultIndicator(table, "Player1") == null &&
+                GetResultIndicator(table, "Player2") == null &&
+                Regions.Any(r => r.AssignedTable == $"{SelectedSet}_{table}_Player1" ||
+                               r.AssignedTable == $"{SelectedSet}_{table}_Player2")
+            ).ToList();
+
+            if (tablesWithoutResults.Any())
+            {
+                Snackbar.Add($"Please complete all matches in current round before proceeding to next stage.", Severity.Warning);
+                return;
+            }
+
+            if (!tablesWithResults.Any())
+            {
+                Snackbar.Add("No completed matches found. Please score matches first.", Severity.Warning);
+                return;
+            }
+
+            // 3. Get current stage ID and next stage ID
+            var currentStageId = await GetCurrentEventStageId();
+            if (!currentStageId.HasValue)
+            {
+                Snackbar.Add("Could not determine current event stage.", Severity.Error);
+                return;
+            }
+
+            var nextStageId = GetNextStageId(currentStageId.Value);
+            if (nextStageId == 0)
+            {
+                Snackbar.Add("No next stage available for progression.", Severity.Warning);
+                return;
+            }
+
+            // 4. Get the next stage name
+            var nextStage = _eventStages?.FirstOrDefault(s => s.ID == nextStageId);
+            if (nextStage == null)
+            {
+                Snackbar.Add($"Could not find stage with ID {nextStageId}", Severity.Error);
+                return;
+            }
+
+            // 5. Fetch winners from EventVersusTeams with "Winner" rank
+            var progressionTeams = new List<Dictionary<string, object>>();
+
+            // Get EventVersusTeams for the current event
+            var versusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(
+                $"/Events/VersusTeams?eventID={SelectedEvent.ID}");
+
+            if (versusTeams != null)
+            {
+                // Filter teams with "Winner" rank (case-insensitive)
+                var winningTeams = versusTeams
+                    .Where(t => !string.IsNullOrEmpty(t.Rank) &&
+                               IsWinningRank(t.Rank))
+                    .ToList();
+
+                if (!winningTeams.Any())
+                {
+                    Snackbar.Add("No winning teams found with 'Winner' rank. Please mark winners in the current event first.", Severity.Warning);
+                    return;
+                }
+
+                foreach (var team in winningTeams)
+                {
+                    // Get players for this team
+                    var teamPlayers = await apiService.GetAsync<EventsDTO.EventVersusTeamPlayers>(
+                        $"/Events/VersusTeams/Players?eventVersusID={team.ID}");
+
+                    var selectedPlayerIds = new List<string>();
+                    var playerNames = new List<string>();
+
+                    if (teamPlayers != null && teamPlayers.Any())
+                    {
+                        foreach (var player in teamPlayers)
+                        {
+                            if (!string.IsNullOrEmpty(player.ProfilePlayerID))
+                            {
+                                selectedPlayerIds.Add(player.ProfilePlayerID);
+
+                                // full name
+                                var fullName = "";
+                                if (!string.IsNullOrEmpty(player.FirstName) && !string.IsNullOrEmpty(player.LastName))
+                                    fullName = $"{player.FirstName} {player.LastName}";
+                                else if (!string.IsNullOrEmpty(player.FirstName))
+                                    fullName = player.FirstName;
+                                else if (!string.IsNullOrEmpty(player.LastName))
+                                    fullName = player.LastName;
+                                else
+                                    fullName = player.ProfilePlayerID;
+
+                                playerNames.Add(fullName);
+                            }
+                        }
+                    }
+
+
+                    // Add to progression teams 
+                    var teamData = new Dictionary<string, object>
+                        {
+                            ["SelectedRegionID"] = team.SchoolRegionID,
+                            ["ExistingVersusTeamID"] = team.ID,
+                            ["Score"] = team.Score,
+                            ["Rank"] = team.Rank,
+                            ["SelectedPlayerIDs"] = selectedPlayerIds
+                        };
+
+                    progressionTeams.Add(teamData);
+                }
+            }
+
+            // 6. Prepare dialog parameters for creating new event
+            var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.IsProgressionMode, true },
+            { x => x.PreviousEventID, SelectedEvent.ID },
+            { x => x.ProgressionTeams, progressionTeams }
+        };
+
+            // 7. Open the dialog
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true,
+                    CloseOnEscapeKey = true,
+                    BackdropClick = false
+                };
+
+            var dialog = await DialogService.ShowAsync<AddEditDialog>("Create Next Stage Event", parameters, options);
+            var result = await dialog.Result;
+
+            if (!result!.Canceled)
+            {
+                Snackbar.Add("Next stage event created successfully!", Severity.Success);
+
+                await ApplyFilters();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error proceeding to next stage: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // Helper method to check if a rank is considered "winning"
+    private bool IsWinningRank(string rank)
+    {
+        if (string.IsNullOrEmpty(rank)) return false;
+
+        var winningRanks = new List<string>
+    {
+        "Winner",
+        "Gold",
+        "1st",
+        "First",
+        "Champion",
+        "1",
+        "Advance",
+        "Qualified",
+        "W",
+        "Win",
+        "Advancing"
+    };
+
+        return winningRanks.Any(r =>
+            rank.Equals(r, StringComparison.OrdinalIgnoreCase) ||
+            rank.Contains(r, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private int GetNextStageId(int currentStageId)
+    {
+        // stages: 1=Elimination, 2=Quarter-finals, 3=Semi-finals, 4=Finals
+        return currentStageId switch
+        {
+            1 => 2, 
+            2 => 3, 
+            3 => 4, 
+            4 => 4,
+            _ => 0  
+        };
+    }
+
+ 
+    private async Task<int?> GetCurrentEventStageId()
+    {
+        if (SelectedEvent?.ID == null) return null;
+
+        var eventUrl = $"/Events?id={SelectedEvent.ID}";
+        var events = await apiService.GetAsync<EventsDTO.EventDetails>(eventUrl);
+
+        if (events != null && events.Any())
+        {
+            return events.First().EventStageID;
+        }
+
+        return null;
+    }
+
+    // sync winners
+    private async Task MarkWinnersInEventVersusTeams(string tableName, string winnerPosition, string loserPosition)
+    {
+        try
+        {
+            var winnerId = $"{SelectedSet}_{tableName}_{winnerPosition}";
+            var loserId = $"{SelectedSet}_{tableName}_{loserPosition}";
+
+            var winnerRegion = Regions!.FirstOrDefault(r => r.AssignedTable == winnerId);
+            var loserRegion = Regions!.FirstOrDefault(r => r.AssignedTable == loserId);
+
+            if (winnerRegion != null && loserRegion != null && SelectedEvent != null)
+            {
+                // Get EventVersusTeams for both regions
+                var versusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(
+                    $"/Events/VersusTeams?eventID={SelectedEvent.ID}");
+
+                if (versusTeams != null)
+                {
+                    // Update winner
+                    var winnerTeam = versusTeams.FirstOrDefault(t => t.SchoolRegionID == winnerRegion.Id);
+                    if (winnerTeam != null)
+                    {
+                        var updateWinner = new EventsDTO.EventVersusTeams
+                            {
+                                ID = winnerTeam.ID,
+                                Rank = "Winner",
+                                Score = GetPlayerScore(tableName, winnerPosition).ToString()
+                            };
+                        await apiService.PutAsync($"/Events/VersusTeams/{winnerTeam.ID}", updateWinner);
+                    }
+
+                    // Update loser
+                    var loserTeam = versusTeams.FirstOrDefault(t => t.SchoolRegionID == loserRegion.Id);
+                    if (loserTeam != null)
+                    {
+                        var updateLoser = new EventsDTO.EventVersusTeams
+                            {
+                                ID = loserTeam.ID,
+                                Rank = "Eliminated",
+                                Score = GetPlayerScore(tableName, loserPosition).ToString()
+                            };
+                        await apiService.PutAsync($"/Events/VersusTeams/{loserTeam.ID}", updateLoser);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Console.WriteLine($"Error marking winners in EventVersusTeams: {ex.Message}");
+        }
     }
 }
