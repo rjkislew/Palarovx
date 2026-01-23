@@ -1,0 +1,509 @@
+﻿@page "/scoreboard/client/{EventID}"
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@implements IDisposable
+
+<PageTitle>TV Broadcast | PALARO 2026</PageTitle>
+
+<style>
+    /* I-RETAIN ANG IMONG STYLE DIRI (Same ra sa previous) */
+    /* ... (CSS code from previous response) ... */
+
+    /* I-copy ang style gikan sa taas, wa nako giusab ang design */
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&family=Oswald:wght@500;700&display=swap');
+
+    :root {
+        --bg-dark: #121212;
+        --panel-bg: rgba(20, 20, 25, 0.9);
+        --accent-gold: #FFD700;
+        --accent-blue: #00B0FF;
+        --accent-red: #FF1744;
+        --text-white: #ffffff;
+        --winner-glow: 0 0 40px rgba(255, 215, 0, 0.5);
+    }
+
+    body {
+        background-color: black;
+        overflow: hidden;
+    }
+
+    .tv-screen {
+        height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at center, #1e1e24 0%, #000000 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    .tournament-header {
+        text-align: center;
+        margin-bottom: 2vh;
+        animation: fadeIn 1s ease-in;
+    }
+
+    .palaro-branding {
+        font-family: 'Oswald', sans-serif;
+        font-size: 2.5rem;
+        color: var(--accent-gold);
+        letter-spacing: 5px;
+        text-transform: uppercase;
+        font-weight: bold;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+        border-bottom: 2px solid var(--accent-blue);
+        padding-bottom: 5px;
+        display: inline-block;
+        margin-bottom: 10px;
+    }
+
+    .sport-name {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 3rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        color: white;
+        letter-spacing: 3px;
+        line-height: 1;
+    }
+
+    .match-details {
+        font-size: 1.5rem;
+        color: #aaa;
+        margin-top: 5px;
+        text-transform: uppercase;
+    }
+
+    .scoreboard-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 95%;
+        max-width: 1600px;
+        background: var(--panel-bg);
+        border: 1px solid #333;
+        border-radius: 25px;
+        padding: 30px 50px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+        position: relative;
+        margin-bottom: 3vh;
+        backdrop-filter: blur(10px);
+    }
+
+    .team-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 28%;
+        position: relative;
+        transition: all 0.5s ease;
+    }
+
+    .is-winner {
+        transform: scale(1.05);
+        z-index: 2;
+    }
+
+    .is-loser {
+        opacity: 0.6;
+        transform: scale(0.95);
+        filter: grayscale(50%);
+    }
+
+    .logo-box {
+        width: 200px;
+        height: 200px;
+        background: white;
+        border-radius: 50%;
+        padding: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 6px solid #444;
+        margin-bottom: 15px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    }
+
+    .is-winner .logo-box {
+        border-color: var(--accent-gold);
+        box-shadow: var(--winner-glow);
+    }
+
+    .team-abbr {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 3.5rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+
+    .team-sub {
+        font-size: 1.3rem;
+        color: #ccc;
+    }
+
+    .winner-tag {
+        background-color: var(--accent-gold);
+        color: black;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        font-size: 1.2rem;
+        padding: 5px 20px;
+        border-radius: 20px;
+        margin-top: 10px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        box-shadow: 0 0 15px var(--accent-gold);
+        animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .score-text {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 11rem;
+        font-weight: 900;
+        line-height: 1;
+        color: white;
+        text-shadow: 4px 4px 0px rgba(0,0,0,0.5);
+    }
+
+        .score-text.winner-score {
+            color: var(--accent-gold);
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
+        }
+
+    .center-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .status-badge {
+        font-family: 'Orbitron', sans-serif;
+        padding: 8px 30px;
+        border-radius: 50px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        letter-spacing: 2px;
+        margin-bottom: 20px;
+    }
+
+    .live {
+        background: var(--accent-red);
+        box-shadow: 0 0 20px var(--accent-red);
+        animation: pulse 1.5s infinite;
+    }
+
+    .final {
+        background: #00C853;
+        color: white;
+        box-shadow: 0 0 20px #00C853;
+    }
+
+    .history-strip {
+        width: 95%;
+        max-width: 1200px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 15px;
+        padding: 15px 30px;
+        border-top: 2px solid #333;
+    }
+
+    .history-table {
+        width: 100%;
+        text-align: center;
+        border-collapse: collapse;
+    }
+
+        .history-table th {
+            color: var(--accent-blue);
+            font-size: 1.2rem;
+            padding-bottom: 10px;
+        }
+
+        .history-table td {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            padding: 5px;
+            color: #ddd;
+        }
+
+        .history-table .total {
+            color: var(--accent-gold);
+            font-weight: 900;
+            font-size: 1.8rem;
+        }
+
+    .active-col {
+        background: rgba(255,255,255,0.1);
+        border-radius: 5px;
+        color: white;
+    }
+
+    @@keyframes pulse {
+        0% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.7;
+        }
+
+        100% {
+            opacity: 1;
+        }
+    }
+
+    @@keyframes popIn {
+        from {
+            transform: scale(0);
+        }
+
+        to {
+            transform: scale(1);
+        }
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<div class="tv-screen">
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" Color="Color.Warning" Size="Size.Large" />
+    }
+    else if (_event == null)
+    {
+        <MudText Typo="Typo.h4" Color="Color.Error">EVENT NOT FOUND</MudText>
+    }
+    else
+    {
+        <div class="tournament-header">
+            <div class="palaro-branding">PALARONG PAMBANSA 2026</div>
+            <div class="sport-name">@_event.Sport</div>
+            <div class="match-details">@_event.Gender • @_event.Subcategory • @_event.EventStage</div>
+        </div>
+
+        <div class="scoreboard-card">
+            <!-- TEAM A -->
+            <div class="team-panel @(IsWinner(_scoreA, _scoreB) ? "is-winner" : (IsGameFinished() ? "is-loser" : ""))">
+                <div class="logo-box">
+                    <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_teamA?.Region}.webp")"
+                              ObjectFit="ObjectFit.Contain" Style="width:100%; height:100%;" />
+                </div>
+                <div class="team-abbr">@_teamA?.Abbreviation</div>
+                <div class="team-sub">@_teamA?.Region</div>
+                @if (IsWinner(_scoreA, _scoreB))
+                {
+                    <div class="winner-tag"><MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Small" /> WINNER</div>
+                }
+            </div>
+
+            <div class="score-text @(IsWinner(_scoreA, _scoreB) ? "winner-score" : "")">@_scoreA</div>
+
+            <div class="center-info">
+                @if (IsGameFinished())
+                {
+                    <div class="status-badge final">FINAL</div>
+                }
+                else
+                {
+                    <div class="status-badge live">LIVE</div>
+                }
+                <div style="font-family:'Orbitron'; font-size:2rem; opacity:0.5; margin-top:10px;">VS</div>
+            </div>
+
+            <div class="score-text @(IsWinner(_scoreB, _scoreA) ? "winner-score" : "")">@_scoreB</div>
+
+            <!-- TEAM B -->
+            <div class="team-panel @(IsWinner(_scoreB, _scoreA) ? "is-winner" : (IsGameFinished() ? "is-loser" : ""))">
+                <div class="logo-box">
+                    <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_teamB?.Region}.webp")"
+                              ObjectFit="ObjectFit.Contain" Style="width:100%; height:100%;" />
+                </div>
+                <div class="team-abbr">@_teamB?.Abbreviation</div>
+                <div class="team-sub">@_teamB?.Region</div>
+                @if (IsWinner(_scoreB, _scoreA))
+                {
+                    <div class="winner-tag"><MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Small" /> WINNER</div>
+                }
+            </div>
+        </div>
+
+        @if (_maxPhase > 0)
+        {
+            <div class="history-strip">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left; width:150px;">TEAM</th>
+                            @for (int i = 1; i <= _maxPhase; i++)
+                            {
+                                <th>@GetPhaseLabel(_event.Sport) @i</th>
+                            }
+                            <th>TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="text-align:left; font-weight:bold; color:white;">@_teamA?.Abbreviation</td>
+                            @for (int i = 1; i <= _maxPhase; i++)
+                            {
+                                <td class="@(IsCurrentPhase(i) ? "active-col" : "")">@GetPhaseScore(_teamA?.Region, i)</td>
+                            }
+                            <td class="total">@_scoreA</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:left; font-weight:bold; color:white;">@_teamB?.Abbreviation</td>
+                            @for (int i = 1; i <= _maxPhase; i++)
+                            {
+                                <td class="@(IsCurrentPhase(i) ? "active-col" : "")">@GetPhaseScore(_teamB?.Region, i)</td>
+                            }
+                            <td class="total">@_scoreB</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string EventID { get; set; } = "";
+
+    // MODELS
+    public class EventModel
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public bool? IsFinished { get; set; }
+        public List<EventVersusTeams>? EventVersusList { get; set; }
+    }
+
+    public class EventVersusTeams
+    {
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
+    public class ClientTeamMatchDTO
+    {
+        public string? EventID { get; set; }
+        public string? Region { get; set; }
+        public int Phase { get; set; }
+        public int Score { get; set; }
+    }
+
+    // VARIABLES
+    private EventModel? _event;
+    private List<ClientTeamMatchDTO> _matches = new();
+    private EventVersusTeams? _teamA;
+    private EventVersusTeams? _teamB;
+    private int _scoreA;
+    private int _scoreB;
+    private int _maxPhase = 1;
+
+    // SYSTEM VARIABLES
+    private bool _isLoading = true;
+    private bool _isRefreshing = false; // FLAG para safety
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        // GIBAG-O: 1000ms (1 second) na lang ang interval gikan sa 3000ms
+        _timer = new Timer(async _ => await InvokeAsync(LoadData), null, 1000, 1000);
+    }
+
+    private async Task LoadData()
+    {
+        // SAFETY CHECK: Kung nag-loading pa ang previous, ayaw sa og request balik
+        if (_isRefreshing) return;
+
+        try
+        {
+            _isRefreshing = true;
+
+            // 1. Fetch Event Info
+            var eventDetails = await apiService.GetAsync<EventModel>($"/Events/Details/{EventID}");
+            _event = eventDetails?.FirstOrDefault();
+
+            if (_event != null && _event.EventVersusList?.Count == 2)
+            {
+                _teamA = _event.EventVersusList[0];
+                _teamB = _event.EventVersusList[1];
+            }
+
+            // 2. Fetch Scores
+            var allMatches = await apiService.GetAsync<ClientTeamMatchDTO>($"score/TeamMatch?eventId={EventID}");
+            _matches = allMatches?.ToList() ?? new();
+
+            if (_matches.Any())
+            {
+                _maxPhase = _matches.Max(m => m.Phase);
+                _scoreA = _matches.Where(m => m.Region == _teamA?.Region).Sum(m => m.Score);
+                _scoreB = _matches.Where(m => m.Region == _teamB?.Region).Sum(m => m.Score);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        finally
+        {
+            _isLoading = false;
+            _isRefreshing = false; // Release flag
+            StateHasChanged(); // Force update UI dayon
+        }
+    }
+
+    // --- LOGIC ---
+    private bool IsGameFinished() => _event?.IsFinished == true;
+
+    private bool IsWinner(int myScore, int opponentScore)
+    {
+        return IsGameFinished() && myScore > opponentScore;
+    }
+
+    private int GetPhaseScore(string? region, int phase)
+    {
+        return _matches.FirstOrDefault(m => m.Region == region && m.Phase == phase)?.Score ?? 0;
+    }
+
+    private string GetPhaseLabel(string? sport)
+    {
+        var s = sport?.ToLower() ?? "";
+        if (s.Contains("basket")) return "Q";
+        if (s.Contains("volley") || s.Contains("tennis") || s.Contains("badminton")) return "SET";
+        if (s.Contains("base") || s.Contains("soft")) return "INN";
+        return "PRD";
+    }
+
+    private bool IsCurrentPhase(int phase)
+    {
+        return phase == _maxPhase && !IsGameFinished();
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}
