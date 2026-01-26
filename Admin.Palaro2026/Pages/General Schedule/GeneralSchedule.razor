@@ -34,7 +34,7 @@
                         Add Schedule
                     </MudButton>
                     <MudDivider Vertical="true" FlexItem="true" />
-                    <MudButton Size="Size.Large" Style="text-transform: none" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadDataAsync">Refresh Table</MudButton>
+                    <MudButton Size="Size.Medium" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadDataAsync">Refresh Table</MudButton>
                 </MudStack>
             </MudItem>
         </MudStack>
@@ -248,8 +248,14 @@
         return sport?.Sport ?? "Unknown Sport";
     }
 
-    private Task OpenDialogAsync()
+    private async Task OpenDialogAsync()
     {
+        var parameters = new DialogParameters<ScheduleDialog>
+    {
+        { x => x.IsEditMode, false },
+        { x => x.OnScheduleChanged, EventCallback.Factory.Create(this, LoadDataAsync) }
+    };
+
         var options = new DialogOptions
         {
             CloseButton = true,
@@ -259,8 +265,13 @@
             BackdropClick = false
         };
 
-        return DialogService.ShowAsync<ScheduleDialog>("Add Schedule", options);
+        var dialog = await DialogService.ShowAsync<ScheduleDialog>("Add Schedule", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+            await LoadDataAsync();
     }
+
     
     private async Task OpenEditScheduleDialog(int scheduleId)
     {
@@ -305,8 +316,8 @@
                 result.Add(new ScheduleGroup
                 {
                     Schedule = schedule,
-                    IsFirstInDateGroup = first
-                });
+                    IsFirstInDateGroup = first 
+                          });
                 first = false;
             }
         }

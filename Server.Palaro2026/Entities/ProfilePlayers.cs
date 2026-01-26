@@ -21,7 +21,8 @@ public partial class ProfilePlayers
     
     public int? SportCategoryID { get; set; }
     public string? UploadedBy { get; set; }
-    
+    public string? ImagePath { get; set; }
+
     [JsonIgnore]
     public virtual ICollection<EventVersusTeamPlayers> EventVersusTeamPlayers { get; set; } = new List<EventVersusTeamPlayers>();
 

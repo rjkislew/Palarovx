@@ -20,6 +20,8 @@ public partial class ProfileCoaches
     public int? SchoolID { get; set; }
     public int? SportCategoryID { get; set; }
     public string? UploadedBy { get; set; }
+    public string? ImagePath { get; set; }
+
 
     [JsonIgnore]
     public virtual ICollection<ProfilePlayerSportCoaches> ProfilePlayerSportCoaches { get; set; } =

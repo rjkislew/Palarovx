@@ -51,6 +51,23 @@ namespace Server.Palaro2026.Controller
             return Ok(result);
         }
 
+        [HttpGet("{id}")] // GET: api/Users/{id}
+        public async Task<ActionResult<UsersDTO.Users>> GetUser(string id)
+        {
+            var user = await _context.Users
+                .Where(u => u.ID == id)
+                .Select(x => UsersDTOMapper(x))
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
+
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(user);
+        }
+
         [HttpPost] // POST: api/Users
         public async Task<ActionResult<Users>> PostUsers(UsersDTO.Users users)
         {

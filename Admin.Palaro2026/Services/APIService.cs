@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using static MudBlazor.Colors;
 
 
 public class APIService
@@ -57,7 +58,7 @@ public class APIService
         {
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
-            var stream = await response.Content.ReadAsStreamAsync();
+            var stream = await response.Content.ReadAsStreamAsync(); 
             return await JsonSerializer.DeserializeAsync<List<T>>(stream, _jsonOptions);
         }
         catch
