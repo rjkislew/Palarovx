@@ -32,16 +32,16 @@ namespace Server.Palaro2026.Controller
             var medalTally = await regions
                 .GroupJoin(
                     _context.EventVersusTeams
-                        .Where(m => m.Rank == "Champion" || m.Rank == "First Runner-up" || m.Rank == "Second Runner-up"),
+                        .Where(m => m.Rank == "Gold" || m.Rank == "Silver" || m.Rank == "Bronze"),
                     r => r.ID,
                     evt => evt.SchoolRegionID,
                     (r, medals) => new MedalTallyDTO.RegionalMedalTally
                     {
                         Region = r.Region!,
                         Abbreviation = r.Abbreviation!,
-                        Gold = medals.Count(x => x.Rank == "Champion"),
-                        Silver = medals.Count(x => x.Rank == "First Runner-up"),
-                        Bronze = medals.Count(x => x.Rank == "Second Runner-up"),
+                        Gold = medals.Count(x => x.Rank == "Gold"),
+                        Silver = medals.Count(x => x.Rank == "Silver"),
+                        Bronze = medals.Count(x => x.Rank == "Bronze"),
                         Total = medals.Count()
                     }
                 )
@@ -76,7 +76,7 @@ namespace Server.Palaro2026.Controller
                 .Include(e => e.Event)
                     .ThenInclude(s => s!.SportSubcategory)
                         .ThenInclude(l => l!.SchoolLevel)
-                .Where(m => m.Rank == "Champion" || m.Rank == "First Runner-up" || m.Rank == "Second Runner-up")
+                .Where(m => m.Rank == "Gold" || m.Rank == "Silver" || m.Rank == "Bronze")
                 .Where(m => string.IsNullOrWhiteSpace(region) || m.SchoolRegion!.Region == region)
                 .GroupBy(m => new
                 {
@@ -89,9 +89,9 @@ namespace Server.Palaro2026.Controller
                     g.Key.Level,
                     g.Key.Region,
                     g.Key.Abbreviation,
-                    Gold = g.Count(x => x.Rank == "Champion"),
-                    Silver = g.Count(x => x.Rank == "First Runner-up"),
-                    Bronze = g.Count(x => x.Rank == "Second Runner-up")
+                    Gold = g.Count(x => x.Rank == "Gold"),
+                    Silver = g.Count(x => x.Rank == "Silver"),
+                    Bronze = g.Count(x => x.Rank == "Bronze")
                 })
                 .ToListAsync();
 

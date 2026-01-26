@@ -9,6 +9,7 @@
         public int SetNo { get; set; }
         public int TableNo { get; set; }
         public string? PlayerPosition { get; set; }
+        public int? Score { get; set; }
         public bool? IsWinner { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
@@ -49,6 +50,7 @@
         public int SetNo { get; set; }
         public int TableNo { get; set; }
         public string? PlayerPosition { get; set; }
+        public int? Score { get; set; }
         public bool? IsWinner { get; set; }
         public string? PlayerID { get; set; }
     }
@@ -58,6 +60,7 @@
         public int ID { get; set; }
         public int? TableNo { get; set; }
         public string? PlayerPosition { get; set; }
+        public int? Score { get; set; }
         public bool? IsWinner { get; set; }
         public int? SetNo { get; set; }
         public string? PlayerID { get; set; }

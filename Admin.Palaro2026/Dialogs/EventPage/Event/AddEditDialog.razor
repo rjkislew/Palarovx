@@ -232,7 +232,7 @@
                         </MudStack>
                     </MudItem>
 
-                    <!-- Opposing Team -->
+                    <!-- Opposing Team with Placement -->
                     <MudItem xs="12" Class="mb-3">
                         <MudStack Spacing="1">
                             <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
@@ -240,8 +240,7 @@
                                 <MudButton StartIcon="@Icons.Material.Filled.Add"
                                            OnClick="AddOpponent"
                                            Disabled="IsEditMode || _schoolRegions == null || !_schoolRegions.Any()">
-                                    Add
-                                    Opponent
+                                    Add Opponent
                                 </MudButton>
                             </MudStack>
                             <MudDivider />
@@ -249,46 +248,141 @@
                             @for (int i = 0; i < _teamSelections.Count; i++)
                             {
                                 var team = _teamSelections[i];
-                                <MudGrid Spacing="0">
+                                <MudGrid Spacing="2">
                                     <MudItem xs="12">
-                                        <!-- Region Select -->
-                                        <MudSelect @bind-Value="team.SelectedRegionID"
-                                                   Margin="Margin.Dense"
-                                                   Label="Region"
-                                                   ShrinkLabel
-                                                   Variant="Variant.Outlined"
-                                                   T="int?"
-                                                   Clearable
-                                                   SelectedValuesChanged="@((values) => InvokeAsync(async () =>
-                                                                          {
-                                                                              team.SelectedPlayerIDs = new List<string>();
-                                                                              await GetPlayerAsync(team);
-                                                                          }))">
-                                            <MudVirtualize Items="_schoolRegions" Context="region">
-                                                <MudSelectItem T="int?" Value="@region.ID">
-                                                    @region.Region (@region.Abbreviation)
-                                                </MudSelectItem>
-                                            </MudVirtualize>
-                                        </MudSelect>
+                                       
+                                            <MudStack Spacing="2">
+                                                <MudGrid Spacing="2">
+                                                    <!-- Region Select -->
+                                                    <MudItem xs="12">
+                                                        <MudSelect @bind-Value="team.SelectedRegionID"
+                                                                   Margin="Margin.Dense"
+                                                                   Label="Region"
+                                                                   ShrinkLabel
+                                                                   Variant="Variant.Outlined"
+                                                                   T="int?"
+                                                                   Clearable
+                                                                   SelectedValuesChanged="@((values) => InvokeAsync(async () =>
+                                                                      {
+                                                                          team.SelectedPlayerIDs = new List<string>();
+                                                                          await GetPlayerAsync(team);
+                                                                      }))"
+                                                                   Disabled="IsEditMode">
+                                                            <MudVirtualize Items="_schoolRegions" Context="region">
+                                                                <MudSelectItem T="int?" Value="@region.ID">
+                                                                    @region.Region (@region.Abbreviation)
+                                                                </MudSelectItem>
+                                                            </MudVirtualize>
+                                                        </MudSelect>
+                                                    </MudItem>
 
-                                        <!-- Players Select -->
-                                        <MudSelect @bind-SelectedValues="team.SelectedPlayerIDs"
-                                                   MultiSelection="true"
-                                                   SelectAll="true"
-                                                   Clearable
-                                                   Margin="Margin.Dense"
-                                                   Label="Players"
-                                                   ShrinkLabel
-                                                   Variant="Variant.Outlined"
-                                                   Disabled="!team.SelectedRegionID.HasValue || !_selectedSportSubcategoryIDValue.HasValue"
-                                                   T="string"
-                                                   ToStringFunc="@(id => team.AvailablePlayers?.FirstOrDefault(p => p.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)">
-                                            <MudVirtualize Items="team.AvailablePlayers" Context="player">
-                                                <MudSelectItem T="string" Value="@player.ID">
-                                                    @player.FirstName @player.LastName
-                                                </MudSelectItem>
-                                            </MudVirtualize>
-                                        </MudSelect>
+                                                    <!-- Players Select -->
+                                                    <MudItem xs="12">
+                                                        <MudSelect @bind-SelectedValues="team.SelectedPlayerIDs"
+                                                                   MultiSelection="true"
+                                                                   SelectAll="true"
+                                                                   Clearable
+                                                                   Margin="Margin.Dense"
+                                                                   Label="Players"
+                                                                   ShrinkLabel
+                                                                   Variant="Variant.Outlined"
+                                                                   Disabled="!team.SelectedRegionID.HasValue || !_selectedSportSubcategoryIDValue.HasValue || IsEditMode"
+                                                                   T="string"
+                                                                   ToStringFunc="@(id => {
+                                                                       if (string.IsNullOrEmpty(id)) return "No player selected";
+
+                                                                       // TEMPORARY: Show loading message while fetching
+                                                                       if (team.AvailablePlayers == null || !team.AvailablePlayers.Any())
+                                                                           return $"{id} (Loading...)";
+
+                                                                       // Find the player in AvailablePlayers by ID
+                                                                       var player = team.AvailablePlayers?.FirstOrDefault(p => p.ID == id);
+
+                                                                       if (player != null)
+                                                                       {
+                                                                           // Show name if available, otherwise show ID
+                                                                           if (!string.IsNullOrEmpty(player.FirstName) && !string.IsNullOrEmpty(player.LastName))
+                                                                               return $"{player.FirstName} {player.LastName}";
+                                                                           else if (!string.IsNullOrEmpty(player.FirstName))
+                                                                               return player.FirstName;
+                                                                           else if (!string.IsNullOrEmpty(player.LastName))
+                                                                               return player.LastName;
+                                                                       }
+
+                                                                       // Fallback to showing the ID
+                                                                       return id ?? "Unknown Player";
+                                                                   })">
+
+                                                            <!-- Show all available players with their names -->
+                                                            @if (team.AvailablePlayers != null && team.AvailablePlayers.Any())
+                                                            {
+                                                                <MudVirtualize Items="team.AvailablePlayers" Context="player">
+                                                                    <MudSelectItem T="string" Value="@player.ID">
+                                                                        @player.FirstName @player.LastName
+                                                                    </MudSelectItem>
+                                                                </MudVirtualize>
+                                                            }
+                                                            else
+                                                            {
+                                                                <!-- Show IDs while loading -->
+                                                                @if (team.SelectedPlayerIDs != null && team.SelectedPlayerIDs.Any())
+                                                                {
+                                                                    @foreach (var playerId in team.SelectedPlayerIDs)
+                                                                    {
+                                                                        <MudSelectItem T="string" Value="@playerId">
+                                                                            @playerId (Loading...)
+                                                                        </MudSelectItem>
+                                                                    }
+                                                                }
+                                                            }
+                                                        </MudSelect>
+                                                    </MudItem>
+                                                </MudGrid>
+
+                                                <!-- Score and Placement - visible when event is finished in edit mode -->
+                                                @if (IsEditMode && _selectedIsEventFinishedValue == true)
+                                                {
+                                                    <MudGrid Spacing="2">
+                                                        <MudItem xs="12">
+                                                            @{
+                                                                var selectedStage = GetSelectedStageName();
+                                                                var isFinalsStage = selectedStage?.Equals("Finals", StringComparison.OrdinalIgnoreCase) == true;
+                                                                var availablePlacements = isFinalsStage ? _championshipPlacements : _placements;
+                                                            }
+
+                                                            <MudSelect T="string"
+                                                                       @bind-Value="team.Rank"
+                                                                       Label="Placement"
+                                                                       ShrinkLabel
+                                                                       Variant="Variant.Outlined"
+                                                                       Margin="Margin.Dense"
+                                                                       Clearable>
+                                                                @if (availablePlacements is not null)
+                                                                {
+                                                                    <MudVirtualize Items="availablePlacements" Context="placement">
+                                                                        <MudSelectItem T="string" Value="@placement">@placement</MudSelectItem>
+                                                                    </MudVirtualize>
+                                                                }
+                                                            </MudSelect>
+                                                        </MudItem>
+                                                    </MudGrid>
+                                                }
+
+                                                <!-- Remove button for non-edit mode -->
+                                                @if (!IsEditMode && i > 0)
+                                                {
+                                                    <MudItem xs="12">
+                                                        <MudButton Size="Size.Small"
+                                                                   Variant="Variant.Text"
+                                                                   Color="Color.Error"
+                                                                   StartIcon="@Icons.Material.Filled.Delete"
+                                                                   OnClick="@(() => RemoveOpposingTeam(i))">
+                                                            Remove Team
+                                                        </MudButton>
+                                                    </MudItem>
+                                                }
+                                            </MudStack>
+                                        
                                     </MudItem>
                                 </MudGrid>
 
@@ -300,7 +394,6 @@
                         </MudStack>
                     </MudItem>
                 }
-
 
                 <!-- Stream Section: Only for News Administrator -->
                 @if (UserRole == "News Administrator" || UserRole == "Superuser")
@@ -477,6 +570,13 @@ else
     [Parameter] public int? SelectedEventVersusTeamsID { get; set; }
     [Parameter] public string? SelectedEventStage { get; set; }
 
+    [Parameter] public bool IsProgressionMode { get; set; } = false;
+    [Parameter] public string? PreviousEventID { get; set; }
+    // [Parameter] public List<ProgressionDTO.ProgressionTeamSelection>? ProgressionTeams { get; set; }
+
+    [Parameter]
+    public List<Dictionary<string, object>>? ProgressionTeams { get; set; } = new();
+
 
     // ------------------------------
     // User Roles & Permissions
@@ -550,6 +650,7 @@ else
     private int[]? _versusTeamsIDs;
     private List<int?> selectedRegions { get; set; } = new() { null };
     private int? _selectedBracketID;
+    private string? _selectedEventStageName;
 
 
     // Opposing team IDs
@@ -582,12 +683,366 @@ else
     {
         UserRole = await cookieService.GetCookie("userRole");
 
-        await LoadDataAsync();
+        if (IsProgressionMode && PreviousEventID != null)
+        {
+            await LoadPreviousEventForProgression();
 
-        if (!IsEditMode)
+            // Load progression teams FIRST
+            if (ProgressionTeams != null && ProgressionTeams.Any())
+            {
+                await LoadProgressionTeamsAsync();
+            }
+            else
+            {
+                await LoadDataAsync();
+            }
+        }
+        else
+        {
+            await LoadDataAsync();
+        }
+
+        // Only add default team if not in progression mode or progression teams are empty
+        if (!IsProgressionMode && !_teamSelections.Any())
+        {
             _teamSelections.Add(new TeamSelection());
+        }
 
         _isLoaded = true;
+
+        StateHasChanged();
+    }
+
+    private async Task LoadProgressionTeamsAsync()
+    {
+        _teamSelections = new List<TeamSelection>();
+
+        foreach (var teamDict in ProgressionTeams)
+        {
+            var teamSelection = new TeamSelection();
+
+            // Get basic team info
+            if (teamDict.TryGetValue("SelectedRegionID", out var regionIdValue))
+            {
+                if (regionIdValue != null)
+                {
+                    teamSelection.SelectedRegionID = Convert.ToInt32(regionIdValue);
+                }
+            }
+
+            if (teamDict.TryGetValue("ExistingVersusTeamID", out var versusTeamIdValue))
+            {
+                if (versusTeamIdValue != null)
+                {
+                    teamSelection.ExistingVersusTeamID = Convert.ToInt32(versusTeamIdValue);
+                }
+            }
+
+            teamSelection.Score = teamDict.TryGetValue("Score", out var scoreValue) ? scoreValue?.ToString() : "";
+            teamSelection.Rank = teamDict.TryGetValue("Rank", out var rankValue) ? rankValue?.ToString() : "Winner";
+
+            // Get player IDs
+            teamSelection.SelectedPlayerIDs = new List<string>();
+            teamSelection.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+
+            if (teamDict.TryGetValue("SelectedPlayerIDs", out var playerIdsValue))
+            {
+                if (playerIdsValue is List<object> playerIdObjects)
+                {
+                    teamSelection.SelectedPlayerIDs = playerIdObjects
+                        .Where(x => x != null)
+                        .Select(x => x.ToString() ?? "")
+                        .Where(x => !string.IsNullOrEmpty(x))
+                        .ToList();
+                }
+                else if (playerIdsValue is List<string> stringList)
+                {
+                    teamSelection.SelectedPlayerIDs = stringList;
+                }
+            }
+
+            _teamSelections.Add(teamSelection);
+
+            _ = Task.Run(async () => await FetchPlayerNamesForTeam(teamSelection));
+        }
+
+    }
+
+    private async Task FetchPlayerNamesForTeam(TeamSelection team)
+    {
+        if (team.SelectedPlayerIDs == null || !team.SelectedPlayerIDs.Any())
+            return;
+
+       
+
+        var newAvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+
+        foreach (var playerId in team.SelectedPlayerIDs)
+        {
+            try
+            {
+                // Fetch player details
+                var playerUrl = $"/Profiles/Player?ID={playerId}";
+                var playerDetails = await apiService.GetAsync<ProfilesDTO.ProfilePlayer>(playerUrl);
+
+                if (playerDetails != null && playerDetails.Any())
+                {
+                    var player = playerDetails.First();
+                    newAvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+                        {
+                            ID = playerId,
+                            FirstName = player.FirstName,
+                            LastName = player.LastName
+                        });
+                }
+                else
+                {
+                    // Add with just ID if not found
+                    newAvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+                        {
+                            ID = playerId,
+                            FirstName = "",
+                            LastName = ""
+                        });
+                }
+            }
+            catch (Exception ex)
+            {
+                newAvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+                    {
+                        ID = playerId,
+                        FirstName = "",
+                        LastName = ""
+                    });
+            }
+        }
+
+        await InvokeAsync(() =>
+        {
+            team.AvailablePlayers = newAvailablePlayers;
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadPreviousEventForProgression()
+    {
+        if (string.IsNullOrEmpty(PreviousEventID)) return;
+
+        try
+        {
+            // Load the previous event details
+            string url = $"/Events?id={PreviousEventID}";
+            var events = await apiService.GetAsync<EventsDTO.Events>(url);
+
+            if (events != null && events.Any())
+            {
+                var previousEvent = events.First();
+
+                // Load sport subcategory details to get all related info
+                if (previousEvent.SportSubcategoryID.HasValue)
+                {
+                    var subcatUrl = $"/Sports/Subcategories?id={previousEvent.SportSubcategoryID.Value}";
+                    _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(subcatUrl);
+
+                    if (_sportSubcategories != null && _sportSubcategories.Any())
+                    {
+                        var sub = _sportSubcategories.First();
+                        _selectedMainCategoryValue = sub.MainCategory;
+                        _selectedSportSubcategoryIDValue = sub.ID;
+                        _selectedSportIDValue = sub.SportID;
+
+                        // Load sport categories
+                        await GetSportCategoriesAsync();
+                        await GetSportsAsync();
+
+                        // Load school level and gender
+                        await GetGenderCategoriesAsync();
+                        await GetSchoolLevelsAsync();
+                        await FilterSchoolLevelAndGenderAsync();
+
+                        var schoolLevelName = _schoolLevels?.FirstOrDefault(x => x.ID == sub.SchoolLevelID)?.Level;
+                        var genderName = _sportGenderCategories?.FirstOrDefault(x => x.ID == sub.SportGenderCategoryID)?.Gender;
+                        if (schoolLevelName != null && genderName != null)
+                            _selectedSchoolLevelAndGenderID = $"{schoolLevelName} - {genderName}";
+
+                        // Load main categories
+                        LoadMainCategories();
+
+                        // Load players for each team
+                        await LoadPlayersForProgressionTeams();
+                    }
+                }
+
+                // Get the next stage
+                await GetEventStagesAsync();
+                if (_eventStages != null)
+                {
+                    var currentStage = _eventStages.FirstOrDefault(s => s.ID == previousEvent.EventStageID);
+                    if (currentStage != null)
+                    {
+                        // Find the next stage based on your progression order
+                        int nextStageId = GetNextStageId(currentStage.ID);
+                        _selectedEventStagesIDValue = nextStageId;
+                    }
+                }
+
+                // Load other data
+                await GetSchoolRegionsAsync();
+                await GetEventVenuesAsync();
+                await GetStreamServicesAsync();
+                await GetUsersAsync();
+                await GetBracketsAsync();
+
+                // Set sport category to 1
+                _selectedSportCategoryIDValue = 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading previous event: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // load players for progression teams
+    private async Task LoadPlayersForProgressionTeams()
+    {
+        if (ProgressionTeams == null || !ProgressionTeams.Any())
+        {
+            return;
+        }
+
+        _teamSelections = new List<TeamSelection>();
+
+        foreach (var teamDict in ProgressionTeams)
+        {
+            var teamSelection = new TeamSelection();
+
+            // Handle SelectedRegionID
+            if (teamDict.TryGetValue("SelectedRegionID", out var regionIdValue))
+            {
+                if (regionIdValue != null)
+                {
+                    teamSelection.SelectedRegionID = Convert.ToInt32(regionIdValue);
+                }
+            }
+
+            // Handle ExistingVersusTeamID
+            if (teamDict.TryGetValue("ExistingVersusTeamID", out var versusTeamIdValue))
+            {
+                if (versusTeamIdValue != null)
+                {
+                    teamSelection.ExistingVersusTeamID = Convert.ToInt32(versusTeamIdValue);
+                }
+            }
+
+            // Handle Score
+            if (teamDict.TryGetValue("Score", out var scoreValue))
+            {
+                teamSelection.Score = scoreValue?.ToString();
+            }
+
+            // Handle Rank
+            if (teamDict.TryGetValue("Rank", out var rankValue))
+            {
+                teamSelection.Rank = rankValue?.ToString();
+            }
+
+            // Handle SelectedPlayerIDs
+            teamSelection.SelectedPlayerIDs = new List<string>();
+            if (teamDict.TryGetValue("SelectedPlayerIDs", out var playerIdsValue))
+            {
+
+                if (playerIdsValue is List<object> playerIdObjects)
+                {
+                    teamSelection.SelectedPlayerIDs = playerIdObjects
+                        .Where(x => x != null)
+                        .Select(x => x.ToString() ?? "")
+                        .Where(x => !string.IsNullOrEmpty(x))
+                        .ToList();
+                    
+                }
+                else if (playerIdsValue is List<string> stringList)
+                {
+                    teamSelection.SelectedPlayerIDs = stringList;
+                    
+                }
+            }
+
+            // Initialize AvailablePlayers
+            teamSelection.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+
+            // player IDs used to fetch their names
+            if (teamSelection.SelectedPlayerIDs != null && teamSelection.SelectedPlayerIDs.Any())
+            {
+                await FetchPlayerNames(teamSelection);
+            }
+            else
+            {
+                // Console.WriteLine($"DEBUG: No player IDs found for this team");
+            }
+
+            _teamSelections.Add(teamSelection);
+        }
+    }
+
+    private async Task FetchPlayerNames(TeamSelection team)
+    {
+        if (team.SelectedPlayerIDs == null || !team.SelectedPlayerIDs.Any())
+            return;
+
+
+        foreach (var playerId in team.SelectedPlayerIDs)
+        {
+            try
+            {
+                var playerUrl = $"/Profiles/Player?ID={playerId}";
+                var playerDetails = await apiService.GetAsync<ProfilesDTO.ProfilePlayer>(playerUrl);
+
+                if (playerDetails != null && playerDetails.Any())
+                {
+                    var player = playerDetails.First();
+
+                    team.AvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+                        {
+                            ID = playerId,
+                            FirstName = player.FirstName ?? "",
+                            LastName = player.LastName ?? ""
+                        });
+                }
+                else
+                {
+                    team.AvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+                        {
+                            ID = playerId,
+                            FirstName = "",
+                            LastName = ""
+                        });
+                }
+            }
+            catch (Exception ex)
+            {
+                team.AvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+                    {
+                        ID = playerId,
+                        FirstName = "",
+                        LastName = ""
+                    });
+            }
+        }
+
+    }
+
+    private int GetNextStageId(int currentStageId)
+    {
+        // stages: 1=Elimination, 2=Quarter-finals, 3=Semi-finals, 4=Finals
+        return currentStageId switch
+        {
+            1 => 2,
+            2 => 3,
+            3 => 4,
+            4 => 4, 
+            _ => currentStageId + 1
+        };
     }
 
     protected override async Task OnParametersSetAsync()
@@ -658,22 +1113,6 @@ else
         _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
     }
 
-    // private async Task GetPlayerAsync(TeamSelection team)
-    // {
-    //     // validate first
-    //     if (!team.SelectedRegionID.HasValue || !_selectedSportSubcategoryIDValue.HasValue)
-    //     {
-    //         team.AvailablePlayers = new();
-    //         return;
-    //     }
-
-    //     string url = $"/Profiles/Player/Events?regionID={team.SelectedRegionID}&subCategoryID={_selectedSportSubcategoryIDValue}";
-    //     var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
-
-    //     // Assign players only for that specific team
-    //     team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
-    // }
-
     private async Task GetPlayerAsync(TeamSelection team)
     {
         if (!team.SelectedRegionID.HasValue)
@@ -682,7 +1121,7 @@ else
             return;
         }
 
-        // For Archery events, we need to fetch players differently
+        // For Archery events
         var isArcherySport = await IsArcherySport();
 
         if (isArcherySport && _selectedMainCategoryValue?.Equals("1440 Round", StringComparison.OrdinalIgnoreCase) == true)
@@ -716,7 +1155,7 @@ else
         string url = "/Schools/Levels";
         _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
 
-        await GetSportSubCategoriesAsync(); // This stays
+        await GetSportSubCategoriesAsync();
     }
 
     private async Task GetSportSubCategoriesAsync()
@@ -730,7 +1169,7 @@ else
     {
         if (string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
         {
-            _sportSubcategories = new List<SportsDTO.SportSubcategories>(); // Clear the list
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
             return;
         }
 
@@ -752,7 +1191,7 @@ else
         else
         {
             // Handle cases where matching ID is not found
-            _sportSubcategories = new List<SportsDTO.SportSubcategories>(); // Clear the subcategories if no valid match
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
         }
     }
 
@@ -830,7 +1269,7 @@ else
         }
         else
         {
-            await GetSchoolRegionsAsync(); // restore default regions
+            await GetSchoolRegionsAsync();
         }
     }
 
@@ -839,13 +1278,13 @@ else
         if (_sportSubcategories == null)
             return new List<SportsDTO.SportSubcategories>();
 
-        // ✅ If a main category is selected → show only subcategories that match
+        // If a main category is selected → show only subcategories that match
         if (!string.IsNullOrEmpty(_selectedMainCategoryValue))
             return _sportSubcategories
                 .Where(sc => sc.MainCategory == _selectedMainCategoryValue)
                 .ToList();
 
-        // ✅ If no main category selected → show only subcategories that have NO main category
+        // If no main category selected → show only subcategories that have NO main category
         return _sportSubcategories
             .Where(sc => string.IsNullOrEmpty(sc.MainCategory))
             .ToList();
@@ -858,37 +1297,16 @@ else
     {
         if (_selectedSportIDValue == null) return false;
 
-        // Get sport name from local list first to avoid API call if possible
         var sport = _sports?.FirstOrDefault(s => s.ID == _selectedSportIDValue);
         if (sport != null)
         {
             return sport.Sport?.Equals("Archery", StringComparison.OrdinalIgnoreCase) == true;
         }
 
-        // Fallback to API if not in local list
         var sportsUrl = $"/Sports?id={_selectedSportIDValue}";
         var sports = await apiService.GetAsync<SportsDTO.Sports>(sportsUrl);
         return sports?.Any(s => s.Sport?.Equals("Archery", StringComparison.OrdinalIgnoreCase) == true) == true;
     }
-
-    // private async Task<bool> IsDanceSport()
-    // {
-    //     if (_selectedSportIDValue == null) return false;
-
-    //     var sportsUrl = $"/Sports?id={_selectedSportIDValue}";
-    //     var sports = await apiService.GetAsync<SportsDTO.Sports>(sportsUrl);
-
-    //     if (sports == null || !sports.Any()) return false;
-
-    //     var sport = sports.First();
-    //     return sport.Sport?.Equals("DanceSports", StringComparison.OrdinalIgnoreCase) == true;
-    // }
-
-    // private bool IsDanceSportMainCategory()
-    // {
-    //     return _selectedMainCategoryValue?.Equals("Latin American", StringComparison.OrdinalIgnoreCase) == true ||
-    //            _selectedMainCategoryValue?.Equals("Modern Standard", StringComparison.OrdinalIgnoreCase) == true;
-    // }
 
     private async Task Create1440RoundEvents()
     {
@@ -945,62 +1363,6 @@ else
 
         Snackbar.Add($"Successfully created {createdCount} events for 1440 Round Archery.", Severity.Success);
     }
-
-    // private async Task CreateDanceSportEvents()
-    // {
-    //     if (!IsDanceSportMainCategory())
-    //     {
-    //         throw new Exception($"Invalid DanceSport main category: {_selectedMainCategoryValue}");
-    //     }
-
-    //     // Get all subcategories for this sport and school level/gender
-    //     var subcatUrl = $"/Sports/Subcategories?mainCategory={_selectedMainCategoryValue}&sportID={_selectedSportIDValue}";
-
-    //     if (_selectedSchoolLevelAndGenderID != null)
-    //     {
-    //         var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
-    //         var schoolLevelName = parts[0];
-    //         var genderName = parts[1];
-    //         var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
-    //         var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
-
-    //         if (schoolLevelID != null && genderID != null)
-    //         {
-    //             subcatUrl += $"&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}";
-    //         }
-    //     }
-
-    //     var allDanceSubcats = await apiService.GetAsync<SportsDTO.SportSubcategories>(subcatUrl);
-
-    //     if (allDanceSubcats == null || !allDanceSubcats.Any())
-    //     {
-    //         throw new Exception($"No {_selectedMainCategoryValue} subcategories found");
-    //     }
-
-    //     // Filter only "Single Dance" subcategories
-    //     var singleDanceSubcats = allDanceSubcats
-    //         .Where(sc => sc.Subcategory?.Contains("Single Dance", StringComparison.OrdinalIgnoreCase) == true)
-    //         .ToList();
-
-    //     if (!singleDanceSubcats.Any())
-    //     {
-    //         throw new Exception($"No single dance subcategories found for {_selectedMainCategoryValue}");
-    //     }
-
-    //     // Create events for each single dance
-    //     var createdCount = 0;
-
-    //     foreach (var subcat in singleDanceSubcats)
-    //     {
-    //         // Extract dance style name
-    //         var danceStyleName = subcat.Subcategory?.Replace("Single Dance - ", "")?.Trim() ?? subcat.Subcategory;
-
-    //         await CreateEventWithSubcategory(subcat.ID, danceStyleName);
-    //         createdCount++;
-    //     }
-
-    //     Snackbar.Add($"Successfully created {createdCount} single dance events for {_selectedMainCategoryValue} DanceSport.", Severity.Success);
-    // }
 
     private async Task CreateEventWithSubcategory(int? sportSubcategoryID, string? subcategoryName)
     {
@@ -1073,17 +1435,11 @@ else
         {
             var isArchery = await IsArcherySport();
             var is1440Round = _selectedMainCategoryValue?.Equals("1440 Round", StringComparison.OrdinalIgnoreCase) == true;
-            // var isDanceSport = await IsDanceSport();
-            // var isDanceSportMainCat = IsDanceSportMainCategory();
 
             if (isArchery && is1440Round)
             {
                 await Create1440RoundEvents();
             }
-            // else if (isDanceSport && isDanceSportMainCat)
-            // {
-            //     await CreateDanceSportEvents();
-            // }
             else
             {
                 await CreateSingleEvent();
@@ -1095,6 +1451,16 @@ else
         {
             Snackbar.Add($"Failed to add event(s): {ex.Message}", Severity.Error);
         }
+    }
+
+    private string? GetSelectedStageName()
+    {
+        if (_selectedEventStagesIDValue.HasValue && _eventStages != null)
+        {
+            var stage = _eventStages.FirstOrDefault(s => s.ID == _selectedEventStagesIDValue.Value);
+            return stage?.Stage;
+        }
+        return null;
     }
 
     private async Task CreateSingleEvent()
@@ -1168,7 +1534,6 @@ else
 
     private async Task UpdateEventAsync()
     {
-
         if (SelectedEventID == null)
         {
             Snackbar.Add("No event selected for update.", Severity.Warning);
@@ -1214,7 +1579,9 @@ else
                     ID = team.ExistingVersusTeamID,
                     EventID = SelectedEventID,
                     SchoolRegionID = team.SelectedRegionID,
-                    RecentUpdateAt = DateTime.Now
+                    RecentUpdateAt = DateTime.Now,
+                    Score = team.Score,
+                    Rank = team.Rank
                 };
 
             if (team.ExistingVersusTeamID > 0)
@@ -1244,7 +1611,7 @@ else
                 await apiService.PostAsync("/Events/VersusTeams/Players", playerList);
             }
         }
-        
+
         await UploadEventAttachmentAsync();
         Snackbar.Add("Event updated successfully.", Severity.Success);
         MudDialog?.Close(DialogResult.Ok(true));
@@ -1281,7 +1648,6 @@ else
         {
             await DeleteEventAsync();
 
-            // close the dialog if successful
             MudDialog?.Close(DialogResult.Ok(true));
         }
     }
@@ -1290,7 +1656,7 @@ else
     {
         if (SelectedEventID == null) return;
 
-        // 1. First, get all versus teams for this event
+        //get all versus teams for this event
         string versusTeamsUrl = $"/Events/VersusTeams?eventID={SelectedEventID}";
         var versusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(versusTeamsUrl);
 
@@ -1298,14 +1664,14 @@ else
         {
             _versusTeamsIDs = versusTeams.Select(vt => vt.ID).ToArray();
 
-            // 2. Delete versus team players first (due to foreign key constraints)
+            //  Delete versus team players first (due to foreign key constraints)
             await DeleteVersusTeamPlayersByVersusTeamIDAsync();
 
-            // 3. Then delete versus teams
+            // Then delete versus teams
             await DeleteVersusTeamsAsync();
         }
 
-        // 4. Finally delete the main event
+        // Finally delete the main event
         string url = $"/Events/{SelectedEventID}";
         var success = await apiService.DeleteAsync(url);
 
@@ -1387,7 +1753,7 @@ else
                     _fileExists = true;
                     _eventAttachmentUrl = url;
                     _eventAttachmentUploadState = "View Attachment";
-                    return; // Stop checking once found
+                    return; 
                 }
             }
             catch
@@ -1589,39 +1955,6 @@ else
     // ------------------------------
     // Opposing Team
     // ------------------------------
-    // private async Task GetEventVersusTeamsAsync()
-    // {
-    //     if (SelectedEventID == null) return;
-
-    //     string url = $"/Events/VersusTeams?eventID={SelectedEventID}";
-    //     _eventVersusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(url);
-
-    //     if (_eventVersusTeams == null || !_eventVersusTeams.Any()) return;
-
-    //     _teamSelections = new List<TeamSelection>();
-
-    //     foreach (var team in _eventVersusTeams)
-    //     {
-    //         var teamSelection = new TeamSelection
-    //             {
-    //                 ExistingVersusTeamID = team.ID,
-    //                 SelectedRegionID = team.SchoolRegionID,
-    //                 SelectedPlayerIDs = new List<string>()
-    //             };
-
-    //         string playerUrl = $"/Events/VersusTeams/Players?eventVersusID={team.ID}";
-    //         var teamPlayers = await apiService.GetAsync<EventsDTO.EventVersusTeamPlayers>(playerUrl);
-    //         if (teamPlayers != null && teamPlayers.Any())
-    //         {
-    //             teamSelection.SelectedPlayerIDs = teamPlayers.Select(p => p.ProfilePlayerID).ToList();
-    //         }
-
-    //         // Fetch available players for this team’s region
-    //         await GetPlayerAsync(teamSelection);
-
-    //         _teamSelections.Add(teamSelection);
-    //     }
-    // }
     private async Task GetEventVersusTeamsAsync()
     {
         if (SelectedEventID == null) return;
@@ -1639,7 +1972,9 @@ else
                 {
                     ExistingVersusTeamID = team.ID,
                     SelectedRegionID = team.SchoolRegionID,
-                    SelectedPlayerIDs = new List<string>()
+                    SelectedPlayerIDs = new List<string>(),
+                    Score = team.Score,
+                    Rank = team.Rank
                 };
 
             // Fetch players for this team
@@ -1659,7 +1994,6 @@ else
             _teamSelections.Add(teamSelection);
         }
     }
-
 
     private async Task GetEventVersusTeamPlayersAsync()
     {
@@ -1858,6 +2192,8 @@ else
             public string? EventID { get; set; }
             public int? SchoolRegionID { get; set; }
             public DateTime? RecentUpdateAt { get; set; }
+            public string? Score { get; set; }
+            public string? Rank { get; set; }
             public List<EventVersusTeamPlayers> EventVersusTeamPlayers { get; set; } = new();
         }
 
@@ -1871,13 +2207,18 @@ else
 
     public class ProfilesDTO
     {
+        public class ProfilePlayer
+        {
+            public string? ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+
         public class ProfilePlayerEvent
         {
             public string? ID { get; set; }
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
-            public int? RegionID { get; set; }
-            public int? SubCategoryID { get; set; }
         }
     }
 
@@ -1982,6 +2323,9 @@ else
         public IEnumerable<string?>? SelectedPlayerIDs { get; set; } = new List<string?>();
         public List<ProfilesDTO.ProfilePlayerEvent> AvailablePlayers { get; set; } = new();
         public int ExistingVersusTeamID { get; set; }
+
+        public string? Score { get; set; }
+        public string? Rank { get; set; }
     }
 
     public class BracketDisplayRow
@@ -1993,4 +2337,37 @@ else
         public List<SportsDTO.SportsBracketRegions>? RegionsList { get; set; }
     }
 
+    private List<string> _championshipPlacements = new()
+    {
+        "Gold",
+        "Silver",
+        "Bronze",
+        "Eliminated",
+    };
+
+        private List<string> _placements = new()
+    {
+        "Winner",
+        "Eliminated",
+    };
+
+    public class ProgressionDTO
+    {
+        public class ProgressionTeamSelection
+        {
+            public int? SelectedRegionID { get; set; }
+            public List<string> SelectedPlayerIDs { get; set; } = new();
+            public List<ProfilePlayerDTO> AvailablePlayers { get; set; } = new();
+            public int ExistingVersusTeamID { get; set; }
+            public string? Score { get; set; }
+            public string? Rank { get; set; }
+        }
+
+        public class ProfilePlayerDTO
+        {
+            public string? ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+    }
 }

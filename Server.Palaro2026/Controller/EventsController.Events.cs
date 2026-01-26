@@ -350,5 +350,66 @@ namespace Server.Palaro2026.Controller
                 .AsNoTracking()
                 .ToListAsync();
         }
+
+        // This would be in your EventsController or similar
+        // Add this method to your EventsController
+        [HttpGet("WinnersByEvent")]
+        public async Task<ActionResult<IEnumerable<WinnerResponse>>> GetWinnersByEvent(
+            [FromQuery] string eventID,
+            [FromQuery] string? rank = "Winner")
+        {
+            try
+            {
+                var winners = await _context.EventVersusTeams
+                    .Include(vt => vt.SchoolRegion)
+                    .Include(vt => vt.EventVersusTeamPlayers)
+                        .ThenInclude(p => p.ProfilePlayer)
+                    .Where(vt => vt.EventID == eventID &&
+                                 vt.Rank == rank &&
+                                 vt.SchoolRegionID != null)
+                    .Select(vt => new WinnerResponse
+                    {
+                        ID = vt.ID,
+                        SchoolRegionID = vt.SchoolRegionID,
+                        Region = vt.SchoolRegion.Region,
+                        Abbreviation = vt.SchoolRegion.Abbreviation,
+                        Score = vt.Score,
+                        Rank = vt.Rank,
+                        Players = vt.EventVersusTeamPlayers.Select(p => new PlayerResponse
+                        {
+                            ProfilePlayerID = p.ProfilePlayerID,
+                            FirstName = p.ProfilePlayer.FirstName,
+                            LastName = p.ProfilePlayer.LastName
+                        }).ToList()
+                    })
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                return Ok(winners);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error fetching winners: {ex.Message}");
+            }
+        }
+
+        // Add these DTO classes to your EventsController (or in a separate DTO file)
+        public class WinnerResponse
+        {
+            public int ID { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public string? Score { get; set; }
+            public string? Rank { get; set; }
+            public List<PlayerResponse> Players { get; set; } = new();
+        }
+
+        public class PlayerResponse
+        {
+            public string? ProfilePlayerID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
     }
 }

@@ -1,0 +1,378 @@
+﻿@page "/scoreboard/teammatch-live"
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>Team Match Dashboard | PALARO 2026</PageTitle>
+
+<style>
+    /* FONTS */
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Roboto:wght@500;700;900&display=swap');
+
+    :root {
+        --bg-dark: #121212;
+        --card-surface: #1E1E1E;
+        --text-primary: #ffffff;
+        --accent-blue: #2979FF;
+        --accent-gold: #FFD600;
+        --accent-red: #FF1744;
+    }
+
+    .dashboard-bg {
+        background-color: var(--bg-dark);
+        min-height: 100vh;
+        color: var(--text-primary);
+        font-family: 'Roboto', sans-serif;
+    }
+
+    /* CARD DESIGN */
+    .match-link {
+        text-decoration: none;
+        display: block;
+        height: 100%;
+    }
+
+    .match-card {
+        background-color: var(--card-surface);
+        border: 1px solid #333;
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        height: 100%;
+    }
+
+        .match-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-blue);
+            box-shadow: 0 10px 25px rgba(41, 121, 255, 0.2);
+        }
+
+    /* TYPOGRAPHY */
+    .score-big {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 3.5rem;
+        font-weight: 900;
+        line-height: 1;
+        text-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .team-abbr {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        margin-top: 8px;
+        color: white;
+    }
+
+    /* VS SECTION */
+    .vs-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .vs-text {
+        font-family: 'Orbitron', sans-serif;
+        font-style: italic;
+        color: #555;
+        font-weight: 900;
+        font-size: 1.2rem;
+        opacity: 0.5;
+    }
+
+    /* BADGES */
+    .status-badge {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-weight: 900;
+        font-size: 0.75rem;
+        letter-spacing: 1px;
+        z-index: 2;
+    }
+
+    .badge-live {
+        background-color: var(--accent-red);
+        color: white;
+        box-shadow: 0 0 10px var(--accent-red);
+        animation: pulse 2s infinite;
+    }
+
+    .badge-final {
+        background-color: #00E676;
+        color: #000;
+    }
+
+    @@keyframes pulse {
+        0% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.7;
+        }
+
+        100% {
+            opacity: 1;
+        }
+    }
+
+    /* LOGO CIRCLE */
+    .logo-circle {
+        width: 80px;
+        height: 80px;
+        background: #fff;
+        border-radius: 50%;
+        padding: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 4px solid #333;
+    }
+
+    .sport-icon {
+        background: rgba(41, 121, 255, 0.1);
+        border-radius: 50%;
+        padding: 8px;
+    }
+</style>
+
+<div class="dashboard-bg pt-8 pb-8">
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge">
+
+        <!-- HEADER -->
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-10">
+            <MudIcon Icon="@Icons.Material.Filled.Scoreboard" Color="Color.Primary" Size="Size.Large" />
+            <div>
+                <MudText Typo="Typo.h4" Style="font-family:'Orbitron'; font-weight:900; letter-spacing: 2px;">MATCH DASHBOARD</MudText>
+                <MudText Typo="Typo.body2" Style="color: #888;">Select a match to view full scoreboard</MudText>
+            </div>
+        </MudStack>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="mt-16">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-4" Color="Color.Secondary">Loading Matches...</MudText>
+            </MudStack>
+        }
+        else if (!_versusEvents.Any())
+        {
+            <MudPaper Class="pa-16 d-flex flex-column align-center justify-center" Style="background-color: #1e1e1e; border: 1px dashed #444; border-radius: 16px;">
+                <MudIcon Icon="@Icons.Material.Filled.SportsScore" Size="Size.Large" Style="color: #555;" />
+                <MudText Typo="Typo.h5" Class="mt-4" Style="color: #777; font-family:'Orbitron'">NO ACTIVE MATCHES</MudText>
+                <MudText Style="color: #555;">Waiting for game schedules...</MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudGrid>
+                @foreach (var evt in _versusEvents)
+                {
+                    // Logic to get scores
+                    var teamA = evt.EventVersusList![0];
+                    var teamB = evt.EventVersusList![1];
+                    var scoreA = GetTeamScore(evt.ID, teamA.Region);
+                    var scoreB = GetTeamScore(evt.ID, teamB.Region);
+
+                    // Highlight the leading score (Gold vs White)
+                    var colorA = scoreA > scoreB ? "var(--accent-gold)" : "white";
+                    var colorB = scoreB > scoreA ? "var(--accent-gold)" : "white";
+
+                    <MudItem xs="12" md="6" lg="4" xl="3">
+                        <!-- LINK TO CLIENT SCOREBOARD (NEW TAB) -->
+                        <a href="/scoreboard/client/@evt.ID" target="_blank" class="match-link">
+
+                            <div class="match-card">
+                                <!-- STATUS BADGE -->
+                                @if (evt.IsFinished == true)
+                                {
+                                    <div class="status-badge badge-final">FINAL</div>
+                                }
+                                else
+                                {
+                                    <div class="status-badge badge-live">LIVE</div>
+                                }
+
+                                <div class="pa-5">
+                                    <!-- HEADER: Sport & Info -->
+                                    <div class="d-flex align-center mb-4">
+                                        <div class="sport-icon mr-3">
+                                            <MudIcon Icon="@GetSportIcon(evt.Sport)" Size="Size.Small" Color="Color.Primary" />
+                                        </div>
+                                        <div>
+                                            <MudText Typo="Typo.subtitle1" Style="font-weight:900; color:white; line-height:1.2;">@evt.Sport</MudText>
+                                            <MudText Typo="Typo.caption" Style="color:#888;">@evt.Gender • @evt.EventStage</MudText>
+                                        </div>
+                                    </div>
+
+                                    <MudDivider Class="mb-4" Style="border-color: #333;" />
+
+                                    <!-- TEAMS & SCORES LAYOUT -->
+                                    <div class="d-flex justify-space-between align-center">
+
+                                        <!-- TEAM A (Left) -->
+                                        <div class="d-flex flex-column align-center" style="flex:1;">
+                                            <div class="logo-circle">
+                                                <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{teamA.Region}.webp")"
+                                                          ObjectFit="ObjectFit.Contain" Style="width:100%; height:100%;" />
+                                            </div>
+                                            <div class="team-abbr text-center">@teamA.Abbreviation</div>
+                                            <div class="score-big" style="color: @colorA;">@scoreA</div>
+                                        </div>
+
+                                        <!-- VS (Center) -->
+                                        <div class="vs-container mx-2">
+                                            <span class="vs-text">VS</span>
+                                        </div>
+
+                                        <!-- TEAM B (Right) -->
+                                        <div class="d-flex flex-column align-center" style="flex:1;">
+                                            <div class="logo-circle">
+                                                <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{teamB.Region}.webp")"
+                                                          ObjectFit="ObjectFit.Contain" Style="width:100%; height:100%;" />
+                                            </div>
+                                            <div class="team-abbr text-center">@teamB.Abbreviation</div>
+                                            <div class="score-big" style="color: @colorB;">@scoreB</div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </MudContainer>
+</div>
+
+@code {
+    // --- MODELS ---
+    public class EventModel
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public bool? IsFinished { get; set; }
+        public List<EventVersusTeams>? EventVersusList { get; set; }
+    }
+
+    public class EventVersusTeams
+    {
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
+    public class ClientTeamMatchDTO
+    {
+        public string? EventID { get; set; }
+        public string? Region { get; set; }
+        public int Score { get; set; }
+    }
+
+    // --- VARIABLES ---
+    private List<EventModel> _versusEvents = new();
+    private List<ClientTeamMatchDTO> _liveScores = new();
+    private bool _isLoading = true;
+    private Timer? _refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        // Auto-refresh every 5 seconds for live dashboard updates
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 5000, 5000);
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // 1. Get All Events
+            var events = await apiService.GetAsync<EventModel>("/Events/Details");
+
+            // 2. Get Live Scores
+            var scores = await apiService.GetAsync<ClientTeamMatchDTO>("score/TeamMatch");
+
+            if (events != null)
+            {
+                // STRICT FILTERING:
+                // Only show sports that have exactly 2 teams AND are in our whitelist (Ball/Racket games)
+                _versusEvents = events
+                    .Where(x => x.EventVersusList != null
+                             && x.EventVersusList.Count == 2
+                             && IsTeamSport(x.Sport))
+                    .OrderBy(x => x.IsFinished) // Show LIVE games first, FINISHED last
+                    .ThenBy(x => x.Sport)
+                    .ToList();
+            }
+
+            if (scores != null)
+            {
+                _liveScores = scores.ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading dashboard: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // LIST OF SPORTS TO DISPLAY ON THIS DASHBOARD
+    private bool IsTeamSport(string? sport)
+    {
+        if (string.IsNullOrEmpty(sport)) return false;
+        var s = sport.ToLower();
+
+        return s.Contains("basketball") ||
+               s.Contains("volleyball") ||
+               s.Contains("football") ||
+               s.Contains("futsal") ||
+               s.Contains("soccer") ||
+               s.Contains("tennis") ||
+               s.Contains("badminton") ||
+               s.Contains("sepak") ||
+               s.Contains("baseball") ||
+               s.Contains("softball") ||
+               s.Contains("bocce") ||
+               s.Contains("goal");
+    }
+
+    private int GetTeamScore(string eventId, string? region)
+    {
+        if (string.IsNullOrEmpty(region)) return 0;
+        return _liveScores
+            .Where(s => s.EventID == eventId && s.Region == region)
+            .Sum(s => s.Score);
+    }
+
+    private string GetSportIcon(string? sport)
+    {
+        var s = sport?.ToLower() ?? "";
+        if (s.Contains("basket")) return Icons.Material.Filled.SportsBasketball;
+        if (s.Contains("volley")) return Icons.Material.Filled.SportsVolleyball;
+        if (s.Contains("soccer") || s.Contains("foot") || s.Contains("futsal")) return Icons.Material.Filled.SportsSoccer;
+        if (s.Contains("tennis") || s.Contains("badminton")) return Icons.Material.Filled.SportsTennis;
+        if (s.Contains("base") || s.Contains("soft")) return Icons.Material.Filled.SportsBaseball;
+        if (s.Contains("sepak")) return Icons.Material.Filled.SportsKabaddi;
+        return Icons.Material.Filled.SportsEsports; // Default icon
+    }
+
+    public void Dispose() => _refreshTimer?.Dispose();
+}

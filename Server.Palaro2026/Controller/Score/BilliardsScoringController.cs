@@ -49,6 +49,7 @@ namespace Server.Palaro2026.Controller
                 bs.SetNo,
                 bs.TableNo,
                 bs.PlayerPosition,
+                bs.Score,
                 bs.IsWinner,
                 bs.CreatedAt,
                 bs.UpdatedAt,
@@ -102,6 +103,7 @@ namespace Server.Palaro2026.Controller
                 bs.SetNo,
                 bs.TableNo,
                 bs.PlayerPosition,
+                bs.Score, -- FIXED: Added comma here
                 bs.IsWinner,
                 bs.CreatedAt,
                 bs.UpdatedAt,
@@ -132,40 +134,48 @@ namespace Server.Palaro2026.Controller
             [FromQuery] string? subcategory = null,
             [FromQuery] string? gender = null,
             [FromQuery] string? level = null,
-            [FromQuery] string? eventStage = null)
+            [FromQuery] string? eventStage = null,
+            [FromQuery] string? eventId = null) // Add eventId parameter
         {
             try
             {
                 var sql = @"
-                        SELECT DISTINCT
-                            e.ID,
-                            e.Date,
-                            e.Time,
-                            s.Sport,
-                            ssc.Subcategory,
-                            sgc.Gender,
-                            sl.Level,
-                            es.Stage as EventStage,
-                            e.SportMainCat,
-                            sr.Region,
-                            sr.Abbreviation,
-                            sr.ID as RegionID,
-                            evtp.ProfilePlayerID as PlayerID,
-                            pp.FirstName + ' ' + pp.LastName as PlayerName
-                        FROM Events e
-                        INNER JOIN SportSubcategories ssc ON e.SportSubcategoryID = ssc.ID
-                        INNER JOIN Sports s ON ssc.SportID = s.ID
-                        INNER JOIN SportGenderCategories sgc ON ssc.SportGenderCategoryID = sgc.ID
-                        INNER JOIN SchoolLevels sl ON ssc.SchoolLevelID = sl.ID
-                        LEFT JOIN EventStages es ON e.EventStageID = es.ID
-                        LEFT JOIN EventVersusTeams evt ON e.ID = evt.EventID
-                        LEFT JOIN SchoolRegions sr ON evt.SchoolRegionID = sr.ID
-                        LEFT JOIN EventVersusTeamPlayers evtp ON evt.ID = evtp.EventVersusID
-                        LEFT JOIN ProfilePlayers pp ON evtp.ProfilePlayerID = pp.ID
-                        WHERE s.Sport = 'Billiards'";
+            SELECT DISTINCT
+                e.ID,
+                e.Date,
+                e.Time,
+                s.Sport,
+                ssc.Subcategory,
+                sgc.Gender,
+                sl.Level,
+                es.Stage as EventStage,
+                e.SportMainCat,
+                sr.Region,
+                sr.Abbreviation,
+                sr.ID as RegionID,
+                evtp.ProfilePlayerID as PlayerID,
+                pp.FirstName + ' ' + pp.LastName as PlayerName
+            FROM Events e
+            INNER JOIN SportSubcategories ssc ON e.SportSubcategoryID = ssc.ID
+            INNER JOIN Sports s ON ssc.SportID = s.ID
+            INNER JOIN SportGenderCategories sgc ON ssc.SportGenderCategoryID = sgc.ID
+            INNER JOIN SchoolLevels sl ON ssc.SchoolLevelID = sl.ID
+            LEFT JOIN EventStages es ON e.EventStageID = es.ID
+            LEFT JOIN EventVersusTeams evt ON e.ID = evt.EventID
+            LEFT JOIN SchoolRegions sr ON evt.SchoolRegionID = sr.ID
+            LEFT JOIN EventVersusTeamPlayers evtp ON evt.ID = evtp.EventVersusID
+            LEFT JOIN ProfilePlayers pp ON evtp.ProfilePlayerID = pp.ID
+            WHERE s.Sport = 'Billiards'";
 
                 var conditions = new List<string>();
                 var parameters = new DynamicParameters();
+
+                // Filter by eventId if provided
+                if (!string.IsNullOrEmpty(eventId))
+                {
+                    conditions.Add("e.ID = @EventID");
+                    parameters.Add("EventID", eventId);
+                }
 
                 if (!string.IsNullOrEmpty(subcategory))
                 {
@@ -217,18 +227,59 @@ namespace Server.Palaro2026.Controller
                 if (!string.IsNullOrEmpty(request.EventID) && !await EventExists(request.EventID))
                     return NotFound($"Event with ID '{request.EventID}' not found.");
 
-                string sql = @"
+                // Check if record already exists
+                string checkSql = @"
+            SELECT ID FROM BilliardsScoring 
+            WHERE EventID = @EventID 
+            AND RegionID = @RegionID 
+            AND SetNo = @SetNo 
+            AND TableNo = @TableNo 
+            AND PlayerPosition = @PlayerPosition";
+
+                var existingId = await _db.ExecuteScalarAsync<int?, dynamic>(checkSql, new
+                {
+                    request.EventID,
+                    request.RegionID,
+                    request.SetNo,
+                    request.TableNo,
+                    request.PlayerPosition
+                });
+
+                // If record exists, update it instead of creating new
+                if (existingId.HasValue && existingId.Value > 0)
+                {
+                    string updateSql = @"
+                UPDATE BilliardsScoring 
+                SET Score = @Score,
+                    IsWinner = @IsWinner,
+                    PlayerID = @PlayerID,
+                    UpdatedAt = GETDATE()
+                WHERE ID = @ID";
+
+                    await _db.ExecuteAsync<dynamic>(updateSql, new
+                    {
+                        request.Score,
+                        request.IsWinner,
+                        request.PlayerID,
+                        ID = existingId.Value
+                    });
+
+                    return Ok(existingId.Value);
+                }
+
+                // Create new record only if doesn't exist
+                string insertSql = @"
             INSERT INTO BilliardsScoring (
                 EventID, EventVersusID, RegionID, SetNo, 
-                TableNo, PlayerPosition, IsWinner, PlayerID, CreatedAt, UpdatedAt
+                TableNo, PlayerPosition, Score, IsWinner, PlayerID, CreatedAt, UpdatedAt
             ) 
             OUTPUT INSERTED.ID
             VALUES (
                 @EventID, @EventVersusID, @RegionID, @SetNo,
-                @TableNo, @PlayerPosition, @IsWinner, @PlayerID, GETDATE(), GETDATE()
+                @TableNo, @PlayerPosition, @Score, @IsWinner, @PlayerID, GETDATE(), GETDATE()
             )";
 
-                var id = await _db.ExecuteScalarAsync<int, dynamic>(sql, new
+                var id = await _db.ExecuteScalarAsync<int, dynamic>(insertSql, new
                 {
                     request.EventID,
                     request.EventVersusID,
@@ -236,6 +287,7 @@ namespace Server.Palaro2026.Controller
                     request.SetNo,
                     request.TableNo,
                     request.PlayerPosition,
+                    request.Score,
                     request.IsWinner,
                     request.PlayerID
                 });
@@ -263,6 +315,7 @@ namespace Server.Palaro2026.Controller
                 bs.SetNo as Round,
                 bs.TableNo,
                 bs.PlayerPosition,
+                bs.Score, -- FIXED: Added comma here
                 sr.Abbreviation as RegionName,
                 bs.IsWinner,
                 bs.PlayerID,
@@ -299,6 +352,7 @@ namespace Server.Palaro2026.Controller
             UPDATE BilliardsScoring 
             SET TableNo = @TableNo,
                 PlayerPosition = @PlayerPosition,
+                Score = @Score,
                 IsWinner = @IsWinner,
                 SetNo = @SetNo,
                 PlayerID = @PlayerID,
@@ -309,6 +363,7 @@ namespace Server.Palaro2026.Controller
                 {
                     TableNo = request.TableNo != 0 ? request.TableNo : existingRecord.TableNo,
                     PlayerPosition = !string.IsNullOrEmpty(request.PlayerPosition) ? request.PlayerPosition : existingRecord.PlayerPosition,
+                    Score = request.Score.HasValue ? request.Score : existingRecord.Score,
                     IsWinner = request.IsWinner,
                     SetNo = request.SetNo != 0 ? request.SetNo : existingRecord.SetNo,
                     PlayerID = !string.IsNullOrEmpty(request.PlayerID) ? request.PlayerID : existingRecord.PlayerID,
