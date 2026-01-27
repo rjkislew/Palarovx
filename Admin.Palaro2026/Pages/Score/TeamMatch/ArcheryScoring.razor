@@ -2,6 +2,8 @@
 @inject ISnackbar Snackbar
 @inject APIService apiService
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
+
 
 <PageTitle>Archery Scoring | PALARO 2026</PageTitle>
 <MudText Typo="Typo.h6" Align="Align.Center">Archery Scoring</MudText>
@@ -171,689 +173,877 @@ else
                              Style="min-height:100px; gap:6px; border:1px dashed gray;" />
             </MudPaper>
 
+             <MudDivider Class="my-2" />
+
+            <MudGrid Class="" Style="align-items:center"
+                     Spacing="4">
+
+                <!-- Left spacer -->
+                <MudItem xs="4" />
+
+                <!-- Center title -->
+                <MudItem xs="4">
+                    <MudText Typo="Typo.h6" Align="Align.Center">
+                        Matches
+                    </MudText>
+                </MudItem>
+
+                <!-- Right button -->
+                <MudItem xs="4">
+                    <MudStack Row="true" Justify="Justify.FlexEnd">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                                       OnClick="@(() => OpenEditEventDialog(SelectedEvent?.ID))">
+                        </MudIconButton>
+                        <MudButton Color="Color.Tertiary" Variant="Variant.Filled"
+                                   StartIcon="@Icons.Material.Filled.ArrowCircleRight"
+                                   >
+                            Proceed to next stage
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+
+            </MudGrid>
+
+            <MudDivider Class="my-2" />
+
             @if (IsOlympicRound)
-            {
-                <!-- OLYMPIC ROUND -->
-                <MudGrid Spacing="3" Justify="Justify.Center">
-                    @foreach (var match in GetOlympicRoundMatches())
-                    {
-                        <MudItem xs="12" lg="10">
-                            <MudCard Elevation="2" Class="my-4">
-                                <MudCardContent>
-                                    <MudGrid Spacing="2" Style="align-items:center" Class="mb-3" >
-                                        <MudItem xs="12">
-                                            @* <MudGrid Spacing="2" Align="Align.Center">
-                                                <MudItem xs="6"> *@
-                                                    <MudText Typo="Typo.h5" Color="Color.Primary">
-                                                        Match @match.Lane
-                                                        @if (match != null)
-                                                        {
-                                                            var categoryType = match.ShotsPerEnd == 2 ? "Team" : "Individual";
-                                                            <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Variant="Variant.Filled" Class="ml-2">
-                                                                @categoryType (@match.ShotsPerEnd shots per end, @match.EndsPerMatch ends)
-                                                            </MudChip>
-                                                        }
-                                                    </MudText>
-                                                </MudItem>
-                                                @* <MudItem xs="6">
-                                                    <MudGrid Justify="Justify.FlexEnd">
-                                                        <MudButton Variant="Variant.Text"
-                                                                   Color="Color.Error"
-                                                                   Size="Size.Small"
-                                                                   OnClick="@(() => DeleteMatch(match.Lane))"
-                                                                   StartIcon="@Icons.Material.Filled.Close">
-                                                        </MudButton>
-                                                    </MudGrid>
-                                                </MudItem> *@
-                                            @* </MudGrid>
-                                        </MudItem> *@
-                                    </MudGrid>
+{
+    <!-- OLYMPIC ROUND -->
+    <MudGrid Spacing="3" Justify="Justify.Center">
+        @foreach (var match in GetOlympicRoundMatches())
+        {
+            <MudItem xs="12" lg="10">
+                <MudCard Elevation="2" Class="my-4">
+                    <MudCardContent>
+                        <MudGrid Spacing="2" Style="align-items:center" Class="mb-3">
+                            <MudItem xs="12">
+                                <MudText Typo="Typo.h5" Color="Color.Primary">
+                                    Match @match.Lane
+                                    @if (match != null)
+                                    {
+                                        var categoryType = match.ShotsPerEnd == 2 ? "Team" : "Individual";
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Variant="Variant.Filled" Class="ml-2">
+                                            @categoryType (@match.ShotsPerEnd shots per end, @match.EndsPerMatch ends)
+                                        </MudChip>
+                                    }
+                                </MudText>
+                            </MudItem>
+                        </MudGrid>
 
-                                    <!-- Total Set Points -->
-                                    <MudGrid Spacing="2" Align="Align.Center" Class="mb-2">
-                                        <MudItem xs="5">
-                                            <MudStack Justify="Justify.Center" Style="align-items:center">
-                                                <MudDropZone T="RegionItem"
-                                                             Identifier="@($"{SelectedRound}_{match.Lane}_A")"
-                                                             Class="pa-1 d-flex justify-center align-center"
-                                                             Style="min-height:70px; width:300px; border:1px dashed gray; background-color: #f8f9fa; border-radius: 4px;">
-                                                    @if (!string.IsNullOrEmpty(match.RegionA) && match.RegionA != "Assign Region")
-                                                    {
-                                                        <MudText Typo="Typo.body2" Align="Align.Center" Class="font-weight-bold">
-                                                            @{
-                                                                var regionA = Regions.FirstOrDefault(r => r.Id == match.RegionAId);
-                                                                var displayNameA = regionA?.DisplayName ?? match.RegionA;
-                                                            }
-                                                            @* @displayNameA *@
-                                                        </MudText>
-                                                    }
-                                                    else
-                                                    {
-                                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
-                                                            Drop Region A here
-                                                        </MudText>
-                                                    }
-                                                </MudDropZone>
-                                            </MudStack>
-                                        </MudItem>
-                                        <MudItem xs="2">
-                                            @{
-                                                var currentSet = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
-                                                var currentTotalA = currentSet?.TotalA ?? 0;
-                                                var currentTotalB = currentSet?.TotalB ?? 0;
+                        <!-- Total Set Points -->
+                        <MudGrid Spacing="2" Align="Align.Center" Class="mb-2">
+                            <MudItem xs="5">
+                                <MudStack Justify="Justify.Center" Style="align-items:center">
+                                    <MudDropZone T="RegionItem"
+                                                 Identifier="@($"{SelectedRound}_{match.Lane}_A")"
+                                                 Class="pa-1 d-flex justify-center align-center"
+                                                 Style="min-height:70px; width:300px; border:1px dashed gray; background-color: #f8f9fa; border-radius: 4px;">
+                                        @if (!string.IsNullOrEmpty(match.RegionA) && match.RegionA != "Assign Region")
+                                        {
+                                            <MudText Typo="Typo.body2" Align="Align.Center" Class="font-weight-bold">
+                                                @{
+                                                    var regionA = Regions.FirstOrDefault(r => r.Id == match.RegionAId);
+                                                    var displayNameA = regionA?.DisplayName ?? match.RegionA;
+                                                }
+                                            </MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
+                                                Drop Region A here
+                                            </MudText>
+                                        }
+                                    </MudDropZone>
+                                </MudStack>
+                            </MudItem>
+                            <MudItem xs="2">
+                                @{
+                                    var currentSet = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
+                                    var currentTotalA = currentSet?.TotalA ?? 0;
+                                    var currentTotalB = currentSet?.TotalB ?? 0;
+                                }
+
+                                <MudPaper Class="pa-2 d-flex flex-column align-center"
+                                          Elevation="1"
+                                          Style="background-color: #e3f2fd; width: 100%;">
+
+                                    <MudText Typo="Typo.h5"
+                                             Color="Color.Primary"
+                                             Class="font-weight-bold"
+                                             Align="Align.Center">
+                                        @match.SetPointsA - @match.SetPointsB
+                                    </MudText>
+
+                                    <MudText Typo="Typo.caption"
+                                             Align="Align.Center"
+                                             Color="Color.Secondary">
+                                        Current: @currentTotalA - @currentTotalB
+                                    </MudText>
+
+                                </MudPaper>
+
+                            </MudItem>
+                            <MudItem xs="5">
+                                <MudStack Justify="Justify.Center" Style="align-items:center">
+                                    <MudDropZone T="RegionItem"
+                                                 Identifier="@($"{SelectedRound}_{match.Lane}_B")"
+                                                 Class="pa-1 d-flex justify-center align-center"
+                                                 Style="min-height:70px; width:300px; border:1px dashed gray; background-color: #f8f9fa; border-radius: 4px;">
+                                        @if (!string.IsNullOrEmpty(match.RegionB) && match.RegionB != "Assign Region")
+                                        {
+                                            <MudText Typo="Typo.body2" Align="Align.Center" Class="font-weight-bold">
+                                                @{
+                                                    var regionB = Regions.FirstOrDefault(r => r.Id == match.RegionBId);
+                                                    var displayNameB = regionB?.DisplayName ?? match.RegionB;
+                                                }
+                                            </MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
+                                                Drop Region B here
+                                            </MudText>
+                                        }
+                                    </MudDropZone>
+                                </MudStack>
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudDivider Class="my-3" />
+
+                        <!-- Sets Display -->
+                        <MudGrid Spacing="2" Align="Align.Center">
+                            <MudGrid Spacing="2" Class="mt-2">
+                                <MudItem xs="12">
+                                    <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
+                                        <MudIconButton Color="Color.Error"
+                                                       Icon="@Icons.Material.Filled.Remove"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => RemoveSet(match.Lane))"
+                                                       Disabled="@(match.Sets.Count <= 1)">
+                                        </MudIconButton>
+
+                                        <MudText Typo="Typo.body2">Sets (@match.Sets.Count/@match.EndsPerMatch)</MudText>
+                                        
+                                        <MudIconButton Color="Color.Success"
+                                                       Icon="@Icons.Material.Filled.Add"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => AddSet(match.Lane))"
+                                                       Disabled="@(match.Sets.Count >= match.EndsPerMatch)">
+                                        </MudIconButton>
+                                    </MudStack>
+                                </MudItem>
+                            </MudGrid>
+
+                            <MudItem xs="12">
+                                <!-- Set Selection Tabs -->
+                                <MudGrid Spacing="1" Class="mb-2">
+                                    <MudItem xs="12">
+                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                            @foreach (var set in match.Sets)
+                                            {
+                                                <MudButton Variant="@(match.CurrentSet == set.SetNumber ? Variant.Filled : Variant.Outlined)"
+                                                           Color="@(match.CurrentSet == set.SetNumber ? Color.Primary : Color.Default)"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => SwitchSet(match.Lane, set.SetNumber))"
+                                                           Style="min-width: 40px;">
+                                                    @set.SetNumber
+                                                </MudButton>
                                             }
+                                        </MudStack>
+                                    </MudItem>
+                                </MudGrid>
 
-                                            <MudPaper Class="pa-2 d-flex flex-column align-center"
-                                                      Elevation="1"
-                                                      Style="background-color: #e3f2fd; width: 100%;">
+                                <!-- Current Set Display -->
+                                @{
+                                    var currentSetDisplay = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
+                                    if (currentSetDisplay != null)
+                                    {
+                                        <MudGrid Spacing="2" Align="Align.Center">
+                                            <!-- REGION A -->
+                                            <MudItem xs="5">
+                                                <MudPaper Class="pa-2" Elevation="1">
+                                                    <MudStack Spacing="1">
+                                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                                            <MudText Typo="Typo.caption" Align="Align.Center">@match.RegionA</MudText>
+                                                            <MudText Typo="Typo.caption" Align="Align.Center">Set @currentSetDisplay.SetNumber</MudText>
+                                                        </MudStack>
 
-                                                <MudText Typo="Typo.h5"
-                                                         Color="Color.Primary"
-                                                         Class="font-weight-bold"
-                                                         Align="Align.Center">
-                                                    @match.SetPointsA - @match.SetPointsB
-                                                </MudText>
-
-                                                <MudText Typo="Typo.caption"
-                                                         Align="Align.Center"
-                                                         Color="Color.Secondary">
-                                                    Current: @currentTotalA - @currentTotalB
-                                                </MudText>
-
-                                            </MudPaper>
-
-                                        </MudItem>
-                                        <MudItem xs="5">
-                                            <MudStack Justify="Justify.Center" Style="align-items:center">
-                                                <MudDropZone T="RegionItem"
-                                                             Identifier="@($"{SelectedRound}_{match.Lane}_B")"
-                                                             Class="pa-1 d-flex justify-center align-center"
-                                                             Style="min-height:70px; width:300px; border:1px dashed gray; background-color: #f8f9fa; border-radius: 4px;">
-                                                    @if (!string.IsNullOrEmpty(match.RegionB) && match.RegionB != "Assign Region")
-                                                    {
-                                                        <MudText Typo="Typo.body2" Align="Align.Center" Class="font-weight-bold">
-                                                            @{
-                                                                var regionB = Regions.FirstOrDefault(r => r.Id == match.RegionBId);
-                                                                var displayNameB = regionB?.DisplayName ?? match.RegionB;
+                                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                                            @for (int shot = 0; shot < match.ShotsPerEnd; shot++)
+                                                            {
+                                                                if (shot < currentSetDisplay.ShotsA.Count)
+                                                                {
+                                                                    var shotData = currentSetDisplay.ShotsA[shot];
+                                                                    var displayValue = shotData.ShotScore == 0 ? "M" : (shotData.IsBullseye ? "X" : shotData.ShotScore.ToString());
+                                                                    var isEditing = _editingShot.HasValue &&
+                                                                    _editingShot.Value.Lane == match.Lane &&
+                                                                    _editingShot.Value.Region == "A" &&
+                                                                    _editingShot.Value.SetNumber == currentSetDisplay.SetNumber &&
+                                                                    _editingShot.Value.ShotNo == shotData.ShotNo;
+                                                                    
+                                                                    <MudChip T="string" Size="Size.Small"
+                                                                             Color="@(shotData.ShotScore == 0 ? Color.Error : shotData.IsBullseye ? Color.Secondary : Color.Primary)"
+                                                                             Variant="@(isEditing ? Variant.Outlined : Variant.Filled)"
+                                                                             Style="min-width: 25px; height: 25px; justify-content: center; font-size: 0.8rem; cursor: pointer;"
+                                                                             OnClick="@(() => {
+                                                                                 if (isEditing)
+                                                                                 {
+                                                                                     CancelEditing();
+                                                                                 }
+                                                                                 else
+                                                                                 {
+                                                                                     StartEditingShot(match.Lane, "A", currentSetDisplay.SetNumber, shotData.ShotNo);
+                                                                                 }
+                                                                             })">
+                                                                        @displayValue
+                                                                    </MudChip>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <MudChip T="string" Size="Size.Small"
+                                                                             Variant="Variant.Outlined"
+                                                                             Style="min-width: 25px; height: 25px; justify-content: center; border-style: dashed; font-size: 0.8rem;">
+                                                                        -
+                                                                    </MudChip>
+                                                                }
                                                             }
-                                                            @* @displayNameB *@
+                                                        </MudStack>
+
+                                                        <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Primary" Class="font-weight-bold">
+                                                            Total: @currentSetDisplay.TotalA
                                                         </MudText>
-                                                    }
-                                                    else
-                                                    {
-                                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
-                                                            Drop Region B here
-                                                        </MudText>
-                                                    }
-                                                </MudDropZone>
-                                            </MudStack>
-                                        </MudItem>
-                                    </MudGrid>
+                                                    </MudStack>
+                                                </MudPaper>
+                                            </MudItem>
 
-                                    <MudDivider Class="my-3" />
-
-                                    <!-- Sets Display -->
-                                    <MudGrid Spacing="2" Align="Align.Center">
-                                        <MudGrid Spacing="2" Class="mt-2">
-                                            <MudItem xs="12">
-                                                <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
-                                                    <MudIconButton Color="Color.Error"
-                                                                   Icon="@Icons.Material.Filled.Remove"
-                                                                   Size="Size.Small"
-                                                                   OnClick="@(() => RemoveSet(match.Lane))"
-                                                                   Disabled="@(match.Sets.Count <= 1)">
-                                                    </MudIconButton>
-
-                                                    <MudText Typo="Typo.body2">Sets (@match.Sets.Count/@match.EndsPerMatch)</MudText>
-                                                    
-                                                    <MudIconButton Color="Color.Success"
-                                                                   Icon="@Icons.Material.Filled.Add"
-                                                                   Size="Size.Small"
-                                                                   OnClick="@(() => AddSet(match.Lane))"
-                                                                   Disabled="@(match.Sets.Count >= match.EndsPerMatch)">
-                                                    </MudIconButton>
+                                            <MudItem xs="2">
+                                                <MudStack Justify="Justify.Center" Style="align-items:center" Class="mt-8">
+                                                    <MudText Typo="Typo.caption" Align="Align.Center" Class="font-weight-bold">vs</MudText>
                                                 </MudStack>
                                             </MudItem>
+
+                                            <!-- REGION B -->
+                                            <MudItem xs="5">
+                                                <MudPaper Class="pa-2" Elevation="1">
+                                                    <MudStack Spacing="1">
+                                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                                            <MudText Typo="Typo.caption" Align="Align.Center">@match.RegionB</MudText>
+                                                            <MudText Typo="Typo.caption" Align="Align.Center">Set @currentSetDisplay.SetNumber</MudText>
+                                                        </MudStack>
+
+                                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                                            @for (int shot = 0; shot < match.ShotsPerEnd; shot++)
+                                                            {
+                                                                if (shot < currentSetDisplay.ShotsB.Count)
+                                                                {
+                                                                    var shotData = currentSetDisplay.ShotsB[shot];
+                                                                    var displayValue = shotData.ShotScore == 0 ? "M" : (shotData.IsBullseye ? "X" : shotData.ShotScore.ToString());
+                                                                    var isEditing = _editingShot.HasValue &&
+                                                                    _editingShot.Value.Lane == match.Lane &&
+                                                                    _editingShot.Value.Region == "B" &&
+                                                                    _editingShot.Value.SetNumber == currentSetDisplay.SetNumber &&
+                                                                    _editingShot.Value.ShotNo == shotData.ShotNo;
+                                                                    
+                                                                    <MudChip T="string" Size="Size.Small"
+                                                                             Color="@(shotData.ShotScore == 0 ? Color.Error : shotData.IsBullseye ? Color.Secondary : Color.Primary)"
+                                                                             Variant="@(isEditing ? Variant.Outlined : Variant.Filled)"
+                                                                             Style="min-width: 25px; height: 25px; justify-content: center; font-size: 0.8rem; cursor: pointer;"
+                                                                             OnClick="@(() => {
+                                                                                 if (isEditing)
+                                                                                 {
+                                                                                     CancelEditing();
+                                                                                 }
+                                                                                 else
+                                                                                 {
+                                                                                     StartEditingShot(match.Lane, "B", currentSetDisplay.SetNumber, shotData.ShotNo);
+                                                                                 }
+                                                                             })">
+                                                                        @displayValue
+                                                                    </MudChip>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <MudChip T="string" Size="Size.Small"
+                                                                             Variant="Variant.Outlined"
+                                                                             Style="min-width: 25px; height: 25px; justify-content: center; border-style: dashed; font-size: 0.8rem;">
+                                                                        -
+                                                                    </MudChip>
+                                                                }
+                                                            }
+                                                        </MudStack>
+
+                                                        <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Primary" Class="font-weight-bold">
+                                                            Total: @currentSetDisplay.TotalB
+                                                        </MudText>
+                                                    </MudStack>
+                                                </MudPaper>
+                                            </MudItem>
                                         </MudGrid>
+                                    }
+                                }
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudDivider Class="my-3" />
+
+                        <!-- Score Buttons -->
+                        <MudGrid Spacing="2">
+                            <!-- Region A Score Buttons -->
+                            <MudItem xs="12" sm="6">
+                                <MudPaper Class="pa-2" Elevation="1" Style="background-color: #f8f9fa;">
+                                    <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-2 font-weight-bold">
+                                        @match.RegionA Score
+                                    </MudText>
+                                    @{
+                                        var currentSetA = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
+                                        var shotsA = currentSetA?.ShotsA ?? new List<ShotData>();
+                                        var nextShotA = shotsA.Any() ? shotsA.Max(s => s.ShotNo) + 1 : 1;
+                                        var scoreRowsA = new[] {
+                                        new[] { "X", "10", "9", "8", "7", "6" },
+                                        new[] { "5", "4", "3", "2", "1", "M" }
+                                    };
+                                    }
+                                    @foreach (var rowScores in scoreRowsA)
+                                    {
+                                        <MudItem xs="12">
+                                            <MudStack Row="true" Justify="Justify.Center" Spacing="1" Breakpoint="Breakpoint.None">
+                                                @foreach (var score in rowScores)
+                                                {
+                                                    // Check if we're editing Region A
+                                                    var isEditingRegionA = _editingShot.HasValue && 
+                                                                          _editingShot.Value.Lane == match.Lane && 
+                                                                          _editingShot.Value.Region == "A";
+                                                    
+                                                    <MudButton Size="Size.Small"
+                                                               Variant="Variant.Outlined"
+                                                               Color="@(score == "M" ? Color.Error : score == "X" ? Color.Secondary : Color.Primary)"
+                                                               OnClick="@(() => {
+                                                                   if (isEditingRegionA)
+                                                                   {
+                                                                       // Update existing shot
+                                                                       UpdateShotScore(match.Lane, "A", 
+                                                                                      _editingShot.Value.SetNumber, 
+                                                                                      _editingShot.Value.ShotNo,
+                                                                                      score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), 
+                                                                                      score == "X");
+                                                                   }
+                                                                   else
+                                                                   {
+                                                                       // Record new shot
+                                                                       RecordOlympicShotForRegion(match.Lane, nextShotA, "A", 
+                                                                                                  score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), 
+                                                                                                  score == "X");
+                                                                   }
+                                                               })"
+                                                               Disabled="@(match.RegionAId == 0 || 
+                                                                         (!isEditingRegionA && shotsA.Count >= match.ShotsPerEnd) ||
+                                                                         (isEditingRegionA && _editingShot.Value.SetNumber != match.CurrentSet))"
+                                                               Style="min-width: 30px; height: 30px; padding: 0; font-size: 0.9rem;">
+                                                        @score
+                                                    </MudButton>
+                                                }
+                                            </MudStack>
+                                        </MudItem>
+                                    }
+                                    <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
+                                        Shots: @shotsA.Count/@match.ShotsPerEnd
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
+                                        @{
+                                            var nextShotDisplayA = shotsA.Count < match.ShotsPerEnd ? (nextShotA).ToString() : "Complete";
+                                            if (_editingShot.HasValue && _editingShot.Value.Region == "A")
+                                            {
+                                                nextShotDisplayA = $"Editing Shot {_editingShot.Value.ShotNo}";
+                                            }
+                                        }
+                                        Next Shot: @nextShotDisplayA
+                                    </MudText>
+                                    
+                                    <!-- Cancel Edit Button for Region A -->
+                                    @if (_editingShot.HasValue && _editingShot.Value.Region == "A" && _editingShot.Value.Lane == match.Lane)
+                                    {
+                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1" Class="mt-2">
+                                            <MudButton Variant="Variant.Text"
+                                                       Color="Color.Error"
+                                                       OnClick="CancelEditing"
+                                                       Size="Size.Small"
+                                                       Style="font-size: 0.7rem;">
+                                                Cancel Edit
+                                            </MudButton>
+                                        </MudStack>
+                                    }
+                                </MudPaper>
+                            </MudItem>
+
+                            <!-- Region B Score Buttons -->
+                            <MudItem xs="12" sm="6">
+                                <MudPaper Class="pa-2" Elevation="1" Style="background-color: #f8f9fa;">
+                                    <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-2 font-weight-bold">
+                                        @match.RegionB Score
+                                    </MudText>
+                                    @{
+                                        var currentSetB = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
+                                        var shotsB = currentSetB?.ShotsB ?? new List<ShotData>();
+                                        var nextShotB = shotsB.Any() ? shotsB.Max(s => s.ShotNo) + 1 : 1;
+                                        var scoreRowsB = new[] {
+                                        new[] { "X", "10", "9", "8", "7", "6" },
+                                        new[] { "5", "4", "3", "2", "1", "M" }
+                                    };
+                                    }
+                                    @foreach (var rowScores in scoreRowsB)
+                                    {
+                                        <MudItem xs="12">
+                                            <MudStack Row="true" Justify="Justify.Center" Spacing="1" Breakpoint="Breakpoint.None">
+                                                @foreach (var score in rowScores)
+                                                {
+                                                    // Check if we're editing Region B
+                                                    var isEditingRegionB = _editingShot.HasValue && 
+                                                                          _editingShot.Value.Lane == match.Lane && 
+                                                                          _editingShot.Value.Region == "B";
+                                                    
+                                                    <MudButton Size="Size.Small"
+                                                               Variant="Variant.Outlined"
+                                                               Color="@(score == "M" ? Color.Error : score == "X" ? Color.Secondary : Color.Primary)"
+                                                               OnClick="@(() => {
+                                                                   if (isEditingRegionB)
+                                                                   {
+                                                                       // Update existing shot
+                                                                       UpdateShotScore(match.Lane, "B", 
+                                                                                      _editingShot.Value.SetNumber, 
+                                                                                      _editingShot.Value.ShotNo,
+                                                                                      score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), 
+                                                                                      score == "X");
+                                                                   }
+                                                                   else
+                                                                   {
+                                                                       // Record new shot
+                                                                       RecordOlympicShotForRegion(match.Lane, nextShotB, "B", 
+                                                                                                  score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), 
+                                                                                                  score == "X");
+                                                                   }
+                                                               })"
+                                                               Disabled="@(match.RegionBId == 0 || 
+                                                                         (!isEditingRegionB && shotsB.Count >= match.ShotsPerEnd) ||
+                                                                         (isEditingRegionB && _editingShot.Value.SetNumber != match.CurrentSet))"
+                                                               Style="min-width: 30px; height: 30px; padding: 0; font-size: 0.9rem;">
+                                                        @score
+                                                    </MudButton>
+                                                }
+                                            </MudStack>
+                                        </MudItem>
+                                    }
+                                    <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
+                                        Shots: @shotsB.Count/@match.ShotsPerEnd
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
+                                        @{
+                                            var nextShotDisplayB = shotsB.Count < match.ShotsPerEnd ? (nextShotB).ToString() : "Complete";
+                                            if (_editingShot.HasValue && _editingShot.Value.Region == "B")
+                                            {
+                                                nextShotDisplayB = $"Editing Shot {_editingShot.Value.ShotNo}";
+                                            }
+                                        }
+                                        Next Shot: @nextShotDisplayB
+                                    </MudText>
+                                    
+                                    <!-- Cancel Edit Button for Region B -->
+                                    @if (_editingShot.HasValue && _editingShot.Value.Region == "B" && _editingShot.Value.Lane == match.Lane)
+                                    {
+                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1" Class="mt-2">
+                                            <MudButton Variant="Variant.Text"
+                                                       Color="Color.Error"
+                                                       OnClick="CancelEditing"
+                                                       Size="Size.Small"
+                                                       Style="font-size: 0.7rem;">
+                                                Cancel Edit
+                                            </MudButton>
+                                        </MudStack>
+                                    }
+                                </MudPaper>
+                            </MudItem>
+                        </MudGrid>
+
+                        <!-- Reset Buttons -->
+                        <MudGrid Spacing="2" Class="mt-2">
+                            <MudItem xs="12">
+                                <MudStack Row="true" Justify="Justify.Center" Spacing="2">
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Warning"
+                                               OnClick="@(() => ResetCurrentSet(match.Lane))"
+                                               Disabled="@(!HasShotsInCurrentSet(match))"
+                                               Size="Size.Small">
+                                        Reset Current Set
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Error"
+                                               OnClick="@(() => ResetAllSets(match.Lane))"
+                                               Disabled="@(!match.Sets.Any(s => s.ShotsA.Any() || s.ShotsB.Any()))"
+                                               Size="Size.Small">
+                                        Reset All Sets
+                                    </MudButton>
+                                </MudStack>
+                            </MudItem>
+                        </MudGrid>
+
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}
+else
+{
+    <!-- 1440 ROUND -->
+    <MudGrid Justify="Justify.Center">
+        <MudItem xs="12" lg="5">
+            <MudPaper Elevation="2" Class="pa-4 my-4">
+                <MudGrid Spacing="2" Justify="Justify.Center" Style="align-items:center" Class="mb-4">
+                    <MudItem xs="4">
+                        <!-- tba haha -->
+                    </MudItem>
+                    <MudItem xs="4">
+                        <MudText Typo="Typo.h6" Color="Color.Primary" Align="Align.Center">Round @SelectedRound</MudText>
+                    </MudItem>
+                    <MudItem xs="4">
+                        <MudGrid Spacing="1" Justify="Justify.FlexEnd" Style="align-items:center">
+                            <MudItem>
+                                <MudIconButton Icon="@Icons.Material.Filled.Remove"
+                                               Color="Color.Error"
+                                               OnClick="RemoveLastLane"
+                                               Disabled="@(Lanes.Count <= 1)"
+                                               Size="Size.Small" />
+                            </MudItem>
+                            <MudItem>
+                                <MudText Typo="Typo.body2" Class="px-1">Lane</MudText>
+                            </MudItem>
+                            <MudItem>
+                                <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                               Color="Color.Success"
+                                               OnClick="AddLane"
+                                               Size="Size.Small" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudItem>
+                </MudGrid>
+
+                @foreach (var lane in Lanes)
+                {
+                    var region = Regions.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+
+                    <MudGrid Spacing="2" Class="my-3">
+                        <MudItem xs="12">
+                            <MudGrid Spacing="2" Justify="Justify.Center" Style="align-items:center">
+                                <MudItem xs="12" sm="3">
+                                    <MudText Typo="Typo.h6" Align="Align.Center">Lane @lane</MudText>
+                                </MudItem>
+
+                                <!-- Region Assignment -->
+                                <MudItem xs="12" sm="6">
+                                    <MudStack Justify="Justify.Center" Style="align-items:center">
+                                        <MudDropZone T="RegionItem"
+                                                     Identifier="@($"{SelectedRound}_{lane}")"
+                                                     Class="pa-1 d-flex justify-center align-center"
+                                                     Style="min-height:60px; width:200px; border:1px dashed gray; background-color: #f8f9fa; border-radius: 4px;">
+                                            @if (region == null)
+                                            {
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
+                                                    Drop region here
+                                                </MudText>
+                                            }
+                                        </MudDropZone>
+                                    </MudStack>
+                                </MudItem>
+
+                                <!-- Total Score -->
+                                <MudItem xs="12" sm="3">
+                                    <MudGrid Justify="Justify.Center">
+                                        <MudItem>
+                                            <MudPaper Class="pa-2 text-center" Elevation="0" Style="background-color: #e3f2fd; border-radius: 4px; min-width: 80px;">
+                                                <MudText Typo="Typo.h6" Color="Color.Primary" Align="Align.Center" Class="font-weight-bold">
+                                                    @GetLaneRoundScore(lane)
+                                                </MudText>
+                                                <MudText Typo="Typo.caption" Align="Align.Center">
+                                                    Total Score
+                                                </MudText>
+                                            </MudPaper>
+                                        </MudItem>
+                                    </MudGrid>
+                                </MudItem>
+                            </MudGrid>
+                        </MudItem>
+
+                        <!-- Sets Management Section -->
+                        <MudItem xs="12">
+                            <MudPaper Class="pa-3 mb-3" Elevation="1" Style="background-color: #f8f9fa;">
+                                <MudGrid Spacing="2" Align="Align.Center">
+                                    <MudItem xs="12">
+                                        <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
+                                            <MudIconButton Color="Color.Error"
+                                                           Icon="@Icons.Material.Filled.Remove"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => RemoveSet1440(lane))"
+                                                           Disabled="@(Get1440SetCount(lane) <= 1)">
+                                            </MudIconButton>
+                                            
+                                            <MudText Typo="Typo.body2">Sets (@Get1440SetCount(lane)/6 sets)</MudText>
+
+                                            <MudIconButton Color="Color.Success"
+                                                           Icon="@Icons.Material.Filled.Add"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => AddSet1440(lane))"
+                                                           Disabled="@(Get1440SetCount(lane) >= 6)">
+                                            </MudIconButton>
+                                        </MudStack>
+                                    </MudItem>
+
+                                    <!-- Set Selection Tabs -->
+                                    @if (Get1440SetCount(lane) > 0)
+                                    {
+                                        var availableSets = Get1440AvailableSets(lane);
+                                        var currentSetNumber = GetCurrentSetForLane(lane);
+                                        var shotsInCurrentSet = GetShotsForLaneAndSet(lane, currentSetNumber);
+                                        var setTotal = shotsInCurrentSet.Sum(s => s.ShotScore);
 
                                         <MudItem xs="12">
-                                            <!-- Set Selection Tabs -->
-                                            <MudGrid Spacing="1" Class="mb-2">
-                                                <MudItem xs="12">
-                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1">
-                                                        @foreach (var set in match.Sets)
+                                            <MudStack Row="true" Justify="Justify.Center" Spacing="1" Class="mb-2">
+                                                @foreach (var setNumber in availableSets)
+                                                {
+                                                    <MudButton Variant="@(currentSetNumber == setNumber ? Variant.Filled : Variant.Outlined)"
+                                                               Color="@(currentSetNumber == setNumber ? Color.Primary : Color.Default)"
+                                                               Size="Size.Small"
+                                                               OnClick="@(() => SwitchSet1440(lane, setNumber))"
+                                                               Style="min-width: 35px;">
+                                                        @setNumber
+                                                    </MudButton>
+                                                }
+                                            </MudStack>
+                                        </MudItem>
+
+                                        <!-- Current Set Display -->
+                                        <MudItem xs="12">
+                                            <MudPaper Class="pa-2" Elevation="0" Style="background-color: white;">
+                                                <MudStack Spacing="1" Align="Align.Center">
+                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
+                                                        <MudText Typo="Typo.body2" Class="font-weight-bold">Set @currentSetNumber</MudText>
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                            @shotsInCurrentSet.Count/6 shots
+                                                        </MudText>
+                                                    </MudStack>
+
+                                                    <!-- Shots in Current Set -->
+                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="0">
+                                                        @for (int shot = 1; shot <= 6; shot++)
                                                         {
-                                                            <MudButton Variant="@(match.CurrentSet == set.SetNumber ? Variant.Filled : Variant.Outlined)"
-                                                                       Color="@(match.CurrentSet == set.SetNumber ? Color.Primary : Color.Default)"
-                                                                       Size="Size.Small"
-                                                                       OnClick="@(() => SwitchSet(match.Lane, set.SetNumber))"
-                                                                       Style="min-width: 40px;">
-                                                                @set.SetNumber
+                                                            var shotData = shotsInCurrentSet.FirstOrDefault(s => s.ShotNo == shot);
+                                                            if (shotData != null)
+                                                            {
+                                                                var displayValue = shotData.ShotScore == 0 ? "M" : (shotData.IsBullseye ? "X" : shotData.ShotScore.ToString());
+                                                                var isEditing = _editingShot.HasValue &&
+                                                                _editingShot.Value.Lane == lane &&
+                                                                _editingShot.Value.Region == region?.Name &&
+                                                                _editingShot.Value.SetNumber == currentSetNumber &&
+                                                                _editingShot.Value.ShotNo == shotData.ShotNo;
+                                                                
+                                                                <MudChip T="string" Size="Size.Small"
+                                                                         Color="@(shotData.ShotScore == 0 ? Color.Error : shotData.IsBullseye ? Color.Secondary : Color.Primary)"
+                                                                         Variant="@(isEditing ? Variant.Outlined : Variant.Filled)"
+                                                                         Style="min-width: 25px; height: 25px; justify-content: center; font-size: 0.8rem; font-weight: bold; cursor: pointer;"
+                                                                         OnClick="@(() => {
+                                                                             if (isEditing)
+                                                                             {
+                                                                                 CancelEditing();
+                                                                             }
+                                                                             else
+                                                                             {
+                                                                                 StartEditingShot(lane, region?.Name ?? "", currentSetNumber, shotData.ShotNo);
+                                                                             }
+                                                                         })">
+                                                                    @displayValue
+                                                                </MudChip>
+                                                            }
+                                                            else
+                                                            {
+                                                                <MudChip T="string" Size="Size.Small"
+                                                                         Variant="Variant.Outlined"
+                                                                         Style="min-width: 25px; height: 25px; justify-content: center; border-style: dashed; font-size: 0.8rem;">
+                                                                    -
+                                                                </MudChip>
+                                                            }
+                                                        }
+                                                    </MudStack>
+
+                                                    <!-- Set Total -->
+                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
+                                                        <MudText Typo="Typo.body1" Color="Color.Primary" Class="font-weight-bold">
+                                                            Set Total: @setTotal
+                                                        </MudText>
+                                                    </MudStack>
+                                                </MudStack>
+                                            </MudPaper>
+                                        </MudItem>
+
+                                        <MudItem xs="12" Class="my-2">
+                                            @{
+                                                var currentSetNum = GetCurrentSetForLane(lane);
+                                                var shotsInSet = GetShotsForLaneAndSet(lane, currentSetNum);
+                                                var nextShotNum = shotsInSet.Any() ? shotsInSet.Max(s => s.ShotNo) + 1 : 1;
+                                                var scoreRows = new[] {
+                                                    new[] { "X", "10", "9", "8", "7", "6" },
+                                                    new[] { "5", "4", "3", "2", "1", "M" }
+                                                };
+                                                
+                                                // Check if we're editing this lane
+                                                var isEditingThisLane = _editingShot.HasValue && 
+                                                                       _editingShot.Value.Lane == lane &&
+                                                                       _editingShot.Value.Region == region?.Name;
+                                            }
+
+                                            @foreach (var rowScores in scoreRows)
+                                            {
+                                                <MudItem xs="12">
+                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1" Breakpoint="Breakpoint.None">
+                                                        @foreach (var score in rowScores)
+                                                        {
+                                                            <MudButton Size="Size.Small"
+                                                                       Variant="Variant.Outlined"
+                                                                       Color="@(score == "M" ? Color.Error : score == "X" ? Color.Secondary : Color.Primary)"
+                                                                       OnClick="@(() => {
+                                                                           if (isEditingThisLane)
+                                                                           {
+                                                                               // Update existing shot
+                                                                               UpdateShotScore(lane, region?.Name ?? "", 
+                                                                                              _editingShot.Value.SetNumber, 
+                                                                                              _editingShot.Value.ShotNo,
+                                                                                              score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), 
+                                                                                              score == "X");
+                                                                           }
+                                                                           else
+                                                                           {
+                                                                               // Record new shot
+                                                                               Record1440RoundShot(lane, nextShotNum, currentSetNum, 
+                                                                                                  score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), 
+                                                                                                  score == "X");
+                                                                           }
+                                                                       })"
+                                                                       Disabled="@(region == null || 
+                                                                                 (!isEditingThisLane && shotsInSet.Count >= 6) ||
+                                                                                 (isEditingThisLane && _editingShot.Value.SetNumber != currentSetNum))"
+                                                                       Style="min-width: 30px; height: 30px; padding: 0; font-size: 0.9rem;">
+                                                                @score
                                                             </MudButton>
                                                         }
                                                     </MudStack>
                                                 </MudItem>
-                                            </MudGrid>
-
-                                            <!-- Current Set Display -->
-                                            @{
-                                                var currentSet = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
-                                                if (currentSet != null)
-                                                {
-                                                    <MudGrid Spacing="2" Align="Align.Center">
-                                                        <!-- REGION A -->
-                                                        <MudItem xs="5">
-                                                            <MudPaper Class="pa-2" Elevation="1">
-                                                                <MudStack Spacing="1">
-                                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1">
-                                                                        <MudText Typo="Typo.caption" Align="Align.Center">@match.RegionA</MudText>
-                                                                        <MudText Typo="Typo.caption" Align="Align.Center">Set @currentSet.SetNumber</MudText>
-                                                                    </MudStack>
-
-                                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1">
-                                                                        @for (int shot = 0; shot < match.ShotsPerEnd; shot++)
-                                                                        {
-                                                                            if (shot < currentSet.ShotsA.Count)
-                                                                            {
-                                                                                var shotData = currentSet.ShotsA[shot];
-                                                                                var displayValue = shotData.ShotScore == 0 ? "M" : (shotData.IsBullseye ? "X" : shotData.ShotScore.ToString());
-                                                                                <MudChip T="string" Size="Size.Small"
-                                                                                         Color="@(shotData.ShotScore == 0 ? Color.Error : shotData.IsBullseye ? Color.Secondary : Color.Primary)"
-                                                                                         Variant="Variant.Filled"
-                                                                                         Style="min-width: 25px; height: 25px; justify-content: center; font-size: 0.8rem;">
-                                                                                    @displayValue
-                                                                                </MudChip>
-                                                                            }
-                                                                            else
-                                                                            {
-                                                                                <MudChip T="string" Size="Size.Small"
-                                                                                         Variant="Variant.Outlined"
-                                                                                         Style="min-width: 25px; height: 25px; justify-content: center; border-style: dashed; font-size: 0.8rem;">
-                                                                                    -
-                                                                                </MudChip>
-                                                                            }
-                                                                        }
-                                                                    </MudStack>
-
-                                                                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Primary" Class="font-weight-bold">
-                                                                        Total: @currentSet.TotalA
-                                                                    </MudText>
-                                                                </MudStack>
-                                                            </MudPaper>
-                                                        </MudItem>
-
-                                                        <MudItem xs="2">
-                                                            <MudStack Justify="Justify.Center" Style="align-items:center" Class="mt-8">
-                                                                <MudText Typo="Typo.caption" Align="Align.Center" Class="font-weight-bold">vs</MudText>
-                                                            </MudStack>
-                                                        </MudItem>
-
-                                                        <!-- REGION B -->
-                                                        <MudItem xs="5">
-                                                            <MudPaper Class="pa-2" Elevation="1">
-                                                                <MudStack Spacing="1">
-                                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1">
-                                                                        <MudText Typo="Typo.caption" Align="Align.Center">@match.RegionB</MudText>
-                                                                        <MudText Typo="Typo.caption" Align="Align.Center">Set @currentSet.SetNumber</MudText>
-                                                                    </MudStack>
-
-                                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1">
-                                                                        @for (int shot = 0; shot < match.ShotsPerEnd; shot++)
-                                                                        {
-                                                                            if (shot < currentSet.ShotsB.Count)
-                                                                            {
-                                                                                var shotData = currentSet.ShotsB[shot];
-                                                                                var displayValue = shotData.ShotScore == 0 ? "M" : (shotData.IsBullseye ? "X" : shotData.ShotScore.ToString());
-                                                                                <MudChip T="string" Size="Size.Small"
-                                                                                         Color="@(shotData.ShotScore == 0 ? Color.Error : shotData.IsBullseye ? Color.Secondary : Color.Primary)"
-                                                                                         Variant="Variant.Filled"
-                                                                                         Style="min-width: 25px; height: 25px; justify-content: center; font-size: 0.8rem;">
-                                                                                    @displayValue
-                                                                                </MudChip>
-                                                                            }
-                                                                            else
-                                                                            {
-                                                                                <MudChip T="string" Size="Size.Small"
-                                                                                         Variant="Variant.Outlined"
-                                                                                         Style="min-width: 25px; height: 25px; justify-content: center; border-style: dashed; font-size: 0.8rem;">
-                                                                                    -
-                                                                                </MudChip>
-                                                                            }
-                                                                        }
-                                                                    </MudStack>
-
-                                                                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Primary" Class="font-weight-bold">
-                                                                        Total: @currentSet.TotalB
-                                                                    </MudText>
-                                                                </MudStack>
-                                                            </MudPaper>
-                                                        </MudItem>
-                                                    </MudGrid>
-                                                }
                                             }
-                                        </MudItem>
-                                    </MudGrid>
 
-                                    <MudDivider Class="my-3" />
-
-                                    <!-- Score Buttons -->
-                                    <MudGrid Spacing="2">
-                                        <!-- Region A Score Buttons -->
-                                        <MudItem xs="12" sm="6">
-                                            <MudPaper Class="pa-2" Elevation="1" Style="background-color: #f8f9fa;">
-                                                <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-2 font-weight-bold">
-                                                    @match.RegionA Score
+                                            <MudStack Row="true" Justify="Justify.Center" Spacing="2" Class="mt-2">
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                    Shots in set: @shotsInSet.Count/6
                                                 </MudText>
-                                                @{
-                                                    var currentSetA = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
-                                                    var shotsA = currentSetA?.ShotsA ?? new List<ShotData>();
-                                                    var nextShotA = shotsA.Any() ? shotsA.Max(s => s.ShotNo) + 1 : 1;
-                                                    var scoreRowsA = new[] {
-                                                                    new[] { "X", "10", "9", "8", "7", "6" },
-                                                                    new[] { "5", "4", "3", "2", "1", "M" }
-                                                                    };
-                                                }
-                                                @foreach (var rowScores in scoreRowsA)
-                                                {
-                                                    <MudItem xs="12">
-                                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1" Breakpoint="Breakpoint.None">
-                                                            @foreach (var score in rowScores)
-                                                            {
-                                                                <MudButton Size="Size.Small"
-                                                                           Variant="Variant.Outlined"
-                                                                           Color="@(score == "M" ? Color.Error : score == "X" ? Color.Secondary : Color.Primary)"
-                                                                           OnClick="@(() => RecordOlympicShotForRegion(match.Lane, nextShotA, "A", score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), score == "X"))"
-                                                                           Disabled="@(match.RegionAId == 0 || shotsA.Count >= match.ShotsPerEnd)"
-                                                                           Style="min-width: 30px; height: 30px; padding: 0; font-size: 0.9rem;">
-                                                                    @score
-                                                                </MudButton>
-                                                            }
-                                                        </MudStack>
-                                                    </MudItem>
-                                                }
-                                                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
-                                                    Shots: @shotsA.Count/@match.ShotsPerEnd
-                                                </MudText>
-                                                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
                                                     @{
-                                                        var nextShotDisplayA = shotsA.Count < match.ShotsPerEnd ? (nextShotA).ToString() : "Complete";
+                                                        var nextShotDisplay = shotsInSet.Count < 6 ? nextShotNum.ToString() : "Complete";
+                                                        if (isEditingThisLane)
+                                                        {
+                                                            nextShotDisplay = $"Editing Shot {_editingShot.Value.ShotNo}";
+                                                        }
                                                     }
-                                                    Next Shot: @nextShotDisplayA
+                                                    Next shot: @nextShotDisplay
                                                 </MudText>
-                                            </MudPaper>
-                                        </MudItem>
+                                            </MudStack>
 
-                                        <!-- Region B Score Buttons -->
-                                        <MudItem xs="12" sm="6">
-                                            <MudPaper Class="pa-2" Elevation="1" Style="background-color: #f8f9fa;">
-                                                <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-2 font-weight-bold">
-                                                    @match.RegionB Score
-                                                </MudText>
-                                                @{
-                                                    var currentSetB = match.Sets.FirstOrDefault(s => s.SetNumber == match.CurrentSet);
-                                                    var shotsB = currentSetB?.ShotsB ?? new List<ShotData>();
-                                                    var nextShotB = shotsB.Any() ? shotsB.Max(s => s.ShotNo) + 1 : 1;
-                                                    var scoreRowsB = new[] {
-                                                                    new[] { "X", "10", "9", "8", "7", "6" },
-                                                                    new[] { "5", "4", "3", "2", "1", "M" }
-                                                                    };
-                                                }
-                                                @foreach (var rowScores in scoreRowsB)
-                                                {
-                                                    <MudItem xs="12">
-                                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1" Breakpoint="Breakpoint.None">
-                                                            @foreach (var score in rowScores)
-                                                            {
-                                                                <MudButton Size="Size.Small"
-                                                                           Variant="Variant.Outlined"
-                                                                           Color="@(score == "M" ? Color.Error : score == "X" ? Color.Secondary : Color.Primary)"
-                                                                           OnClick="@(() => RecordOlympicShotForRegion(match.Lane, nextShotB, "B", score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), score == "X"))"
-                                                                           Disabled="@(match.RegionBId == 0 || shotsB.Count >= match.ShotsPerEnd)"
-                                                                           Style="min-width: 30px; height: 30px; padding: 0; font-size: 0.9rem;">
-                                                                    @score
-                                                                </MudButton>
-                                                            }
-                                                        </MudStack>
-                                                    </MudItem>
-                                                }
-                                                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
-                                                    Shots: @shotsB.Count/@match.ShotsPerEnd
-                                                </MudText>
-                                                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-1">
-                                                    @{
-                                                        var nextShotDisplayB = shotsB.Count < match.ShotsPerEnd ? (nextShotB).ToString() : "Complete";
-                                                    }
-                                                    Next Shot: @nextShotDisplayB
-                                                </MudText>
-                                            </MudPaper>
-                                        </MudItem>
-                                    </MudGrid>
+                                            <!-- Cancel Edit Button -->
+                                            @if (isEditingThisLane)
+                                            {
+                                                <MudStack Row="true" Justify="Justify.Center" Spacing="1" Class="mt-2">
+                                                    <MudButton Variant="Variant.Text"
+                                                               Color="Color.Error"
+                                                               OnClick="CancelEditing"
+                                                               Size="Size.Small"
+                                                               Style="font-size: 0.7rem;">
+                                                        Cancel Edit
+                                                    </MudButton>
+                                                </MudStack>
+                                            }
 
-                                    <!-- Reset Buttons -->
-                                    <MudGrid Spacing="2" Class="mt-2">
-                                        <MudItem xs="12">
-                                            <MudStack Row="true" Justify="Justify.Center" Spacing="2">
+                                            <!-- Reset Buttons -->
+                                            <MudStack Row="true" Justify="Justify.Center" Spacing="2" Class="mt-3">
                                                 <MudButton Variant="Variant.Outlined"
                                                            Color="Color.Warning"
-                                                           OnClick="@(() => ResetCurrentSet(match.Lane))"
-                                                           Disabled="@(!HasShotsInCurrentSet(match))"
+                                                           OnClick="@(() => ResetCurrentSet1440(lane))"
+                                                           Disabled="@(!shotsInSet.Any())"
                                                            Size="Size.Small">
                                                     Reset Current Set
                                                 </MudButton>
                                                 <MudButton Variant="Variant.Outlined"
                                                            Color="Color.Error"
-                                                           OnClick="@(() => ResetAllSets(match.Lane))"
-                                                           Disabled="@(!match.Sets.Any(s => s.ShotsA.Any() || s.ShotsB.Any()))"
+                                                           OnClick="@(() => ResetAllSets1440(lane))"
+                                                           Disabled="@(!GetAllShotsForLane(lane).Any())"
                                                            Size="Size.Small">
                                                     Reset All Sets
                                                 </MudButton>
                                             </MudStack>
                                         </MudItem>
-                                    </MudGrid>
-
-                                </MudCardContent>
-                            </MudCard>
+                                    }
+                                </MudGrid>
+                            </MudPaper>
                         </MudItem>
-                    }
-                </MudGrid>
-            }
-            else
-            {
-                <!-- 1440 ROUND -->
-                <MudGrid Justify="Justify.Center">
-                    <MudItem xs="12" lg="5">
-                        <MudPaper Elevation="2" Class="pa-4 my-4">
-                            <MudGrid Spacing="2" Justify="Justify.Center" Style="align-items:center" Class="mb-4">
-                                <MudItem xs="4">
-                                    <!-- tba haha -->
-                                </MudItem>
-                                <MudItem xs="4">
-                                    <MudText Typo="Typo.h6" Color="Color.Primary" Align="Align.Center">Round @SelectedRound</MudText>
-                                </MudItem>
-                                <MudItem xs="4">
-                                    <MudGrid Spacing="1" Justify="Justify.FlexEnd" Style="align-items:center">
-                                        <MudItem>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Remove"
-                                                           Color="Color.Error"
-                                                           OnClick="RemoveLastLane"
-                                                           Disabled="@(Lanes.Count <= 1)"
-                                                           Size="Size.Small" />
-                                        </MudItem>
-                                        <MudItem>
-                                            <MudText Typo="Typo.body2" Class="px-1">Lane</MudText>
-                                        </MudItem>
-                                        <MudItem>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Add"
-                                                           Color="Color.Success"
-                                                           OnClick="AddLane"
-                                                           Size="Size.Small" />
-                                        </MudItem>
-                                    </MudGrid>
-                                </MudItem>
-                            </MudGrid>
 
-                            @foreach (var lane in Lanes)
-                            {
-                                var region = Regions.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+                        <MudDivider Class="my-3" />
+                    </MudGrid>
+                }
+            </MudPaper>
+        </MudItem>
 
-                                <MudGrid Spacing="2" Class="my-3">
-                                    <MudItem xs="12">
-                                        <MudGrid Spacing="2" Justify="Justify.Center" Style="align-items:center">
-                                            <MudItem xs="12" sm="3">
-                                                <MudText Typo="Typo.h6" Align="Align.Center">Lane @lane</MudText>
-                                            </MudItem>
-
-                                            <!-- Region Assignment -->
-                                            <MudItem xs="12" sm="6">
-                                                <MudStack Justify="Justify.Center" Style="align-items:center">
-                                                    <MudDropZone T="RegionItem"
-                                                                 Identifier="@($"{SelectedRound}_{lane}")"
-                                                                 Class="pa-1 d-flex justify-center align-center"
-                                                                 Style="min-height:60px; width:200px; border:1px dashed gray; background-color: #f8f9fa; border-radius: 4px;">
-                                                        @if (region == null)
-                                                        {
-                                                            <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center">
-                                                                Drop region here
-                                                            </MudText>
-                                                        }
-                                                    </MudDropZone>
+        <!-- Total Scores Summary -->
+        <MudItem xs="12" lg="4">
+            <MudPaper Class="pa-4 mt-4" Elevation="2">
+                <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-3">Overall Score</MudText>
+                <MudGrid Spacing="2">
+                    @foreach (var regionScore in GetAllRegionScoresForRound().OrderByDescending(rs => rs.TotalScore))
+                    {
+                        <MudItem xs="12">
+                            <MudPaper Class="pa-2" Elevation="0">
+                                <MudGrid Spacing="2" Align="Align.Center">
+                                    <MudItem xs="9">
+                                        <MudGrid Spacing="1" Align="Align.Center">
+                                            <MudItem xs="12">
+                                                <MudStack Row="true" Spacing="1" Align="Align.Center">
+                                                    <MudText Typo="Typo.body1" Class="font-weight-bold">
+                                                        @regionScore.RegionName
+                                                    </MudText>
+                                                    @if (!string.IsNullOrEmpty(regionScore.AssignedLane))
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled">
+                                                            @(regionScore.IsUnassigned ? "Unassigned" : $"Lane {regionScore.Lane}")
+                                                        </MudChip>
+                                                    }
+                                                    @if (regionScore.ShotCount > 0)
+                                                    {
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                            (@regionScore.ShotCount shots)
+                                                        </MudText>
+                                                    }
                                                 </MudStack>
-                                            </MudItem>
-
-                                            <!-- Total Score -->
-                                            <MudItem xs="12" sm="3">
-                                                <MudGrid Justify="Justify.Center">
-                                                    <MudItem>
-                                                        <MudPaper Class="pa-2 text-center" Elevation="0" Style="background-color: #e3f2fd; border-radius: 4px; min-width: 80px;">
-                                                            <MudText Typo="Typo.h6" Color="Color.Primary" Align="Align.Center" Class="font-weight-bold">
-                                                                @GetLaneRoundScore(lane)
-                                                            </MudText>
-                                                            <MudText Typo="Typo.caption" Align="Align.Center">
-                                                                Total Score
-                                                            </MudText>
-                                                        </MudPaper>
-                                                    </MudItem>
-                                                </MudGrid>
                                             </MudItem>
                                         </MudGrid>
                                     </MudItem>
-
-                                    <!-- Sets Management Section -->
-                                    <MudItem xs="12">
-                                        <MudPaper Class="pa-3 mb-3" Elevation="1" Style="background-color: #f8f9fa;">
-                                            <MudGrid Spacing="2" Align="Align.Center">
-                                                <MudItem xs="12">
-                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
-                                                    <MudIconButton Color="Color.Error"
-                                                                       Icon="@Icons.Material.Filled.Remove"
-                                                                       Size="Size.Small"
-                                                                       OnClick="@(() => RemoveSet1440(lane))"
-                                                                       Disabled="@(Get1440SetCount(lane) <= 1)">
-                                                        </MudIconButton>
-                                                        
-                                                        <MudText Typo="Typo.body2">Sets (@Get1440SetCount(lane)/6 sets)</MudText>
-
-                                                        <MudIconButton Color="Color.Success"
-                                                                       Icon="@Icons.Material.Filled.Add"
-                                                                       Size="Size.Small"
-                                                                       OnClick="@(() => AddSet1440(lane))"
-                                                                       Disabled="@(Get1440SetCount(lane) >= 6)">
-                                                        </MudIconButton>
-                                                    </MudStack>
-                                                </MudItem>
-
-                                                <!-- Set Selection Tabs -->
-                                                @if (Get1440SetCount(lane) > 0)
-                                                {
-                                                    var availableSets = Get1440AvailableSets(lane);
-                                                    var currentSetNumber = GetCurrentSetForLane(lane);
-                                                    var shotsInCurrentSet = GetShotsForLaneAndSet(lane, currentSetNumber);
-                                                    var setTotal = shotsInCurrentSet.Sum(s => s.ShotScore);
-
-                                                    <MudItem xs="12">
-                                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1" Class="mb-2">
-                                                            @foreach (var setNumber in availableSets)
-                                                            {
-                                                                <MudButton Variant="@(currentSetNumber == setNumber ? Variant.Filled : Variant.Outlined)"
-                                                                           Color="@(currentSetNumber == setNumber ? Color.Primary : Color.Default)"
-                                                                           Size="Size.Small"
-                                                                           OnClick="@(() => SwitchSet1440(lane, setNumber))"
-                                                                           Style="min-width: 35px;">
-                                                                    @setNumber
-                                                                </MudButton>
-                                                            }
-                                                        </MudStack>
-                                                    </MudItem>
-
-                                                    <!-- Current Set Display -->
-                                                    <MudItem xs="12">
-                                                        <MudPaper Class="pa-2" Elevation="0" Style="background-color: white;">
-                                                            <MudStack Spacing="1" Align="Align.Center">
-                                                                <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
-                                                                    <MudText Typo="Typo.body2" Class="font-weight-bold">Set @currentSetNumber</MudText>
-                                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                                                        @shotsInCurrentSet.Count/6 shots
-                                                                    </MudText>
-                                                                </MudStack>
-
-                                                                <!-- Shots in Current Set -->
-                                                                <MudStack Row="true" Justify="Justify.Center" Spacing="0">
-                                                                    @for (int shot = 1; shot <= 6; shot++)
-                                                                    {
-                                                                        var shotData = shotsInCurrentSet.FirstOrDefault(s => s.ShotNo == shot);
-                                                                        if (shotData != null)
-                                                                        {
-                                                                            var displayValue = shotData.ShotScore == 0 ? "M" : (shotData.IsBullseye ? "X" : shotData.ShotScore.ToString());
-                                                                            <MudChip T="string" Size="Size.Small"
-                                                                                     Color="@(shotData.ShotScore == 0 ? Color.Error : shotData.IsBullseye ? Color.Secondary : Color.Primary)"
-                                                                                     Variant="Variant.Filled"
-                                                                                     Style="min-width: 25px; height: 25px; justify-content: center; font-size: 0.8rem; font-weight: bold;">
-                                                                                @displayValue
-                                                                            </MudChip>
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            <MudChip T="string" Size="Size.Small"
-                                                                                     Variant="Variant.Outlined"
-                                                                                     Style="min-width: 25px; height: 25px; justify-content: center; border-style: dashed; font-size: 0.8rem;">
-                                                                                -
-                                                                            </MudChip>
-                                                                        }
-                                                                    }
-                                                                </MudStack>
-
-                                                                <!-- Set Total -->
-                                                                <MudStack Row="true" Justify="Justify.Center" Spacing="2" Style="align-items:center">
-                                                                    <MudText Typo="Typo.body1" Color="Color.Primary" Class="font-weight-bold">
-                                                                        Set Total: @setTotal
-                                                                    </MudText>
-                                                                </MudStack>
-                                                            </MudStack>
-                                                        </MudPaper>
-                                                    </MudItem>
-
-
-                                                    <MudItem xs="12" Class="my-2">
-                                                        
-                                                            @{
-                                                                var currentSetNum = GetCurrentSetForLane(lane);
-                                                                var shotsInSet = GetShotsForLaneAndSet(lane, currentSetNum);
-                                                                var nextShotNum = shotsInSet.Any() ? shotsInSet.Max(s => s.ShotNo) + 1 : 1;
-                                                                var scoreRows = new[] {
-                                            new[] { "X", "10", "9", "8", "7", "6" },
-                                            new[] { "5", "4", "3", "2", "1", "M" }
-                                            };
-                                                            }
-
-                                                            
-
-                                                            @foreach (var rowScores in scoreRows)
-                                                            {
-                                                                <MudItem xs="12">
-                                                                    <MudStack Row="true" Justify="Justify.Center" Spacing="1" Breakpoint="Breakpoint.None">
-                                                                        @foreach (var score in rowScores)
-                                                                        {
-                                                                            <MudButton Size="Size.Small"
-                                                                                       Variant="Variant.Outlined"
-                                                                                       Color="@(score == "M" ? Color.Error : score == "X" ? Color.Secondary : Color.Primary)"
-                                                                                       OnClick="@(() => Record1440RoundShot(lane, nextShotNum, currentSetNum, score == "M" ? 0 : score == "X" ? 10 : int.Parse(score), score == "X"))"
-                                                                                       Disabled="@(region == null || shotsInSet.Count >= 6)"
-                                                                                       Style="min-width: 30px; height: 30px; padding: 0; font-size: 0.9rem;">
-                                                                                @score
-                                                                            </MudButton>
-                                                                        }
-                                                                    </MudStack>
-                                                                </MudItem>
-                                                            }
-
-                                                            <MudStack Row="true" Justify="Justify.Center" Spacing="2" Class="mt-2">
-                                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                                                    Shots in set: @shotsInSet.Count/6
-                                                                </MudText>
-                                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                                                    Next shot: @(shotsInSet.Count < 6 ? nextShotNum.ToString() : "Complete")
-                                                                </MudText>
-                                                            </MudStack>
-
-                                                            <!-- Reset Buttons -->
-                                                            <MudStack Row="true" Justify="Justify.Center" Spacing="2" Class="mt-3">
-                                                                <MudButton Variant="Variant.Outlined"
-                                                                           Color="Color.Warning"
-                                                                           OnClick="@(() => ResetCurrentSet1440(lane))"
-                                                                           Disabled="@(!shotsInSet.Any())"
-                                                                           Size="Size.Small">
-                                                                    Reset Current Set
-                                                                </MudButton>
-                                                                <MudButton Variant="Variant.Outlined"
-                                                                           Color="Color.Error"
-                                                                           OnClick="@(() => ResetAllSets1440(lane))"
-                                                                           Disabled="@(!GetAllShotsForLane(lane).Any())"
-                                                                           Size="Size.Small">
-                                                                    Reset All Sets
-                                                                </MudButton>
-                                                            </MudStack>
-                                                        
-                                                    </MudItem>
-
-                                                }
-                                            </MudGrid>
-                                        </MudPaper>
+                                    <MudItem xs="3">
+                                        <MudText Typo="Typo.h6" Color="Color.Primary" Align="Align.Right" Class="font-weight-bold">
+                                            @regionScore.TotalScore
+                                        </MudText>
                                     </MudItem>
-
-                                    <MudDivider Class="my-3" />
                                 </MudGrid>
-                            }
-                        </MudPaper>
-                    </MudItem>
-
-                    <!-- Total Scores Summary -->
-                    <MudItem xs="12" lg="4">
-                        <MudPaper Class="pa-4 mt-4" Elevation="2">
-                            <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-3">Overall Score</MudText>
-                            <MudGrid Spacing="2">
-                                @foreach (var regionScore in GetAllRegionScoresForRound().OrderByDescending(rs => rs.TotalScore))
-                                {
-                                    <MudItem xs="12">
-                                        <MudPaper Class="pa-2" Elevation="0">
-                                            <MudGrid Spacing="2" Align="Align.Center">
-                                                <MudItem xs="9">
-                                                    <MudGrid Spacing="1" Align="Align.Center">
-                                                        <MudItem xs="12">
-                                                            <MudStack Row="true" Spacing="1" Align="Align.Center">
-                                                                <MudText Typo="Typo.body1" Class="font-weight-bold">
-                                                                    @regionScore.RegionName
-                                                                </MudText>
-                                                                @if (!string.IsNullOrEmpty(regionScore.AssignedLane))
-                                                                {
-                                                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled">
-                                                                        @(regionScore.IsUnassigned ? "Unassigned" : $"Lane {regionScore.Lane}")
-                                                                    </MudChip>
-                                                                }
-                                                                @if (regionScore.ShotCount > 0)
-                                                                {
-                                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                                                        (@regionScore.ShotCount shots)
-                                                                    </MudText>
-                                                                }
-                                                            </MudStack>
-                                                        </MudItem>
-                                                    </MudGrid>
-                                                </MudItem>
-                                                <MudItem xs="3">
-                                                    <MudText Typo="Typo.h6" Color="Color.Primary" Align="Align.Right" Class="font-weight-bold">
-                                                        @regionScore.TotalScore
-                                                    </MudText>
-                                                </MudItem>
-                                            </MudGrid>
-                                            <MudDivider Class="my-2" />
-                                        </MudPaper>
-                                    </MudItem>
-                                }
-                            </MudGrid>
-                        </MudPaper>
-                    </MudItem>
+                                <MudDivider Class="my-2" />
+                            </MudPaper>
+                        </MudItem>
+                    }
                 </MudGrid>
-            }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
         </ChildContent>
 
         <ItemRenderer Context="item">
@@ -894,6 +1084,8 @@ else
     private int SelectedRound = 1;
     private List<OlympicMatch> OlympicMatches = new List<OlympicMatch>();
     private int NextMatchNumber = 1;
+
+    private (int Lane, string Region, int SetNumber, int ShotNo)? _editingShot = null;
 
     private int? _selectedSportIDValue = 1;
     private string? _selectedSchoolLevelAndGenderID;
@@ -2826,6 +3018,205 @@ else
         else
         {
             return (3, 5);
+        }
+    }
+
+    private void StartEditingShot(int lane, string region, int setNumber, int shotNo)
+    {
+        _editingShot = (lane, region, setNumber, shotNo);
+        StateHasChanged();
+    }
+
+    private void CancelEditing()
+    {
+        _editingShot = null;
+        StateHasChanged();
+    }
+
+    private async Task UpdateShotScore(int lane, string region, int setNumber, int shotNo, int newScore, bool isBullseye)
+    {
+        try
+        {
+            if (IsOlympicRound)
+            {
+                await UpdateOlympicShotScore(lane, region, setNumber, shotNo, newScore, isBullseye);
+            }
+            else
+            {
+                await Update1440ShotScore(lane, region, setNumber, shotNo, newScore, isBullseye);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating shot: {ex.Message}", Severity.Error);
+        }
+    }
+    private async Task UpdateOlympicShotScore(int lane, string region, int setNumber, int shotNo, int newScore, bool isBullseye)
+    {
+        try
+        {
+            var match = OlympicMatches.FirstOrDefault(m => m.Lane == lane);
+            if (match == null) return;
+
+            var regionId = region == "A" ? match.RegionAId : match.RegionBId;
+            if (regionId == 0) return;
+
+            // Find the shot in the Shots list
+            var existingShot = Shots.FirstOrDefault(s =>
+                s.EventID == SelectedEvent?.ID &&
+                s.RoundNo == SelectedRound &&
+                s.Lane == lane &&
+                s.RegionID == regionId &&
+                s.EndNo == setNumber &&
+                s.ShotNo == shotNo);
+
+            if (existingShot == null)
+            {
+                Snackbar.Add("Shot not found", Severity.Warning);
+                return;
+            }
+
+            var updateDto = new UpdateArcheryScoringDTO
+                {
+                    ID = existingShot.ID,
+                    ShotScore = newScore,
+                    IsBullseye = isBullseye
+                };
+
+            // Your APIService.PutAsync returns bool, not string
+            var success = await apiService.PutAsync<UpdateArcheryScoringDTO>($"/score/ArcheryScoring/{existingShot.ID}", updateDto);
+
+            if (success)
+            {
+                // Refresh data
+                await LoadExistingArcheryData();
+
+                var displayScore = newScore == 0 ? "M" : (isBullseye ? "X" : newScore.ToString());
+                Snackbar.Add($"Updated shot to {displayScore}", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to update shot", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating Olympic shot: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task Update1440ShotScore(int lane, string region, int setNumber, int shotNo, int newScore, bool isBullseye)
+    {
+        try
+        {
+            var regionItem = Regions.FirstOrDefault(r => r.AssignedLane == $"{SelectedRound}_{lane}");
+            if (regionItem == null) return;
+
+            // Find the shot in the Shots list
+            var existingShot = Shots.FirstOrDefault(s =>
+                s.EventID == SelectedEvent?.ID &&
+                s.RoundNo == SelectedRound &&
+                s.Lane == lane &&
+                s.RegionID == regionItem.Id &&
+                s.EndNo == setNumber &&
+                s.ShotNo == shotNo);
+
+            if (existingShot == null)
+            {
+                Snackbar.Add("Shot not found", Severity.Warning);
+                return;
+            }
+
+            var updateDto = new UpdateArcheryScoringDTO
+                {
+                    ID = existingShot.ID,
+                    ShotScore = newScore,
+                    IsBullseye = isBullseye
+                };
+
+            // Your APIService.PutAsync returns bool, not string
+            var success = await apiService.PutAsync<UpdateArcheryScoringDTO>($"/score/ArcheryScoring/{existingShot.ID}", updateDto);
+
+            if (success)
+            {
+                // Refresh data
+                await LoadExistingArcheryData();
+
+                var displayScore = newScore == 0 ? "M" : (isBullseye ? "X" : newScore.ToString());
+                Snackbar.Add($"Updated shot to {displayScore}", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to update shot", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating 1440 shot: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteShot(int lane, string region, int setNumber, int shotNo)
+    {
+        try
+        {
+            if (IsOlympicRound)
+            {
+                var match = OlympicMatches.FirstOrDefault(m => m.Lane == lane);
+                if (match == null) return;
+
+                var regionId = region == "A" ? match.RegionAId : match.RegionBId;
+                if (regionId == 0) return;
+
+                var shotToDelete = Shots.FirstOrDefault(s =>
+                    s.EventID == SelectedEvent?.ID &&
+                    s.RoundNo == SelectedRound &&
+                    s.Lane == lane &&
+                    s.RegionID == regionId &&
+                    s.EndNo == setNumber &&
+                    s.ShotNo == shotNo);
+
+                if (shotToDelete != null)
+                {
+                    await apiService.DeleteAsync($"/score/ArcheryScoring/{shotToDelete.ID}");
+                    await LoadExistingArcheryData();
+                    Snackbar.Add("Shot deleted", Severity.Info);
+                }
+            }
+            else
+            {
+                // Similar logic for 1440 round
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error deleting shot: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenEditEventDialog(string? selectedEventID)
+    {
+        var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.SelectedEventID, selectedEventID },
+            { x => x.IsEditMode, true }
+        };
+
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseOnEscapeKey = true,
+                BackdropClick = false
+            };
+
+        var dialog = await DialogService.ShowAsync<AddEditDialog>("Edit Event", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            // await LoadExistingBilliardsAssignments();
         }
     }
 }

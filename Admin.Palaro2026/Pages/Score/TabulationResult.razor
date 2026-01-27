@@ -1,0 +1,840 @@
+﻿@page "/awarding/players"
+
+@inject APIService apiService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject CookieService cookieService
+@inject IJSRuntime jsRuntime
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge">
+    <MudItem xs="12" Style="margin-bottom: 5px">
+        <MudStack AlignItems="AlignItems.Center" Class="flex-lg-row" Justify="Justify.SpaceBetween">
+
+            <MudGrid Justify="Justify.FlexEnd">
+            <MudItem>
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudSelect Value="_selectedSport"
+                               T="int?"
+                               ShrinkLabel Variant="Variant.Outlined"
+                               Label="Filter by Sport"
+                               Clearable Margin="Margin.Dense"
+                               ValueChanged="OnSportFilterChanged" Style="width: 350px">
+                        <MudSelectItem T="int?" Value="null">All Sports</MudSelectItem>
+                        @foreach (var sport in _sports)
+                        {
+                            <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudDivider Vertical="true" FlexItem="true" />
+                    <MudButton
+                               Size="Size.Medium"
+                               Variant="Variant.Text"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               Disabled="@_loading"
+                               OnClick="RefreshTable">Refresh Table</MudButton>
+                </MudStack>
+            </MudItem>
+            </MudGrid>
+        </MudStack>
+    </MudItem>
+
+    @if (_filteredDisplay.Any())
+    {
+            <MudItem xs="12">
+            <MudTable Items="@_filteredDisplay" T="TallyDisplayRow"
+                          FixedHeader FixedFooter Height="calc(87vh - 150px)"
+                          Context="row"
+                          Dense="true"
+                          Outlined="true"
+                          Elevation="1"
+                          Style="border-radius: 8px; overflow: hidden;"
+                          Loading="@_loading">
+
+                    <ToolBarContent>
+                        <MudText Typo="Typo.h6"></MudText>
+                        <MudSpacer />
+                    <MudTextField T="string"
+                                  Value="@_searchString"
+                                  ValueChanged="@( (string v) => OnSearchChanged(v) )"
+                                  Immediate="true"
+                                  Placeholder="Search"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium" />
+                    </ToolBarContent>
+
+                    <ColGroup>
+                        <col style="width: 20%" />
+                        <col style="width: 30%" />
+                        <col style="width: 15%" />
+                        <col style="width: 15%" />
+                        <col style="width: 10%" />
+                        <col style="width: 10%" />
+                    </ColGroup>
+
+                    <HeaderContent>
+                        <MudTh>Region</MudTh>
+                        <MudTh Style="text-align: center">Athlete</MudTh>
+                        <MudTh>Sports</MudTh>
+                        <MudTh>Category</MudTh>
+                    <MudTh Style="text-align: center">Medal/Rank</MudTh>
+                    <MudTh Style="text-align: center">Certificate</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd DataLabel="Region">
+                        <MudText>@GetRegionName(row.Head.SchoolRegionID)</MudText>
+                    </MudTd>
+
+                    <MudTd DataLabel="Athlete" Style="text-align:center">
+                        <MudStack Spacing="1" AlignItems="AlignItems.Center">
+
+                            @if (row.IsTeam)
+                            {
+                                <MudStack Row Wrap="Wrap.Wrap" Justify="Justify.Center" Spacing="1">
+                                    @foreach (var m in row.Members.OrderBy(x => x.LastName).ThenBy(x => x.FirstName))
+                                    {
+                                        <MudChip T="string" Variant="Variant.Outlined" Class="ma-1">
+                                            @FormatFullName(m.FirstName, m.MiddleInitial, m.LastName)
+                                        </MudChip>
+                                    }
+                                </MudStack>
+                            }
+                            else
+                            {
+                                var p = row.Head;
+                                <MudChip T="string" Variant="Variant.Outlined" Class="ma-1">
+                                    @FormatFullName(p.FirstName, p.MiddleInitial, p.LastName)
+                                </MudChip>
+                            }
+
+                        </MudStack>
+                    </MudTd>
+
+
+                        <MudTd DataLabel="Sports">
+                        <MudText Typo="Typo.body2">@GetSportName(row.Head.SportID)</MudText>
+                    </MudTd>
+
+                        <MudTd DataLabel="Category">
+                            <MudStack Spacing="0">
+                            <MudText Typo="Typo.body2">@row.Head.SportMainCat</MudText>
+                            <MudText Typo="Typo.caption">
+                                @GetSportSubcategoryName(row.Head.SportSubcategoryID)
+                            </MudText>
+                            </MudStack>
+                        </MudTd>
+
+                    <MudTd DataLabel="Medal/Rank" Style="text-align: center">
+                        @if (IsMedal(row.Head.TeamRank))
+                        {
+                                <MudChip T="string"
+                                         Size="Size.Large"
+                                         Variant="Variant.Filled"
+                                     Color="@GetMedalColor(row.Head.TeamRank)">
+                                @row.Head.TeamRank
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2">
+                                @FormatRank(row.Head.TeamRank)
+                                </MudText>
+                            }
+                        </MudTd>
+                    <MudTd DataLabel="Certificate" Style="text-align: center">
+                        <MudButton Variant="Variant.Filled" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Print"
+                                   Disabled="@(!row.PlayerIDs.Any())"
+                                   OnClick="@(() => PrintCertificates(row.PlayerIDs))">
+                            Print
+                        </MudButton>
+
+                        </MudTd>
+
+                    </RowTemplate>
+
+                    <NoRecordsContent>
+                        <MudTd ColSpan="5" Class="text-center py-4">
+                            <MudText>@(_loading ? "Loading..." : "No result found.")</MudText>
+                        </MudTd>
+                    </NoRecordsContent>
+
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
+            </MudItem>
+    }
+    else
+    {
+        <MudPaper Class="pa-12 text-center" Elevation="1" Style="border-radius: 16px;">
+            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Large" Class="mb-4" />
+            <MudText Typo="Typo.h6" Class="mb-2">No result found</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4">
+                @(_selectedSport.HasValue ? "No result for the selected sport." : "No result available.")
+            </MudText>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    // Main DTO for table data
+    public class TabulationResultDTO
+    {
+        public string SourceType { get; set; } = "";
+
+        public string? EventID { get; set; }
+        public int? EventStageID { get; set; }
+        public int SportSubcategoryID { get; set; }
+        public string? SportMainCat { get; set; }
+        public bool IsFinished { get; set; }
+
+        public int? PerformanceID { get; set; }
+        public int? TeamID { get; set; }
+
+        public int? EventVersusTeamID { get; set; }
+        public int? SchoolRegionID { get; set; }
+        public string? TeamRank { get; set; }
+        public int? PerformanceScoreID { get; set; }
+
+        public string PlayerID { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? MiddleInitial { get; set; }
+        public string? Sex { get; set; }
+        public DateTime? BirthDate { get; set; }
+        public int? SchoolID { get; set; }
+        public int? SportID { get; set; }
+        public string? ImagePath { get; set; }
+
+        // Query-specific columns
+        public int RankGroup { get; set; }
+        public int MedalOrder { get; set; }
+        public int NumericOrder { get; set; }
+        public int rn_global { get; set; }
+    }
+
+    // Supporting DTO classes
+    public class PerformanceBasedDTO
+    {
+        public class PerformanceEvent
+        {
+            public int ID { get; set; }
+            public int? SportID { get; set; }
+            public string MainCategory { get; set; } = string.Empty;
+            public int? LevelID { get; set; }
+            public int? GenderID { get; set; }
+            public int? StageID { get; set; }
+        }
+
+        public class PerformanceTeam
+        {
+            public int ID { get; set; }
+            public int? PerformanceID { get; set; }
+            public int? TeamID { get; set; }
+            public int RegionID { get; set; }
+            public string PlayerID { get; set; } = string.Empty;
+        }
+
+        public class PerformanceScores
+        {
+            public int ID { get; set; }
+            public int? PerformanceID { get; set; }
+            public int PerformanceTeamID { get; set; }
+            public int SportSubcategoryID { get; set; }
+            public decimal Score { get; set; }
+            public int Rank { get; set; }
+            public string? UserID { get; set; }
+            public DateTime UpdatedAt { get; set; }
+            public int? TeamID { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+
+        public class SchoolRegion
+        {
+            public int? ID { get; set; }
+            public string Region { get; set; } = string.Empty;
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class SportCategories
+        {
+            public int ID { get; set; }
+            public string? Category { get; set; }
+        }
+
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+            public string? Description { get; set; }
+            public int? SportCategoryID { get; set; }
+        }
+
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+            public int? SportID { get; set; }
+            public int? SportGenderCategoryID { get; set; }
+            public int? SchoolLevelID { get; set; }
+            public string? MainCategory { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+    public class ProfilePlayersDTO
+    {
+        public class Players
+        {
+            public string ID { get; set; } = string.Empty;
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+    }
+
+    public class EventsDTO
+    {
+        public class Event
+        {
+            public string ID { get; set; } = null!;
+            public string? EventStage { get; set; }
+            public string? SportMainCat { get; set; }
+            public string? Category { get; set; }
+            public string? Sport { get; set; }
+            public string? GamePhase { get; set; }
+            public int? SubCategoryID { get; set; }
+            public string? Subcategory { get; set; }
+            public string? Gender { get; set; }
+            public string? Level { get; set; }
+            public string? Venue { get; set; }
+            public decimal? Latitude { get; set; }
+            public decimal? Longitude { get; set; }
+            public DateTime? Date { get; set; }
+            public TimeSpan? Time { get; set; }
+            public bool? OnStream { get; set; }
+            public string? StreamService { get; set; }
+            public string? StreamURL { get; set; }
+            public bool? IsFinished { get; set; }
+            public bool? Archived { get; set; }
+            public bool? Deleted { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+
+        public class EventStages
+        {
+            public int ID { get; set; }
+            public string? Stage { get; set; }
+        }
+
+        public class EventVersusTeams
+        {
+            public int ID { get; set; }
+            public string? EventID { get; set; }
+            public int? PerformanceScoreID { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? Score { get; set; }
+            public string? Rank { get; set; }
+            public DateTime? RecentUpdateAt { get; set; }
+        }
+    }
+
+    private string _searchString = "";
+    private int? _selectedSport = null;
+    private List<TabulationResultDTO> _tally = new();
+    private List<TallyDisplayRow> _display = new();
+    private List<TallyDisplayRow> _filteredDisplay = new();
+
+    private Task OnSportFilterChanged(int? selectedSport)
+    {
+        _selectedSport = selectedSport;
+        ApplyFilter();
+        return Task.CompletedTask;
+    }
+
+    private void ApplyFilter()
+    {
+        IEnumerable<TallyDisplayRow> q = _display;
+
+        if (_selectedSport.HasValue)
+            q = q.Where(x => x.Head.SportID == _selectedSport.Value);
+
+        q = q.Where(MatchesSearch);
+
+        _filteredDisplay = q
+            .OrderBy(x => GetMedalSortOrder(x.Head.TeamRank))
+            .ThenBy(x => GetNumericRankOrMax(x.Head.TeamRank))
+            .ThenBy(x => GetSportName(x.Head.SportID))
+            .ThenBy(x => x.Head.SportMainCat)
+            .ToList();
+
+        StateHasChanged();
+    }
+
+    private bool FilterFunc(TabulationResultDTO row)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        // Search across visible fields + IDs + rank
+        return new[]
+        {
+            GetRegionName(row.SchoolRegionID),
+            row.FirstName,
+            row.LastName,
+            row.MiddleInitial,
+            row.Sex,
+            GetSportName(row.SportID),
+            row.SportMainCat,
+            GetSportSubcategoryName(row.SportSubcategoryID),
+            row.TeamRank,
+            row.PlayerID,
+            row.EventID
+        }
+        .Where(x => !string.IsNullOrWhiteSpace(x))
+        .Any(x => x!.Contains(_searchString, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task RefreshTable()
+    {
+        await LoadRankingRows();
+    }
+
+    private Task OnSearchChanged(string text)
+    {
+        _searchString = text;
+        ApplyFilter();
+        return Task.CompletedTask;
+    }
+
+    private bool MatchesSearch(TallyDisplayRow row)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        var s = _searchString.Trim();
+
+        // include team member names + ids
+        var pool = row.Members.SelectMany(m => new string?[]
+        {
+        GetRegionName(m.SchoolRegionID),
+        m.FirstName, m.LastName, m.MiddleInitial, m.Sex,
+        GetSportName(m.SportID),
+        m.SportMainCat,
+        GetSportSubcategoryName(m.SportSubcategoryID),
+        m.TeamRank,
+        m.PlayerID,
+        m.EventID,
+        m.PerformanceID?.ToString()
+        });
+
+        return pool
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Any(x => x!.Contains(s, StringComparison.OrdinalIgnoreCase));
+    }
+
+
+    // Main state variables
+    private bool _loading = false;
+    private List<TabulationResultDTO> _rows = new();
+
+    // Lookup data
+    private Dictionary<int, string> _regionNames = new();
+    private Dictionary<int, string> _sportNames = new();
+    private Dictionary<int, string> _subcatNames = new();
+
+    // Supporting lists for lookups
+    private List<SchoolsDTO.SchoolRegion> _schoolRegions = new();
+    private List<SportsDTO.Sports> _sports = new();
+    private List<SportsDTO.SportSubcategories> _sportSubcategories = new();
+    private List<SportsDTO.SportGenderCategories> _sportGenderCategories = new();
+    private List<SchoolsDTO.SchoolLevels> _schoolLevels = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLookups();
+        await LoadRankingRows();
+    }
+
+    // FIXED: Corrected API call - expecting List<T> not single T
+    private async Task LoadRankingRows()
+    {
+        try
+        {
+            _loading = true;
+            StateHasChanged();
+
+            string url = "/Tabulation/result";
+
+            // Load ALL results
+            _tally = await apiService.GetAsync<TabulationResultDTO>(url) ?? new List<TabulationResultDTO>();
+
+            DeduplicateLatestPerPlayerPerSubcat();
+            BuildDisplayRows();   // ✅ ADD THIS
+            ApplyFilter();
+
+
+            Snackbar.Add($"Loaded {_tally.Count} results", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load ranking: {ex.Message}", Severity.Error);
+
+            _tally = new List<TabulationResultDTO>();
+            _filteredDisplay = new List<TallyDisplayRow>();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    // Fixed: Now properly loads lookup data
+    private async Task LoadLookups()
+    {
+        try
+        {
+            // Load regions
+            await GetSchoolRegionsAsync();
+            if (_schoolRegions != null)
+            {
+                _regionNames = _schoolRegions
+                    .Where(r => r.ID.HasValue)
+                    .ToDictionary(r => r.ID.Value, r => r.Region);
+            }
+
+            // Load sports
+            await GetSportsAsync();
+            if (_sports != null)
+            {
+                _sportNames = _sports
+                    .ToDictionary(s => s.ID, s => s.Sport ?? $"Sport {s.ID}");
+            }
+
+            // Load sport subcategories
+            await GetSportSubCategoriesAsync();
+            if (_sportSubcategories != null)
+            {
+                _subcatNames = _sportSubcategories
+                    .ToDictionary(s => s.ID, s => s.Subcategory ?? $"Subcategory {s.ID}");
+            }
+
+            // Load additional supporting data
+            await GetSchoolLevelsAsync();
+            await GetSportGenderCategoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading lookup data: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private string GetRegionName(int? regionId)
+    {
+        if (!regionId.HasValue)
+            return "-";
+
+        if (_regionNames.TryGetValue(regionId.Value, out var name))
+            return name;
+
+        return $"Region {regionId.Value}";
+    }
+
+    private string GetSportName(int? sportId)
+    {
+        if (!sportId.HasValue)
+            return "-";
+
+        if (_sportNames.TryGetValue(sportId.Value, out var name))
+            return name;
+
+        return $"Sport {sportId.Value}";
+    }
+
+    private string GetSportSubcategoryName(int? sportSubcategoryId)
+    {
+        if (!sportSubcategoryId.HasValue)
+            return "-";
+
+        if (_subcatNames.TryGetValue(sportSubcategoryId.Value, out var name))
+            return name;
+
+        return $"Subcat {sportSubcategoryId.Value}";
+    }
+
+    // Formatting helpers
+    private static string FormatFullName(string? first, string? mi, string? last)
+    {
+        if (string.IsNullOrWhiteSpace(first) && string.IsNullOrWhiteSpace(last))
+            return "Unknown Athlete";
+
+        var mid = string.IsNullOrWhiteSpace(mi) ? "" : $" {mi}";
+        return $"{first} {mid} {last}".Trim().Trim(',');
+    }
+
+    private static string GetInitials(string? first, string? last)
+    {
+        if (string.IsNullOrWhiteSpace(first) && string.IsNullOrWhiteSpace(last))
+            return "??";
+
+        char f = !string.IsNullOrWhiteSpace(first) ? char.ToUpperInvariant(first[0]) : '?';
+        char l = !string.IsNullOrWhiteSpace(last) ? char.ToUpperInvariant(last[0]) : '?';
+        return $"{f}{l}";
+    }
+
+    private static bool IsMedal(string? rank)
+        => rank is "Gold" or "Silver" or "Bronze";
+
+    private static string FormatRank(string? rank)
+    {
+        if (string.IsNullOrWhiteSpace(rank))
+            return "Eliminated";
+
+        if (int.TryParse(rank, out var n))
+        {
+            if (n == 0)
+                return "Eliminated";
+            return $"Rank {n}";
+        }
+
+        return rank;
+    }
+
+    private string? GetPlayerImageUrl(string? imagePath)
+    {
+        if (string.IsNullOrWhiteSpace(imagePath))
+            return null;
+
+        return $"http://localhost/192.168.2.210/palaro2026/media/profile/players{imagePath}".Replace("\\", "/");
+    }
+
+    // API Methods for lookup data
+    private async Task GetSchoolRegionsAsync()
+    {
+        try
+        {
+            string url = "/Schools/Regions";
+            var response = await apiService.GetAsync<SchoolsDTO.SchoolRegion>(url);
+            _schoolRegions = response ?? new List<SchoolsDTO.SchoolRegion>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading regions: {ex.Message}", Severity.Warning);
+            _schoolRegions = new List<SchoolsDTO.SchoolRegion>();
+        }
+    }
+
+    private async Task GetSportsAsync()
+    {
+        try
+        {
+            string url = "/Sports";
+            var response = await apiService.GetAsync<SportsDTO.Sports>(url);
+            _sports = response ?? new List<SportsDTO.Sports>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading sports: {ex.Message}", Severity.Warning);
+            _sports = new List<SportsDTO.Sports>();
+        }
+    }
+
+    private async Task GetSportSubCategoriesAsync()
+    {
+        try
+        {
+            // Get all subcategories
+            string url = "/Sports/Subcategories";
+            var response = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
+            _sportSubcategories = response ?? new List<SportsDTO.SportSubcategories>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading subcategories: {ex.Message}", Severity.Warning);
+            _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+        }
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        try
+        {
+            string url = "/Schools/Levels";
+            var response = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
+            _schoolLevels = response ?? new List<SchoolsDTO.SchoolLevels>();
+        }
+        catch
+        {
+            _schoolLevels = new List<SchoolsDTO.SchoolLevels>();
+        }
+    }
+
+    private async Task GetSportGenderCategoriesAsync()
+    {
+        try
+        {
+            string url = "/Sports/GenderCategories";
+            var response = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url);
+            _sportGenderCategories = response ?? new List<SportsDTO.SportGenderCategories>();
+        }
+        catch
+        {
+            _sportGenderCategories = new List<SportsDTO.SportGenderCategories>();
+        }
+    }
+
+    // Helper methods (kept for compatibility)
+    private string GetSchoolLevelName(int? schoolLevelId)
+    {
+        if (!schoolLevelId.HasValue || _schoolLevels == null)
+            return "Unknown";
+
+        var level = _schoolLevels.FirstOrDefault(sl => sl.ID == schoolLevelId.Value);
+        return level?.Level ?? "Unknown";
+    }
+
+    private string GetRegionAbbreviation(int regionId)
+    {
+        var region = _schoolRegions?.FirstOrDefault(r => r.ID == regionId);
+        return region?.Abbreviation ?? regionId.ToString();
+    }
+
+    private string GetGenderName(int? genderCategoryId)
+    {
+        if (!genderCategoryId.HasValue)
+            return "Unknown";
+
+        var gender = _sportGenderCategories?.FirstOrDefault(g => g.ID == genderCategoryId.Value);
+        return gender?.Gender ?? "Unknown";
+    }
+
+    private Color GetMedalColor(string? rank)
+    {
+        return rank switch
+        {
+            "Gold" => Color.Warning,  // yellow
+            "Silver" => Color.Default, // gray
+            "Bronze" => Color.Tertiary,  // closest to brown
+            _ => Color.Default
+        };
+    }
+
+    private static int GetMedalSortOrder(string? rank) => rank switch
+    {
+        "Gold" => 0,
+        "Silver" => 1,
+        "Bronze" => 2,
+        _ => 99 // non-medal goes after medals
+    };
+
+    private static int GetNumericRankOrMax(string? rank)
+    {
+        // If rank is "1","2",... sort after medals by numeric
+        if (int.TryParse(rank, out var n) && n > 0)
+            return n;
+
+        // Eliminated / null / 0 / non-numeric → bottom
+        return int.MaxValue;
+    }
+
+    public class TallyDisplayRow
+    {
+        public TabulationResultDTO Head { get; set; } = new();
+        public List<TabulationResultDTO> Members { get; set; } = new();
+
+        public bool IsTeam => Members.Select(m => m.PlayerID).Distinct().Count() > 1;
+
+        public List<string> PlayerIDs =>
+            Members.Select(m => m.PlayerID).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+    }
+
+    private string BuildGroupKey(TabulationResultDTO r)
+    {
+        var sub = r.SportSubcategoryID;
+
+        // EVENT: team = same EventVersusTeamID (but keep subcategory separate)
+        if (string.Equals(r.SourceType, "EVENT", StringComparison.OrdinalIgnoreCase))
+            return r.EventVersusTeamID.HasValue
+                ? $"E-{r.EventVersusTeamID.Value}-S{sub}"
+                : $"E-IND-{r.PlayerID}-{r.EventID}-S{sub}";
+
+        // PERFORMANCE: team = same PerformanceID + Region + TeamID (but keep subcategory separate)
+        var perfId = r.PerformanceID ?? 0;
+        var region = r.SchoolRegionID ?? 0;
+
+        if (r.TeamID.HasValue)
+            return $"P-{perfId}-{region}-T-{r.TeamID.Value}-S{sub}";
+
+        // PERFORMANCE individual: don't merge different athletes (keep subcategory separate)
+        return $"P-{perfId}-{region}-IND-{r.PlayerID}-S{sub}";
+    }
+
+    private void BuildDisplayRows()
+    {
+        _display = _tally
+            .GroupBy(BuildGroupKey)
+            .Select(g =>
+            {
+                // pick a "head" row (best medal/rank first)
+                var head = g
+                    .OrderBy(x => GetMedalSortOrder(x.TeamRank))
+                    .ThenBy(x => GetNumericRankOrMax(x.TeamRank))
+                    .ThenBy(x => x.LastName)
+                    .First();
+
+                return new TallyDisplayRow
+                {
+                    Head = head,
+                    Members = g.ToList()
+                };
+            })
+            .ToList();
+    }
+
+    private void DeduplicateLatestPerPlayerPerSubcat()
+    {
+        // Rule:
+        // - same PlayerID + same SportSubcategoryID → keep highest EventStageID
+        // - if same stage, keep best medal/rank using your ordering
+        _tally = _tally
+            .GroupBy(x => new { x.PlayerID, x.SportSubcategoryID })
+            .Select(g =>
+                g.OrderByDescending(x => x.EventStageID ?? 0)             // stage priority: 4>3>2>1
+                 .ThenBy(x => GetMedalSortOrder(x.TeamRank))              // medals first
+                 .ThenBy(x => GetNumericRankOrMax(x.TeamRank))            // rank after medals
+                 .ThenBy(x => x.LastName)
+                 .First()
+            )
+            .ToList();
+    }
+
+    //PRINT CERTIFICATE
+
+    private const string CertificateBaseUrl =
+    "https://reports.pgas.ph/Report/Share/PALARO/Certificate";
+
+    private void PrintCertificates(List<string> playerIds)
+    {
+        var url = $"{CertificateBaseUrl}?PlayerID={Uri.EscapeDataString(string.Join(',', playerIds))}";
+        _ = jsRuntime.InvokeVoidAsync("open", url, "_blank");
+    }
+}

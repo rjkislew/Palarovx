@@ -61,7 +61,7 @@
                                                  Label="Score"
                                                  Variant="Variant.Outlined"
                                                  Min="0"
-                                                 Max="10"
+                                                 Max="1000"
                                                  Step="0.1"
                                                  Margin="Margin.Dense"
                                                  Disabled="@_isScoreInputDisabled" />
@@ -69,6 +69,55 @@
                         </MudGrid>
                     </MudStack>
                 </MudItem>
+
+                @if (_existingScoreId.HasValue && _selectedSubcategoryId.HasValue)
+                {
+                    @if (ShouldShowMedalTally())
+                    {
+                        <MudItem xs="12" Class="mb-3">
+                            <MudStack Spacing="1">
+                                <MudText>Medal Tally</MudText>
+                                <MudDivider />
+                                <MudGrid Spacing="1" Class="mt-2">
+                                    <MudItem xs="12">
+                                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                            <MudItem xs="12" sm="10">
+                                                <MudSelect @bind-Value="_selectedMedal"
+                                                Label="Select Medal"
+                                                ShrinkLabel
+                                                Clearable
+                                                T="string"
+                                                Variant="Variant.Outlined"
+                                                Margin="Margin.Dense" FullWidth="true">
+                                                    <MudSelectItem Value="@("Gold")">Gold</MudSelectItem>
+                                                    <MudSelectItem Value="@("Silver")">Silver</MudSelectItem>
+                                                    <MudSelectItem Value="@("Bronze")">Bronze</MudSelectItem>
+                                                </MudSelect>
+                                            </MudItem>
+
+                                            <MudItem xs="12" sm="2">
+                                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Check" Variant="Variant.Filled"
+                                                    Color="Color.Success"
+                                                    OnClick="SaveMedal"
+                                                    Disabled="@(string.IsNullOrEmpty(_selectedMedal) && _existingMedal == null)" />
+
+                                                    @if (_existingMedal != null && !string.IsNullOrEmpty(_existingMedal.Rank))
+                                                    {
+                                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Variant="Variant.Filled"
+                                                        Color="Color.Error"
+                                                        OnClick="DeleteMedal" />
+                                                    }
+                                                </MudStack>
+                                            </MudItem>
+                                        </MudStack>
+                                    </MudItem>
+                                </MudGrid>
+                            </MudStack>
+                        </MudItem>
+                    }
+                }
+
             </MudGrid>
         </DialogContent>
         <DialogActions>
@@ -84,7 +133,7 @@
     [Parameter] public string PlayerID { get; set; } = string.Empty;
     [Parameter] public int? EventID { get; set; }
     [Parameter] public EventCallback OnScoreSaved { get; set; }
-    
+
     [Parameter] public bool IsTeamEvent { get; set; } = false;
     [Parameter] public List<string> TeamPlayerIDs { get; set; } = new();
     [Parameter] public int? TeamID { get; set; }
@@ -107,13 +156,17 @@
     private List<SportsDTO.SportSubcategories> _filteredSubcategories = new();
     private int? _opposingTeamId;
     private string _currentUserId = string.Empty;
-    
+
     private List<PerformanceBasedDTO.PerformanceTeam> _allOpposingTeams = new();
     private List<string> _teamPlayerNames = new();
 
     private List<SportsDTO.SportGenderCategories> _sportGenderCategories = new();
     private List<SchoolsDTO.SchoolLevels> _schoolLevels = new();
     private int? _selectedSportIDValue;
+
+    private Dictionary<string, int> _teamPerformanceTeamIds = new(); // PlayerID -> PerformanceTeamID
+    private List<int> _existingTeamScoreIds = new();                 // score IDs for this team+subcategory
+    private Dictionary<int, PerformanceBasedDTO.PerformanceScore> _existingTeamScoresByPerfTeamId = new(); // perfTeamId -> score row
 
     protected override async Task OnInitializedAsync()
     {
@@ -232,7 +285,7 @@
         }
     }
 
-   private async Task LoadPlayerAndRegionData()
+    private async Task LoadPlayerAndRegionData()
     {
         if (IsTeamEvent && TeamPlayerIDs.Any())
         {
@@ -285,7 +338,7 @@
     private async Task LoadTeamPlayerNames()
     {
         _teamPlayerNames = new List<string>();
-        
+
         foreach (var playerId in TeamPlayerIDs)
         {
             try
@@ -312,32 +365,64 @@
 
         try
         {
-            // Get ALL opposing teams for this event
             string url = $"/PerformanceBased/OpposingTeams/{EventID}";
-            var teams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(url);
+            var teams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(url)
+                       ?? new List<PerformanceBasedDTO.PerformanceTeam>();
 
-            PerformanceBasedDTO.PerformanceTeam team;
+            if (IsTeamEvent)
+            {
+                List<PerformanceBasedDTO.PerformanceTeam> members = new();
 
-            if (IsTeamEvent && TeamID.HasValue)
-            {
-                // For teams, find by TeamID and RegionID
-                team = teams?.FirstOrDefault(t =>
-                    t.RegionID == RegionID &&
-                    t.TeamID == TeamID &&
-                    t.PerformanceID == EventID);
+                // 1) Prefer TeamID (ideal)
+                if (TeamID.HasValue)
+                {
+                    members = teams
+                        .Where(t => t.RegionID == RegionID
+                                 && t.TeamID == TeamID
+                                 && t.PerformanceID == EventID)
+                        .ToList();
+                }
+
+                // 2) Fallback using TeamPlayerIDs
+                if (!members.Any() && TeamPlayerIDs != null && TeamPlayerIDs.Any())
+                {
+                    members = teams
+                        .Where(t => t.PerformanceID == EventID
+                                 && t.RegionID == RegionID
+                                 && TeamPlayerIDs.Contains(t.PlayerID))
+                        .ToList();
+
+                    if (!TeamID.HasValue && members.Any())
+                        TeamID = members.First().TeamID;
+                }
+
+                if (!members.Any())
+                {
+                    Snackbar.Add("Could not find team members for this event/region.", Severity.Warning);
+                    return;
+                }
+
+                // ✅ Build lookup needed by SaveScore Team logic
+                _teamPerformanceTeamIds = members
+                    .Where(m => !string.IsNullOrWhiteSpace(m.PlayerID))
+                    .GroupBy(m => m.PlayerID)
+                    .ToDictionary(g => g.Key, g => g.First().ID);
+
+                // Keep one representative opposingTeamId (some parts still use it)
+                _opposingTeamId = members.First().ID;
+                return;
             }
-            else
-            {
-                // For individuals, find by PlayerID and RegionID
-                team = teams?.FirstOrDefault(t =>
-                    t.RegionID == RegionID &&
-                    t.PlayerID == PlayerID &&
-                    t.PerformanceID == EventID);
-            }
+
+            // ✅ Individual
+            var team = teams.FirstOrDefault(t =>
+                t.RegionID == RegionID &&
+                t.PlayerID == PlayerID &&
+                t.PerformanceID == EventID);
 
             if (team != null)
             {
                 _opposingTeamId = team.ID;
+                TeamID = team.TeamID; // might still be null
             }
             else
             {
@@ -349,6 +434,7 @@
             Snackbar.Add($"Error loading team data: {ex.Message}", Severity.Error);
         }
     }
+
 
     private async Task LoadSportData()
     {
@@ -382,27 +468,67 @@
 
     private async Task LoadExistingScore()
     {
-        if (EventID == null) return;
+        if (EventID == null || !_selectedSubcategoryId.HasValue) return;
 
         try
         {
             string url = $"/PerformanceScore/Score/{EventID}";
-            var scores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(url) ?? new List<PerformanceBasedDTO.PerformanceScore>();
+            var scores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(url)
+                        ?? new List<PerformanceBasedDTO.PerformanceScore>();
 
+            _existingTeamScoreIds = new();
+            _existingTeamScoresByPerfTeamId = new();
+
+            if (IsTeamEvent && TeamID.HasValue)
+            {
+                // ✅ Get ALL score rows for this Team + Subcategory
+                var teamScores = scores
+                    .Where(s => s.TeamID == TeamID
+                             && s.SportSubcategoryID == _selectedSubcategoryId.Value)
+                    .ToList();
+
+                if (!teamScores.Any())
+                {
+                    _existingScoreId = null;
+                    _scoreValue = 0;
+                    _existingMedal = null;
+                    _selectedMedal = null;
+                    await CheckEliminationRankAndPermission();
+                    StateHasChanged();
+                    return;
+                }
+
+                _existingTeamScoreIds = teamScores.Select(s => s.ID).ToList();
+                _existingTeamScoresByPerfTeamId = teamScores.ToDictionary(s => s.PerformanceTeamID, s => s);
+
+                // ✅ Use one representative value for UI
+                _existingScoreId = teamScores.First().ID;
+                _scoreValue = (double)teamScores.First().Score;
+
+                await LoadExistingMedal(); // if you will also implement team-medal later
+                await CheckEliminationRankAndPermission();
+                StateHasChanged();
+                return;
+            }
+
+            // ✅ Individual
             var existingScore = scores.FirstOrDefault(s =>
                 s.PerformanceTeamID == _opposingTeamId &&
-                s.SportSubcategoryID == _selectedSubcategoryId &&
-                ((IsTeamEvent && s.TeamID.HasValue) || (!IsTeamEvent && !s.TeamID.HasValue))); // Match team/individual type
+                s.SportSubcategoryID == _selectedSubcategoryId.Value &&
+                !s.TeamID.HasValue);
 
             if (existingScore != null)
             {
                 _existingScoreId = existingScore.ID;
                 _scoreValue = (double)existingScore.Score;
+                await LoadExistingMedal();
             }
             else
             {
                 _existingScoreId = null;
                 _scoreValue = 0;
+                _existingMedal = null;
+                _selectedMedal = null;
             }
 
             await CheckEliminationRankAndPermission();
@@ -411,12 +537,16 @@
         catch (Exception ex)
         {
             Snackbar.Add($"Error loading existing score: {ex.Message}", Severity.Error);
-
             _existingScoreId = null;
             _scoreValue = 0;
+            _existingMedal = null;
+            _selectedMedal = null;
+            _existingTeamScoreIds = new();
+            _existingTeamScoresByPerfTeamId = new();
             StateHasChanged();
         }
     }
+
 
     private async Task CheckEliminationRankAndPermission()
     {
@@ -442,7 +572,7 @@
 
             _eliminationRank = await GetPlayerEliminationRank(eliminationEventId.Value);
 
-            if (_eliminationRank.HasValue && _eliminationRank.Value >= 11)
+            if (_eliminationRank.HasValue && _eliminationRank.Value >= 9)
             {
                 _isScoreInputDisabled = true;
             }
@@ -547,10 +677,12 @@
     private async Task OnSubcategoryChanged(int? newValue)
     {
         _selectedSubcategoryId = newValue;
-    
+
         _scoreValue = 0;
         _existingScoreId = null;
-    
+        _existingMedal = null;
+        _selectedMedal = null;
+
         if (_selectedSubcategoryId.HasValue && _opposingTeamId.HasValue)
         {
             await LoadExistingScore();
@@ -803,66 +935,132 @@
     {
         try
         {
-            if (!_selectedSubcategoryId.HasValue || _scoreValue <= 0 || !_opposingTeamId.HasValue)
+            if (!_selectedSubcategoryId.HasValue || _scoreValue <= 0)
             {
                 Snackbar.Add("Please select a category and enter a valid score", Severity.Warning);
                 return;
             }
 
+            if (_isScoreInputDisabled)
+            {
+                Snackbar.Add("Scoring is disabled for this entry.", Severity.Warning);
+                return;
+            }
+
             var currentUserId = await GetCurrentUserIdAsync();
 
-            var scoreData = new PerformanceBasedDTO.PerformanceScore()
+            // ✅ TEAM SCORE SAVE: upsert per member (per PerformanceTeamID)
+            if (IsTeamEvent && TeamID.HasValue)
+            {
+                if (_teamPerformanceTeamIds == null || _teamPerformanceTeamIds.Count == 0)
+                {
+                    Snackbar.Add("Team members not loaded. Please reopen the dialog.", Severity.Error);
+                    return;
+                }
+
+                // Load all scores once
+                string getUrl = $"/PerformanceScore/Score/{EventID}";
+                var allScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(getUrl)
+                               ?? new List<PerformanceBasedDTO.PerformanceScore>();
+
+                int successCount = 0;
+
+                foreach (var kvp in _teamPerformanceTeamIds)
+                {
+                    int perfTeamId = kvp.Value;
+
+                    var existing = allScores.FirstOrDefault(s =>
+                        s.PerformanceTeamID == perfTeamId &&
+                        s.SportSubcategoryID == _selectedSubcategoryId.Value &&
+                        s.TeamID == TeamID);
+
+                    var scoreData = new PerformanceBasedDTO.PerformanceScore
+                    {
+                        PerformanceID = EventID.Value,
+                        PerformanceTeamID = perfTeamId,
+                        SportSubcategoryID = _selectedSubcategoryId.Value,
+                        Score = (decimal)_scoreValue,
+                        Rank = 0,
+                        UserID = currentUserId,
+                        UpdatedAt = DateTime.Now,
+                        TeamID = TeamID
+                    };
+
+                    if (existing != null)
+                    {
+                        scoreData.ID = existing.ID;
+                        var ok = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(
+                            $"/PerformanceScore/Score/{existing.ID}", scoreData);
+                        if (ok) successCount++;
+                    }
+                    else
+                    {
+                        var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(
+                            "/PerformanceScore/Score", scoreData);
+                        if (created != null) successCount++;
+                    }
+                }
+
+                if (successCount > 0)
+                {
+                    Snackbar.Add($"Team score saved for {successCount} player(s).", Severity.Success);
+
+                    // IMPORTANT: rank calc must not treat team duplicates as separate teams
+                    await CalculateAndUpdateRanks();
+
+                    MudDialog.Close(DialogResult.Ok(true));
+                }
+                else
+                {
+                    Snackbar.Add("Failed to save team score.", Severity.Error);
+                }
+
+                return;
+            }
+
+            // ✅ INDIVIDUAL SCORE SAVE: original behavior (TeamID must be null)
+            if (!_opposingTeamId.HasValue)
+            {
+                Snackbar.Add("Player team info not found.", Severity.Warning);
+                return;
+            }
+
+            var individualScore = new PerformanceBasedDTO.PerformanceScore
             {
                 PerformanceID = EventID.Value,
                 PerformanceTeamID = _opposingTeamId.Value,
                 SportSubcategoryID = _selectedSubcategoryId.Value,
                 Score = (decimal)_scoreValue,
-                Rank = 0, 
+                Rank = 0,
                 UserID = currentUserId,
                 UpdatedAt = DateTime.Now,
-                TeamID = IsTeamEvent ? TeamID : null
+                TeamID = null
             };
 
-            bool success = false;
+            bool success;
 
             if (_existingScoreId.HasValue)
             {
-                // Update existing score
-                scoreData.ID = _existingScoreId.Value;
-                string url = $"/PerformanceScore/Score/{_existingScoreId.Value}";
-                success = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(url, scoreData);
-
-                if (success)
-                {
-                    Snackbar.Add("Score updated successfully!", Severity.Success);
-                }
-                else
-                {
-                    Snackbar.Add("Failed to update score", Severity.Error);
-                }
+                individualScore.ID = _existingScoreId.Value;
+                success = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(
+                    $"/PerformanceScore/Score/{_existingScoreId.Value}", individualScore);
             }
             else
             {
-                // Create new score
-                string url = "/PerformanceScore/Score";
-                var result = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(url, scoreData);
-                success = result != null;
-
-                if (success)
-                {
-                    Snackbar.Add("Score saved successfully!", Severity.Success);
-                }
-                else
-                {
-                    Snackbar.Add("Failed to save score", Severity.Error);
-                }
+                var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(
+                    "/PerformanceScore/Score", individualScore);
+                success = created != null;
             }
 
             if (success)
             {
+                Snackbar.Add("Score saved successfully!", Severity.Success);
                 await CalculateAndUpdateRanks();
-
                 MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add("Failed to save score", Severity.Error);
             }
         }
         catch (Exception ex)
@@ -881,42 +1079,77 @@
             var allScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(url)
                             ?? new List<PerformanceBasedDTO.PerformanceScore>();
 
-            // Filter by current subcategory
+            // only current subcategory
             var scores = allScores
                 .Where(s => s.SportSubcategoryID == _selectedSubcategoryId.Value)
                 .ToList();
 
             if (!scores.Any()) return;
 
-            // Order scores by descending (higher score = higher rank)
-            var orderedScores = scores.OrderByDescending(s => s.Score).ToList();
-
-            // Calculate ranks (same score = same rank)
-            int currentRank = 1;
-            decimal previousScore = -1;
-            int sameScoreCount = 0;
-
-            for (int i = 0; i < orderedScores.Count; i++)
+            // -------------------
+            // 1) TEAM RANKING
+            // -------------------
+            var teamScores = scores.Where(s => s.TeamID.HasValue).ToList();
+            if (teamScores.Any())
             {
-                if (orderedScores[i].Score == previousScore)
+                // representative score per team
+                var teamRep = teamScores
+                    .GroupBy(s => s.TeamID!.Value)
+                    .Select(g => new
+                    {
+                        TeamID = g.Key,
+                        Score = g.Max(x => x.Score) // or First().Score if always same
+                    })
+                    .OrderByDescending(x => x.Score)
+                    .ToList();
+
+                // dense ranking by score
+                int rank = 1;
+                decimal? prev = null;
+
+                var teamRankMap = new Dictionary<int, int>();
+                foreach (var t in teamRep)
                 {
-                    sameScoreCount++;
-                }
-                else
-                {
-                    currentRank += sameScoreCount;
-                    sameScoreCount = 1;
-                    previousScore = orderedScores[i].Score;
+                    if (prev != null && t.Score != prev) rank++;
+                    if (prev == null) rank = 1;
+
+                    teamRankMap[t.TeamID] = rank;
+                    prev = t.Score;
                 }
 
-                orderedScores[i].Rank = currentRank;
+                foreach (var row in teamScores)
+                {
+                    row.Rank = teamRankMap[row.TeamID!.Value];
+                    await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(
+                        $"/PerformanceScore/Score/{row.ID}", row);
+                }
             }
 
-            // Update all scores with new ranks
-            foreach (var score in orderedScores)
+            // -------------------
+            // 2) INDIVIDUAL RANKING
+            // -------------------
+            var indivScores = scores.Where(s => !s.TeamID.HasValue).ToList();
+            if (indivScores.Any())
             {
-                string updateUrl = $"/PerformanceScore/Score/{score.ID}";
-                await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(updateUrl, score);
+                var ordered = indivScores.OrderByDescending(s => s.Score).ToList();
+
+                int rank = 1;
+                decimal? prev = null;
+
+                for (int i = 0; i < ordered.Count; i++)
+                {
+                    if (prev != null && ordered[i].Score != prev) rank = i + 1;
+                    if (prev == null) rank = 1;
+
+                    ordered[i].Rank = rank;
+                    prev = ordered[i].Score;
+                }
+
+                foreach (var row in ordered)
+                {
+                    await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(
+                        $"/PerformanceScore/Score/{row.ID}", row);
+                }
             }
         }
         catch (Exception ex)
@@ -925,8 +1158,320 @@
         }
     }
 
+    //MEDAL TALLY 
+
+    private string? _selectedMedal;
+    private EventsDTO.EventVersusTeams? _existingMedal;
+    private List<EventsDTO.EventVersusTeams> _existingTeamMedals = new();
 
 
+    private async Task LoadExistingMedal()
+    {
+        _existingMedal = null;
+        _existingTeamMedals = new();
+        _selectedMedal = null;
+
+        try
+        {
+            // ✅ TEAM: load medal by TeamID + PerformanceID (recommended)
+            if (IsTeamEvent && TeamID.HasValue && EventID.HasValue)
+            {
+                // BEST: have an endpoint that supports this query:
+                // /Events/VersusTeams?performanceID=xx&teamID=yy
+                string url = $"/Events/VersusTeams?performanceID={EventID.Value}&teamID={TeamID.Value}";
+                var medals = await apiService.GetAsync<EventsDTO.EventVersusTeams>(url)
+                             ?? new List<EventsDTO.EventVersusTeams>();
+
+                _existingTeamMedals = medals;
+
+                // representative medal for UI
+                var rep = medals.FirstOrDefault(m => !string.IsNullOrEmpty(m.Rank));
+                _existingMedal = rep;
+                _selectedMedal = rep?.Rank;
+
+                StateHasChanged();
+                return;
+            }
+
+            // ✅ INDIVIDUAL: existing logic (by PerformanceScoreID)
+            if (!_existingScoreId.HasValue) return;
+
+            string url2 = $"/Events/VersusTeams?performanceScoreID={_existingScoreId.Value}";
+            var medals2 = await apiService.GetAsync<EventsDTO.EventVersusTeams>(url2);
+
+            _existingMedal = medals2?.FirstOrDefault();
+            _selectedMedal = _existingMedal?.Rank;
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading medal data: {ex.Message}", Severity.Error);
+            _existingMedal = null;
+            _existingTeamMedals = new();
+            _selectedMedal = null;
+        }
+    }
+
+
+    private async Task SaveMedal()
+    {
+        try
+        {
+            // If no medal selected => behave like delete
+            if (string.IsNullOrEmpty(_selectedMedal))
+            {
+                // If something exists, delete it
+                if ((IsTeamEvent && _existingTeamMedals.Any()) || (!IsTeamEvent && _existingMedal != null))
+                {
+                    await DeleteMedal();
+                    return;
+                }
+
+                Snackbar.Add("Please select a medal or choose 'No Medal' to remove", Severity.Warning);
+                return;
+            }
+
+            // ✅ TEAM
+            if (IsTeamEvent && TeamID.HasValue && EventID.HasValue)
+            {
+                if (_existingTeamScoreIds == null || !_existingTeamScoreIds.Any())
+                {
+                    Snackbar.Add("No team score rows found. Save team score first.", Severity.Warning);
+                    return;
+                }
+
+                // Load existing medals for this team (so we can update vs create)
+                // (If your LoadExistingMedal already filled _existingTeamMedals, great; otherwise load it here too)
+                if (_existingTeamMedals == null || !_existingTeamMedals.Any())
+                {
+                    string loadUrl = $"/Events/VersusTeams?performanceID={EventID.Value}&teamID={TeamID.Value}";
+                    _existingTeamMedals = await apiService.GetAsync<EventsDTO.EventVersusTeams>(loadUrl)
+                                         ?? new List<EventsDTO.EventVersusTeams>();
+                }
+
+                int successCount = 0;
+
+                foreach (var scoreId in _existingTeamScoreIds)
+                {
+                    // find existing medal row for this member score
+                    var existing = _existingTeamMedals.FirstOrDefault(m => m.PerformanceScoreID == scoreId);
+
+                    var medalTally = new EventsDTO.EventVersusTeams
+                    {
+                        // ✅ store these for grouping/queries
+                        PerformanceID = EventID.Value,
+                        TeamID = TeamID.Value,
+
+                        // ✅ still store per score id (per player)
+                        PerformanceScoreID = scoreId,
+
+                        SchoolRegionID = RegionID,
+                        Score = null,
+                        Rank = _selectedMedal,
+                        RecentUpdateAt = DateTime.Now
+                    };
+
+                    if (existing != null)
+                    {
+                        medalTally.ID = existing.ID;
+                        var ok = await apiService.PutAsync<EventsDTO.EventVersusTeams>(
+                            $"/Events/VersusTeams/{existing.ID}", medalTally);
+
+                        if (ok) successCount++;
+                    }
+                    else
+                    {
+                        var created = await apiService.PostAsync<EventsDTO.EventVersusTeams>(
+                            "/Events/VersusTeams", medalTally);
+
+                        if (created != null) successCount++;
+                    }
+                }
+
+                if (successCount > 0)
+                {
+                    Snackbar.Add($"Team medal saved for {successCount} player(s).", Severity.Success);
+                    await LoadExistingMedal();
+                }
+                else
+                {
+                    Snackbar.Add("Failed to save team medal.", Severity.Error);
+                }
+
+                return;
+            }
+
+            // ✅ INDIVIDUAL
+            if (!_existingScoreId.HasValue)
+            {
+                Snackbar.Add("No score exists to assign medal to", Severity.Warning);
+                return;
+            }
+
+            var medalSingle = new EventsDTO.EventVersusTeams
+            {
+                PerformanceID = EventID,     // optional if you want always stored
+                TeamID = null,              // individual
+
+                PerformanceScoreID = _existingScoreId.Value,
+                SchoolRegionID = RegionID,
+                Score = null,
+                Rank = _selectedMedal,
+                RecentUpdateAt = DateTime.Now
+            };
+
+            if (_existingMedal != null)
+            {
+                medalSingle.ID = _existingMedal.ID;
+                var ok = await apiService.PutAsync<EventsDTO.EventVersusTeams>(
+                    $"/Events/VersusTeams/{_existingMedal.ID}", medalSingle);
+
+                if (ok)
+                {
+                    Snackbar.Add("Medal updated successfully!", Severity.Success);
+                    await LoadExistingMedal();
+                }
+                else
+                {
+                    Snackbar.Add("Failed to update medal", Severity.Error);
+                }
+            }
+            else
+            {
+                var created = await apiService.PostAsync<EventsDTO.EventVersusTeams>(
+                    "/Events/VersusTeams", medalSingle);
+
+                if (created != null)
+                {
+                    Snackbar.Add("Medal assigned successfully!", Severity.Success);
+                    await LoadExistingMedal();
+                }
+                else
+                {
+                    Snackbar.Add("Failed to assign medal", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving medal: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteMedal()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            title: "Confirm Delete Medal",
+            message: "Are you sure you want to delete this medal?",
+            yesText: "Yes",
+            cancelText: "Cancel"
+        );
+
+        if (result != true) return;
+
+        try
+        {
+            // ✅ TEAM delete: delete all medals for this team (either by loaded list, or fetch by performance+team)
+            if (IsTeamEvent && TeamID.HasValue && EventID.HasValue)
+            {
+                if (_existingTeamMedals == null || !_existingTeamMedals.Any())
+                {
+                    string loadUrl = $"/Events/VersusTeams?performanceID={EventID.Value}&teamID={TeamID.Value}";
+                    _existingTeamMedals = await apiService.GetAsync<EventsDTO.EventVersusTeams>(loadUrl)
+                                         ?? new List<EventsDTO.EventVersusTeams>();
+                }
+
+                int deleted = 0;
+
+                foreach (var medal in _existingTeamMedals)
+                {
+                    var ok = await apiService.DeleteAsync($"/Events/VersusTeams/{medal.ID}");
+                    if (ok) deleted++;
+                }
+
+                if (deleted > 0)
+                {
+                    Snackbar.Add($"Team medal deleted ({deleted} record(s)).", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("No team medals deleted.", Severity.Warning);
+                }
+
+                _existingTeamMedals = new();
+                _existingMedal = null;
+                _selectedMedal = null;
+                StateHasChanged();
+                return;
+            }
+
+            // ✅ INDIVIDUAL delete
+            if (_existingMedal == null) return;
+
+            var success = await apiService.DeleteAsync($"/Events/VersusTeams/{_existingMedal.ID}");
+
+            if (success)
+            {
+                Snackbar.Add("Medal deleted successfully.", Severity.Success);
+                _existingMedal = null;
+                _selectedMedal = null;
+                StateHasChanged();
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete medal.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error deleting medal: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private bool ShouldShowMedalTally()
+    {
+        // Ensure we have necessary data
+        if (_selectedEvent == null || !_selectedSubcategoryId.HasValue)
+            return false;
+
+        // Find the subcategory
+        var subcategory = _sportSubcategories?.FirstOrDefault(sc => sc.ID == _selectedSubcategoryId.Value) ??
+                          _filteredSubcategories?.FirstOrDefault(sc => sc.ID == _selectedSubcategoryId.Value);
+
+        if (subcategory == null || string.IsNullOrEmpty(subcategory.Subcategory))
+            return false;
+
+        string subcategoryName = subcategory.Subcategory;
+
+        // Check if the subcategory contains "Team Championship" or "Individual All-Around"
+        bool isSpecialCategory = subcategoryName.Contains("Team Championship", StringComparison.OrdinalIgnoreCase) ||
+                                 subcategoryName.Contains("Individual All-Around", StringComparison.OrdinalIgnoreCase);
+
+        bool isEliminationStage = _eventStageId == 1; // Assuming 1 is Elimination Rounds stage ID
+        bool isFinalsStage = _eventStageId == 4; // Assuming 4 is Finals stage ID
+
+        if (IsAerobicGymnasticsSelected() && isFinalsStage)
+        return true;
+
+        // For subcategories containing Team Championship or Individual All-Around: show during Elimination Rounds
+        if (isSpecialCategory)
+        {
+            return isEliminationStage;
+        }
+
+        // For other subcategories: show only during Finals
+        return isFinalsStage;
+    }
+
+    private bool IsAerobicGymnasticsSelected()
+    {
+        var sportName =
+            _selectedEvent?.MainCategory;
+
+        return !string.IsNullOrWhiteSpace(sportName)
+               && sportName.Contains("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase);
+    }
 
     // Data models
     public class PerformanceBasedDTO
@@ -1006,6 +1551,22 @@
             public string ID { get; set; } = string.Empty;
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
+        }
+    }
+
+    public class EventsDTO
+    {
+        public class EventVersusTeams
+        {
+            public int ID { get; set; }
+            public string? EventID { get; set; }
+            public int? PerformanceScoreID { get; set; }
+            public int? PerformanceID { get; set; }
+            public int? TeamID { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? Score { get; set; }
+            public string? Rank { get; set; }
+            public DateTime? RecentUpdateAt { get; set; }
         }
     }
 

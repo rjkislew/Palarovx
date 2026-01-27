@@ -61,12 +61,13 @@
                 </ToolBarContent>
                 <ColGroup>
                     <MudHidden Breakpoint="Breakpoint.Xs">
-                        <col style="width: 25%" />
-                        <col style="width: 15%" />
+                        <col style="width: 20%" />
+                        <col style="width: 10%" />
                         <col style="width: 15%" />
                         <col style="width: 5%" />
                         <col style="width: 15%" />
                         <col style="width: 20%" />
+                        <col style="width: 10%" />
                         <col style="width: 5%" />
                     </MudHidden>
                 </ColGroup>
@@ -101,6 +102,7 @@
                             School
                         </MudTableSortLabel>
                     </MudTh>
+                    <MudTh Style="text-align: center">Image</MudTh>
                     <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate Context="coach">
@@ -143,6 +145,31 @@
                                 </MudText>
                             </MudElement>
                         </MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Image" Style="text-align: center">
+                        @if (!string.IsNullOrEmpty(coach.ImagePath))
+                        {
+                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
+                                <img style="width: 75px; height: 75px" src="@($"http://localhost/192.168.2.210/palaro2026/media/profile/coaches/{coach.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
+                                <MudFileUpload T="IBrowserFile"
+                                               FilesChanged="file => HandleImageFileUpload(file, coach.ID)">
+                                    <ActivatorContent>
+                                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary">Replace Image</MudButton>
+                                    </ActivatorContent>
+                                </MudFileUpload>
+                            </MudStack>
+                        }
+                        else
+                        {
+                            <MudFileUpload T="IBrowserFile"
+                                           FilesChanged="file => HandleImageFileUpload(file, coach.ID)">
+                                <ActivatorContent>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Upload"
+                                                   Variant="Variant.Text"
+                                                   Color="Color.Primary" />
+                                </ActivatorContent>
+                            </MudFileUpload>
+                        }
                     </MudTd>
                     <MudTd Style="text-align: center">
                         <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditCoachDialog(coach.ID)" />
@@ -200,6 +227,7 @@
             public string? SportGenderCategories { get; set; }
             public string? SchoolDivision { get; set; }
             public string? UploadedBy { get; set; }
+            public string? ImagePath { get; set; }
         }
     }
 
@@ -272,7 +300,23 @@
     {
         string url = "/Profiles/Coach/Details";
 
-        _profileCoachesDetails = await apiService.GetAsync<ProfilesDTO.ProfileCoachesDetails>(url);
+        // Get all coaches first
+        var allCoaches = await apiService.GetAsync<ProfilesDTO.ProfileCoachesDetails>(url);
+
+        // Get current user info to check role and region
+        await GetCurrentUserInfoAsync();
+
+        // Filter coaches if user has RoleID = 10 and affiliation
+        if (_currentUser != null && _currentUser.RoleID == 10 && _userRegionId.HasValue)
+        {
+            _profileCoachesDetails = allCoaches?
+                .Where(coach => coach.SchoolRegionID == _userRegionId)
+                .ToList();
+        }
+        else
+        {
+            _profileCoachesDetails = allCoaches;
+        }
     }
 
     private async Task<string> GetCurrentUserIdAsync()
@@ -368,6 +412,117 @@
             StateHasChanged();
         }
     }
+
+    //Image upload
+    private async Task HandleImageFileUpload(IBrowserFile file, string? coachId)
+    {
+        if (string.IsNullOrEmpty(coachId))
+        {
+            Snackbar.Add("Invalid profile.", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            const int maxFileSize = 10 * 1024 * 1024;
+
+            if (file.Size > maxFileSize)
+            {
+                Snackbar.Add("File size exceeds 10 MB.", Severity.Error);
+                return;
+            }
+
+            var allowedExtensions = new[] { ".jpeg", ".jpg", ".png" };
+            var fileExtension = Path.GetExtension(file.Name).ToLower();
+
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                Snackbar.Add("Only JPG and PNG images are allowed.", Severity.Error);
+                return;
+            }
+
+            using var stream = file.OpenReadStream(maxFileSize);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            var fileBytes = memoryStream.ToArray();
+            var content = new MultipartFormDataContent();
+            content.Add(new ByteArrayContent(fileBytes), "attachmentFile", file.Name);
+
+            var uploadUrl = $"/Profiles/Coach/UploadAttachment/{coachId}";
+            var success = await apiService.PutFormAsync(uploadUrl, content);
+
+            if (success)
+            {
+                Snackbar.Add("Image uploaded.", Severity.Success);
+                await GetCoachesAsync(); // refresh photo
+            }
+            else
+            {
+                Snackbar.Add("Upload failed.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    //Filter coach
+
+    private Users? _currentUser;
+    private int? _userRegionId = null;
+
+    private async Task GetCurrentUserInfoAsync()
+    {
+        try
+        {
+            var userId = await GetCurrentUserIdAsync();
+            if (!string.IsNullOrEmpty(userId))
+            {
+                // Fetch user details including RoleID and Affiliation
+                string userUrl = $"/Users/{userId}";
+                _currentUser = await apiService.GetSingleAsync<Users>(userUrl);
+
+                if (_currentUser != null && _currentUser.RoleID == 10 && !string.IsNullOrEmpty(_currentUser.Affiliation))
+                {
+                    _userRegionId = MapAffiliationToRegionId(_currentUser.Affiliation);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting user info: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private int? MapAffiliationToRegionId(string affiliation)
+    {
+        return affiliation switch
+        {
+            "DepEd National Capital Region" => 1,
+            "DepEd Bangsamoro" => 2,
+            "DepEd Cordillera Administrative Region" => 3,
+            "DepEd National Academy of Sports" => 4,
+            "DepEd Philippine Schools Overseas" => 5,
+            "DepEd Ilocos Region" => 6,
+            "DepEd Cagayan Valley" => 7,
+            "DepEd Central Luzon" => 8,
+            "DepEd CALABARZON" => 9,
+            "DepEd MIMAROPA" => 10,
+            "DepEd Zamboanga Peninsula" => 11,
+            "DepEd Bicol Region" => 12,
+            "DepEd Western Visayas" => 13,
+            "DepEd Central Visayas" => 14,
+            "DepEd Eastern Visayas" => 15,
+            "DepEd Northern Mindanao" => 16,
+            "DepEd Davao Region" => 17,
+            "DepEd SOCCSKSARGEN" => 18,
+            "DepEd Caraga" => 19,
+            "DepEd Negros Island Region" => 20,
+            _ => null
+        };
+    }
     
     // DTO mirrored for the front-end result
     public class ImportResult
@@ -376,5 +531,12 @@
         public int ImportedCount { get; set; }
         public int SkippedCount { get; set; }
         public List<string> Errors { get; set; } = new();
+    }
+
+    public class Users
+    {
+        public string ID { get; set; } = null!;
+        public string? Affiliation { get; set; }
+        public int? RoleID { get; set; }
     }
 }

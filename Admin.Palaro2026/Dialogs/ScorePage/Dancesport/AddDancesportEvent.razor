@@ -74,7 +74,7 @@
                         <MudGrid Spacing="1">
                             <MudItem xs="12" sm="6" md="4">
                                 <MudSelect @bind-Value="_selectedEventStagesIDValue" Margin="Margin.Dense"
-                                           Label="Stage" T="int?" ReadOnly="@IsEditMode"
+                                           Label="Stage" T="int?" ReadOnly="@IsEditMode" SelectedValuesChanged="@((values) => OnStageChanged())"
                                            ShrinkLabel Variant="Variant.Outlined" Clearable>
                                     <MudVirtualize Items="_eventStages" Context="eventStage">
                                         <MudSelectItem T="int?" Value="eventStage.ID">@eventStage.Stage</MudSelectItem>
@@ -105,11 +105,11 @@
                             <MudText>Opposing Team</MudText>
                             <MudButton StartIcon="@Icons.Material.Filled.Add"
                                        OnClick="AddOpponent"
-                                       Disabled="_schoolRegions == null || !_schoolRegions.Any()">
+                                       Disabled="_filteredRegions == null || !_filteredRegions.Any()">
                                 Add Opponent
                             </MudButton>
                         </MudStack>
-                        <MudDivider/>
+                        <MudDivider />
 
                         @for (int i = 0; i < _teamSelections.Count; i++)
                         {
@@ -125,16 +125,16 @@
                                                T="int?"
                                                Clearable
                                                SelectedValuesChanged="@((values) => InvokeAsync(async () =>
-                                                                      {
-                                                                          team.SelectedPlayerIDs = new HashSet<string>();
-                                                                          await GetPlayerAsync(team);
-                                                                      }))">
-                                        <MudVirtualize Items="_schoolRegions" Context="region">
-                                            <MudSelectItem T="int?" Value="@region.ID">
-                                                @region.Region (@region.Abbreviation)
-                                            </MudSelectItem>
-                                        </MudVirtualize>
-                                    </MudSelect>
+                                                                             {
+                                                                                 team.SelectedPlayerIDs = new HashSet<string>();
+                                                                                 await GetPlayerAsync(team);
+                                                                             }))">
+                                <MudVirtualize Items="_filteredRegions" Context="region">
+                                    <MudSelectItem T="int?" Value="@region.ID">
+                                        @region.Region (@region.Abbreviation)
+                                    </MudSelectItem>
+                                </MudVirtualize>
+                            </MudSelect>
 
                                     <!-- Players Select -->
                                     <MudSelect SelectedValues="@team.SelectedPlayerIDs"
@@ -170,7 +170,7 @@
                                                        Color="Color.Primary"
                                                        Size="Size.Small"
                                                        FullWidth="true"
-                                                       Disabled="!team.SelectedRegionID.HasValue || team.SelectedPlayerIDs?.Any() != true || team.TeamID.HasValue">                                                Set as Team
+                                                       Disabled="!team.SelectedRegionID.HasValue || team.SelectedPlayerIDs?.Any() != true || team.TeamID.HasValue">Set as Couple                                             
                                             </MudButton>
                                         </MudItem>
                                     }
@@ -182,6 +182,34 @@
                                 <MudText Align="Align.Center" Typo="Typo.h6" Class="mt-2 mb-2">VS</MudText>
                             }
                         }
+                    </MudStack>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudStack Spacing="1">
+                        <MudText>Upload Official Result</MudText>
+                        <MudDivider />
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                            <MudItem xs="12" sm="6">
+                                <MudStack Row AlignItems="AlignItems.Center">
+                                    <MudFileUpload T="IBrowserFile"
+                                                   FilesChanged="HandleFileUpload">
+                                        <ActivatorContent>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Upload"
+                                                           Variant="Variant.Filled"
+                                                           Color="Color.Primary" />
+                                        </ActivatorContent>
+                                    </MudFileUpload>
+
+                                    <MudButton StartIcon="@Icons.Material.Filled.AttachFile"
+                                               Href="@_eventAttachmentUrl"
+                                               Target="_blank"
+                                               Disabled="@(!_fileExists)">
+                                        <MudText Class="ml-2">@_eventAttachmentUploadState</MudText>
+                                    </MudButton>
+                                </MudStack>
+                            </MudItem>
+                        </MudStack>
                     </MudStack>
                 </MudItem>
             </MudGrid>
@@ -262,6 +290,7 @@ else
     private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
     private List<SportsDTO.SportSubcategories>? _sportSubcategories;
     private List<SchoolsDTO.SchoolRegions>? _schoolRegions;
+    private List<SchoolsDTO.SchoolRegions>? _filteredRegions;
 
     // ------------------------------
     // Selected Values
@@ -430,12 +459,22 @@ else
         if (schoolLevelID != null && genderID != null)
         {
             _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(
-                $"/Sports/Subcategories?sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}") 
+                $"/Sports/Subcategories?sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&sportGenderCategoryID={genderID}")
                 ?? new List<SportsDTO.SportSubcategories>();
         }
         else
         {
             _sportSubcategories = new List<SportsDTO.SportSubcategories>();
+        }
+
+        // Apply region filtering when categories change
+        await FilterRegionsByStage();
+
+        // Clear player selections when category changes
+        foreach (var team in _teamSelections)
+        {
+            team.SelectedPlayerIDs = new HashSet<string>();
+            team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
         }
     }
 
@@ -451,6 +490,9 @@ else
             team.SelectedPlayerIDs = new HashSet<string>();
             team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
         }
+
+        // Apply region filtering when school level/gender changes
+        await FilterRegionsByStage();
     }
 
     private async Task OnMainCategoryChanged()
@@ -461,6 +503,9 @@ else
             team.SelectedPlayerIDs = new HashSet<string>();
             team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
         }
+
+        // Apply region filtering when main category changes
+        await FilterRegionsByStage();
 
         StateHasChanged();
     }
@@ -475,6 +520,9 @@ else
     {
         string url = "/Schools/Regions";
         _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegions>(url) ?? new List<SchoolsDTO.SchoolRegions>();
+
+        // Apply stage filtering to regions
+        await FilterRegionsByStage();
     }
 
     private int? GetSchoolLevelIDFromSelection()
@@ -526,6 +574,8 @@ else
                     await ProcessTeamSelection(eventCreated.ID, team);
                 }
             }
+
+            await UploadEventAttachmentAsync(eventCreated.ID);
 
             Snackbar.Add("Event added successfully.", Severity.Success);
             MudDialog?.Close(DialogResult.Ok(true));
@@ -891,6 +941,347 @@ else
         _combinedSchoolLevelAndGenderNames = schoolLevelNames.SelectMany(s => genderNames, (s, g) => $"{s} - {g}").ToList();
     }
 
+    //Filter players per stages
+
+    //Filter regions per stages
+    private async Task FilterRegionsByStage()
+    {
+        if (_schoolRegions == null || !_schoolRegions.Any())
+        {
+            _filteredRegions = new List<SchoolsDTO.SchoolRegions>();
+            return;
+        }
+
+        // If no stage selected, show all regions
+        if (!_selectedEventStagesIDValue.HasValue)
+        {
+            _filteredRegions = _schoolRegions.ToList();
+            return;
+        }
+
+        // Get the current stage
+        var currentStage = _eventStages?.FirstOrDefault(x => x.ID == _selectedEventStagesIDValue.Value);
+        if (currentStage == null)
+        {
+            _filteredRegions = _schoolRegions.ToList();
+            return;
+        }
+
+        // If it's elimination round, show all regions
+        if (currentStage.Stage == "Elimination Round")
+        {
+            _filteredRegions = _schoolRegions.ToList();
+            return;
+        }
+
+        // For other stages, check previous stage
+        var previousStage = GetPreviousStage(currentStage.Stage);
+        if (previousStage == null)
+        {
+            _filteredRegions = _schoolRegions.ToList();
+            return;
+        }
+
+        // Get qualified regions from previous stage
+        var qualifiedRegionIDs = await GetQualifiedRegionsFromStage(previousStage.ID);
+
+        if (qualifiedRegionIDs == null || !qualifiedRegionIDs.Any())
+        {
+            Snackbar.Add($"No regions qualified from {previousStage.Stage}.", Severity.Info);
+            _filteredRegions = new List<SchoolsDTO.SchoolRegions>();
+            return;
+        }
+
+        // Filter regions
+        _filteredRegions = _schoolRegions.Where(r => qualifiedRegionIDs.Contains(r.ID)).ToList();
+    }
+
+    private EventsDTO.EventStages? GetPreviousStage(string currentStageName)
+    {
+        var stageOrder = new Dictionary<string, string>
+    {
+        { "Quarter-finals", "Elimination Round" },
+        { "Semi-finals", "Quarter-finals" },
+        { "Finals", "Semi-finals" }
+    };
+
+        if (stageOrder.TryGetValue(currentStageName, out var previousStageName))
+        {
+            return _eventStages?.FirstOrDefault(x => x.Stage == previousStageName);
+        }
+
+        return null;
+    }
+
+    // Get qualified regions from a specific stage
+    private async Task<HashSet<int>> GetQualifiedRegionsFromStage(int stageID)
+    {
+        try
+        {
+            // 1. Get all events from the PREVIOUS stage that match filters
+            var allEvents = await apiService.GetAsync<PerformanceBasedDTO.PerformanceEvent>(
+                "/PerformanceBased/PerformanceEvents"
+            ) ?? new List<PerformanceBasedDTO.PerformanceEvent>();
+
+            var previousStageEvents = allEvents
+                .Where(e =>
+                    e.StageID == stageID &&
+                    EventMatchesFilters(e))
+                .Select(e => e.ID)
+                .ToHashSet();
+
+            if (!previousStageEvents.Any())
+                return new HashSet<int>();
+
+            // 2. Get all scores
+            var allScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(
+                "/PerformanceScore/Scores"
+            ) ?? new List<PerformanceBasedDTO.PerformanceScore>();
+
+            // 3. Get QUALIFIED teams only (Rank = 1) from previous stage events
+            var qualifiedTeamIDs = allScores
+                .Where(s =>
+                    s.Rank == 1 &&
+                    s.PerformanceID.HasValue &&
+                    previousStageEvents.Contains(s.PerformanceID.Value))
+                .Select(s => s.PerformanceTeamID)
+                .ToHashSet();
+
+            if (!qualifiedTeamIDs.Any())
+                return new HashSet<int>();
+
+            // 4. Get teams → regions
+            var qualifiedRegionIDs = new HashSet<int>();
+
+            foreach (var eventId in previousStageEvents)
+            {
+                var teams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(
+                    $"/PerformanceBased/OpposingTeams/{eventId}"
+                ) ?? new List<PerformanceBasedDTO.PerformanceTeam>();
+
+                foreach (var team in teams)
+                {
+                    if (qualifiedTeamIDs.Contains(team.ID) && team.RegionID.HasValue)
+                    {
+                        qualifiedRegionIDs.Add(team.RegionID.Value);
+                    }
+                }
+            }
+
+            return qualifiedRegionIDs;
+        }
+        catch
+        {
+            return new HashSet<int>();
+        }
+    }
+
+
+    private bool EventMatchesFilters(PerformanceBasedDTO.PerformanceEvent performanceEvent)
+    {
+        // Check sport ID
+        if (performanceEvent.SportID != _selectedSportIDValue)
+            return false;
+
+        // Check main category
+        if (performanceEvent.MainCategory != _selectedMainCategoryValue)
+            return false;
+
+        // Check school level and gender
+        var parts = _selectedSchoolLevelAndGenderID?.Split(" - ");
+        if (parts?.Length != 2)
+            return false;
+
+        var schoolLevelName = parts[0];
+        var genderName = parts[1];
+
+        var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+        var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
+
+        return performanceEvent.LevelID == schoolLevelID && performanceEvent.GenderID == genderID;
+    }
+
+    private async Task OnStageChanged()
+    {
+        await FilterRegionsByStage();
+
+        // Clear selections when stage changes
+        foreach (var team in _teamSelections)
+        {
+            team.SelectedRegionID = null;
+            team.SelectedPlayerIDs = new HashSet<string>();
+            team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+        }
+
+        StateHasChanged();
+    }
+
+    //UPLOAD OFFICIAL RESULT
+
+    private string _eventAttachmentUrl = "";
+    private bool _fileExists = false;
+
+    private string? _updateEventAttachmentValue;
+    private string? _eventAttachmentUploadState = "No file uploaded";
+    private byte[]? _uploadedFileBytes;
+    private string? _uploadedFileContentType;
+
+    private readonly string[] _extensions = { ".png", ".jpg", ".jpeg", ".pdf", ".doc", ".docx" };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await CheckIfFileExists();
+    }
+
+    private async Task CheckIfFileExists()
+    {
+        if (!SelectedEventID.HasValue)
+        {
+            _eventAttachmentUploadState = "No file selected";
+            _fileExists = false;
+            return;
+        }
+
+        using var httpClient = new HttpClient();
+
+        foreach (var ext in _extensions)
+        {
+            var url = $"https://palarongpambansa2026.com/attachments/media/events/official%20event%20records/{SelectedEventID}{ext}";
+
+            try
+            {
+                var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
+
+                if (response.IsSuccessStatusCode)
+                {
+                    _fileExists = true;
+                    _eventAttachmentUrl = url;
+                    _eventAttachmentUploadState = "View Attachment";
+                    return;
+                }
+            }
+            catch
+            {
+                // Ignore errors and try next extension
+            }
+        }
+
+        // No file found for any extension
+        _fileExists = false;
+        _eventAttachmentUploadState = "No file selected";
+    }
+
+    private async Task HandleFileUpload(IBrowserFile file)
+    {
+        try
+        {
+            // Define the maximum file size (in bytes)
+            const int maxFileSize = 10 * 1024 * 1024; // 10 MB
+
+            // Check if the file size exceeds the maximum allowed
+            if (file.Size > maxFileSize)
+            {
+                Snackbar.Add("File size exceeds the maximum allowed size of 10 MB.", Severity.Error);
+                return;
+            }
+
+            // Validate file type (image only)
+            var allowedExtensions = new[] { ".jpeg", ".jpg", ".png", ".pdf", ".doc", ".docx" };
+            var fileExtension = Path.GetExtension(file.Name).ToLower();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                Snackbar.Add("Invalid file type. Allowed: .jpg, .jpeg, .png, .pdf, .doc, .docx", Severity.Error);
+                return;
+            }
+
+            // Open the file stream with the maxFileSize limit
+            using var stream = file.OpenReadStream(maxFileSize);
+
+            // Create a memory stream to store the file in memory
+            using var memoryStream = new MemoryStream();
+
+            // Copy the file data into the memory stream
+            await stream.CopyToAsync(memoryStream);
+
+            // Convert the memory stream to a base64 string for temporary storage
+            var base64File = Convert.ToBase64String(memoryStream.ToArray());
+
+            // Set the temporary variable to the base64 string of the file
+            _updateEventAttachmentValue = $"data:{file.ContentType};base64,{base64File}";
+
+            // Optionally display a success message
+            var fileName = Path.GetFileName(file.Name);
+            _eventAttachmentUploadState = $"Selected: {fileName}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"File upload failed: {ex.Message}");
+            Snackbar.Add($"File upload failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task UploadEventAttachmentAsync(int eventId)
+    {
+        try
+        {
+            var base64Data = _updateEventAttachmentValue!.Split(',')[1];
+            var fileBytes = Convert.FromBase64String(base64Data);
+            var fileContent = new ByteArrayContent(fileBytes);
+
+            string fileType, fileExtension;
+
+            if (_updateEventAttachmentValue.Contains("image/webp"))
+            {
+                fileType = "image/webp";
+                fileExtension = ".webp";
+            }
+            else if (_updateEventAttachmentValue.Contains("image/jpeg"))
+            {
+                fileType = "image/jpeg";
+                fileExtension = ".jpg";
+            }
+            else if (_updateEventAttachmentValue.Contains("image/png"))
+            {
+                fileType = "image/png";
+                fileExtension = ".png";
+            }
+            else if (_updateEventAttachmentValue.Contains("application/pdf"))
+            {
+                fileType = "application/pdf";
+                fileExtension = ".pdf";
+            }
+            else if (_updateEventAttachmentValue.Contains("application/msword"))
+            {
+                fileType = "application/msword";
+                fileExtension = ".doc";
+            }
+            else if (_updateEventAttachmentValue.Contains("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+            {
+                fileType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                fileExtension = ".docx";
+            }
+            else
+            {
+                Snackbar.Add("Unsupported file format.", Severity.Error);
+                return;
+            }
+
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(fileType);
+            using var formData = new MultipartFormDataContent();
+            formData.Add(fileContent, "attachmentFile", $"attachment{fileExtension}");
+
+            var uploadUrl = $"/Events/UploadAttachment/{SelectedEventID}";
+            var uploadSuccess = await apiService.PutFormAsync(uploadUrl, formData);
+
+            if (!uploadSuccess)
+                Snackbar.Add("Event updated, but attachment upload failed.", Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Attachment upload failed: {ex.Message}", Severity.Warning);
+        }
+    }
+
     // ------------------------------
     // Dialog Controls
     // ------------------------------
@@ -929,6 +1320,9 @@ else
         _selectedMainCategoryValue = null;
         _combinedSchoolLevelAndGenderNames = new List<string>();
 
+        // Reset filtered regions
+        _filteredRegions = null;
+
         foreach (var team in _teamSelections)
         {
             team.SelectedRegionID = null;
@@ -959,6 +1353,19 @@ else
             public int? TeamID { get; set; }
             public int? RegionID { get; set; }
             public string PlayerID { get; set; } = string.Empty;
+        }
+
+        public class PerformanceScore
+        {
+            public int ID { get; set; }
+            public int? PerformanceID { get; set; }
+            public int PerformanceTeamID { get; set; }
+            public int SportSubcategoryID { get; set; }
+            public decimal Score { get; set; }
+            public int Rank { get; set; }
+            public string? UserID { get; set; }
+            public DateTime UpdatedAt { get; set; }
+            public int? TeamID { get; set; }
         }
     }
 

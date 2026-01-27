@@ -59,7 +59,6 @@ public partial class Palaro2026Context : DbContext
     //
     public DbSet<SportsBracket> SportsBracket { get; set; } = null!;
     public DbSet<SportsBracketRegions> SportsBracketRegions { get; set; } = null!;
-
     //
 
     public virtual DbSet<Sports> Sports { get; set; }

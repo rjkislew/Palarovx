@@ -9,6 +9,9 @@ public partial class EventVersusTeams
     public int ID { get; set; }
 
     public string? EventID { get; set; }
+    public int? PerformanceScoreID { get; set; }
+    public int? PerformanceID { get; set; }
+    public int? TeamID { get; set; }
 
     public int? SchoolRegionID { get; set; }
 

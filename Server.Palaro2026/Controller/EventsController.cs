@@ -8,7 +8,7 @@ namespace Server.Palaro2026.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
-    public partial class EventsController : ControllerBase
+    public partial class    EventsController : ControllerBase
     {
         private readonly Palaro2026Context _context;
 

@@ -323,4 +323,43 @@ public class PerformanceBasedController : ControllerBase
             return StatusCode(500, "Error deleting event");
         }
     }
+
+    [HttpPut("UploadAttachment/{id:int}")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadPerformanceEventAttachment(
+    int id,
+    [FromForm] IFormFile? attachmentFile)
+    {
+        if (attachmentFile == null || attachmentFile.Length == 0)
+            return BadRequest("No file uploaded or file is empty.");
+
+        // 1) Validate extension
+        var allowedExtensions = new[] { ".jpeg", ".jpg", ".png", ".pdf", ".doc", ".docx" };
+        var fileExtension = Path.GetExtension(attachmentFile.FileName).ToLowerInvariant();
+        if (!allowedExtensions.Contains(fileExtension))
+            return BadRequest("Invalid file type. Allowed: .jpeg, .jpg, .png, .pdf, .doc, .docx");
+
+        // 2) Validate size (5MB)
+        if (attachmentFile.Length > 10 * 1024 * 1024)
+            return BadRequest("File size exceeds the 10 MB limit.");
+
+        // 3) Save path
+        //var basePath = @"D:\pgas_attachment\palaro2026\media\events\official event records";
+        var basePath = @"\\192.168.2.210\pgas_attachment\palaro2026\media\events\official event records";
+        Directory.CreateDirectory(basePath);
+
+        var safeId = id.ToString(); // int is already safe for file name
+        var fileName = $"{safeId}{fileExtension}";
+        var fullPath = Path.Combine(basePath, fileName);
+
+        // 4) Delete old versions (same id, different ext)
+        foreach (var file in Directory.GetFiles(basePath, $"{safeId}.*"))
+            System.IO.File.Delete(file);
+
+        // 5) Save
+        await using var stream = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        await attachmentFile.CopyToAsync(stream);
+
+        return Ok(new { message = "Attachment uploaded successfully.", fileName, storagePath = fullPath });
+    }
 }

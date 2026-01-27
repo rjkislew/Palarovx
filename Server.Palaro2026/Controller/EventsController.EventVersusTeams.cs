@@ -18,12 +18,18 @@ namespace Server.Palaro2026.Controller
                EventID = eventVersusTeams.EventID,
                Rank = eventVersusTeams.Rank,
                RecentUpdateAt = eventVersusTeams.RecentUpdateAt,
+               PerformanceScoreID = eventVersusTeams.PerformanceScoreID,
+               PerformanceID = eventVersusTeams.PerformanceID,
+               TeamID = eventVersusTeams.TeamID,
            };
 
         [HttpGet("VersusTeams")] // /api/Events/VersusTeams
         public async Task<ActionResult<IEnumerable<EventsDTO.EventVersusTeams>>> GetEventVersusTeams(
         [FromQuery] int? ID = null,
         [FromQuery] int? schoolRegionID = null,
+        [FromQuery] int? performanceScoreID = null,
+        [FromQuery] int? performanceID = null,
+        [FromQuery] int? teamID = null,
         [FromQuery] string? eventID = null,
         [FromQuery] string? score = null,
         [FromQuery] string? rank = null,
@@ -35,10 +41,19 @@ namespace Server.Palaro2026.Controller
                 query = query.Where(x => x.ID == ID.Value);
 
             if (!string.IsNullOrEmpty(score))
-                query = query.Where(x => x.EventID == score);
+                query = query.Where(x => x.Score == score);
 
             if (schoolRegionID.HasValue)
                 query = query.Where(x => x.SchoolRegionID == schoolRegionID.Value);
+
+            if (performanceScoreID.HasValue) 
+                query = query.Where(x => x.PerformanceScoreID == performanceScoreID.Value);
+
+            if (performanceID.HasValue)
+                query = query.Where(x => x.PerformanceID == performanceID.Value);
+
+            if (teamID.HasValue)
+                query = query.Where(x => x.TeamID == teamID.Value);
 
             if (!string.IsNullOrEmpty(eventID))
                 query = query.Where(x => x.EventID == eventID);
@@ -61,6 +76,9 @@ namespace Server.Palaro2026.Controller
                 Score = eventVersusTeams.Score,
                 SchoolRegionID = eventVersusTeams.SchoolRegionID,
                 EventID = eventVersusTeams.EventID,
+                PerformanceScoreID = eventVersusTeams.PerformanceScoreID,
+                PerformanceID = eventVersusTeams.PerformanceID,
+                TeamID = eventVersusTeams.TeamID,
                 Rank = eventVersusTeams.Rank,
                 RecentUpdateAt = eventVersusTeams.RecentUpdateAt,
             };
@@ -100,6 +118,15 @@ namespace Server.Palaro2026.Controller
 
             if (updatedEvent.SchoolRegionID.HasValue)
                 existingEvent.SchoolRegionID = updatedEvent.SchoolRegionID;
+
+            if (updatedEvent.PerformanceScoreID.HasValue)
+                existingEvent.PerformanceScoreID = updatedEvent.PerformanceScoreID;
+
+            if (updatedEvent.PerformanceID.HasValue)
+                existingEvent.PerformanceID = updatedEvent.PerformanceID;
+
+            if (updatedEvent.TeamID.HasValue)
+                existingEvent.TeamID = updatedEvent.TeamID;
 
             if (!string.IsNullOrEmpty(updatedEvent.EventID))
                 existingEvent.EventID = updatedEvent.EventID;

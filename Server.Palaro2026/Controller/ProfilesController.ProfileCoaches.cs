@@ -28,7 +28,10 @@ namespace Server.Palaro2026.Controller
                SchoolDivisionID = profileCoaches.SchoolDivisionID,
                SchoolID = profileCoaches.SchoolID,
                SportCategoryID = profileCoaches.SportCategoryID,
-               UploadedBy = profileCoaches.UploadedBy
+               UploadedBy = profileCoaches.UploadedBy,
+               ImagePath = string.IsNullOrEmpty(profileCoaches.ImagePath)
+           ? null
+           : $"/media/profile/players/{profileCoaches.ImagePath}"
            };
 
         [HttpGet("Coach")] // /api/Profiles/Coach
@@ -46,7 +49,8 @@ namespace Server.Palaro2026.Controller
         [FromQuery] int? schoolRegionID = null,
         [FromQuery] int? schoolDivisionID = null,
         [FromQuery] int? schoolID = null,
-        [FromQuery] string? uploadedBy = null)
+        [FromQuery] string? uploadedBy = null,
+        [FromQuery] string? imagePath = null)
         {
             var query = _context.ProfileCoaches.AsQueryable();
 
@@ -91,6 +95,9 @@ namespace Server.Palaro2026.Controller
 
             if (!string.IsNullOrEmpty(uploadedBy))
                 query = query.Where(x => x.UploadedBy == uploadedBy);
+
+            if (!string.IsNullOrEmpty(imagePath))
+                query = query.Where(x => x.ImagePath == imagePath);
 
             return await query
                 .Select(x => ProfileCoachesDTOMapper(x))
@@ -246,6 +253,80 @@ namespace Server.Palaro2026.Controller
         private bool ProfileCoachesExist(string id)
         {
             return _context.ProfileCoaches.Any(e => e.ID == id);
+        }
+
+        [HttpPut("Coach/UploadAttachment/{id}")]
+        public async Task<IActionResult> UploadCoachImage(string id, [FromForm] IFormFile? attachmentFile)
+        {
+            if (attachmentFile == null || attachmentFile.Length == 0)
+            {
+                return BadRequest("No file uploaded or file is empty.");
+            }
+
+            try
+            {
+                // 1. Check if event exists
+                var coach = await _context.ProfileCoaches.FirstOrDefaultAsync(p => p.ID == id);
+                if (coach == null)
+                {
+                    return NotFound($"Player with ID '{id}' not found.");
+                }
+
+                // 2. Validate extension
+                var allowedExtensions = new[] { ".jpeg", ".jpg", ".png" };
+                var fileExtension = Path.GetExtension(attachmentFile.FileName).ToLower();
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    return BadRequest("Invalid file type. Allowed types: .jpeg, .jpg, .png");
+                }
+
+                // 3. Validate file size (max 5 MB)
+                if (attachmentFile.Length > 5 * 1024 * 1024)
+                {
+                    return BadRequest("File size exceeds the 5 MB limit.");
+                }
+
+                // 4. Path to save
+                var basePath = @"D:\pgas_attachment\palaro2026\media\profile\coaches";
+                //var basePath = @"\\192.168.2.210\pgas_attachment\palaro2026\media\events\official event records";
+                if (!Directory.Exists(basePath))
+                {
+                    Directory.CreateDirectory(basePath);
+                }
+
+                // 5. File name is just the Event ID
+                string Sanitize(string value) =>
+                    string.Concat(value.Where(c => !Path.GetInvalidFileNameChars().Contains(c)));
+
+                var sanitizedFileName = $"{Sanitize(coach.ID)}{fileExtension}";
+                var fullPath = Path.Combine(basePath, sanitizedFileName);
+
+                // 6. Delete old file if exists
+                foreach (var file in Directory.GetFiles(basePath, $"{Sanitize(coach.ID)}.*"))
+                {
+                    System.IO.File.Delete(file);
+                }
+
+                // 7. Save new file
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await attachmentFile.CopyToAsync(stream);
+                }
+
+                coach.ImagePath = sanitizedFileName;
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Attachment uploaded successfully.",
+                    fileName = sanitizedFileName,
+                    storagePath = fullPath
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error uploading attachment: {ex.Message}");
+            }
         }
     }
 }

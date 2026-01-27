@@ -191,6 +191,34 @@
                         }
                     </MudStack>
                 </MudItem>
+
+                <MudItem xs="12">
+                    <MudStack Spacing="1">
+                        <MudText>Upload Official Result</MudText>
+                        <MudDivider />
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                            <MudItem xs="12" sm="6">
+                                <MudStack Row AlignItems="AlignItems.Center">
+                                    <MudFileUpload T="IBrowserFile"
+                                                   FilesChanged="HandleFileUpload">
+                                        <ActivatorContent>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Upload"
+                                                           Variant="Variant.Filled"
+                                                           Color="Color.Primary" />
+                                        </ActivatorContent>
+                                    </MudFileUpload>
+
+                                    <MudButton StartIcon="@Icons.Material.Filled.AttachFile"
+                                               Href="@_eventAttachmentUrl"
+                                               Target="_blank"
+                                               Disabled="@(!_fileExists)">
+                                        <MudText Class="ml-2">@_eventAttachmentUploadState</MudText>
+                                    </MudButton>
+                                </MudStack>
+                            </MudItem>
+                        </MudStack>
+                    </MudStack>
+                </MudItem>
             </MudGrid>
         </DialogContent>
         <DialogActions>
@@ -748,6 +776,9 @@ else
     {
         try
         {
+            _uploadingOfficialResult = true;
+            StateHasChanged();
+
             // 1. Update the gymnastics event
             var updateEvent = new PerformanceBasedDTO.PerformanceEvent
             {
@@ -769,6 +800,8 @@ else
 
             // Delete existing teams first
             await apiService.DeleteAsync($"/PerformanceBased/DeleteOpposingTeamsByEvent/{SelectedEventID}");
+
+            await UploadEventAttachmentAsync(SelectedEventID.Value);
 
             // Add updated teams WITH TeamID
             foreach (var team in _teamSelections)
@@ -804,6 +837,11 @@ else
         catch (Exception ex)
         {
             Snackbar.Add($"Error updating event: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _uploadingOfficialResult = false;
+            StateHasChanged();
         }
     }
 
@@ -1105,6 +1143,179 @@ else
         return true;
     }
 
+    //UPLOAD OFFICIAL RESULT
+
+    private string _eventAttachmentUrl = "";
+    private bool _fileExists = false;
+    private bool _uploadingOfficialResult = false;
+
+    private string? _updateEventAttachmentValue;
+    private string? _eventAttachmentUploadState = "No file uploaded";
+    private byte[]? _uploadedFileBytes;
+    private string? _uploadedFileContentType;
+
+    private readonly string[] _extensions = { ".png", ".jpg", ".jpeg", ".pdf", ".doc", ".docx" };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await CheckIfFileExists();
+    }
+
+    private async Task CheckIfFileExists()
+    {
+        if (!SelectedEventID.HasValue)
+        {
+            _eventAttachmentUploadState = "No file selected";
+            _fileExists = false;
+            return;
+        }
+
+        using var httpClient = new HttpClient();
+
+        foreach (var ext in _extensions)
+        {
+            var url = $"https://palarongpambansa2026.com/attachments/media/events/official%20event%20records/{SelectedEventID}{ext}";
+
+            try
+            {
+                var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
+
+                if (response.IsSuccessStatusCode)
+                {
+                    _fileExists = true;
+                    _eventAttachmentUrl = url;
+                    _eventAttachmentUploadState = "View Attachment";
+                    return;
+                }
+            }
+            catch
+            {
+                // Ignore errors and try next extension
+            }
+        }
+
+        // No file found for any extension
+        _fileExists = false;
+        _eventAttachmentUploadState = "No file selected";
+    }
+
+    private async Task HandleFileUpload(IBrowserFile file)
+    {
+        try
+        {
+            // Define the maximum file size (in bytes)
+            const int maxFileSize = 10 * 1024 * 1024; // 10 MB
+
+            // Check if the file size exceeds the maximum allowed
+            if (file.Size > maxFileSize)
+            {
+                Snackbar.Add("File size exceeds the maximum allowed size of 10 MB.", Severity.Error);
+                return;
+            }
+
+            // Validate file type (image only)
+            var allowedExtensions = new[] { ".jpeg", ".jpg", ".png", ".pdf", ".doc", ".docx" };
+            var fileExtension = Path.GetExtension(file.Name).ToLower();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                Snackbar.Add("Invalid file type. Allowed: .jpg, .jpeg, .png, .pdf, .doc, .docx", Severity.Error);
+                return;
+            }
+
+            // Open the file stream with the maxFileSize limit
+            using var stream = file.OpenReadStream(maxFileSize);
+
+            // Create a memory stream to store the file in memory
+            using var memoryStream = new MemoryStream();
+
+            // Copy the file data into the memory stream
+            await stream.CopyToAsync(memoryStream);
+
+            // Convert the memory stream to a base64 string for temporary storage
+            var base64File = Convert.ToBase64String(memoryStream.ToArray());
+
+            // Set the temporary variable to the base64 string of the file
+            _updateEventAttachmentValue = $"data:{file.ContentType};base64,{base64File}";
+
+            // Optionally display a success message
+            var fileName = Path.GetFileName(file.Name);
+            _eventAttachmentUploadState = $"Selected: {fileName}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"File upload failed: {ex.Message}");
+            Snackbar.Add($"File upload failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task UploadEventAttachmentAsync(int eventId)
+    {
+        if (string.IsNullOrWhiteSpace(_updateEventAttachmentValue))
+            return;
+
+        try
+        {
+            var base64Data = _updateEventAttachmentValue.Split(',')[1];
+            var fileBytes = Convert.FromBase64String(base64Data);
+
+            using var fileContent = new ByteArrayContent(fileBytes);
+
+            string fileType, fileExtension;
+
+            if (_updateEventAttachmentValue.Contains("image/jpeg"))
+            {
+                fileType = "image/jpeg"; fileExtension = ".jpg";
+            }
+            else if (_updateEventAttachmentValue.Contains("image/png"))
+            {
+                fileType = "image/png"; fileExtension = ".png";
+            }
+            else if (_updateEventAttachmentValue.Contains("application/pdf"))
+            {
+                fileType = "application/pdf"; fileExtension = ".pdf";
+            }
+            else if (_updateEventAttachmentValue.Contains("application/msword"))
+            {
+                fileType = "application/msword"; fileExtension = ".doc";
+            }
+            else if (_updateEventAttachmentValue.Contains("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+            {
+                fileType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; fileExtension = ".docx";
+            }
+            else
+            {
+                Snackbar.Add("Unsupported file format.", Severity.Error);
+                return;
+            }
+
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(fileType);
+
+            using var formData = new MultipartFormDataContent();
+            formData.Add(fileContent, "attachmentFile", $"attachment{fileExtension}");
+
+            // ✅ IMPORTANT: use eventId, and verify controller route
+            var uploadUrl = $"/PerformanceBased/UploadAttachment/{eventId}";
+            // if your controller is PerformanceBased: use:
+            // var uploadUrl = $"/PerformanceBased/UploadAttachment/{eventId}";
+
+            var uploadSuccess = await apiService.PutFormAsync(uploadUrl, formData);
+
+            if (uploadSuccess)
+            {
+                _eventAttachmentUploadState = "View Attachment";
+                await CheckIfFileExists();
+            }
+            else
+            {
+                Snackbar.Add("Attachment upload failed.", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Attachment upload failed: {ex.Message}", Severity.Warning);
+        }
+    }
+
 
     // ------------------------------
     // Dialog Controls
@@ -1257,5 +1468,4 @@ else
         public int ExistingOpposingTeamID { get; set; }
         public int? TeamID { get; set; }
     }
-
 }

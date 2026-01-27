@@ -103,6 +103,7 @@
                     <MudTh>
                         Sport Event
                     </MudTh>
+                    <MudTh Style="text-align: center">Image</MudTh>
                     <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate Context="player">
@@ -170,7 +171,7 @@
                             @if (player.ProfilePlayerSportsList?.Count() > 0)
                             {
                                 <MudVirtualize Items="player.ProfilePlayerSportsList" Context="sport">
-                                    <MudItem md="12" lg="6">
+                                    <MudItem md="12">
                                         <MudPaper Outlined Class="pa-3" Style="background-color: transparent; height: 100%">
                                             @* Sport Event *@
                                             <MudStack Spacing="1" Style="height: 100%" Justify="Justify.SpaceBetween">
@@ -246,7 +247,31 @@
                         </MudGrid>
                     </MudTd>
                     <MudTd DataLabel="Image" Style="text-align: center">
-                        <MudIconButton Icon="@Icons.Material.Filled.Upload" Class="pa-1"/>
+                        @if (!string.IsNullOrEmpty(player.ImagePath))
+                        {
+                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
+@*                             <img style="width: 75px; height: 75px" src="@($"http://localhost/192.168.2.210/palaro2026/media/profile/players/{player.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
+ *@                                <img style="width: 75px; height: 75px" src="@($"https://palarongpambansa2026.com/attachments/media/profile/players/{player.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
+
+                            <MudFileUpload T="IBrowserFile"
+                                               FilesChanged="file => HandleImageFileUpload(file, player.ID)">
+                                <ActivatorContent>
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary">Replace Image</MudButton>
+                                </ActivatorContent>
+                            </MudFileUpload>
+                            </MudStack>
+                        }
+                        else
+                        {
+                            <MudFileUpload T="IBrowserFile"
+                                           FilesChanged="file => HandleImageFileUpload(file, player.ID)">
+                                <ActivatorContent>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Upload"
+                                                   Variant="Variant.Text"
+                                                   Color="Color.Primary" />
+                                </ActivatorContent>
+                            </MudFileUpload>
+                        }
                     </MudTd>
                     <MudTd Style="text-align: center">
                         <MudIconButton Icon="@Icons.Material.Filled.Settings" Class="pa-1" OnClick="() => OpenEditPlayerDialog(player.ID)" />
@@ -269,7 +294,7 @@
     }
 </MudGrid>
 
-@code {
+    @code {
     // Requirement for Dialog to work
     [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
@@ -279,6 +304,18 @@
     // JSON storage
     private List<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>? _profilePlayers;
 
+
+    // Attachment
+    private string? _updateEventAttachmentValue;
+    private string? _eventAttachmentUploadState = "No file uploaded";
+    private byte[]? _uploadedFileBytes;
+    private string? _uploadedFileContentType;
+
+    private string _eventAttachmentUrl = "";
+    private bool _fileExists = false;
+
+    // Allowed extensions to check
+    private readonly string[] _extensions = { ".png", ".jpg", ".jpeg"};
 
     // DTOs
     public class ProfilesDTO
@@ -305,6 +342,7 @@
                 public DateTime? BirthDate { get; set; }
                 public string? LRN { get; set; }
                 public string? UploadedBy { get; set; }
+                public string? ImagePath { get; set; }
                 public List<ProfilePlayerSports>? ProfilePlayerSportsList { get; set; }
             }
 
@@ -504,7 +542,7 @@
             await GetPlayersProfileAsync();
         }
     }
-    
+
     // Initialization
     protected override async Task OnInitializedAsync()
     {
@@ -515,7 +553,23 @@
     {
         string url = "/Profiles/Player/Details";
 
-        _profilePlayers = await apiService.GetAsync<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>(url);
+        // Get all players first
+        var allPlayers = await apiService.GetAsync<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>(url);
+
+        // Get current user info to check role and region
+        await GetCurrentUserInfoAsync();
+
+        // Filter players if user has RoleID = 10 and affiliation
+        if (_currentUser != null && _currentUser.RoleID == 10 && _userRegionId.HasValue)
+        {
+            _profilePlayers = allPlayers?
+                .Where(player => player.RegionID == _userRegionId)
+                .ToList();
+        }
+        else
+        {
+            _profilePlayers = allPlayers;
+        }
     }
 
     private async Task<string> GetCurrentUserIdAsync()
@@ -612,6 +666,117 @@
         }
     }
 
+    //Image upload
+
+    private async Task HandleImageFileUpload(IBrowserFile file, string? playerId)
+    {
+        if (string.IsNullOrEmpty(playerId))
+        {
+            Snackbar.Add("Invalid player.", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            const int maxFileSize = 10 * 1024 * 1024;
+
+            if (file.Size > maxFileSize)
+            {
+                Snackbar.Add("File size exceeds 10 MB.", Severity.Error);
+                return;
+            }
+
+            var allowedExtensions = new[] { ".jpeg", ".jpg", ".png" };
+            var fileExtension = Path.GetExtension(file.Name).ToLower();
+
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                Snackbar.Add("Only JPG and PNG images are allowed.", Severity.Error);
+                return;
+            }
+
+            using var stream = file.OpenReadStream(maxFileSize);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            var fileBytes = memoryStream.ToArray();
+            var content = new MultipartFormDataContent();
+            content.Add(new ByteArrayContent(fileBytes), "attachmentFile", file.Name);
+
+            var uploadUrl = $"/Profiles/Player/UploadAttachment/{playerId}";
+            var success = await apiService.PutFormAsync(uploadUrl, content);
+
+            if (success)
+            {
+                Snackbar.Add("Image uploaded.", Severity.Success);
+                await GetPlayersProfileAsync(); // refresh photo
+            }
+            else
+            {
+                Snackbar.Add("Upload failed.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    //Filter player
+
+    private Users? _currentUser;
+    private int? _userRegionId = null;
+
+    private async Task GetCurrentUserInfoAsync()
+    {
+        try
+        {
+            var userId = await GetCurrentUserIdAsync();
+            if (!string.IsNullOrEmpty(userId))
+            {
+                // Fetch user details including RoleID and Affiliation
+                string userUrl = $"/Users/{userId}";
+                _currentUser = await apiService.GetSingleAsync<Users>(userUrl);
+
+                if (_currentUser != null && _currentUser.RoleID == 10 && !string.IsNullOrEmpty(_currentUser.Affiliation))
+                {
+                    _userRegionId = MapAffiliationToRegionId(_currentUser.Affiliation);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting user info: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private int? MapAffiliationToRegionId(string affiliation)
+    {
+        return affiliation switch
+        {
+            "DepEd National Capital Region" => 1,
+            "DepEd Bangsamoro" => 2,
+            "DepEd Cordillera Administrative Region" => 3,
+            "DepEd National Academy of Sports" => 4,
+            "DepEd Philippine Schools Overseas" => 5,
+            "DepEd Ilocos Region" => 6,
+            "DepEd Cagayan Valley" => 7,
+            "DepEd Central Luzon" => 8,
+            "DepEd CALABARZON" => 9,
+            "DepEd MIMAROPA" => 10,
+            "DepEd Zamboanga Peninsula" => 11,
+            "DepEd Bicol Region" => 12,
+            "DepEd Western Visayas" => 13,
+            "DepEd Central Visayas" => 14,
+            "DepEd Eastern Visayas" => 15,
+            "DepEd Northern Mindanao" => 16,
+            "DepEd Davao Region" => 17,
+            "DepEd SOCCSKSARGEN" => 18,
+            "DepEd Caraga" => 19,
+            "DepEd Negros Island Region" => 20,
+            _ => null
+        };
+    }
 
     // DTO mirrored for the front-end result
     public class ImportResult
@@ -620,5 +785,12 @@
         public int ImportedCount { get; set; }
         public int SkippedCount { get; set; }
         public List<string> Errors { get; set; } = new();
+    }
+
+    public class Users
+    {
+        public string ID { get; set; } = null!;
+        public string? Affiliation { get; set; }
+        public int? RoleID { get; set; }
     }
 }

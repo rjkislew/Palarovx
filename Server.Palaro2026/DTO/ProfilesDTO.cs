@@ -21,6 +21,8 @@ public class ProfilesDTO
         public string? Level { get; set; }
         public string? Region { get; set; }
         public string? Abbreviation { get; set; }
+        public string? ImagePath { get; set; }
+        public int? SchoolRegionID { get; set; } 
     }
 
     public class ProfileCoaches
@@ -39,7 +41,7 @@ public class ProfilesDTO
         public int? SchoolID { get; set; }
         public int? SportCategoryID { get; set; }
         public string? UploadedBy { get; set; }
-
+        public string? ImagePath { get; set; }
     }
 
     public class ProfilePlayerEvent
@@ -74,6 +76,8 @@ public class ProfilesDTO
             public string? Category { get; set; }
             public int? SportID { get; set; }
             public string? Sport { get; set; }
+            public string? ImagePath { get; set; }
+
             public List<ProfilePlayerSports>? ProfilePlayerSportsList { get; set; }
         }
 
@@ -105,6 +109,7 @@ public class ProfilesDTO
         public string? LRN { get; set; }
         public int? SportCategoryID { get; set; }
         public string? UploadedBy { get; set; }
+        public string? ImagePath { get; set; }
     }
 
     public class ProfilePlayerSports

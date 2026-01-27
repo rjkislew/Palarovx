@@ -50,6 +50,8 @@ namespace Server.Palaro2026.Controller
                     SchoolDivision = profileCoach.SchoolDivision?.Division,
                     School = profileCoach.School?.School,
                     Level = profileCoach.School?.SchoolLevels?.Level,
+                    ImagePath = profileCoach.ImagePath,
+                    SchoolRegionID = profileCoach.SchoolRegionID
                 }).ToList();
 
                 return Ok(profileCoachesDTO);
@@ -203,7 +205,8 @@ namespace Server.Palaro2026.Controller
             [FromQuery] string? middleInitial,
             [FromQuery] string? sex,
             [FromQuery] DateTime? birthDate,
-            [FromQuery] string? lrn)
+            [FromQuery] string? lrn,
+            [FromQuery] string? imagepath)
         {
             try
             {
@@ -248,6 +251,9 @@ namespace Server.Palaro2026.Controller
 
                 if (!string.IsNullOrEmpty(lrn))
                     query = query.Where(p => p.LRN != null && p.LRN.Contains(lrn));
+
+                if (!string.IsNullOrEmpty(imagepath))
+                    query = query.Where(p => p.ImagePath != null && p.ImagePath.Contains(imagepath));
 
                 if (!string.IsNullOrEmpty(school))
                     query = query.Where(p =>
@@ -322,6 +328,7 @@ namespace Server.Palaro2026.Controller
                         Category = player.Sport?.SportCategory?.Category,
                         SportID = player.SportID,
                         Sport = player.Sport?.Sport,
+                        ImagePath = player.ImagePath,
                         ProfilePlayerSportsList = player.ProfilePlayerSports
                             .Select(s => new ProfilesDTO.ProfilePlayersDetails.ProfilePlayerSports
                             {
