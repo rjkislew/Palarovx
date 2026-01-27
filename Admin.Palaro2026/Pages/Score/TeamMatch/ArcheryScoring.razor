@@ -2,6 +2,8 @@
 @inject ISnackbar Snackbar
 @inject APIService apiService
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
+
 
 <PageTitle>Archery Scoring | PALARO 2026</PageTitle>
 <MudText Typo="Typo.h6" Align="Align.Center">Archery Scoring</MudText>
@@ -170,6 +172,39 @@ else
                              Class="d-flex flex-wrap justify-center pa-2"
                              Style="min-height:100px; gap:6px; border:1px dashed gray;" />
             </MudPaper>
+
+             <MudDivider Class="my-2" />
+
+            <MudGrid Class="" Style="align-items:center"
+                     Spacing="4">
+
+                <!-- Left spacer -->
+                <MudItem xs="4" />
+
+                <!-- Center title -->
+                <MudItem xs="4">
+                    <MudText Typo="Typo.h6" Align="Align.Center">
+                        Matches
+                    </MudText>
+                </MudItem>
+
+                <!-- Right button -->
+                <MudItem xs="4">
+                    <MudStack Row="true" Justify="Justify.FlexEnd">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                                       OnClick="@(() => OpenEditEventDialog(SelectedEvent?.ID))">
+                        </MudIconButton>
+                        <MudButton Color="Color.Tertiary" Variant="Variant.Filled"
+                                   StartIcon="@Icons.Material.Filled.ArrowCircleRight"
+                                   >
+                            Proceed to next stage
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+
+            </MudGrid>
+
+            <MudDivider Class="my-2" />
 
             @if (IsOlympicRound)
 {
@@ -3156,6 +3191,32 @@ else
         catch (Exception ex)
         {
             Snackbar.Add($"Error deleting shot: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenEditEventDialog(string? selectedEventID)
+    {
+        var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.SelectedEventID, selectedEventID },
+            { x => x.IsEditMode, true }
+        };
+
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseOnEscapeKey = true,
+                BackdropClick = false
+            };
+
+        var dialog = await DialogService.ShowAsync<AddEditDialog>("Edit Event", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            // await LoadExistingBilliardsAssignments();
         }
     }
 }
