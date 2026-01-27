@@ -345,7 +345,7 @@ public class PerformanceBasedController : ControllerBase
 
         // 3) Save path
         //var basePath = @"D:\pgas_attachment\palaro2026\media\events\official event records";
-        var basePath = @"D:\pgas_attachment\palaro2026\media\events\official event records";
+        var basePath = @"\\192.168.2.210\pgas_attachment\palaro2026\media\events\official event records";
         Directory.CreateDirectory(basePath);
 
         var safeId = id.ToString(); // int is already safe for file name
