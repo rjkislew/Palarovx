@@ -9,6 +9,7 @@
 @inject APIService apiService
 @inject HttpClient httpClient
 @inject CookieService cookieService
+@inject IJSRuntime jsRuntime
 
 
 <PageTitle>Coaches Management | PALARO 2026</PageTitle>
@@ -149,14 +150,20 @@
                     <MudTd DataLabel="Image" Style="text-align: center">
                         @if (!string.IsNullOrEmpty(coach.ImagePath))
                         {
-                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
-                                <img style="width: 75px; height: 75px" src="@($"http://localhost/192.168.2.210/palaro2026/media/profile/coaches/{coach.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
+                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="0">
+@*                                                                 <img style="width: 75px; height: 75px" src="@($"http://localhost/192.168.2.210/palaro2026/media/profile/coaches/{coach.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
+ *@                                <img style="width: 75px; height: 75px;" src="@($"https://palarongpambansa2026.com/attachments/media/profiles/coaches/{coach.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
                                 <MudFileUpload T="IBrowserFile"
                                                FilesChanged="file => HandleImageFileUpload(file, coach.ID)">
                                     <ActivatorContent>
                                         <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary">Replace Image</MudButton>
                                     </ActivatorContent>
                                 </MudFileUpload>
+                                <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
+                                           Disabled="@string.IsNullOrWhiteSpace(coach.ID)"
+                                           OnClick="@(() => PrintID(coach.ID))">
+                                    Print ID
+                                </MudButton>
                             </MudStack>
                         }
                         else
@@ -179,7 +186,7 @@
                     <MudText Typo="Typo.caption">No matching records found.</MudText>
                 </NoRecordsContent>
                 <PagerContent>
-                    <MudTablePager />
+                    <MudTablePager PageSizeOptions="new int[] { 20, 100 }" />
                 </PagerContent>
             </MudTable>
         </MudItem>
@@ -522,6 +529,23 @@
             "DepEd Negros Island Region" => 20,
             _ => null
         };
+    }
+
+    //PRINT ID
+
+    private const string IDBaseUrl =
+    "https://reports.pgas.ph/Report/Share/PALARO/Coach_ID";
+
+    private void PrintID(string? coachId)
+    {
+        if (string.IsNullOrWhiteSpace(coachId))
+        {
+            Snackbar.Add("Coach ID is missing. Cannot print ID.", Severity.Warning);
+            return;
+        }
+
+        var url = $"{IDBaseUrl}?CoachID={Uri.EscapeDataString(coachId)}";
+        _ = jsRuntime.InvokeVoidAsync("open", url, "_blank");
     }
     
     // DTO mirrored for the front-end result

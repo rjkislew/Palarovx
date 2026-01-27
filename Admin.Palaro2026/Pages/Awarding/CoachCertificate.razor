@@ -1,0 +1,303 @@
+﻿@page "/certificates/coaches"
+
+@inject APIService apiService
+@inject ISnackbar Snackbar
+@inject IJSRuntime jsRuntime
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge">
+    <MudItem xs="12" Style="margin-bottom: 5px">
+        <MudStack AlignItems="AlignItems.Center" Class="flex-lg-row" Justify="Justify.SpaceBetween">
+            <MudGrid Justify="Justify.FlexEnd">
+                <MudItem>
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                        <MudSelect Value="_selectedSport"
+                                   T="int?"
+                                   ShrinkLabel Variant="Variant.Outlined"
+                                   Label="Filter by Sport"
+                                   Clearable Margin="Margin.Dense"
+                                   ValueChanged="OnSportFilterChanged"
+                                   Style="width: 350px">
+                            <MudSelectItem T="int?" Value="null">All Sports</MudSelectItem>
+                            @foreach (var sport in _sports)
+                            {
+                                <MudSelectItem T="int?" Value="sport.ID">@sport.Sport</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudDivider Vertical="true" FlexItem="true" />
+
+                        <MudButton Size="Size.Medium"
+                                   Variant="Variant.Text"
+                                   StartIcon="@Icons.Material.Filled.Refresh"
+                                   Disabled="@_loading"
+                                   OnClick="RefreshTable">
+                            Refresh Table
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudStack>
+    </MudItem>
+
+    @if (_filteredCoaches.Any())
+    {
+        <MudItem xs="12">
+            <MudTable Items="@_filteredCoaches" T="ProfilesDTO.ProfileCoachesDetails"
+                      FixedHeader FixedFooter Height="calc(87vh - 150px)"
+                      Dense="true"
+                      Outlined="true"
+                      Elevation="1"
+                      Style="border-radius: 8px; overflow: hidden;"
+                      Loading="@_loading">
+
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6"></MudText>
+                    <MudSpacer />
+                    <MudTextField T="string"
+                                  Value="@_searchString"
+                                  ValueChanged="@( (string v) => OnSearchChanged(v) )"
+                                  Immediate="true"
+                                  Placeholder="Search"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium" />
+                </ToolBarContent>
+
+                <ColGroup>
+                    <col style="width: 30%" />
+                    <col style="width: 20%" />
+                    <col style="width: 15 />
+                    <col style="width: 20%" />
+                    <col style="width: 15%" />
+                </ColGroup>
+
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Designation</MudTh>
+                    <MudTh>Sport</MudTh>
+                    <MudTh>Level</MudTh>
+                    <MudTh Style="text-align:center">Certificate</MudTh>
+                </HeaderContent>
+
+                <RowTemplate Context="coach">
+                    <MudTd DataLabel="Name">
+                        <MudText Typo="Typo.body2">
+                            @FormatFullName(coach.FirstName, coach.MiddleInitial, coach.LastName)
+                        </MudText>
+                    </MudTd>
+
+                    <MudTd DataLabel="Designation">
+                        <MudText Typo="Typo.caption">@coach.Designation</MudText>
+                    </MudTd>
+
+                    <MudTd DataLabel="Sport">
+                        <MudText Typo="Typo.body2">
+                            @coach.Sports
+                        </MudText>
+                    </MudTd>
+
+                    <MudTd DataLabel="Level">
+                        <MudText Typo="Typo.caption">@coach.Level</MudText>
+                    </MudTd>
+
+                    <MudTd DataLabel="Certificate" Style="text-align:center">
+                        <MudButton Variant="Variant.Filled" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Print"
+                                   Disabled="@string.IsNullOrWhiteSpace(coach.ID)"
+                                   OnClick="@(() => PrintCoachCertificate(coach.ID))">
+                            Print
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+
+                <NoRecordsContent>
+                    <MudTd ColSpan="4" Class="text-center py-4">
+                        <MudText>@(_loading ? "Loading..." : "No result found.")</MudText>
+                    </MudTd>
+                </NoRecordsContent>
+
+                <PagerContent>
+                    <MudTablePager PageSizeOptions="new int[] { 20, 40, 60, 80, 100 }" />
+                </PagerContent>
+            </MudTable>
+        </MudItem>
+    }
+    else
+    {
+        <MudPaper Class="pa-12 text-center" Elevation="1" Style="border-radius: 16px;">
+            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Large" Class="mb-4" />
+            <MudText Typo="Typo.h6" Class="mb-2">No result found</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4">
+                @(_selectedSport.HasValue ? "No result for the selected sport." : "No result available.")
+            </MudText>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code
+{
+    public class ProfilesDTO
+    {
+        public class ProfileCoachesDetails
+        {
+            public string? ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? MiddleInitial { get; set; }
+            public string? Designation { get; set; }
+            public string? Level { get; set; }
+
+            // note: used for filtering if you don't have SportID
+            public string? Sports { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+        }
+    }
+
+    private bool _loading = false;
+
+    private string _searchString = "";
+    private int? _selectedSport = null;
+
+    private List<SportsDTO.Sports> _sports = new();
+    private List<ProfilesDTO.ProfileCoachesDetails> _coaches = new();
+    private List<ProfilesDTO.ProfileCoachesDetails> _filteredCoaches = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSportsAsync();
+        await LoadCoachesAsync();
+        ApplyFilter();
+    }
+
+    private async Task RefreshTable()
+    {
+        await LoadCoachesAsync();
+        ApplyFilter();
+    }
+
+    private Task OnSportFilterChanged(int? selectedSport)
+    {
+        _selectedSport = selectedSport;
+        ApplyFilter();
+        return Task.CompletedTask;
+    }
+
+    private Task OnSearchChanged(string text)
+    {
+        _searchString = text ?? "";
+        ApplyFilter();
+        return Task.CompletedTask;
+    }
+
+    private void ApplyFilter()
+    {
+        IEnumerable<ProfilesDTO.ProfileCoachesDetails> q = _coaches;
+
+        // ✅ sport filter (string-based, since coaches DTO has no SportID)
+        if (_selectedSport.HasValue)
+        {
+            var selectedSportName = _sports.FirstOrDefault(s => s.ID == _selectedSport.Value)?.Sport;
+
+            if (!string.IsNullOrWhiteSpace(selectedSportName))
+            {
+                q = q.Where(c =>
+                    !string.IsNullOrWhiteSpace(c.Sports) &&
+                    c.Sports!.Contains(selectedSportName, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        // ✅ search
+        if (!string.IsNullOrWhiteSpace(_searchString))
+        {
+            var s = _searchString.Trim();
+
+            q = q.Where(c => new[]
+                {
+                    c.FirstName,
+                    c.MiddleInitial,
+                    c.LastName,
+                    c.Designation,
+                    c.Level,
+                    c.Sports
+                }
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Any(x => x!.Contains(s, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        _filteredCoaches = q
+            .OrderBy(c => c.LastName)
+            .ThenBy(c => c.FirstName)
+            .ToList();
+
+        StateHasChanged();
+    }
+
+    private async Task LoadSportsAsync()
+    {
+        try
+        {
+            var url = "/Sports";
+            _sports = await apiService.GetAsync<SportsDTO.Sports>(url) ?? new List<SportsDTO.Sports>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading sports: {ex.Message}", Severity.Warning);
+            _sports = new();
+        }
+    }
+
+    private async Task LoadCoachesAsync()
+    {
+        try
+        {
+            _loading = true;
+            StateHasChanged();
+
+            var url = "/Profiles/Coach/Details";
+            _coaches = await apiService.GetAsync<ProfilesDTO.ProfileCoachesDetails>(url) ?? new List<ProfilesDTO.ProfileCoachesDetails>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading coaches: {ex.Message}", Severity.Error);
+            _coaches = new();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string FormatFullName(string? first, string? mi, string? last)
+    {
+        if (string.IsNullOrWhiteSpace(first) && string.IsNullOrWhiteSpace(last))
+            return "Unknown";
+
+        var mid = string.IsNullOrWhiteSpace(mi) ? "" : $" {mi}";
+        return $"{first}{mid} {last}".Trim();
+    }
+
+    // ✅ COACH CERTIFICATE PRINT
+    private const string CoachCertificateBaseUrl =
+        "https://reports.pgas.ph/Report/Share/PALARO/Coach_Certificate";
+
+    private void PrintCoachCertificate(string? coachId)
+    {
+        if (string.IsNullOrWhiteSpace(coachId))
+        {
+            Snackbar.Add("Coach ID is missing. Cannot print certificate.", Severity.Warning);
+            return;
+        }
+
+        var url = $"{CoachCertificateBaseUrl}?CoachID={Uri.EscapeDataString(coachId)}";
+        _ = jsRuntime.InvokeVoidAsync("open", url, "_blank");
+    }
+}

@@ -9,6 +9,7 @@
 @inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
+@inject IJSRuntime jsRuntime
 
 <PageTitle>Players Management | PALARO 2026</PageTitle>
 
@@ -249,16 +250,21 @@
                     <MudTd DataLabel="Image" Style="text-align: center">
                         @if (!string.IsNullOrEmpty(player.ImagePath))
                         {
-                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
-@*                             <img style="width: 75px; height: 75px" src="@($"http://localhost/192.168.2.210/palaro2026/media/profile/players/{player.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
- *@                                <img style="width: 75px; height: 75px" src="@($"https://palarongpambansa2026.com/attachments/media/profile/players/{player.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
+                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="0">
+                                @*<img style="width: 75px; height: 75px" src="@($"http://localhost/192.168.2.210/palaro2026/media/profile/players/{player.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
+ *@                                <img style="width: 75px; height: 75px;" src="@($"https://palarongpambansa2026.com/attachments/media/profiles/players/{player.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
 
-                            <MudFileUpload T="IBrowserFile"
+                                <MudFileUpload T="IBrowserFile"
                                                FilesChanged="file => HandleImageFileUpload(file, player.ID)">
-                                <ActivatorContent>
-                                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary">Replace Image</MudButton>
-                                </ActivatorContent>
-                            </MudFileUpload>
+                                    <ActivatorContent>
+                                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary">Replace Image</MudButton>
+                                    </ActivatorContent>
+                                </MudFileUpload>
+                                <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
+                                           Disabled="@string.IsNullOrWhiteSpace(player.ID)"
+                                           OnClick="@(() => PrintID(player.ID))">
+                                    Print ID
+                                </MudButton>
                             </MudStack>
                         }
                         else
@@ -776,6 +782,23 @@
             "DepEd Negros Island Region" => 20,
             _ => null
         };
+    }
+
+    //PRINT ID
+
+    private const string IDBaseUrl =
+    "https://reports.pgas.ph/Report/Share/Super%20APP/PALARO_ID";
+
+    private void PrintID(string? playerId)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            Snackbar.Add("Player ID is missing. Cannot print ID.", Severity.Warning);
+            return;
+        }
+
+        var url = $"{IDBaseUrl}?PlayerID={Uri.EscapeDataString(playerId)}";
+        _ = jsRuntime.InvokeVoidAsync("open", url, "_blank");
     }
 
     // DTO mirrored for the front-end result
