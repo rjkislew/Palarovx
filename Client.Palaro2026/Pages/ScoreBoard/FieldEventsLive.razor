@@ -1,0 +1,719 @@
+﻿@page "/scoreboard/field-events/{EventID}"
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>Field Events Scoring | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
+
+    :root {
+        --bg-dark: #121212;
+        --panel-bg: rgba(20, 20, 25, 0.9);
+        --accent-gold: #FFD700;
+        --accent-blue: #00B0FF;
+        --accent-red: #FF1744;
+        --text-white: #ffffff;
+        --accent-green: #4CAF50;
+        --accent-purple: #9C27B0;
+    }
+
+    body {
+        background-color: black;
+        overflow: hidden;
+    }
+
+    .tv-screen {
+        min-height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at center, #1e1e24 0%, #000000 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        padding: 20px;
+    }
+
+    .tournament-header {
+        text-align: center;
+        margin-bottom: 2vh;
+    }
+
+    .palaro-branding {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2.5rem;
+        color: var(--accent-gold);
+        letter-spacing: 5px;
+        font-weight: bold;
+    }
+
+    .sport-name {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 3rem;
+        font-weight: 900;
+    }
+
+    .match-details {
+        font-size: 1.5rem;
+        color: #aaa;
+        margin-top: 5px;
+    }
+
+    .scoreboard-card {
+        width: 95%;
+        max-width: 1400px;
+        background: var(--panel-bg);
+        border-radius: 25px;
+        padding: 30px;
+        margin-bottom: 3vh;
+        text-align: center;
+        font-size: 1.8rem;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .status-badge {
+        font-family: 'Orbitron', sans-serif;
+        padding: 8px 30px;
+        border-radius: 50px;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .live {
+        background: var(--accent-red);
+        animation: pulse 1.5s infinite;
+    }
+
+    .final {
+        background: #00C853;
+    }
+
+    .category-badge {
+        display: inline-block;
+        margin-left: 15px;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .category-team {
+        background: var(--accent-blue);
+        color: white;
+    }
+
+    .category-mixed {
+        background: var(--accent-purple);
+        color: white;
+    }
+
+    .category-individual {
+        background: var(--accent-green);
+        color: white;
+    }
+
+    .results-table {
+        width: 95%;
+        max-width: 1400px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 15px;
+        padding: 20px;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: 0.7
+        }
+    }
+
+    .back-button {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid #333;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+        .back-button:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+    .mixed-indicator {
+        background: linear-gradient(45deg, #FFD700 0%, #9C27B0 50%, #00B0FF 100%);
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        margin-left: 8px;
+        font-weight: bold;
+    }
+
+    .team-indicator {
+        background: var(--accent-blue);
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        margin-left: 8px;
+        font-weight: bold;
+    }
+
+    .individual-indicator {
+        background: var(--accent-green);
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        margin-left: 8px;
+        font-weight: bold;
+    }
+
+    /* Gold, Silver, Bronze highlighting */
+    .gold-row {
+        background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05)) !important;
+        border-left: 4px solid var(--accent-gold) !important;
+    }
+
+    .silver-row {
+        background: linear-gradient(90deg, rgba(192, 192, 192, 0.15), rgba(192, 192, 192, 0.05)) !important;
+        border-left: 4px solid #C0C0C0 !important;
+    }
+
+    .bronze-row {
+        background: linear-gradient(90deg, rgba(205, 127, 50, 0.15), rgba(205, 127, 50, 0.05)) !important;
+        border-left: 4px solid #CD7F32 !important;
+    }
+
+    .medal-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+
+    .gold-badge {
+        background: var(--accent-gold);
+        color: #000;
+    }
+
+    .silver-badge {
+        background: #C0C0C0;
+        color: #000;
+    }
+
+    .bronze-badge {
+        background: #CD7F32;
+        color: white;
+    }
+
+    /* Field Events specific styling */
+    .attempt-cell {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: bold;
+        text-align: center;
+        font-size: 1.1rem;
+    }
+
+    .best-result-cell {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: bold;
+        text-align: center;
+        font-size: 1.3rem;
+        color: var(--accent-gold);
+    }
+
+    .region-flag {
+        width: 30px;
+        height: 30px;
+        margin-right: 10px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: rgba(255,255,255,0.1);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .region-flag img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+    /* Separator dot */
+    .separator-dot {
+        color: #666;
+        font-size: 1.5rem;
+    }
+</style>
+
+<div class="tv-screen">
+    <button class="back-button" onclick="history.back()">← Back</button>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate Color="Color.Warning" Size="Size.Large" />
+    }
+    else if (_event == null)
+    {
+        <MudText Typo="Typo.h4" Color="Color.Error">EVENT NOT FOUND</MudText>
+    }
+    else
+    {
+        <div class="tournament-header">
+            <div class="palaro-branding">PALARONG PAMBANSA 2026</div>
+            <div class="sport-name">@_event.Subcategory</div>
+            <div class="match-details">
+                @if (_event.IsFinished == true)
+                {
+                    <div class="status-badge final">FINAL</div> 
+                }
+                else
+                {
+                    <div class="status-badge live">LIVE</div>
+                }
+            </div>
+        </div>
+
+        <div class="scoreboard-card">
+            @_event.Sport
+            <span class="separator-dot">•</span>
+            @_event.Level
+            <span class="separator-dot">•</span>
+            @_event.Gender
+            <span class="separator-dot">•</span>
+            @_event.Subcategory
+            @if (!string.IsNullOrEmpty(_event.Subcategory))
+            {
+                var categoryType = GetCategoryType(_event.Subcategory);
+                <span class="category-badge @GetCategoryClass(categoryType)">
+                    @categoryType
+                </span>
+            }
+        </div>
+
+        @if (_scoringRows.Any())
+        {
+            <div class="results-table">
+                <MudTable Items="_scoringRows.OrderBy(r => r.Rank).ThenByDescending(r => r.BestResult).ToList()"
+                          Dense Hover>
+                    <HeaderContent>
+                        <MudTh style=" font-size: 1.3rem;">Rank</MudTh>
+                        <MudTh style="  font-size: 1.3rem;">Athlete</MudTh>
+                        <MudTh style="  font-size: 1.3rem;">Region</MudTh>
+                        <MudTh style="text-align:center;  font-size: 1.3rem;">Attempt 1</MudTh>
+                        <MudTh style="text-align:center;  font-size: 1.3rem;">Attempt 2</MudTh>
+                        <MudTh style="text-align:center; font-size: 1.3rem;">Attempt 3</MudTh>
+                        <MudTh style="text-align:center; font-size: 1.3rem;">Best Result</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd>
+                            @if (context.Rank > 0)
+                            {
+                                <span style="font-family: Orbitron; font-weight:bold; color:white; font-size: 1.3rem;">
+                                    #@context.Rank
+                                </span>
+                            }
+                            else
+                            {
+                                <span style="color: #666;">-</span>
+                            }
+                        </MudTd>
+                        <MudTd>
+                            <div style="font-weight: bold; font-size: 1.3rem;">@context.PlayerName</div>
+
+                        </MudTd>
+                        <MudTd>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <div class="region-flag">
+                                    <MudImage Src="@GetRegionLogo(context.RegionName)"
+                                              ObjectFit="ObjectFit.Contain"
+                                              Alt="@context.RegionName"
+                                              Style="width:100%; height:100%;" />
+                                </div>
+                                <div style="font-weight:bold; font-size:1.3rem;">
+                                    @context.RegionName
+                                </div>
+                            </div>
+                        </MudTd>
+                        <MudTd class="attempt-cell">
+                            @(context.AttemptResults[0].HasValue ? context.AttemptResults[0].Value.ToString("F2") : "-")
+                        </MudTd>
+                        <MudTd class="attempt-cell">
+                            @(context.AttemptResults[1].HasValue ? context.AttemptResults[1].Value.ToString("F2") : "-")
+                        </MudTd>
+                        <MudTd class="attempt-cell">
+                            @(context.AttemptResults[2].HasValue ? context.AttemptResults[2].Value.ToString("F2") : "-")
+                        </MudTd>
+                        <MudTd style="font-family: Orbitron; font-weight:bold; color: var(--accent-gold); text-align:center; font-size: 1.3rem;">
+                            @if (context.BestResult > 0)
+                            {
+                                @context.BestResult.ToString("F2")
+                            }
+                            else
+                            {
+                                <text>-</text>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string EventID { get; set; } = "";
+
+    /* ===================== MODELS ===================== */
+
+    public class EventInfo
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Level { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public int? RegionID { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+        public bool? IsFinished { get; set; }
+    }
+
+    public class ScoringRow
+    {
+        public int RegionID { get; set; }
+        public string RegionName { get; set; } = "";
+        public string? PlayerID { get; set; }
+        public string PlayerName { get; set; } = "";
+        public decimal?[] AttemptResults { get; set; } = new decimal?[3];
+        public decimal BestResult { get; set; }
+        public int Rank { get; set; }
+    }
+
+    public class SchoolRegions
+    {
+        public int ID { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
+    public class FieldEventResult
+    {
+        public int RegionID { get; set; }
+        public int AttemptNo { get; set; }
+        public decimal Result { get; set; }
+        public int? Rank { get; set; }
+    }
+
+    /* ===================== STATE ===================== */
+
+    private EventInfo? _event;
+    private List<ScoringRow> _scoringRows = new();
+    private List<SchoolRegions>? _allRegions;
+    private bool _isLoading = true;
+    private Timer? _refreshTimer;
+
+    /* ===================== INIT ===================== */
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        // Auto-refresh every 2 seconds for live updates
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 2000, 2000);
+    }
+
+    /* ===================== GET DATA ===================== */
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // Load regions
+            _allRegions = await apiService.GetAsync<SchoolRegions>("/Schools/Regions");
+
+            // Load event details
+            var events = await apiService.GetAsync<EventInfo>(
+                $"FieldEvents/Sports/AthleticsFieldEvents?eventID={EventID}");
+
+            if (events != null && events.Any())
+            {
+                _event = events.First();
+                PopulateScoringRows(events);
+                await LoadSavedResults();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading event: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetRegionLogo(string regionName)
+    {
+        if (string.IsNullOrWhiteSpace(regionName))
+            return "/images/region-placeholder.png";
+        
+        // FIX: Don't encode the region name - use it as-is to match the client page
+        // If the abbreviation doesn't match the actual region name in the files,
+        // we need to find the actual region name from the abbreviation
+        var region = _allRegions?.FirstOrDefault(r => 
+            r.Abbreviation?.Equals(regionName, StringComparison.OrdinalIgnoreCase) == true ||
+            r.Region?.Equals(regionName, StringComparison.OrdinalIgnoreCase) == true);
+        
+        // Try to get the actual region name (not abbreviation) for the logo
+        var actualRegionName = region?.Region ?? regionName;
+        
+        // Clean up the region name to match file naming conventions
+        // Remove any special characters, keep only alphanumeric and spaces
+        var cleanRegionName = CleanRegionName(actualRegionName);
+        
+        return $"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{cleanRegionName}.webp";
+    }
+    
+    private string CleanRegionName(string regionName)
+    {
+        if (string.IsNullOrWhiteSpace(regionName))
+            return string.Empty;
+            
+        // Remove any characters that might cause issues in URLs
+        // Keep letters, numbers, spaces, and common punctuation
+        return regionName.Trim();
+    }
+
+    private void PopulateScoringRows(List<EventInfo> events)
+    {
+        var regionMap = new Dictionary<int, ScoringRow>();
+
+        foreach (var e in events)
+        {
+            if (!e.RegionID.HasValue) continue;
+
+            var region = _allRegions?.FirstOrDefault(r => r.ID == e.RegionID);
+            if (region == null) continue;
+
+            if (!regionMap.ContainsKey(region.ID))
+            {
+                regionMap[region.ID] = new ScoringRow
+                {
+                    RegionID = region.ID,
+                    RegionName = region.Abbreviation ?? region.Region ?? "Unknown",
+                    PlayerID = e.PlayerID,
+                    PlayerName = e.PlayerName ?? ""
+                };
+            }
+        }
+
+        _scoringRows = regionMap.Values.ToList();
+    }
+
+    private async Task LoadSavedResults()
+    {
+        if (_event == null) return;
+
+        var saved = await apiService.GetAsync<FieldEventResult>(
+            $"FieldEvents/GetResults/{_event.ID}");
+
+        if (saved == null) return;
+
+        foreach (var r in _scoringRows)
+        {
+            r.AttemptResults = new decimal?[3];
+            r.BestResult = 0;
+            r.Rank = 0;
+        }
+
+        foreach (var s in saved)
+        {
+            var row = _scoringRows.FirstOrDefault(r => r.RegionID == s.RegionID);
+            if (row == null) continue;
+
+            row.AttemptResults[s.AttemptNo - 1] = s.Result;
+        }
+
+        _scoringRows.ForEach(CalculateBestResult);
+
+        // Calculate rankings based on best results
+        CalculateRankings();
+    }
+
+    private void CalculateBestResult(ScoringRow row)
+    {
+        row.BestResult = row.AttemptResults.Where(r => r.HasValue).Select(r => r!.Value).DefaultIfEmpty(0).Max();
+    }
+
+    private void CalculateRankings()
+    {
+        // Reset all ranks
+        foreach (var row in _scoringRows) row.Rank = 0;
+
+        // Only rank rows with BestResult > 0
+        var rankedRows = _scoringRows.Where(r => r.BestResult > 0)
+                                     .OrderByDescending(r => r.BestResult)
+                                     .ToList();
+
+        int currentRank = 1;
+
+        for (int i = 0; i < rankedRows.Count; i++)
+        {
+            var row = rankedRows[i];
+
+            if (i == 0)
+            {
+                // First place
+                row.Rank = 1;
+            }
+            else
+            {
+                var previousRow = rankedRows[i - 1];
+
+                if (row.BestResult == previousRow.BestResult)
+                {
+                    // Tie with previous - same rank
+                    row.Rank = previousRow.Rank;
+                }
+                else
+                {
+                    // Different score - next sequential rank
+                    row.Rank = currentRank + 1;
+                }
+            }
+
+            currentRank = row.Rank;
+        }
+
+        // Sort back ascending by rank for display
+        _scoringRows = _scoringRows.OrderBy(r => r.Rank > 0 ? r.Rank : int.MaxValue).ToList();
+    }
+
+    // Helper method to determine category type
+    private string GetCategoryType(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory))
+            return "Individual";
+
+        var subcategoryLower = subcategory.ToLower();
+
+        if (subcategoryLower.Contains("mixed"))
+            return "Mixed";
+        else if (subcategoryLower.Contains("team"))
+            return "Team";
+        else
+            return "Individual";
+    }
+
+    // Helper method to get CSS class for category badge
+    private string GetCategoryClass(string categoryType)
+    {
+        return categoryType.ToLower() switch
+        {
+            "team" => "category-team",
+            "mixed" => "category-mixed",
+            "individual" => "category-individual",
+            _ => "category-individual"
+        };
+    }
+
+    private string GetIndicatorClass(string categoryType)
+    {
+        return categoryType.ToLower() switch
+        {
+            "team" => "team-indicator",
+            "mixed" => "mixed-indicator",
+            "individual" => "individual-indicator",
+            _ => "individual-indicator"
+        };
+    }
+
+    private string GetIndicatorText(string categoryType)
+    {
+        return categoryType.ToLower() switch
+        {
+            "team" => "TEAM EVENT",
+            "mixed" => "MIXED TEAM",
+            "individual" => "INDIVIDUAL",
+            _ => "INDIVIDUAL"
+        };
+    }
+
+    private string GetRowClass(int rank)
+    {
+        return rank switch
+        {
+            1 => "gold-row",
+            2 => "silver-row",
+            3 => "bronze-row",
+            _ => ""
+        };
+    }
+
+    private string GetMedalClass(int rank)
+    {
+        return rank switch
+        {
+            1 => "gold-badge",
+            2 => "silver-badge",
+            3 => "bronze-badge",
+            _ => ""
+        };
+    }
+
+    private string GetRomanNumeral(int number)
+    {
+        return number switch
+        {
+            1 => "I",
+            2 => "II",
+            3 => "III",
+            4 => "IV",
+            5 => "V",
+            _ => number.ToString()
+        };
+    }
+
+    /* ===================== CLEANUP ===================== */
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+}

@@ -1,0 +1,1504 @@
+﻿@page "/score/martialarts/{EventID}"
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>Martial Arts | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
+
+    :root {
+        --bg-dark: #121212;
+        --panel-bg: rgba(20, 20, 25, 0.9);
+        --accent-gold: #FFD700;
+        --accent-red: #c62828;
+        --accent-blue: #00B0FF;
+        --text-white: #ffffff;
+        --accent-green: #4CAF50;
+        --accent-purple: #9C27B0;
+    }
+
+    body {
+        background-color: black;
+        overflow: hidden;
+    }
+
+    .tv-screen {
+        min-height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at center, #1e1e24 0%, #000000 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        padding: 20px;
+    }
+
+    .tournament-header {
+        text-align: center;
+        margin-bottom: 2vh;
+    }
+
+    .palaro-branding {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2.5rem;
+        color: var(--accent-gold);
+        letter-spacing: 5px;
+        font-weight: bold;
+    }
+
+    .sport-name {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 3rem;
+        font-weight: 900;
+        color: var(--text-white);
+    }
+
+    .match-details {
+        font-size: 1.5rem;
+        color: #aaa;
+        margin-top: 5px;
+    }
+
+    .scoreboard-card {
+        width: 95%;
+        max-width: 1400px;
+        background: var(--panel-bg);
+        border-radius: 25px;
+        padding: 30px;
+        margin-bottom: 3vh;
+        text-align: center;
+        font-size: 1.8rem;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .status-badge {
+        font-family: 'Orbitron', sans-serif;
+        padding: 8px 30px;
+        border-radius: 50px;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .live {
+        background: var(--accent-red);
+        animation: pulse 1.5s infinite;
+    }
+
+    .final {
+        background: #00C853;
+    }
+
+    .category-badge {
+        display: inline-block;
+        margin-left: 15px;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.2rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .category-team {
+        background: var(--accent-blue);
+        color: white;
+    }
+
+    .category-sparring {
+        background: var(--accent-red);
+        color: white;
+    }
+
+    .category-kata {
+        background: var(--accent-purple);
+        color: white;
+    }
+
+    .category-forms {
+        background: var(--accent-green);
+        color: white;
+    }
+
+    .results-table {
+        width: 95%;
+        max-width: 1400px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 15px;
+        padding: 20px;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: 0.7
+        }
+    }
+
+    .back-button {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid #333;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+        .back-button:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+    /* Match Cards Styles */
+    .match-table {
+        border-collapse: separate;
+        border-spacing: 0 10px;
+        width: 100%;
+    }
+
+        .match-table tbody tr {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .match-table td {
+            padding: 20px 15px;
+            vertical-align: middle;
+        }
+
+    /* Gold, Silver, Bronze highlighting */
+    .gold-row {
+        background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05)) !important;
+        border-left: 4px solid var(--accent-gold) !important;
+    }
+
+    .silver-row {
+        background: linear-gradient(90deg, rgba(192, 192, 192, 0.15), rgba(192, 192, 192, 0.05)) !important;
+        border-left: 4px solid #C0C0C0 !important;
+    }
+
+    .bronze-row {
+        background: linear-gradient(90deg, rgba(205, 127, 50, 0.15), rgba(205, 127, 50, 0.05)) !important;
+        border-left: 4px solid #CD7F32 !important;
+    }
+
+    .medal-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+
+    .gold-badge {
+        background: var(--accent-gold);
+        color: #000;
+    }
+
+    .silver-badge {
+        background: #C0C0C0;
+        color: #000;
+    }
+
+    .bronze-badge {
+        background: #CD7F32;
+        color: white;
+    }
+
+    /* Match Pairings Styles */
+    .pairings-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+        gap: 20px;
+        width: 95%;
+        max-width: 1400px;
+    }
+
+    .pairing-card {
+        background: var(--panel-bg);
+        border-radius: 20px;
+        padding: 25px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .pairing-header {
+        text-align: center;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.2rem;
+        color: var(--accent-gold);
+    }
+
+    .match-vs-match {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 30px;
+    }
+
+    .competitor-display {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 15px;
+        border-radius: 15px;
+        background: rgba(255,255,255,0.05);
+    }
+
+    .vs-separator {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.5rem;
+        color: var(--accent-red);
+        font-weight: bold;
+    }
+
+    .competitor-score {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--accent-gold);
+        margin-top: 10px;
+    }
+
+    .competitor-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .competitor-logo {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: rgba(255,255,255,0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .competitor-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+    .competitor-name {
+        font-weight: bold;
+        font-size: 1.2rem;
+        text-align: center;
+    }
+
+    .pairing-status {
+        text-align: center;
+        margin-top: 10px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 0.9rem;
+        color: #aaa;
+    }
+
+    .winning-competitor {
+        background: rgba(76, 175, 80, 0.1);
+        border: 2px solid var(--accent-green);
+    }
+
+    .losing-competitor {
+        background: rgba(255, 23, 68, 0.1);
+        border: 2px solid var(--accent-red);
+    }
+
+    .pairing-result {
+        text-align: center;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1rem;
+        margin-top: 10px;
+        padding: 8px 15px;
+        border-radius: 10px;
+        background: rgba(255, 215, 0, 0.1);
+        color: var(--accent-gold);
+    }
+
+    .separator-dot {
+        color: var(--accent-gold);
+        font-weight: bold;
+        margin: 0 10px;
+    }
+
+    .gender-badge {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: bold;
+        margin-left: 5px;
+    }
+
+    .male-badge {
+        background: var(--accent-blue);
+        color: white;
+    }
+
+    .female-badge {
+        background: var(--accent-purple);
+        color: white;
+    }
+
+    /* Sets display */
+    .sets-container {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .set-indicator {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+
+    .set-won {
+        background: var(--accent-green);
+        color: white;
+    }
+
+    .set-lost {
+        background: var(--accent-red);
+        color: white;
+    }
+
+    .set-pending {
+        background: rgba(255,255,255,0.1);
+        color: #aaa;
+    }
+
+    /* Match status indicators */
+    .match-status {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .status-active {
+        background: rgba(255, 193, 7, 0.2);
+        color: #ffd54f;
+    }
+
+    .status-completed {
+        background: rgba(76, 175, 80, 0.2);
+        color: #81c784;
+    }
+
+    .status-pending {
+        background: rgba(158, 158, 158, 0.2);
+        color: #bdbdbd;
+    }
+
+    /* Region logo */
+    .region-logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: rgba(255,255,255,0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 10px;
+    }
+
+        .region-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+</style>
+
+<div class="tv-screen">
+    <button class="back-button" onclick="history.back()">← Back</button>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate Color="Color.Warning" Size="Size.Large" />
+    }
+    else if (_event == null)
+    {
+        <MudText Typo="Typo.h4" Color="Color.Error">EVENT NOT FOUND</MudText>
+    }
+    else
+    {
+        <div class="tournament-header">
+            <div class="palaro-branding">PALARONG PAMBANSA 2026</div>
+            <div class="sport-name">@_event.Subcategory</div>
+            <div class="match-details">
+                @if (_event.IsFinished == true)
+                {
+                    <div class="status-badge final">FINAL</div>
+                }
+                else
+                {
+                    <div class="status-badge live">LIVE</div>
+                }
+            </div>
+        </div>
+
+        <div class="scoreboard-card">
+            @_event.Sport
+            <span class="separator-dot">•</span>
+            @_event.Level
+            <span class="separator-dot">•</span>
+            @_event.Gender
+            <span class="separator-dot">•</span>
+            @_event.Subcategory
+            @if (!string.IsNullOrEmpty(_event.Subcategory))
+            {
+                <span class="category-badge @GetCategoryClass(_event.Subcategory)">
+                    @GetCategoryType(_event.Subcategory)
+                </span>
+            }
+            <span class="separator-dot">•</span>
+            @GetFormatDisplay(_event.Sport)
+        </div>
+
+        @if (IsTeamEvent)
+        {
+            <!-- TEAM TOURNAMENT BRACKET VIEW -->
+            <div class="pairings-container">
+                @foreach (var match in GetActiveMatches())
+                {
+                    var redCompetitor = GetCompetitorAssignedToMatch(match.Id, "RegionA");
+                    var blueCompetitor = GetCompetitorAssignedToMatch(match.Id, "RegionB");
+                    var matchWinner = GetMatchWinner(match.Id);
+                    var redSets = GetTotalSetsWon(match.Id, "RegionA");
+                    var blueSets = GetTotalSetsWon(match.Id, "RegionB");
+
+                    <div class="pairing-card">
+                        <div class="pairing-header">
+                            @if (!string.IsNullOrEmpty(_event.EventStage))
+                            {
+                                <text>@_event.EventStage</text>
+                            }
+                            else
+                            {
+                                <text>MATCH @match.Id</text>
+                            }
+                            <div class="match-status @GetMatchStatusClass(match.Id)">
+                                @GetMatchStatus(match.Id)
+                            </div>
+                        </div>
+
+                        <div class="match-vs-match">
+                            <!-- Red Competitor -->
+                            <div class="competitor-display @(matchWinner == redCompetitor?.Name ? "winning-competitor" : matchWinner == blueCompetitor?.Name ? "losing-competitor" : "")">
+                                <div class="competitor-logo">
+                                    <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{redCompetitor?.Name.ToUpper()}.webp")"
+                                         onerror="this.style.display='none'" />
+                                </div>
+                                <div class="competitor-info">
+                                    <div class="competitor-name">
+                                        @if (redCompetitor != null)
+                                        {
+                                            @redCompetitor.Name
+                                            @if (!string.IsNullOrEmpty(redCompetitor.PlayerName))
+                                            {
+                                                <div style="font-size: 0.8rem; color: #ccc; margin-top: 2px;">
+                                                    @redCompetitor.PlayerName
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <text>TBD</text>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="competitor-score">@redSets</div>
+                                
+                                @if (redCompetitor != null && blueCompetitor != null)
+                                {
+                                    <div class="sets-container">
+                                        @for (int i = 1; i <= 5; i++)
+                                        {
+                                            var setResult = GetSetResult(match.Id, i);
+                                            <div class="set-indicator @(setResult == "RegionA" ? "set-won" : setResult == "RegionB" ? "set-lost" : "set-pending")">
+                                                @if (setResult == "RegionA")
+                                                {
+                                                    <text>W</text>
+                                                }
+                                                else if (setResult == "RegionB")
+                                                {
+                                                    <text>L</text>
+                                                }
+                                                else
+                                                {
+                                                    <text>@i</text>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="vs-separator">VS</div>
+
+                            <!-- Blue Competitor -->
+                            <div class="competitor-display @(matchWinner == blueCompetitor?.Name ? "winning-competitor" : matchWinner == redCompetitor?.Name ? "losing-competitor" : "")">
+                                <div class="competitor-logo">
+                                    <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{blueCompetitor?.Name.ToUpper()}.webp")"
+                                         onerror="this.style.display='none'" />
+                                </div>
+                                <div class="competitor-info">
+                                    <div class="competitor-name">
+                                        @if (blueCompetitor != null)
+                                        {
+                                            @blueCompetitor.Name
+                                            @if (!string.IsNullOrEmpty(blueCompetitor.PlayerName))
+                                            {
+                                                <div style="font-size: 0.8rem; color: #ccc; margin-top: 2px;">
+                                                    @blueCompetitor.PlayerName
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <text>TBD</text>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="competitor-score">@blueSets</div>
+                                
+                                @if (redCompetitor != null && blueCompetitor != null)
+                                {
+                                    <div class="sets-container">
+                                        @for (int i = 1; i <= 5; i++)
+                                        {
+                                            var setResult = GetSetResult(match.Id, i);
+                                            <div class="set-indicator @(setResult == "RegionB" ? "set-won" : setResult == "RegionA" ? "set-lost" : "set-pending")">
+                                                @if (setResult == "RegionB")
+                                                {
+                                                    <text>W</text>
+                                                }
+                                                else if (setResult == "RegionA")
+                                                {
+                                                    <text>L</text>
+                                                }
+                                                else
+                                                {
+                                                    <text>@i</text>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        @if (redCompetitor != null && blueCompetitor != null && matchWinner != null)
+                        {
+                            <div class="pairing-result">
+                                @matchWinner WINS
+                            </div>
+                        }
+
+                        <div class="pairing-status">
+                            @if (_event.IsFinished == true)
+                            {
+                                <text>FINAL</text>
+                            }
+                            else if (redCompetitor != null && blueCompetitor != null)
+                            {
+                                <text>LIVE • Set @GetCurrentSet(match.Id)</text>
+                            }
+                            else
+                            {
+                                <text>PENDING</text>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- STANDINGS TABLE FOR TEAM EVENTS -->
+            <div class="results-table">
+                <MudTable Items="_standings
+                                  .OrderBy(r => r.Rank == 0)
+                                  .ThenBy(r => r.Rank)
+                                  .ThenByDescending(r => r.WinRate)
+                                  .ThenByDescending(r => r.MatchesWon)
+                                  .ToList()"
+                          Dense Hover Class="match-table">
+
+                    <HeaderContent>
+                        <MudTh>Rank</MudTh>
+                        <MudTh>Team</MudTh>
+                        <MudTh>Player</MudTh>
+                        <MudTh style="text-align:center;">Matches</MudTh>
+                        <MudTh style="text-align:center;">Sets</MudTh>
+                        <MudTh style="text-align:center;">Win Rate</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        @{
+                            var standing = context;
+                        }
+                        <MudTd>
+                            @if (standing.Rank > 0)
+                            {
+                                <div style="display: flex; align-items: center;">
+                                    @if (standing.Rank == 1)
+                                    {
+                                        <div class="medal-badge gold-badge">1</div>
+                                    }
+                                    else if (standing.Rank == 2)
+                                    {
+                                        <div class="medal-badge silver-badge">2</div>
+                                    }
+                                    else if (standing.Rank == 3)
+                                    {
+                                        <div class="medal-badge bronze-badge">3</div>
+                                    }
+                                    else
+                                    {
+                                        <span style="font-family: Orbitron; font-weight:bold; color:white; font-size: 1.2rem;">
+                                            #@standing.Rank
+                                        </span>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <span style="color: #666;">-</span>
+                            }
+                        </MudTd>
+                        <MudTd>
+                            <div style="display: flex; align-items: center;">
+                                <div class="region-logo">
+                                    <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{standing.RegionName.ToUpper()}.webp")"
+                                         style="width: 100%; height: 100%; object-fit: contain;"
+                                         onerror="this.style.display='none'" />
+                                </div>
+                                <div>
+                                    <div style="font-weight: bold; font-size: 1.1rem;">@standing.RegionName</div>
+                                </div>
+                            </div>
+                        </MudTd>
+                        <MudTd>@(standing.PlayerName ?? "Team")</MudTd>
+                        <MudTd style="text-align:center; font-family: Orbitron;">
+                            <span style="color: #81c784; font-weight:bold;">@standing.MatchesWon</span>
+                            <span style="color: #aaa;">/</span>
+                            <span style="color: #ef5350; font-weight:bold;">@standing.MatchesLost</span>
+                        </MudTd>
+                        <MudTd style="text-align:center; font-family: Orbitron;">
+                            <span style="color: #81c784;">@standing.SetsWon</span>
+                            <span style="color: #aaa;">/</span>
+                            <span style="color: #ef5350;">@standing.SetsLost</span>
+                        </MudTd>
+                        <MudTd style="text-align:center;">
+                            @standing.WinRate.ToString("P0")
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </div>
+        }
+        else
+        {
+            <!-- INDIVIDUAL EVENT STANDINGS VIEW -->
+            <div class="results-table">
+                <MudTable Items="_standings
+                                  .OrderBy(r => r.Rank == 0)
+                                  .ThenBy(r => r.Rank)
+                                  .ThenByDescending(r => r.WinRate)
+                                  .ThenByDescending(r => r.MatchesWon)
+                                  .ToList()"
+                          Dense Hover Class="match-table">
+
+                    <HeaderContent>
+                        <MudTh>Rank</MudTh>
+                        <MudTh>Athlete</MudTh>
+                        <MudTh>Region</MudTh>
+                        <MudTh style="text-align:center;">Matches</MudTh>
+                        <MudTh style="text-align:center;">Sets</MudTh>
+                        <MudTh style="text-align:center;">Win Rate</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        @{
+                            var standing = context;
+                        }
+                        <MudTd>
+                            @if (standing.Rank > 0)
+                            {
+                                <div style="display: flex; align-items: center;">
+                                    @if (standing.Rank == 1)
+                                    {
+                                        <div class="medal-badge gold-badge">1</div>
+                                    }
+                                    else if (standing.Rank == 2)
+                                    {
+                                        <div class="medal-badge silver-badge">2</div>
+                                    }
+                                    else if (standing.Rank == 3)
+                                    {
+                                        <div class="medal-badge bronze-badge">3</div>
+                                    }
+                                    else
+                                    {
+                                        <span style="font-family: Orbitron; font-weight:bold; color:white; font-size: 1.2rem;">
+                                            #@standing.Rank
+                                        </span>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <span style="color: #666;">-</span>
+                            }
+                        </MudTd>
+                        <MudTd>
+                            <div style="font-weight: bold; font-size: 1.1rem;">@standing.PlayerName</div>
+                        </MudTd>
+                        <MudTd>
+                            <div style="display: flex; align-items: center;">
+                                <div class="region-logo">
+                                    <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{standing.RegionName.ToUpper()}.webp")"
+                                         style="width: 100%; height: 100%; object-fit: contain;"
+                                         onerror="this.style.display='none'" />
+                                </div>
+                                <div style="font-weight: bold;">@standing.RegionName</div>
+                            </div>
+                        </MudTd>
+                        <MudTd style="text-align:center; font-family: Orbitron;">
+                            <span style="color: #81c784; font-weight:bold;">@standing.MatchesWon</span>
+                            <span style="color: #aaa;">/</span>
+                            <span style="color: #ef5350; font-weight:bold;">@standing.MatchesLost</span>
+                        </MudTd>
+                        <MudTd style="text-align:center; font-family: Orbitron;">
+                            <span style="color: #81c784;">@standing.SetsWon</span>
+                            <span style="color: #aaa;">/</span>
+                            <span style="color: #ef5350;">@standing.SetsLost</span>
+                        </MudTd>
+                        <MudTd style="font-family: Orbitron; font-weight:bold; color: var(--accent-gold); text-align:center;">
+                            @standing.WinRate.ToString("P0")
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </div>
+        }
+
+        <!-- FORMAT INFO -->
+        <div style="margin-top: 20px; color: #888; font-size: 0.9rem; text-align: center;">
+            @GetFormatInfo(_event.Sport, _event.Subcategory)
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string EventID { get; set; } = "";
+
+    public class EventInfo
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Level { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public string? SportMainCat { get; set; }
+        public bool? IsFinished { get; set; }
+        public int? RegionID { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+    }
+
+    public class CompetitorItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string AssignedMatch { get; set; } = "Unassigned";
+        public string? PlayerName { get; set; }
+        public string MatchPosition { get; set; } = "";
+        public int GameNo { get; set; } = 1;
+    }
+
+    public class MatchCard
+    {
+        public int Id { get; set; }
+        public int GameNo { get; set; }
+        public string RegionA { get; set; } = "";
+        public string RegionB { get; set; } = "";
+        public int CurrentSet { get; set; } = 1;
+        public int MaxSet { get; set; } = 1;
+    }
+
+    public class RegionStanding
+    {
+        public string RegionName { get; set; } = "";
+        public int RegionId { get; set; }
+        public string? PlayerName { get; set; }
+        public int MatchesWon { get; set; }
+        public int MatchesLost { get; set; }
+        public int SetsWon { get; set; }
+        public int SetsLost { get; set; }
+        public decimal WinRate { get; set; }
+        public int Rank { get; set; }
+    }
+
+    public class MartialArtsScoringDTO
+    {
+        public int ID { get; set; }
+        public string? EventID { get; set; }
+        public int? EventVersusID { get; set; }
+        public int RegionID { get; set; }
+        public int GameNo { get; set; }
+        public int MatchId { get; set; }
+        public string? MatchPosition { get; set; }
+        public int SetNo { get; set; }
+        public string? Result { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Gender { get; set; }
+        public string? Level { get; set; }
+        public string? EventStage { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+    }
+
+    private EventInfo? _event;
+    private List<CompetitorItem>? _allCompetitors;
+    private List<MatchCard> _matchCards = new();
+    private List<RegionStanding> _standings = new();
+    private bool _isLoading = true;
+    private Timer? _refreshTimer;
+
+    private int? _selectedGameNo = 1;
+    private List<int> _availableGameNos = new List<int> { 1 };
+
+    private Dictionary<int, List<CompetitorItem>> _gameCompetitors = new Dictionary<int, List<CompetitorItem>>();
+    private Dictionary<int, Dictionary<string, Dictionary<int, string>>> _gameMatchSetResults = new Dictionary<int, Dictionary<string, Dictionary<int, string>>>();
+    private Dictionary<int, Dictionary<string, int>> _gameMatchCurrentSets = new Dictionary<int, Dictionary<string, int>>();
+    private Dictionary<int, List<int>> _gameMatches = new Dictionary<int, List<int>>();
+    private Dictionary<int, int> _gameNextMatchId = new Dictionary<int, int>();
+
+    private Dictionary<int, (string? PlayerID, string? PlayerName)> _competitorPlayerMap = new();
+
+    private bool IsTeamEvent => !string.IsNullOrEmpty(_event?.Subcategory) && 
+                               (_event.Subcategory.ToLower().Contains("team") || 
+                                _event.Subcategory.ToLower().Contains("pair"));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 2000, 2000);
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // Load event info
+            var events = await apiService.GetAsync<EventInfo>("/MartialArtsScoring/events");
+            _event = events?.FirstOrDefault(e => e.ID == EventID);
+
+            if (_event == null) return;
+
+            // Load competitors
+            await LoadCompetitors();
+
+            // Load existing scores
+            await LoadScores();
+
+            // Calculate standings
+            CalculateStandings();
+
+            _isLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading data: {ex.Message}");
+        }
+    }
+
+    private async Task LoadCompetitors()
+    {
+        try
+        {
+            // Build query parameters from event
+            var queryParams = new List<string>();
+
+            if (!string.IsNullOrEmpty(_event?.Subcategory))
+                queryParams.Add($"subcategory={Uri.EscapeDataString(_event.Subcategory)}");
+
+            if (!string.IsNullOrEmpty(_event?.Level))
+                queryParams.Add($"level={Uri.EscapeDataString(_event.Level)}");
+
+            if (!string.IsNullOrEmpty(_event?.Gender))
+                queryParams.Add($"gender={Uri.EscapeDataString(_event.Gender)}");
+
+            if (!string.IsNullOrEmpty(_event?.EventStage))
+                queryParams.Add($"eventStage={Uri.EscapeDataString(_event.EventStage)}");
+
+            var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+            var events = await apiService.GetAsync<EventInfo>($"/MartialArtsScoring/events{queryString}");
+
+            if (events != null && events.Any())
+            {
+                _competitorPlayerMap.Clear();
+
+                _allCompetitors = events
+                    .Where(evt => !string.IsNullOrEmpty(evt.Abbreviation))
+                    .GroupBy(evt => evt.Abbreviation)
+                    .Select(group =>
+                    {
+                        var firstEvent = group.First();
+                        var competitorItem = new CompetitorItem
+                        {
+                            Id = firstEvent.RegionID ?? 0,
+                            Name = group.Key!,
+                            AssignedMatch = "Unassigned",
+                            PlayerName = firstEvent.PlayerName,
+                            MatchPosition = "",
+                            GameNo = 1
+                        };
+
+                        if (firstEvent.RegionID.HasValue && !string.IsNullOrEmpty(firstEvent.PlayerID))
+                        {
+                            _competitorPlayerMap[firstEvent.RegionID.Value] = (firstEvent.PlayerID, firstEvent.PlayerName);
+                        }
+
+                        return competitorItem;
+                    })
+                    .ToList();
+
+                // Initialize game structure
+                InitializeGame(1);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading competitors: {ex.Message}");
+        }
+    }
+
+    private async Task LoadScores()
+    {
+        try
+        {
+            if (_event == null) return;
+
+            var existingAssignments = await apiService.GetAsync<MartialArtsScoringDTO>($"/MartialArtsScoring/event/{_event.ID}");
+
+            if (existingAssignments != null && existingAssignments.Any())
+            {
+                var allGameNos = existingAssignments.Select(a => a.GameNo).Distinct().ToList();
+                _availableGameNos = allGameNos.Any() ? allGameNos : new List<int> { 1 };
+                _availableGameNos.Sort();
+                _selectedGameNo = _availableGameNos.First();
+
+                foreach (var gameNo in _availableGameNos)
+                {
+                    await InitializeGameFromDatabase(gameNo, existingAssignments);
+                }
+            }
+            else
+            {
+                // Create default match cards if no existing assignments
+                for (int i = 0; i < 3; i++)
+                {
+                    AddMatchToGame(1);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading scores: {ex.Message}");
+        }
+    }
+
+    private void InitializeGame(int gameNo)
+    {
+        if (_allCompetitors != null && !_gameCompetitors.ContainsKey(gameNo))
+        {
+            _gameCompetitors[gameNo] = _allCompetitors.Select(r => new CompetitorItem
+            {
+                Id = r.Id,
+                Name = r.Name,
+                AssignedMatch = r.AssignedMatch,
+                PlayerName = r.PlayerName,
+                MatchPosition = r.MatchPosition,
+                GameNo = gameNo
+            }).ToList();
+        }
+
+        if (!_gameMatches.ContainsKey(gameNo))
+            _gameMatches[gameNo] = new List<int>();
+
+        if (!_gameNextMatchId.ContainsKey(gameNo))
+            _gameNextMatchId[gameNo] = 1;
+
+        if (!_gameMatchSetResults.ContainsKey(gameNo))
+            _gameMatchSetResults[gameNo] = new Dictionary<string, Dictionary<int, string>>();
+
+        if (!_gameMatchCurrentSets.ContainsKey(gameNo))
+            _gameMatchCurrentSets[gameNo] = new Dictionary<string, int>();
+    }
+
+    private async Task InitializeGameFromDatabase(int gameNo, IEnumerable<MartialArtsScoringDTO> existingAssignments)
+    {
+        InitializeGame(gameNo);
+
+        var matchesForGame = existingAssignments
+            .Where(a => a.GameNo == gameNo)
+            .ToList();
+
+        if (!matchesForGame.Any()) return;
+
+        var matchIds = matchesForGame.Select(a => a.MatchId).Distinct().ToList();
+        var highestMatchId = matchIds.Any() ? matchIds.Max() : 0;
+        _gameNextMatchId[gameNo] = highestMatchId + 1;
+
+        var existingMatchCards = _matchCards.Where(m => m.GameNo == gameNo).ToList();
+        foreach (var match in existingMatchCards)
+        {
+            _matchCards.Remove(match);
+        }
+        _gameMatches[gameNo].Clear();
+
+        foreach (var matchId in matchIds.OrderBy(id => id))
+        {
+            var matchCard = new MatchCard
+            {
+                Id = matchId,
+                GameNo = gameNo
+            };
+
+            _matchCards.Add(matchCard);
+            _gameMatches[gameNo].Add(matchId);
+        }
+
+        await LoadGameDataFromDatabase(gameNo, matchesForGame);
+    }
+
+    private async Task LoadGameDataFromDatabase(int gameNo, List<MartialArtsScoringDTO> assignmentsForGame)
+    {
+        if (_allCompetitors != null && _gameCompetitors.ContainsKey(gameNo))
+        {
+            _gameCompetitors[gameNo] = _allCompetitors.Select(r => new CompetitorItem
+            {
+                Id = r.Id,
+                Name = r.Name,
+                AssignedMatch = "Unassigned",
+                PlayerName = r.PlayerName,
+                MatchPosition = "",
+                GameNo = gameNo
+            }).ToList();
+        }
+
+        if (_gameMatchSetResults.ContainsKey(gameNo))
+            _gameMatchSetResults[gameNo].Clear();
+
+        if (_gameMatchCurrentSets.ContainsKey(gameNo))
+            _gameMatchCurrentSets[gameNo].Clear();
+
+        foreach (var assignment in assignmentsForGame)
+        {
+            var matchId = assignment.MatchId;
+            var matchKey = $"Match{matchId}";
+
+            if (!_gameMatchSetResults[gameNo].ContainsKey(matchKey))
+                _gameMatchSetResults[gameNo][matchKey] = new Dictionary<int, string>();
+
+            if (_gameCompetitors.ContainsKey(gameNo))
+            {
+                var competitors = _gameCompetitors[gameNo];
+                var competitor = competitors.FirstOrDefault(r => r.Id == assignment.RegionID);
+                if (competitor != null)
+                {
+                    competitor.AssignedMatch = $"Match{matchId}_{assignment.MatchPosition}";
+                    competitor.MatchPosition = assignment.MatchPosition;
+
+                    if (!string.IsNullOrEmpty(assignment.PlayerName))
+                        competitor.PlayerName = assignment.PlayerName;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(assignment.Result) && assignment.Result == "W")
+            {
+                _gameMatchSetResults[gameNo][matchKey][assignment.SetNo] = assignment.MatchPosition;
+            }
+
+            if (!_gameMatchCurrentSets[gameNo].ContainsKey(matchKey) || assignment.SetNo >= _gameMatchCurrentSets[gameNo][matchKey])
+            {
+                _gameMatchCurrentSets[gameNo][matchKey] = assignment.SetNo + 1;
+            }
+        }
+    }
+
+    private List<MatchCard> GetActiveMatches()
+    {
+        if (!_selectedGameNo.HasValue || !_gameMatches.ContainsKey(_selectedGameNo.Value))
+            return new List<MatchCard>();
+
+        var matchIds = _gameMatches[_selectedGameNo.Value];
+        return _matchCards
+            .Where(m => m.GameNo == _selectedGameNo.Value && matchIds.Contains(m.Id))
+            .OrderBy(m => m.Id)
+            .ToList();
+    }
+
+    private CompetitorItem? GetCompetitorAssignedToMatch(int matchId, string position)
+    {
+        if (!_selectedGameNo.HasValue || !_gameCompetitors.ContainsKey(_selectedGameNo.Value)) 
+            return null;
+
+        var competitors = _gameCompetitors[_selectedGameNo.Value];
+        return competitors.FirstOrDefault(r => r.AssignedMatch == $"Match{matchId}_{position}");
+    }
+
+    private string? GetSetResult(int matchId, int setNo)
+    {
+        if (!_selectedGameNo.HasValue) return null;
+
+        var matchKey = $"Match{matchId}";
+        if (_gameMatchSetResults.ContainsKey(_selectedGameNo.Value) &&
+            _gameMatchSetResults[_selectedGameNo.Value].ContainsKey(matchKey) &&
+            _gameMatchSetResults[_selectedGameNo.Value][matchKey].ContainsKey(setNo))
+        {
+            return _gameMatchSetResults[_selectedGameNo.Value][matchKey][setNo];
+        }
+        return null;
+    }
+
+    private int GetTotalSetsWon(int matchId, string position)
+    {
+        var count = 0;
+        if (!_selectedGameNo.HasValue) return count;
+
+        var matchKey = $"Match{matchId}";
+        if (_gameMatchSetResults.ContainsKey(_selectedGameNo.Value) &&
+            _gameMatchSetResults[_selectedGameNo.Value].ContainsKey(matchKey))
+        {
+            count = _gameMatchSetResults[_selectedGameNo.Value][matchKey].Count(kvp => kvp.Value == position);
+        }
+        return count;
+    }
+
+    private string? GetMatchWinner(int matchId)
+    {
+        var redCompetitor = GetCompetitorAssignedToMatch(matchId, "RegionA");
+        var blueCompetitor = GetCompetitorAssignedToMatch(matchId, "RegionB");
+
+        if (redCompetitor == null || blueCompetitor == null) return null;
+        if (!_selectedGameNo.HasValue) return null;
+
+        var matchKey = $"Match{matchId}";
+        if (!_gameMatchSetResults.ContainsKey(_selectedGameNo.Value) ||
+            !_gameMatchSetResults[_selectedGameNo.Value].ContainsKey(matchKey))
+            return null;
+
+        var redWins = _gameMatchSetResults[_selectedGameNo.Value][matchKey].Count(kvp => kvp.Value == "RegionA");
+        var blueWins = _gameMatchSetResults[_selectedGameNo.Value][matchKey].Count(kvp => kvp.Value == "RegionB");
+
+        if (redWins > blueWins) return redCompetitor.Name;
+        if (blueWins > redWins) return blueCompetitor.Name;
+        return null;
+    }
+
+    private int GetCurrentSet(int matchId)
+    {
+        if (!_selectedGameNo.HasValue) return 1;
+
+        var matchKey = $"Match{matchId}";
+        if (_gameMatchCurrentSets.ContainsKey(_selectedGameNo.Value) &&
+            _gameMatchCurrentSets[_selectedGameNo.Value].ContainsKey(matchKey))
+        {
+            return _gameMatchCurrentSets[_selectedGameNo.Value][matchKey];
+        }
+        return 1;
+    }
+
+    private string GetMatchStatus(int matchId)
+    {
+        var winner = GetMatchWinner(matchId);
+        if (!string.IsNullOrEmpty(winner))
+            return "COMPLETED";
+
+        var redCompetitor = GetCompetitorAssignedToMatch(matchId, "RegionA");
+        var blueCompetitor = GetCompetitorAssignedToMatch(matchId, "RegionB");
+
+        if (redCompetitor != null && blueCompetitor != null)
+            return "IN PROGRESS";
+
+        return "PENDING";
+    }
+
+    private string GetMatchStatusClass(int matchId)
+    {
+        var status = GetMatchStatus(matchId);
+        return status.ToLower() switch
+        {
+            "completed" => "status-completed",
+            "in progress" => "status-active",
+            _ => "status-pending"
+        };
+    }
+
+    private void CalculateStandings()
+    {
+        _standings.Clear();
+
+        if (_allCompetitors == null || !_allCompetitors.Any())
+            return;
+
+        try
+        {
+            foreach (var competitor in _allCompetitors)
+            {
+                var standing = new RegionStanding
+                {
+                    RegionName = competitor.Name,
+                    RegionId = competitor.Id,
+                    PlayerName = competitor.PlayerName,
+                    Rank = 0
+                };
+
+                int matchesWon = 0;
+                int matchesLost = 0;
+                int setsWon = 0;
+                int setsLost = 0;
+
+                foreach (var gameNo in _availableGameNos)
+                {
+                    if (_gameCompetitors.ContainsKey(gameNo))
+                    {
+                        var gameCompetitor = _gameCompetitors[gameNo].FirstOrDefault(r => r.Id == competitor.Id);
+                        if (gameCompetitor != null && gameCompetitor.AssignedMatch != "Unassigned")
+                        {
+                            var matchId = GetMatchIdFromAssignedMatch(gameCompetitor.AssignedMatch);
+                            var matchKey = $"Match{matchId}";
+
+                            if (_gameMatchSetResults.ContainsKey(gameNo) &&
+                                _gameMatchSetResults[gameNo].ContainsKey(matchKey))
+                            {
+                                var position = gameCompetitor.MatchPosition;
+                                var opponentPosition = position == "RegionA" ? "RegionB" : "RegionA";
+
+                                var competitorWins = _gameMatchSetResults[gameNo][matchKey].Count(kvp => kvp.Value == position);
+                                var opponentWins = _gameMatchSetResults[gameNo][matchKey].Count(kvp => kvp.Value == opponentPosition);
+
+                                setsWon += competitorWins;
+                                setsLost += opponentWins;
+
+                                if (competitorWins > opponentWins)
+                                    matchesWon++;
+                                else if (opponentWins > competitorWins)
+                                    matchesLost++;
+                            }
+                        }
+                    }
+                }
+
+                standing.MatchesWon = matchesWon;
+                standing.MatchesLost = matchesLost;
+                standing.SetsWon = setsWon;
+                standing.SetsLost = setsLost;
+                standing.WinRate = (matchesWon + matchesLost) > 0 ?
+                    (decimal)matchesWon / (matchesWon + matchesLost) : 0;
+
+                _standings.Add(standing);
+            }
+
+            // Rank standings
+            var rankedStandings = _standings
+                .OrderByDescending(s => s.MatchesWon)
+                .ThenByDescending(s => s.SetsWon)
+                .ThenBy(s => s.SetsLost)
+                .ThenByDescending(s => s.WinRate)
+                .ToList();
+
+            for (int i = 0; i < rankedStandings.Count; i++)
+            {
+                if (i > 0 && rankedStandings[i].MatchesWon == rankedStandings[i - 1].MatchesWon &&
+                    rankedStandings[i].SetsWon == rankedStandings[i - 1].SetsWon &&
+                    rankedStandings[i].SetsLost == rankedStandings[i - 1].SetsLost)
+                {
+                    rankedStandings[i].Rank = rankedStandings[i - 1].Rank;
+                }
+                else
+                {
+                    rankedStandings[i].Rank = i + 1;
+                }
+            }
+
+            _standings = rankedStandings;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error calculating standings: {ex.Message}");
+        }
+    }
+
+    private int GetMatchIdFromAssignedMatch(string assignedMatch)
+    {
+        if (assignedMatch.StartsWith("Match") && assignedMatch.Contains("_"))
+        {
+            var parts = assignedMatch.Split('_');
+            var matchPart = parts[0];
+            return int.Parse(matchPart.Replace("Match", ""));
+        }
+        return 0;
+    }
+
+    /* ===================== HELPER METHODS ===================== */
+
+    private string GetCategoryType(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory))
+            return "Sparring";
+
+        var s = subcategory.ToLower();
+        if (s.Contains("team")) return "Team";
+        if (s.Contains("individual")) return "Individual";
+        if (s.Contains("kata")) return "Kata";
+        if (s.Contains("form")) return "Forms";
+        if (s.Contains("sparring")) return "Sparring";
+        return "Match";
+    }
+
+    private string GetCategoryClass(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory))
+            return "category-sparring";
+
+        var s = subcategory.ToLower();
+        if (s.Contains("team")) return "category-team";
+        if (s.Contains("individual")) return "category-sparring";
+        if (s.Contains("kata")) return "category-kata";
+        if (s.Contains("form")) return "category-forms";
+        return "category-sparring";
+    }
+
+    private string GetFormatDisplay(string? sport)
+    {
+        if (string.IsNullOrEmpty(sport))
+            return "Tournament Format";
+
+        var s = sport.ToLower();
+        if (s.Contains("taekwondo")) return "Point Sparring";
+        if (s.Contains("judo") || s.Contains("wrestling")) return "Submission";
+        if (s.Contains("boxing")) return "Rounds";
+        if (s.Contains("wushu") || s.Contains("kung")) return "Forms/Sparring";
+        if (s.Contains("arnis") || s.Contains("silat")) return "Point System";
+        return "Tournament";
+    }
+
+    private string GetFormatInfo(string? sport, string? subcategory)
+    {
+        if (string.IsNullOrEmpty(sport))
+            return "Martial Arts Competition";
+
+        var sportLower = sport.ToLower();
+        var subcategoryLower = subcategory?.ToLower() ?? "";
+
+        if (sportLower.Contains("taekwondo"))
+        {
+            if (subcategoryLower.Contains("team"))
+                return "Team Sparring • 3 Rounds per Match • Best of 5 Sets";
+            return "Individual Sparring • 3 Rounds per Match • Best of 5 Sets";
+        }
+        else if (sportLower.Contains("judo") || sportLower.Contains("wrestling"))
+        {
+            return "Submission/Pin Format • Single Elimination";
+        }
+        else if (sportLower.Contains("boxing"))
+        {
+            return "3 Rounds • Points/Technical Knockout";
+        }
+        else if (sportLower.Contains("wushu") || sportLower.Contains("kung"))
+        {
+            if (subcategoryLower.Contains("form"))
+                return "Forms Competition • Judged Scoring";
+            return "Sparring • Point System";
+        }
+        else if (sportLower.Contains("arnis") || sportLower.Contains("silat"))
+        {
+            return "Point System • Best of 3 Sets";
+        }
+        
+        return "Martial Arts Tournament";
+    }
+
+    /* ===================== MATCH MANAGEMENT ===================== */
+
+    private void AddMatchToGame(int gameNo)
+    {
+        if (!_gameMatches.ContainsKey(gameNo))
+            _gameMatches[gameNo] = new List<int>();
+
+        if (!_gameNextMatchId.ContainsKey(gameNo))
+            _gameNextMatchId[gameNo] = 1;
+
+        var matchId = _gameNextMatchId[gameNo]++;
+        var matchCard = new MatchCard
+        {
+            Id = matchId,
+            GameNo = gameNo
+        };
+
+        _matchCards.Add(matchCard);
+        _gameMatches[gameNo].Add(matchId);
+    }
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+}

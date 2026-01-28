@@ -1,0 +1,1155 @@
+﻿@page "/scoreboard/archery/{EventID}"
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>Archery Scoring | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
+
+    :root {
+        --bg-dark: #121212;
+        --panel-bg: rgba(20, 20, 25, 0.9);
+        --accent-gold: #FFD700;
+        --accent-blue: #00B0FF;
+        --accent-red: #FF1744;
+        --text-white: #ffffff;
+        --accent-green: #4CAF50;
+        --accent-purple: #9C27B0;
+    }
+
+    body {
+        background-color: black;
+        overflow: hidden;
+    }
+
+    .tv-screen {
+        min-height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at center, #1e1e24 0%, #000000 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        padding: 20px;
+    }
+
+    .tournament-header {
+        text-align: center;
+        margin-bottom: 2vh;
+    }
+
+    .palaro-branding {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2.5rem;
+        color: var(--accent-gold);
+        letter-spacing: 5px;
+        font-weight: bold;
+    }
+
+    .sport-name {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 3rem;
+        font-weight: 900;
+    }
+
+    .match-details {
+        font-size: 1.5rem;
+        color: #aaa;
+        margin-top: 5px;
+    }
+
+    .scoreboard-card {
+        width: 95%;
+        max-width: 1400px;
+        background: var(--panel-bg);
+        border-radius: 25px;
+        padding: 30px;
+        margin-bottom: 3vh;
+        text-align: center;
+        font-size: 1.8rem;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .status-badge {
+        font-family: 'Orbitron', sans-serif;
+        padding: 8px 30px;
+        border-radius: 50px;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .live {
+        background: var(--accent-red);
+        animation: pulse 1.5s infinite;
+    }
+
+    .final {
+        background: #00C853;
+    }
+
+    .category-badge {
+        display: inline-block;
+        margin-left: 15px;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.2rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .category-team {
+        background: var(--accent-blue);
+        color: white;
+    }
+
+    .category-mixed {
+        background: var(--accent-purple);
+        color: white;
+    }
+
+    .category-individual {
+        background: var(--accent-green);
+        color: white;
+    }
+
+    .results-table {
+        width: 95%;
+        max-width: 1400px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 15px;
+        padding: 20px;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: 0.7
+        }
+    }
+
+    .back-button {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid #333;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+        .back-button:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+    /* Different table styles for different categories */
+    .team-table {
+        border-collapse: separate;
+        border-spacing: 0 10px;
+    }
+
+        .team-table tbody tr {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .team-table td {
+            padding: 20px 15px;
+        }
+
+    .individual-table {
+        border-collapse: separate;
+        border-spacing: 0 5px;
+    }
+
+        .individual-table tbody tr {
+            background: rgba(0, 176, 255, 0.1);
+            border-left: 4px solid var(--accent-blue);
+        }
+
+            .individual-table tbody tr:nth-child(even) {
+                background: rgba(255, 255, 255, 0.03);
+            }
+
+    /* Gold, Silver, Bronze highlighting */
+    .gold-row {
+        background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05)) !important;
+        border-left: 4px solid var(--accent-gold) !important;
+    }
+
+    .silver-row {
+        background: linear-gradient(90deg, rgba(192, 192, 192, 0.15), rgba(192, 192, 192, 0.05)) !important;
+        border-left: 4px solid #C0C0C0 !important;
+    }
+
+    .bronze-row {
+        background: linear-gradient(90deg, rgba(205, 127, 50, 0.15), rgba(205, 127, 50, 0.05)) !important;
+        border-left: 4px solid #CD7F32 !important;
+    }
+
+    .medal-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+
+    .gold-badge {
+        background: var(--accent-gold);
+        color: #000;
+    }
+
+    .silver-badge {
+        background: #C0C0C0;
+        color: #000;
+    }
+
+    .bronze-badge {
+        background: #CD7F32;
+        color: white;
+    }
+
+    /* Team vs Team Pairings Styles */
+    .pairings-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+        gap: 20px;
+        width: 95%;
+        max-width: 1400px;
+    }
+
+    .pairing-card {
+        background: var(--panel-bg);
+        border-radius: 20px;
+        padding: 25px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .pairing-header {
+        text-align: center;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.2rem;
+        color: var(--accent-gold);
+    }
+
+    .team-vs-team {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 30px;
+    }
+
+    .team-display {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 15px;
+        border-radius: 15px;
+        background: rgba(255,255,255,0.05);
+    }
+
+    .vs-separator {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.5rem;
+        color: var(--accent-red);
+        font-weight: bold;
+    }
+
+    .team-score {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--accent-gold);
+        margin-top: 10px;
+    }
+
+    .team-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .team-logo {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: rgba(255,255,255,0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .team-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+    .team-name {
+        font-weight: bold;
+        font-size: 1.2rem;
+        text-align: center;
+    }
+
+    .pairing-status {
+        text-align: center;
+        margin-top: 10px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 0.9rem;
+        color: #aaa;
+    }
+
+    .winning-team {
+        background: rgba(76, 175, 80, 0.1);
+        border: 2px solid var(--accent-green);
+    }
+
+    .losing-team {
+        background: rgba(255, 23, 68, 0.1);
+        border: 2px solid var(--accent-red);
+    }
+
+    .pairing-result {
+        text-align: center;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1rem;
+        margin-top: 10px;
+        padding: 8px 15px;
+        border-radius: 10px;
+        background: rgba(255, 215, 0, 0.1);
+        color: var(--accent-gold);
+    }
+
+    .separator-dot {
+        color: var(--accent-gold);
+        font-weight: bold;
+        margin: 0 10px;
+    }
+
+    .gender-badge {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: bold;
+    }
+
+    .male-badge {
+        background: var(--accent-blue);
+        color: white;
+    }
+
+    .female-badge {
+        background: var(--accent-red);
+        color: white;
+    }
+</style>
+
+<div class="tv-screen">
+    <button class="back-button" onclick="history.back()">← Back</button>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate Color="Color.Warning" Size="Size.Large" />
+    }
+    else if (_event == null)
+    {
+        <MudText Typo="Typo.h4" Color="Color.Error">EVENT NOT FOUND</MudText>
+    }
+    else
+    {
+        <div class="tournament-header">
+            <div class="palaro-branding">PALARONG PAMBANSA 2026</div>
+            <div class="sport-name">ARCHERY</div>
+            <div class="match-details">
+                @if (_event.IsFinished == true)
+                {
+                    <div class="status-badge final">FINAL</div>
+                }
+                else
+                {
+                    <div class="status-badge live">LIVE</div>
+                }
+            </div>
+        </div>
+
+        <div class="scoreboard-card">
+            @_event.Level
+            <span class="separator-dot">•</span>
+            @_event.Gender
+            <span class="separator-dot">•</span>
+            @_event.Subcategory
+            @if (!string.IsNullOrEmpty(_event.Subcategory))
+            {
+                var categoryType = GetCategoryType(_event.Subcategory);
+                <span class="category-badge @GetCategoryClass(categoryType)">
+                    @categoryType
+                </span>
+            }
+            <span class="separator-dot">•</span>
+            @GetFormatDisplay(_event.SportMainCat)
+        </div>
+
+        @if (IsTeamEvent)
+        {
+            if (Is1440Round)
+            {
+                <!-- 1440 ROUND - ALL TEAMS VERSUS -->
+                <div class="results-table">
+                    <MudTable Items="_scoringRows
+                                  .OrderBy(r => r.Rank == 0)   // non-zero ranks first
+                                  .ThenBy(r => r.Rank)        // 1,2,2,3,4
+                                  .ThenByDescending(r => r.TotalScore)
+                                  .ToList()"
+                  Dense Hover Class="team-table">
+
+                        <HeaderContent>
+                            <MudTh>Rank</MudTh>
+                            <MudTh>Team</MudTh>
+                            @if (IsMixedTeam)
+                            {
+                                <MudTh>Male Player</MudTh>
+                                <MudTh>Female Player</MudTh>
+                            }
+                            else
+                            {
+                                <MudTh>Team Members</MudTh>
+                            }
+                            <MudTh style="text-align:center;">Total Score</MudTh>
+                            <MudTh style="text-align:center;">Shots</MudTh>
+                            <MudTh style="text-align:center;">Average</MudTh>
+                        </HeaderContent>
+
+                        <RowTemplate>
+                            @{
+                                // For mixed teams, parse the team members to separate male and female
+                                var malePlayer = "";
+                                var femalePlayer = "";
+                                
+                                if (IsMixedTeam && !string.IsNullOrEmpty(context.TeamMembers))
+                                {
+                                    var players = context.TeamMembers.Split(',').Select(p => p.Trim()).ToList();
+                                    if (players.Count >= 1) malePlayer = players[0];
+                                    if (players.Count >= 2) femalePlayer = players[1];
+                                }
+                            }
+                            
+                            <MudTd>
+                                @if (context.Rank > 0)
+                                {
+                                    <div style="display: flex;">
+                                        @if (context.Rank == 1)
+                                        {
+                                            <div class="medal-badge gold-badge">1</div>
+                                        }
+                                        else if (context.Rank == 2)
+                                        {
+                                            <div class="medal-badge silver-badge">2</div>
+                                        }
+                                        else if (context.Rank == 3)
+                                        {
+                                            <div class="medal-badge bronze-badge">3</div>
+                                        }
+                                        else
+                                        {
+                                            <span style="font-family: Orbitron; font-weight:bold; color:white; font-size: 1.2rem;">
+                                                #@context.Rank
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span style="color: #666;">-</span>
+                                }
+                            </MudTd>
+                            <MudTd>
+                                <div style="display: flex; align-items: center;">
+                                    <div style="width: 40px; height: 40px; margin-right: 10px; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,0.1);">
+                                        <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{context.RegionName.ToUpper()}.webp")"
+                                             style="width: 100%; height: 100%; object-fit: contain;"
+                                             onerror="this.style.display='none'" />
+                                    </div>
+                                    <div>
+                                        <div style="font-weight: bold; font-size: 1.1rem;">@context.RegionName</div>
+                                        @if (IsMixedTeam)
+                                        {
+                                            <div style="font-size: 0.8rem; color: var(--accent-purple); font-weight: bold;">
+                                                Mixed Team
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </MudTd>
+                            @if (IsMixedTeam)
+                            {
+                                <MudTd>
+                                    @if (!string.IsNullOrEmpty(malePlayer))
+                                    {
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div class="gender-badge male-badge">M</div>
+                                            <span>@malePlayer</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: #666;">-</span>
+                                    }
+                                </MudTd>
+                                <MudTd>
+                                    @if (!string.IsNullOrEmpty(femalePlayer))
+                                    {
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div class="gender-badge female-badge">F</div>
+                                            <span>@femalePlayer</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: #666;">-</span>
+                                    }
+                                </MudTd>
+                            }
+                            else
+                            {
+                                <MudTd>
+                                    @if (!string.IsNullOrEmpty(context.TeamMembers))
+                                    {
+                                        <div style="color: #ccc; font-size: 0.9rem;">
+                                            @context.TeamMembers
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: #666;">-</span>
+                                    }
+                                </MudTd>
+                            }
+                            <MudTd style="font-family: Orbitron; font-weight:bold; color: var(--accent-gold); text-align:center; font-size: 1.3rem;">
+                                @(context.TotalScore > 0 ? context.TotalScore.ToString("N0") : "-")
+                            </MudTd>
+                            <MudTd style="text-align:center; font-family: Orbitron; color: #aaa;">
+                                @(context.ShotCount > 0 ? context.ShotCount.ToString() : "-")
+                            </MudTd>
+                            <MudTd style="text-align:center; font-family: Orbitron; color: #4CAF50; font-weight: bold;">
+                                @if (context.TotalScore > 0 && context.ShotCount > 0)
+                                {
+                                    @((context.TotalScore / (double)context.ShotCount).ToString("F1"))
+                                }
+                                else
+                                {
+                                    <text>-</text>
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </div>
+            }
+            else
+            {
+                <!-- TEAM VS TEAM PAIRINGS (OLYMPIC ROUND) -->
+                <div class="pairings-container">
+                    @foreach (var pairing in _teamPairings)
+                    {
+                        <div class="pairing-card">
+                            <div class="pairing-header">
+                                @if (!string.IsNullOrEmpty(pairing.MatchStage))
+                                {
+                                    <text>@pairing.MatchStage</text>
+                                }
+                                else
+                                {
+                                    <text>TEAM MATCH</text>
+                                }
+                            </div>
+
+                            <div class="team-vs-team">
+                                <!-- Team 1 -->
+                                <div class="team-display @(pairing.Team1Score > pairing.Team2Score ? "winning-team" : pairing.Team1Score < pairing.Team2Score ? "losing-team" : "")">
+                                    <div class="team-logo">
+                                        <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{pairing.Team1Name.ToUpper()}.webp")"
+                                             onerror="this.style.display='none'" />
+                                    </div>
+                                    <div class="team-info">
+                                        <div class="team-name">@pairing.Team1Name</div>
+                                        <div style="color: #ccc; font-size: 0.8rem;">@pairing.Team1Members</div>
+                                    </div>
+                                    <div class="team-score">@pairing.Team1Score</div>
+                                </div>
+
+                                <div class="vs-separator">VS</div>
+
+                                <!-- Team 2 -->
+                                <div class="team-display @(pairing.Team2Score > pairing.Team1Score ? "winning-team" : pairing.Team2Score < pairing.Team1Score ? "losing-team" : "")">
+                                    <div class="team-logo">
+                                        <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{pairing.Team2Name.ToUpper()}.webp")"
+                                             onerror="this.style.display='none'" />
+                                    </div>
+                                    <div class="team-info">
+                                        <div class="team-name">@pairing.Team2Name</div>
+                                        <div style="color: #ccc; font-size: 0.8rem;">@pairing.Team2Members</div>
+                                    </div>
+                                    <div class="team-score">@pairing.Team2Score</div>
+                                </div>
+                            </div>
+
+                            @if (pairing.Team1Score > 0 || pairing.Team2Score > 0)
+                            {
+                                <div class="pairing-result">
+                                    @if (pairing.Team1Score > pairing.Team2Score)
+                                    {
+                                        <text>@pairing.Team1Name WINS</text>
+                                    }
+                                    else if (pairing.Team2Score > pairing.Team1Score)
+                                    {
+                                        <text>@pairing.Team2Name WINS</text>
+                                    }
+                                    else
+                                    {
+                                        <text>TIE</text>
+                                    }
+                                </div>
+                            }
+
+                            <div class="pairing-status">
+                                @if (_event.IsFinished == true)
+                                {
+                                    <text>FINAL</text>
+                                }
+                                else
+                                {
+                                    <text>LIVE</text>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <!-- INDIVIDUAL EVENT LAYOUT -->
+            <div class="results-table">
+                <MudTable Items="_scoringRows
+                                                            .OrderBy(r => r.Rank == 0)   // non-zero ranks first
+                                                            .ThenBy(r => r.Rank)        // 1,2,2,3,4
+                                                            .ThenByDescending(r => r.TotalScore)
+                                                            .ToList()"
+                  Dense Hover Class="team-table">
+                    <HeaderContent>
+                        <MudTh>Rank</MudTh>
+                        <MudTh>Athlete</MudTh>
+                        <MudTh>Region</MudTh>
+                        <MudTh style="text-align:center;">Set Score</MudTh>
+                        <MudTh style="text-align:center;">Shots</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd>
+                            @if (context.Rank > 0)
+                            {
+                                <div style="display: flex;">
+                                    @if (context.Rank == 1)
+                                    {
+                                        <div class="medal-badge gold-badge">1</div>
+                                    }
+                                    else if (context.Rank == 2)
+                                    {
+                                        <div class="medal-badge silver-badge">2</div>
+                                    }
+                                    else if (context.Rank == 3)
+                                    {
+                                        <div class="medal-badge bronze-badge">3</div>
+                                    }
+                                    else
+                                    {
+                                        <span style="font-family: Orbitron; font-weight:bold; color:white; font-size: 1.2rem;">
+                                            #@context.Rank
+                                        </span>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <span style="color: #666;">-</span>
+                            }
+                        </MudTd>
+                        <MudTd>
+                            <div style="font-weight: bold; font-size: 1.1rem;">@context.PlayerName</div>
+                        </MudTd>
+                        <MudTd>
+                            <div style="display: flex; align-items: center;">
+                                <div style="width: 30px; height: 30px; margin-right: 8px; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,0.1);">
+                                    <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{context.RegionName.ToUpper()}.webp")"
+                                         style="width: 100%; height: 100%; object-fit: contain;"
+                                         onerror="this.style.display='none'" />
+                                </div>
+                                <div style="font-weight: bold;">@context.RegionName</div>
+                            </div>
+                        </MudTd>
+                        <MudTd style="font-family: Orbitron; font-weight:bold; color: var(--accent-gold); text-align:center; font-size: 1.3rem;">
+                            @(context.TotalScore > 0 ? context.TotalScore.ToString("N0") : "-")
+                        </MudTd>
+                        <MudTd style="font-family: Orbitron; font-weight:bold; color: var(--accent-red); text-align:center; font-size: 1.3rem;">
+                            @(context.ShotCount > 0 ? context.ShotCount.ToString() : "-")
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </div>
+        }
+
+        <!-- FORMAT INFO -->
+        <div style="margin-top: 20px; color: #888; font-size: 0.9rem; text-align: center;">
+            @GetFormatInfo(_event.Subcategory, _event.SportMainCat)
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string EventID { get; set; } = "";
+
+    public class EventInfo
+    {
+        public string ID { get; set; } = "";
+        public string? Subcategory { get; set; }
+        public string? Level { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public string? SportMainCat { get; set; }
+        public int? RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+        public bool? IsFinished { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
+    public class ScoringRow
+    {
+        public int RegionID { get; set; }
+        public string RegionName { get; set; } = "";
+        public string PlayerID { get; set; } = "";
+        public string PlayerName { get; set; } = "";
+        public int TotalScore { get; set; }
+        public int ShotCount { get; set; }
+        public int BestShot { get; set; }
+        public int Rank { get; set; } = 0;
+        public string TeamMembers { get; set; } = "";
+    }
+
+    public class TeamPairing
+    {
+        public string MatchStage { get; set; } = "";
+        public string Team1Name { get; set; } = "";
+        public string Team2Name { get; set; } = "";
+        public string Team1Members { get; set; } = "";
+        public string Team2Members { get; set; } = "";
+        public int Team1Score { get; set; }
+        public int Team2Score { get; set; }
+        public int Team1RegionID { get; set; }
+        public int Team2RegionID { get; set; }
+    }
+
+    public class SchoolRegions
+    {
+        public int ID { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
+    public class ArcheryScoringDTO
+    {
+        public int RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+        public int ShotScore { get; set; }
+        public int Lane { get; set; }
+        public int EndNo { get; set; }
+        public int RoundNo { get; set; }
+        public int ShotNo { get; set; }
+    }
+
+    private EventInfo? _event;
+    private List<ScoringRow> _scoringRows = new();
+    private List<TeamPairing> _teamPairings = new();
+    private List<SchoolRegions>? _allRegions;
+    private bool _isLoading = true;
+    private Timer? _timer;
+    private string _categoryType = "";
+
+    private bool IsTeamEvent => _categoryType == "Team" || _categoryType == "Mixed";
+    private bool IsMixedTeam => _categoryType == "Mixed";
+    private bool IsIndividual => _categoryType == "Individual";
+    private bool Is1440Round => !string.IsNullOrEmpty(_event?.SportMainCat) &&
+                               _event.SportMainCat.ToLower().Contains("1440");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _timer = new Timer(async _ => await InvokeAsync(LoadData), null, 2000, 2000);
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            _allRegions = await apiService.GetAsync<SchoolRegions>("/Schools/Regions");
+            var events = await apiService.GetAsync<EventInfo>("/score/ArcheryScoring/events");
+
+            _event = events?.FirstOrDefault(e => e.ID == EventID);
+            if (_event == null) return;
+
+            _categoryType = GetCategoryType(_event.Subcategory);
+
+            BuildRows(events.Where(e => e.ID == EventID).ToList());
+            await LoadScores();
+
+            // Create team pairings if not 1440 Round
+            if (IsTeamEvent && !Is1440Round)
+            {
+                CreateTeamPairings();
+            }
+
+            _isLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading data: {ex.Message}");
+        }
+    }
+
+    private void BuildRows(List<EventInfo> events)
+    {
+        if (IsTeamEvent)
+        {
+            // For team events, group by region
+            _scoringRows = events
+                .Where(e => e.RegionID.HasValue)
+                .GroupBy(e => e.RegionID!.Value)
+                .Select(g =>
+                {
+                    var region = _allRegions?.FirstOrDefault(r => r.ID == g.Key);
+                    
+                    // For mixed teams, separate male and female players
+                    string teamMembers;
+                    if (IsMixedTeam)
+                    {
+                        // You'll need to implement logic to determine male/female players
+                        // For now, just list all players
+                        var players = g.Select(p => p.PlayerName).Distinct().ToList();
+                        teamMembers = string.Join(", ", players);
+                    }
+                    else
+                    {
+                        teamMembers = string.Join(", ", g.Select(p => p.PlayerName).Distinct().Take(4));
+                        if (g.Count() > 4) teamMembers += $", +{g.Count() - 4} more";
+                    }
+
+                    return new ScoringRow
+                    {
+                        RegionID = g.Key,
+                        RegionName = region?.Abbreviation ?? region?.Region ?? "Unknown",
+                        PlayerName = g.First().PlayerName ?? region?.Abbreviation ?? region?.Region ?? "Team",
+                        TeamMembers = teamMembers
+                    };
+                }).ToList();
+        }
+        else
+        {
+            // For individual events, show each player separately
+            _scoringRows = events
+                .Where(e => e.RegionID.HasValue && !string.IsNullOrEmpty(e.PlayerID))
+                .Select(e =>
+                {
+                    var region = _allRegions?.FirstOrDefault(r => r.ID == e.RegionID!.Value);
+                    return new ScoringRow
+                    {
+                        RegionID = e.RegionID!.Value,
+                        RegionName = region?.Abbreviation ?? region?.Region ?? "Unknown",
+                        PlayerID = e.PlayerID ?? "",
+                        PlayerName = e.PlayerName ?? "Unknown Athlete"
+                    };
+                }).ToList();
+        }
+    }
+
+    private void CreateTeamPairings()
+    {
+        _teamPairings.Clear();
+
+        // Group teams into pairs based on lanes from scoring data
+        // This is a simplified version - you'll need to implement based on your actual data structure
+        var lanes = new Dictionary<int, List<ScoringRow>>();
+
+        foreach (var row in _scoringRows)
+        {
+            // You need to get lane information from your actual scoring data
+            // For now, we'll create simple pairings
+            if (!lanes.ContainsKey(row.RegionID))
+            {
+                lanes[row.RegionID] = new List<ScoringRow>();
+            }
+            lanes[row.RegionID].Add(row);
+        }
+
+        // Create pairings from lanes
+        var lanePairs = new List<List<ScoringRow>>();
+        var unpaired = new List<ScoringRow>(_scoringRows);
+
+        while (unpaired.Count >= 2)
+        {
+            var pair = unpaired.Take(2).ToList();
+            lanePairs.Add(pair);
+            unpaired = unpaired.Skip(2).ToList();
+        }
+
+        // Create TeamPairing objects
+        for (int i = 0; i < lanePairs.Count; i++)
+        {
+            var pair = lanePairs[i];
+            if (pair.Count == 2)
+            {
+                var team1 = pair[0];
+                var team2 = pair[1];
+
+                _teamPairings.Add(new TeamPairing
+                {
+                    MatchStage = _event?.EventStage ?? $"Match {i + 1}",
+                    Team1Name = team1.RegionName,
+                    Team2Name = team2.RegionName,
+                    Team1Members = team1.TeamMembers,
+                    Team2Members = team2.TeamMembers,
+                    Team1RegionID = team1.RegionID,
+                    Team2RegionID = team2.RegionID,
+                    Team1Score = team1.TotalScore,
+                    Team2Score = team2.TotalScore
+                });
+            }
+            else if (pair.Count == 1)
+            {
+                var team = pair[0];
+                _teamPairings.Add(new TeamPairing
+                {
+                    MatchStage = _event?.EventStage ?? $"Match {i + 1}",
+                    Team1Name = team.RegionName,
+                    Team2Name = "BYE",
+                    Team1Members = team.TeamMembers,
+                    Team2Members = "No Opponent",
+                    Team1RegionID = team.RegionID,
+                    Team2RegionID = 0,
+                    Team1Score = team.TotalScore,
+                    Team2Score = 0
+                });
+            }
+        }
+
+        // If there's an odd team left
+        if (unpaired.Count == 1)
+        {
+            var team = unpaired[0];
+            _teamPairings.Add(new TeamPairing
+            {
+                MatchStage = _event?.EventStage ?? $"Match {lanePairs.Count + 1}",
+                Team1Name = team.RegionName,
+                Team2Name = "BYE",
+                Team1Members = team.TeamMembers,
+                Team2Members = "No Opponent",
+                Team1RegionID = team.RegionID,
+                Team2RegionID = 0,
+                Team1Score = team.TotalScore,
+                Team2Score = 0
+            });
+        }
+    }
+
+    private async Task LoadScores()
+    {
+        var scores = await apiService.GetAsync<ArcheryScoringDTO>($"/score/ArcheryScoring/event/{_event!.ID}");
+
+        foreach (var r in _scoringRows)
+        {
+            r.TotalScore = 0;
+            r.ShotCount = 0;
+            r.BestShot = 0;
+        }
+
+        foreach (var s in scores)
+        {
+            ScoringRow? row = null;
+
+            if (IsTeamEvent)
+            {
+                // For team events, sum all scores by region
+                row = _scoringRows.FirstOrDefault(r => r.RegionID == s.RegionID);
+            }
+            else
+            {
+                // For individual events, match by player ID and region
+                row = _scoringRows.FirstOrDefault(r =>
+                    r.RegionID == s.RegionID &&
+                    r.PlayerID == s.PlayerID);
+            }
+
+            if (row == null) continue;
+
+            row.TotalScore += s.ShotScore;
+            row.ShotCount++;
+            if (s.ShotScore > row.BestShot)
+                row.BestShot = s.ShotScore;
+        }
+
+        CalculateRankings();
+
+        // Update team pairings scores
+        foreach (var pairing in _teamPairings)
+        {
+            var team1Row = _scoringRows.FirstOrDefault(r => r.RegionID == pairing.Team1RegionID);
+            var team2Row = _scoringRows.FirstOrDefault(r => r.RegionID == pairing.Team2RegionID);
+
+            if (team1Row != null) pairing.Team1Score = team1Row.TotalScore;
+            if (team2Row != null) pairing.Team2Score = team2Row.TotalScore;
+        }
+    }
+
+    private void CalculateRankings()
+    {
+        // Reset all ranks
+        foreach (var row in _scoringRows) row.Rank = 0;
+
+        // Only rank rows with TotalScore > 0
+        var rankedRows = _scoringRows.Where(r => r.TotalScore > 0)
+                                     .OrderByDescending(r => r.TotalScore)
+                                     .ThenBy(r => r.RegionName) // Tiebreaker
+                                     .ToList();
+
+        int currentRank = 1;
+
+        for (int i = 0; i < rankedRows.Count; i++)
+        {
+            var row = rankedRows[i];
+
+            if (i == 0)
+            {
+                // First place
+                row.Rank = 1;
+            }
+            else
+            {
+                var previousRow = rankedRows[i - 1];
+
+                if (row.TotalScore == previousRow.TotalScore)
+                {
+                    // Tie with previous - same rank
+                    row.Rank = previousRow.Rank;
+                }
+                else
+                {
+                    // Different score - next sequential rank
+                    row.Rank = i + 1;
+                }
+            }
+
+            currentRank = row.Rank;
+        }
+
+        // Sort back ascending by rank for display
+        _scoringRows = _scoringRows.OrderBy(r => r.Rank > 0 ? r.Rank : int.MaxValue).ToList();
+    }
+
+    // Helper method to determine category type
+    private string GetCategoryType(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory))
+            return "Individual";
+
+        var subcategoryLower = subcategory.ToLower();
+
+        if (subcategoryLower.Contains("mixed"))
+            return "Mixed";
+        else if (subcategoryLower.Contains("team"))
+            return "Team";
+        else
+            return "Individual";
+    }
+
+    // Helper method to get CSS class for category badge
+    private string GetCategoryClass(string categoryType)
+    {
+        return categoryType.ToLower() switch
+        {
+            "team" => "category-team",
+            "mixed" => "category-mixed",
+            "individual" => "category-individual",
+            _ => "category-individual"
+        };
+    }
+
+    private string GetFormatDisplay(string? sportMainCat)
+    {
+        if (string.IsNullOrEmpty(sportMainCat))
+            return "Standard Format";
+
+        if (sportMainCat.ToLower().Contains("1440"))
+            return "1440 Round • All vs All";
+        else
+            return "Team vs Team";
+    }
+
+    private string GetFormatInfo(string? subcategory, string? sportMainCat)
+    {
+        if (string.IsNullOrEmpty(sportMainCat))
+            return "Standard Archery Competition";
+
+        var mainCatLower = sportMainCat.ToLower();
+
+        if (mainCatLower.Contains("olympic"))
+            return "Olympic Round • Head-to-Head Elimination";
+        else if (mainCatLower.Contains("1440"))
+            return "1440 Round • Total Score Format • All Teams Compete";
+        else if (mainCatLower.Contains("fita"))
+            return "FITA Standard Round • Head-to-Head";
+        else
+            return sportMainCat;
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

@@ -1,0 +1,615 @@
+﻿@page "/scoreboard/martialarts"
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>Martial Arts Scoreboard | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@600;700&display=swap');
+
+    :root {
+        --bg-dark: #0a0a0a;
+        --card-bg: rgba(30, 30, 30, 0.7);
+        --card-border: rgba(255, 255, 255, 0.1);
+        --text-primary: #ffffff;
+        --accent-red: #c62828;
+        --accent-blue: #1565c0;
+        --accent-green: #2e7d32;
+        --accent-purple: #6a1b9a;
+        --neon-red: 0 0 10px rgba(198, 40, 40, 0.6), 0 0 20px rgba(198, 40, 40, 0.3);
+        --neon-blue: 0 0 10px rgba(21, 101, 192, 0.4);
+        --neon-green: 0 0 10px rgba(46, 125, 50, 0.6);
+    }
+
+    /* BACKGROUND TEXTURE */
+    .dashboard-bg {
+        background-color: var(--bg-dark);
+        background-image: radial-gradient(circle at 10% 20%, rgba(198, 40, 40, 0.08) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(21, 101, 192, 0.05) 0%, transparent 40%), linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+        min-height: 100vh;
+        color: var(--text-primary);
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    /* HEADER */
+    .header-container {
+        text-align: center;
+        margin-bottom: 40px;
+        position: relative;
+        padding: 30px 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+        border-bottom: 1px solid rgba(198, 40, 40, 0.2);
+    }
+
+    .main-title {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        background: linear-gradient(180deg, #c62828 0%, #b71c1c 50%, #8e0000 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        filter: drop-shadow(0 0 15px rgba(198, 40, 40, 0.4));
+    }
+
+    .sub-title {
+        font-family: 'Chakra Petch', sans-serif;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: clamp(1rem, 1.5vw, 1.3rem);
+        letter-spacing: 8px;
+        font-weight: 700;
+        text-transform: uppercase;
+        position: relative;
+        display: inline-block;
+    }
+
+        .sub-title::before, .sub-title::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 60px;
+            height: 2px;
+            background: var(--accent-red);
+            opacity: 0.5;
+        }
+
+        .sub-title::before {
+            left: -80px;
+        }
+
+        .sub-title::after {
+            right: -80px;
+        }
+
+    /* EVENT LINK */
+    .event-link {
+        text-decoration: none;
+        display: block;
+        height: 100%;
+    }
+
+    /* CARD DESIGN */
+    .event-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        height: 100%;
+    }
+
+        .event-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent-red), transparent);
+            opacity: 0.5;
+        }
+
+        .event-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: var(--accent-red);
+            box-shadow: 0 15px 40px rgba(198, 40, 40, 0.15);
+        }
+
+            .event-card:hover::before {
+                opacity: 1;
+            }
+
+    /* BADGES */
+    .status-container {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        display: flex;
+        gap: 8px;
+        z-index: 5;
+    }
+
+    .event-type-badge {
+        background: rgba(0,0,0,0.8);
+        color: var(--accent-red);
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 700;
+        font-size: 0.8rem;
+        border: 1px solid var(--accent-red);
+        box-shadow: 0 0 10px rgba(198, 40, 40, 0.2);
+    }
+
+    .status-badge {
+        padding: 4px 15px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 800;
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+    }
+
+    .badge-live {
+        background: linear-gradient(135deg, #c62828 0%, #8e0000 100%);
+        color: white;
+        box-shadow: 0 0 15px rgba(198, 40, 40, 0.5);
+        border: 1px solid #ef5350;
+        animation: pulse 2s infinite;
+    }
+
+    .badge-final {
+        background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+        color: white;
+        border: 1px solid #66bb6a;
+        box-shadow: 0 0 10px rgba(46, 125, 50, 0.4);
+    }
+
+    /* MARTIAL ARTS INFO */
+    .martialarts-info {
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 12px;
+        padding: 12px;
+        margin: 10px 0;
+        border: 1px solid rgba(198, 40, 40, 0.3);
+    }
+
+    .matches-count {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2rem;
+        font-weight: 900;
+        color: var(--accent-red);
+        line-height: 1;
+        text-shadow: 0 0 10px rgba(198, 40, 40, 0.3);
+        text-align: center;
+    }
+
+    .info-label {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.75rem;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-align: center;
+        margin-top: 5px;
+    }
+
+    .sport-name {
+        font-family: 'Chakra Petch', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 4px;
+    }
+
+    .sport-icon {
+        background: linear-gradient(135deg, rgba(198, 40, 40, 0.2), rgba(198, 40, 40, 0.05));
+        border-radius: 50%;
+        padding: 10px;
+        border: 1px solid rgba(198, 40, 40, 0.3);
+    }
+
+    .martialarts-category {
+        display: inline-block;
+        background: rgba(21, 101, 192, 0.2);
+        color: var(--accent-blue);
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid rgba(21, 101, 192, 0.3);
+    }
+
+    .format-badge {
+        display: inline-block;
+        background: rgba(106, 27, 154, 0.2);
+        color: var(--accent-purple);
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid rgba(106, 27, 154, 0.3);
+        margin-left: 5px;
+    }
+
+    /* MUD TABS CUSTOMIZATION */
+    .mud-tabs-tabbar {
+        background-color: transparent !important;
+        border-bottom: 1px solid #333;
+    }
+
+    .mud-tab {
+        color: #888 !important;
+        font-family: 'Orbitron';
+        font-weight: 700;
+        letter-spacing: 1px;
+        transition: color 0.3s;
+    }
+
+    .mud-tab-active {
+        color: var(--accent-red) !important;
+        font-weight: 900;
+        text-shadow: 0 0 10px rgba(198, 40, 40, 0.4);
+    }
+
+    .mud-tabs-indicator {
+        background-color: var(--accent-red) !important;
+        height: 3px;
+        box-shadow: 0 0 10px var(--accent-red);
+    }
+
+    @@keyframes pulse {
+        0% {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(198, 40, 40, 0.5);
+        }
+
+        50% {
+            opacity: 0.8;
+            box-shadow: 0 0 5px rgba(198, 40, 40, 0.2);
+        }
+
+        100% {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(198, 40, 40, 0.5);
+        }
+    }
+</style>
+
+<div class="dashboard-bg">
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge">
+
+        <!-- HEADER -->
+        <div class="header-container">
+            <div class="main-title">PALARONG PAMBANSA 2026</div>
+            <div class="sub-title">MARTIAL ARTS SCOREBOARD</div>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="mt-16">
+                <MudProgressCircular Indeterminate="true" Color="Color.Error" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-4" Style="font-family:'Orbitron'; color:var(--accent-red);">LOADING MARTIAL ARTS EVENTS...</MudText>
+            </MudStack>
+        }
+        else if (!_martialArtsEvents.Any())
+        {
+            <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                <MudIcon Icon="@Icons.Material.Filled.SportsMma" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                <MudText Typo="Typo.h5" Class="mt-4" Style="color: #666; font-family:'Orbitron'; font-weight:700;">NO MARTIAL ARTS EVENTS</MudText>
+                <MudText Typo="Typo.body2" Style="color: #555;">Waiting for event data...</MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="mt-6" Centered="true">
+
+                <!-- TAB 1: LIVE / ONGOING -->
+                <MudTabPanel Text="LIVE / ONGOING">
+                    @{
+                        var liveEvents = _martialArtsEvents.Where(e => e.IsFinished != true).ToList();
+                    }
+
+                    @if (!liveEvents.Any())
+                    {
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.SportsMma" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                            <MudText Typo="Typo.h5" Class="mt-4" Style="color: #666; font-family:'Orbitron'; font-weight:700;">NO LIVE MARTIAL ARTS EVENTS</MudText>
+                            <MudText Typo="Typo.body2" Style="color: #555;">Stand by for upcoming matches</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in liveEvents)
+                            {
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="@GetEventUrl(evt)" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@(evt.Level ?? "Open")</div>
+                                                <div class="status-badge badge-live">LIVE</div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="sport-icon mr-3">
+                                                        <MudIcon Icon="@GetMartialArtsIcon(evt.Sport)" Size="Size.Small" Style="color:var(--accent-red);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">@(evt.Sport ?? "MARTIAL ARTS")</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                                                            @(evt.Gender ?? "Mixed") • @(evt.EventStage ?? "Match")
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Match Info -->
+                                                <div class="martialarts-info">
+                                                    <div class="sport-name text-center mb-3">
+                                                        @evt.Subcategory
+                                                        <span class="format-badge">@GetMatchFormat(evt.Subcategory)</span>
+                                                    </div>
+
+                                                    <div class="matches-count">ACTIVE</div>
+                                                    <div class="info-label">IN PROGRESS</div>
+                                                </div>
+
+                                                <!-- Event Details -->
+                                                <div class="pa-2">
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Category:</b> @(evt.Subcategory ?? "Sparring")
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Discipline:</b> @evt.Sport
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 12px;">
+                                                        <b>Format:</b> @GetSportFormat(evt.Sport)
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Style="color: var(--accent-red); font-weight:600;">
+                                                        Click for live scoring & match management
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+
+                <!-- TAB 2: FINISHED RESULTS -->
+                <MudTabPanel Text="RECENT RESULTS">
+                    @{
+                        var finishedEvents = _martialArtsEvents.Where(e => e.IsFinished == true).ToList();
+                    }
+
+                    @if (!finishedEvents.Any())
+                    {
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Size="Size.Large" Style="color: #555;" />
+                            <MudText Typo="Typo.h6" Class="mt-4" Style="color: #777; font-family:'Orbitron'">NO COMPLETED EVENTS YET</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in finishedEvents)
+                            {
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="@GetEventUrl(evt)" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@(evt.Level ?? "Open")</div>
+                                                <div class="status-badge badge-final">FINAL</div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="sport-icon mr-3">
+                                                        <MudIcon Icon="@GetMartialArtsIcon(evt.Sport)" Size="Size.Small" Style="color:var(--accent-green);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">@(evt.Sport ?? "MARTIAL ARTS")</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                                                            @(evt.Gender ?? "Mixed") • @(evt.EventStage ?? "Match")
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Results Display -->
+                                                <div class="martialarts-info">
+                                                    <div class="sport-name text-center mb-3">
+                                                        @evt.Subcategory
+                                                        <span class="format-badge">@GetMatchFormat(evt.Subcategory)</span>
+                                                    </div>
+
+                                                    <div class="matches-count">RESULTS</div>
+                                                    <div class="info-label">COMPLETED</div>
+                                                </div>
+
+                                                <!-- Event Details -->
+                                                <div class="pa-2">
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Category:</b> @(evt.Subcategory ?? "Sparring")
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Discipline:</b> @evt.Sport
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 12px;">
+                                                        <b>Format:</b> @GetSportFormat(evt.Sport)
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Style="color: var(--accent-green); font-weight:600;">
+                                                        Click for final results & standings
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+            </MudTabs>
+        }
+    </MudContainer>
+</div>
+
+@code {
+    /* ===================== MODELS ===================== */
+
+    public class EventInfo
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Level { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public string? SportMainCat { get; set; }
+        public bool? IsFinished { get; set; }
+        public int? RegionID { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+    }
+
+    /* ===================== STATE ===================== */
+
+    private List<EventInfo> _martialArtsEvents = new();
+    private bool _isLoading = true;
+    private Timer? _refreshTimer;
+
+    /* ===================== INIT ===================== */
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        // Auto-refresh every 5 seconds for live dashboard updates
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 5000, 5000);
+    }
+
+    /* ===================== GET DATA ===================== */
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var events = await apiService.GetAsync<EventInfo>(
+                "/MartialArtsScoring/events");
+
+            if (events != null)
+            {
+                _martialArtsEvents = events
+                    .GroupBy(x => x.ID)
+                    .Select(g => g.First())
+                    .OrderBy(x => x.IsFinished)
+                    .ThenBy(x => x.Sport)
+                    .ThenBy(x => x.Level)
+                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading martial arts events: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    /* ===================== HELPER METHODS ===================== */
+
+    private string GetMartialArtsIcon(string? sport)
+    {
+        if (string.IsNullOrEmpty(sport))
+            return Icons.Material.Filled.SportsMma;
+
+        var s = sport.ToLower();
+        if (s.Contains("taekwondo")) return Icons.Material.Filled.SportsMartialArts;
+        if (s.Contains("judo") || s.Contains("wrestling")) return Icons.Material.Filled.Sports;
+        if (s.Contains("karate")) return Icons.Material.Filled.AccountBox;
+        if (s.Contains("boxing")) return Icons.Material.Filled.Sports;
+        if (s.Contains("wushu") || s.Contains("kung")) return Icons.Material.Filled.SportsKabaddi;
+        if (s.Contains("arnis") || s.Contains("silat")) return Icons.Material.Filled.DirectionsRun;
+        return Icons.Material.Filled.SportsMma;
+    }
+
+    private string GetSportFormat(string? sport)
+    {
+        if (string.IsNullOrEmpty(sport)) return "Sparring";
+
+        var s = sport.ToLower();
+        if (s.Contains("boxing") || s.Contains("taekwondo")) return "Rounds";
+        if (s.Contains("wrestling") || s.Contains("judo")) return "Submission/Pin";
+        if (s.Contains("wushu") || s.Contains("arnis")) return "Points System";
+        return "Point Sparring";
+    }
+
+    private string GetMatchFormat(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory)) return "Sparring";
+
+        var s = subcategory.ToLower();
+        if (s.Contains("team")) return "Team";
+        if (s.Contains("individual")) return "Individual";
+        if (s.Contains("pair")) return "Pairs";
+        return "Sparring";
+    }
+
+    /* ===================== NAVIGATION LOGIC ===================== */
+
+    private string GetEventUrl(EventInfo evt)
+    {
+        if (evt == null) return "#";
+
+        string? sportName = evt.Sport;
+        string? subcategoryName = evt.Subcategory;
+        string? mainCategory = evt.SportMainCat;
+
+        // Check if it's Taekwondo - Poomsae
+        bool isTaekwondoPoomsae = (sportName?.Equals("Taekwondo", StringComparison.OrdinalIgnoreCase) == true &&
+                                   (subcategoryName?.Contains("Poomsae", StringComparison.OrdinalIgnoreCase) == true ||
+                                    subcategoryName?.Equals("Poomsae", StringComparison.OrdinalIgnoreCase) == true ||
+                                    mainCategory?.Contains("Poomsae", StringComparison.OrdinalIgnoreCase) == true));
+
+        // Check if it's Arnis - Anyo
+        bool isArnisAnyo = (sportName?.Equals("Arnis", StringComparison.OrdinalIgnoreCase) == true &&
+                            (subcategoryName?.Contains("Anyo", StringComparison.OrdinalIgnoreCase) == true ||
+                             subcategoryName?.Equals("Anyo", StringComparison.OrdinalIgnoreCase) == true ||
+                             mainCategory?.Contains("Anyo", StringComparison.OrdinalIgnoreCase) == true));
+
+        if (isTaekwondoPoomsae || isArnisAnyo)
+        {
+            return $"/score/martialarts-performance/{evt.ID}";
+        }
+        else
+        {
+            return $"/score/martialarts/{evt.ID}";
+        }
+    }
+
+    /* ===================== CLEANUP ===================== */
+
+    public void Dispose() => _refreshTimer?.Dispose();
+}
