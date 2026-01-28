@@ -1,0 +1,769 @@
+﻿@page "/scoreboard/carousel"
+@page "/scoreboard/carousel/{TargetSport}"
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>@(TargetSport ?? "Live") Carousel | PALARO 2026</PageTitle>
+
+<style>
+    /* IMPORT FONTS */
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@600;700;800&display=swap');
+
+    :root {
+        --bg-dark: #050505;
+        --card-bg: rgba(20, 20, 20, 0.85);
+        --accent-gold: #FFD700;
+        --accent-blue: #00e5ff;
+        --accent-red: #ff1744;
+        --text-white: #ffffff;
+        --table-border: rgba(255, 255, 255, 0.1);
+    }
+
+    body {
+        background-color: var(--bg-dark);
+        margin: 0;
+        overflow: hidden;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    /* BACKGROUND ANIMATION */
+    .carousel-container {
+        height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at 50% -20%, #1a1a1a 0%, #000000 80%);
+        position: relative;
+    }
+
+    /* GLOBAL HEADER */
+    .global-header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 10vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+        z-index: 100;
+        padding-top: 10px;
+    }
+
+    .header-main-text {
+        font-family: 'Orbitron';
+        font-weight: 900;
+        font-size: clamp(1.5rem, 3vw, 2.5rem);
+        background: linear-gradient(to right, #FFD700, #FDB931, #FFD700);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: 5px;
+        text-transform: uppercase;
+        filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+    }
+
+    .header-sub-text {
+        font-family: 'Chakra Petch';
+        color: rgba(255,255,255,0.7);
+        font-size: 1rem;
+        letter-spacing: 8px;
+        text-transform: uppercase;
+        margin-top: -5px;
+    }
+
+    /* MUD CAROUSEL OVERRIDES */
+    .mud-carousel .mud-carousel-item {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        padding-top: 5vh;
+    }
+
+    /* WRAPPER */
+    .scoreboard-wrapper {
+        width: 95vw;
+        max-width: 1600px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* SPORT HEADER INFO */
+    .match-info-container {
+        text-align: center;
+        margin-bottom: 20px;
+        background: rgba(0,0,0,0.6);
+        padding: 10px 40px;
+        border-radius: 50px;
+        border: 1px solid rgba(255,255,255,0.1);
+        backdrop-filter: blur(5px);
+    }
+
+    .sport-title {
+        font-family: 'Orbitron';
+        font-size: clamp(2rem, 4vw, 3rem);
+        font-weight: 800;
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        line-height: 1;
+    }
+
+    .match-meta {
+        font-family: 'Rajdhani';
+        font-size: 1.4rem;
+        color: var(--accent-blue);
+        letter-spacing: 2px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    /* --- THE CARD --- */
+    .match-card {
+        display: grid;
+        grid-template-columns: 1fr 1.2fr auto 1.2fr 1fr;
+        align-items: center;
+        background: var(--card-bg);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-radius: 40px;
+        padding: 40px 20px;
+        width: 100%;
+        box-shadow: 0 0 80px rgba(0,0,0,0.8), inset 0 0 20px rgba(255,255,255,0.05);
+        backdrop-filter: blur(20px);
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* TEAM STYLES */
+    .team-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        z-index: 2;
+    }
+
+    .logo-circle {
+        width: clamp(140px, 15vw, 220px);
+        height: clamp(140px, 15vw, 220px);
+        background: radial-gradient(circle, #222 0%, #0a0a0a 100%);
+        border-radius: 50%;
+        border: 4px solid #333;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .winner-glow {
+        border-color: var(--accent-gold);
+        box-shadow: 0 0 50px rgba(255, 215, 0, 0.3), inset 0 0 20px rgba(255, 215, 0, 0.1);
+        transform: scale(1.05);
+    }
+
+    .team-name {
+        font-family: 'Chakra Petch';
+        font-size: clamp(2rem, 3.5vw, 3.5rem);
+        font-weight: 800;
+        color: white;
+        text-align: center;
+        line-height: 1;
+        margin-bottom: 5px;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+    }
+
+    .team-region {
+        font-family: 'Rajdhani';
+        font-size: 1.2rem;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        font-weight: 700;
+    }
+
+    /* --- MASSIVE SCORES --- */
+    .score-col {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+    }
+
+    .main-score {
+        font-family: 'Orbitron';
+        font-size: clamp(8rem, 14vw, 13rem);
+        font-weight: 900;
+        color: white;
+        line-height: 0.9;
+        text-shadow: 4px 4px 0px rgba(0,0,0,0.8), 0 0 30px rgba(255,255,255,0.1);
+        z-index: 10;
+    }
+
+    .score-winner {
+        color: var(--accent-gold);
+        text-shadow: 0 0 40px rgba(255, 215, 0, 0.6), 4px 4px 0px rgba(0,0,0,1);
+    }
+
+    /* VS & BADGES CENTER AREA */
+    .center-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        min-width: 150px;
+    }
+
+    .vs-text {
+        font-family: 'Orbitron';
+        font-size: 2.5rem;
+        font-style: italic;
+        color: #444;
+        font-weight: 900;
+        margin-top: 10px;
+    }
+
+    .status-badge {
+        padding: 5px 25px;
+        border-radius: 4px;
+        font-family: 'Chakra Petch';
+        font-weight: 800;
+        font-size: 1.5rem;
+        letter-spacing: 2px;
+        background: rgba(255, 23, 68, 0.2);
+        border: 2px solid var(--accent-red);
+        color: var(--accent-red);
+        box-shadow: 0 0 20px rgba(255, 23, 68, 0.2);
+        animation: pulse 2s infinite;
+        white-space: nowrap;
+        margin-top: 5px;
+    }
+
+    .sets-standing-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+
+    .sets-standing-score {
+        font-family: 'Orbitron';
+        font-size: 3.5rem;
+        font-weight: 900;
+        color: var(--accent-gold);
+        text-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+        line-height: 1;
+    }
+
+    .sets-standing-label {
+        font-family: 'Rajdhani';
+        font-size: 0.9rem;
+        color: #888;
+        letter-spacing: 2px;
+        font-weight: 700;
+        margin-top: -5px;
+        margin-bottom: 5px;
+    }
+
+    /* --- NEW HISTORY TABLE STYLE (PRO BROADCAST LOOK) --- */
+    .history-strip {
+        grid-column: 1 / -1;
+        width: 100%;
+        margin-top: 40px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        padding-top: 20px;
+        display: flex;
+        justify-content: center;
+    }
+
+    .history-table {
+        border-collapse: separate;
+        border-spacing: 4px; /* Creates spacing between cells */
+        background: rgba(0,0,0,0.5);
+        border-radius: 12px;
+        padding: 10px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+        .history-table th {
+            font-family: 'Rajdhani';
+            color: #888;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 5px 15px;
+            letter-spacing: 1px;
+        }
+
+        .history-table td {
+            background: rgba(40, 40, 40, 0.6);
+            color: white;
+            font-family: 'Orbitron';
+            font-weight: 700;
+            font-size: 1.3rem;
+            text-align: center;
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+            /* First column (Team Name) Styles */
+            .history-table td.team-cell {
+                text-align: left;
+                font-family: 'Chakra Petch';
+                font-weight: 800;
+                font-size: 1.1rem;
+                background: rgba(20, 20, 20, 0.8);
+                min-width: 150px;
+                border-left: 3px solid transparent;
+            }
+
+    .team-cell.row-winner {
+        border-left-color: var(--accent-gold);
+        color: var(--accent-gold);
+    }
+
+    /* Score Highlighting */
+    .history-table td.set-win {
+        background: rgba(255, 215, 0, 0.15);
+        color: var(--accent-gold);
+        border-color: rgba(255, 215, 0, 0.3);
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    }
+
+    /* PROGRESS BAR */
+    .carousel-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 6px;
+        background: linear-gradient(90deg, var(--accent-blue), var(--accent-gold));
+        width: 0%;
+        animation: progress 10s linear infinite;
+        z-index: 200;
+    }
+
+    @@keyframes progress {
+        0% {
+            width: 0%;
+        }
+
+        100% {
+            width: 100%;
+        }
+    }
+
+    @@keyframes pulse {
+        0% {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        50% {
+            opacity: 0.8;
+            transform: scale(0.95);
+        }
+
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+</style>
+
+<div class="carousel-container">
+
+    <!-- GLOBAL HEADER (FIXED TOP) -->
+    <div class="global-header">
+        <div class="header-main-text">PALARONG PAMBANSA 2026</div>
+        <div class="header-sub-text">OFFICIAL LIVE SCOREBOARD</div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height:100vh;">
+            <MudProgressCircular Indeterminate="true" Color="Color.Info" Size="Size.Large" />
+            <MudText Typo="Typo.h5" Class="mt-4" Style="color:white; font-family:'Orbitron'">INITIALIZING DATA...</MudText>
+        </MudStack>
+    }
+    else if (_activeMatches.Count == 0)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height:100vh;">
+            <MudIcon Icon="@Icons.Material.Filled.SportsTennis" Size="Size.Large" Style="color: #444; width: 120px; height: 120px;" />
+            <MudText Typo="Typo.h3" Class="mt-4" Style="color: #666; font-family:'Orbitron'">NO LIVE @(TargetSport?.ToUpper() ?? "TEAM") MATCHES</MudText>
+            <MudText Typo="Typo.body1" Style="color: #444; font-family:'Rajdhani'; font-size:1.5rem;">Standby for upcoming games</MudText>
+        </MudStack>
+    }
+    else
+    {
+        <!-- CAROUSEL -->
+        <MudCarousel Class="mud-width-full"
+                     Style="height:100vh;"
+                     ShowArrows="false"
+                     ShowBullets="false"
+                     EnableSwipeGesture="false"
+                     AutoCycle="true"
+                     TData="object"
+                     CycleTime="@TimeSpan.FromSeconds(10)">
+
+            @foreach (var match in _activeMatches)
+            {
+                <MudCarouselItem Transition="Transition.Slide" Color="@Color.Transparent">
+                    <div class="scoreboard-wrapper">
+
+                        <!-- MATCH INFO HEADER -->
+                        <div class="match-info-container">
+                            <div class="sport-title">@match.EventData.Sport</div>
+                            <div class="match-meta">
+                                @match.EventData.Gender • @match.EventData.EventStage
+                            </div>
+                        </div>
+
+                        <!-- MAIN CARD -->
+                        <div class="match-card">
+
+                            <!-- Team A -->
+                            <div class="team-col">
+                                <div class="logo-circle @(match.IsWinnerA ? "winner-glow" : "")">
+                                    <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{match.TeamA.Region}.webp")" ObjectFit="ObjectFit.Contain" Style="width:80%; height:80%;" />
+                                </div>
+                                <div class="team-name">@match.TeamA.Abbreviation</div>
+                                <div class="team-region">@match.TeamA.Region</div>
+                            </div>
+
+                            <!-- Score A (Current Phase Score) -->
+                            <div class="score-col">
+                                <div class="main-score @(match.IsWinnerA ? "score-winner" : "")">@match.DisplayScoreA</div>
+                            </div>
+
+                            <!-- Center Status (SETS | BADGE | VS) -->
+                            <div class="center-col">
+                                <!-- SETS STANDING DISPLAY -->
+                                @if (match.IsSetGame)
+                                {
+                                    <div class="sets-standing-container">
+                                        <div class="sets-standing-score">
+                                            @match.SetsA - @match.SetsB
+                                        </div>
+                                        <div class="sets-standing-label">SETS STANDING</div>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrEmpty(match.PhaseText))
+                                {
+                                    <div class="status-badge">@match.PhaseText</div>
+                                }
+                                <div class="vs-text">VS</div>
+                            </div>
+
+                            <!-- Score B (Current Phase Score) -->
+                            <div class="score-col">
+                                <div class="main-score @(match.IsWinnerB ? "score-winner" : "")">@match.DisplayScoreB</div>
+                            </div>
+
+                            <!-- Team B -->
+                            <div class="team-col">
+                                <div class="logo-circle @(match.IsWinnerB ? "winner-glow" : "")">
+                                    <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{match.TeamB.Region}.webp")" ObjectFit="ObjectFit.Contain" Style="width:80%; height:80%;" />
+                                </div>
+                                <div class="team-name">@match.TeamB.Abbreviation</div>
+                                <div class="team-region">@match.TeamB.Region</div>
+                            </div>
+
+                            <!-- HISTORY TABLE (NEW DESIGN) -->
+                            @if (match.MatchHistory != null && match.MatchHistory.Any())
+                            {
+                                <div class="history-strip">
+                                    <table class="history-table">
+                                        <thead>
+                                            <tr>
+                                                <th>TEAMS</th>
+                                                @foreach (var set in match.MatchHistory)
+                                                {
+                                                    <th>@GetPhaseShortName(match.EventData.Sport, set.PhaseNumber)</th>
+                                                }
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Team A Row -->
+                                            <tr>
+                                                <td class="team-cell @(match.IsWinnerA ? "row-winner" : "")">
+                                                    @match.TeamA.Abbreviation
+                                                </td>
+                                                @foreach (var set in match.MatchHistory)
+                                                {
+                                                    <td class="@(set.ScoreA > set.ScoreB ? "set-win" : "")">
+                                                        @set.ScoreA
+                                                    </td>
+                                                }
+                                            </tr>
+                                            <!-- Team B Row -->
+                                            <tr>
+                                                <td class="team-cell @(match.IsWinnerB ? "row-winner" : "")">
+                                                    @match.TeamB.Abbreviation
+                                                </td>
+                                                @foreach (var set in match.MatchHistory)
+                                                {
+                                                    <td class="@(set.ScoreB > set.ScoreA ? "set-win" : "")">
+                                                        @set.ScoreB
+                                                    </td>
+                                                }
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </MudCarouselItem>
+            }
+        </MudCarousel>
+
+        <!-- PROGRESS LINE -->
+        <div class="carousel-progress"></div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? TargetSport { get; set; }
+
+    // --- VIEW MODELS ---
+    public class CarouselMatchViewModel
+    {
+        public string EventID { get; set; } = "";
+        public EventModel EventData { get; set; } = new();
+        public EventVersusTeams TeamA { get; set; } = new();
+        public EventVersusTeams TeamB { get; set; } = new();
+
+        public int DisplayScoreA { get; set; }
+        public int DisplayScoreB { get; set; }
+        public int SetsA { get; set; }
+        public int SetsB { get; set; }
+        public bool IsSetGame { get; set; }
+        public string PhaseText { get; set; } = "";
+        public bool IsWinnerA { get; set; }
+        public bool IsWinnerB { get; set; }
+        public List<PhaseScoreModel> MatchHistory { get; set; } = new();
+    }
+
+    public class PhaseScoreModel
+    {
+        public int PhaseNumber { get; set; }
+        public int ScoreA { get; set; }
+        public int ScoreB { get; set; }
+    }
+
+    // --- API MODELS ---
+    public class EventModel
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public bool? IsFinished { get; set; }
+        public List<EventVersusTeams>? EventVersusList { get; set; }
+    }
+
+    public class EventVersusTeams
+    {
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
+    public class ClientTeamMatchDTO
+    {
+        public string? EventID { get; set; }
+        public string? Region { get; set; }
+        public int Phase { get; set; }
+        public int Score { get; set; }
+    }
+
+    private List<CarouselMatchViewModel> _activeMatches = new();
+    private bool _isLoading = true;
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCarouselData();
+        _timer = new Timer(async _ => await InvokeAsync(RefreshScoresOnly), null, 5000, 5000);
+    }
+
+    private async Task LoadCarouselData()
+    {
+        try
+        {
+            var allEvents = await apiService.GetAsync<EventModel>("/Events/Details");
+
+            if (allEvents != null)
+            {
+                var teamMatches = allEvents
+                    .Where(e => e.EventVersusList?.Count == 2)
+                    .Where(e => IsAllowedTeamSport(e.Sport))
+                    .Where(e => e.IsFinished != true)
+                    .ToList();
+
+                if (!string.IsNullOrEmpty(TargetSport))
+                {
+                    teamMatches = teamMatches
+                        .Where(e => (e.Sport?.ToLower() ?? "").Contains(TargetSport.ToLower()))
+                        .ToList();
+                }
+
+                var viewModels = new List<CarouselMatchViewModel>();
+
+                foreach (var evt in teamMatches)
+                {
+                    var scores = await apiService.GetAsync<ClientTeamMatchDTO>($"score/TeamMatch?eventId={evt.ID}");
+                    var vm = ProcessMatchData(evt, scores ?? new List<ClientTeamMatchDTO>());
+                    viewModels.Add(vm);
+                }
+
+                _activeMatches = viewModels;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading carousel: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshScoresOnly()
+    {
+        if (_activeMatches.Count == 0) return;
+
+        foreach (var match in _activeMatches)
+        {
+            try
+            {
+                var scores = await apiService.GetAsync<ClientTeamMatchDTO>($"score/TeamMatch?eventId={match.EventID}");
+                if (scores != null)
+                {
+                    var updatedVM = ProcessMatchData(match.EventData, scores);
+                    match.DisplayScoreA = updatedVM.DisplayScoreA;
+                    match.DisplayScoreB = updatedVM.DisplayScoreB;
+                    match.SetsA = updatedVM.SetsA;
+                    match.SetsB = updatedVM.SetsB;
+                    match.PhaseText = updatedVM.PhaseText;
+                    match.IsWinnerA = updatedVM.IsWinnerA;
+                    match.IsWinnerB = updatedVM.IsWinnerB;
+                    match.MatchHistory = updatedVM.MatchHistory;
+                }
+            }
+            catch { }
+        }
+        StateHasChanged();
+    }
+
+    private bool IsAllowedTeamSport(string? sport)
+    {
+        if (string.IsNullOrEmpty(sport)) return false;
+        var s = sport.ToLower();
+        return s.Contains("basket") || s.Contains("volley") || s.Contains("tennis") ||
+               s.Contains("badminton") || s.Contains("sepak") || s.Contains("futsal") ||
+               s.Contains("football") || s.Contains("soccer") || s.Contains("base") || s.Contains("soft");
+    }
+
+    private CarouselMatchViewModel ProcessMatchData(EventModel evt, List<ClientTeamMatchDTO> scores)
+    {
+        var vm = new CarouselMatchViewModel
+        {
+            EventID = evt.ID,
+            EventData = evt,
+            TeamA = evt.EventVersusList![0],
+            TeamB = evt.EventVersusList![1]
+        };
+
+        bool isSetGame = IsSetBasedSport(evt.Sport);
+        vm.IsSetGame = isSetGame;
+
+        if (!scores.Any()) return vm;
+
+        int maxPhase = scores.Max(s => s.Phase);
+        vm.PhaseText = GetPhaseText(evt.Sport, maxPhase);
+
+        // HISTORY LOGIC
+        for (int i = 1; i <= maxPhase; i++)
+        {
+            var sA = GetScore(scores, vm.TeamA.Region, i);
+            var sB = GetScore(scores, vm.TeamB.Region, i);
+            if (sA > 0 || sB > 0 || i == maxPhase)
+            {
+                vm.MatchHistory.Add(new PhaseScoreModel { PhaseNumber = i, ScoreA = sA, ScoreB = sB });
+            }
+        }
+
+        // SCORING LOGIC
+        if (isSetGame)
+        {
+            int setsA = 0, setsB = 0;
+            for (int i = 1; i <= maxPhase; i++)
+            {
+                if (i < maxPhase || evt.IsFinished == true)
+                {
+                    var sA = GetScore(scores, vm.TeamA.Region, i);
+                    var sB = GetScore(scores, vm.TeamB.Region, i);
+                    if (sA > sB) setsA++; else if (sB > sA) setsB++;
+                }
+            }
+            vm.SetsA = setsA;
+            vm.SetsB = setsB;
+            vm.DisplayScoreA = GetScore(scores, vm.TeamA.Region, maxPhase);
+            vm.DisplayScoreB = GetScore(scores, vm.TeamB.Region, maxPhase);
+        }
+        else
+        {
+            vm.DisplayScoreA = scores.Where(s => s.Region == vm.TeamA.Region).Sum(s => s.Score);
+            vm.DisplayScoreB = scores.Where(s => s.Region == vm.TeamB.Region).Sum(s => s.Score);
+        }
+
+        if (vm.DisplayScoreA > vm.DisplayScoreB) vm.IsWinnerA = true;
+        if (vm.DisplayScoreB > vm.DisplayScoreA) vm.IsWinnerB = true;
+
+        return vm;
+    }
+
+    private int GetScore(List<ClientTeamMatchDTO> scores, string? region, int phase)
+    {
+        return scores.FirstOrDefault(s => s.Region == region && s.Phase == phase)?.Score ?? 0;
+    }
+
+    private bool IsSetBasedSport(string? sport)
+    {
+        if (string.IsNullOrEmpty(sport)) return false;
+        var s = sport.ToLower();
+        return s.Contains("volley") || s.Contains("tennis") || s.Contains("badminton") || s.Contains("sepak") || s.Contains("table");
+    }
+
+    private string GetPhaseText(string? sport, int phase)
+    {
+        var s = sport?.ToLower() ?? "";
+        if (s.Contains("basket")) return $"Q{phase}";
+        if (s.Contains("base") || s.Contains("soft")) return $"INN {phase}";
+        return $"SET {phase}";
+    }
+
+    private string GetPhaseShortName(string? sport, int phase)
+    {
+        var s = sport?.ToLower() ?? "";
+        if (s.Contains("basket")) return $"Q{phase}";
+        if (s.Contains("base") || s.Contains("soft")) return $"INN{phase}";
+        return $"SET {phase}";
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}
