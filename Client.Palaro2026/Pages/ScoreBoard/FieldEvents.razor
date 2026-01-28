@@ -1,0 +1,701 @@
+﻿@page "/scoreboard/field-events"
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>Field Events Scoreboard | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@600;700&display=swap');
+
+    :root {
+        --bg-dark: #0a0a0a;
+        --card-bg: rgba(30, 30, 30, 0.7);
+        --card-border: rgba(255, 255, 255, 0.1);
+        --text-primary: #ffffff;
+        --accent-blue: #00e5ff;
+        --accent-gold: #FFD700;
+        --accent-green: #00E676;
+        --accent-red: #ff1744;
+        --neon-gold: 0 0 10px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.3);
+        --neon-blue: 0 0 10px rgba(0, 229, 255, 0.6);
+        --neon-green: 0 0 10px rgba(0, 230, 118, 0.4);
+    }
+
+    /* BACKGROUND TEXTURE */
+    .dashboard-bg {
+        background-color: var(--bg-dark);
+        background-image: radial-gradient(circle at 10% 20%, rgba(41, 121, 255, 0.08) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(0, 230, 118, 0.05) 0%, transparent 40%), linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+        min-height: 100vh;
+        color: var(--text-primary);
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    /* HEADER */
+    .header-container {
+        text-align: center;
+        margin-bottom: 40px;
+        position: relative;
+        padding: 30px 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+        border-bottom: 1px solid rgba(0, 230, 118, 0.2);
+    }
+
+    .main-title {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        background: linear-gradient(180deg, #00E676 0%, #00C853 50%, #00695C 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        filter: drop-shadow(0 0 15px rgba(0, 230, 118, 0.4));
+    }
+
+    .sub-title {
+        font-family: 'Chakra Petch', sans-serif;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: clamp(1rem, 1.5vw, 1.3rem);
+        letter-spacing: 8px;
+        font-weight: 700;
+        text-transform: uppercase;
+        position: relative;
+        display: inline-block;
+    }
+
+        .sub-title::before, .sub-title::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 60px;
+            height: 2px;
+            background: var(--accent-green);
+            opacity: 0.5;
+        }
+
+        .sub-title::before {
+            left: -80px;
+        }
+
+        .sub-title::after {
+            right: -80px;
+        }
+
+    /* EVENT LINK */
+    .event-link {
+        text-decoration: none;
+        display: block;
+        height: 100%;
+    }
+
+    /* CARD DESIGN */
+    .event-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        height: 100%;
+    }
+
+        .event-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent-green), transparent);
+            opacity: 0.5;
+        }
+
+        .event-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: var(--accent-green);
+            box-shadow: 0 15px 40px rgba(0, 230, 118, 0.15);
+        }
+
+            .event-card:hover::before {
+                opacity: 1;
+            }
+
+    /* BADGES */
+    .status-container {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        display: flex;
+        gap: 8px;
+        z-index: 5;
+    }
+
+    .event-type-badge {
+        background: rgba(0,0,0,0.8);
+        color: var(--accent-green);
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 700;
+        font-size: 0.8rem;
+        border: 1px solid var(--accent-green);
+        box-shadow: 0 0 10px rgba(0, 230, 118, 0.2);
+    }
+
+    .status-badge {
+        padding: 4px 15px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 800;
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+    }
+
+    .badge-live {
+        background: linear-gradient(135deg, #ff0000 0%, #b30000 100%);
+        color: white;
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+        border: 1px solid #ff5252;
+        animation: pulse 2s infinite;
+    }
+
+    .badge-final {
+        background: linear-gradient(135deg, #00C853 0%, #00695C 100%);
+        color: white;
+        border: 1px solid #69F0AE;
+        box-shadow: var(--neon-green);
+    }
+
+    /* PERFORMANCE METRIC */
+    .performance-metric {
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 12px;
+        padding: 10px;
+        margin: 8px 0;
+        border: 1px solid rgba(0, 230, 118, 0.3);
+    }
+
+    .metric-value {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.8rem;
+        font-weight: 900;
+        color: var(--accent-green);
+        line-height: 1;
+        text-shadow: 0 0 10px rgba(0, 230, 118, 0.3);
+    }
+
+    .metric-label {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.75rem;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 4px;
+    }
+
+    .athlete-name {
+        font-family: 'Chakra Petch', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 4px;
+    }
+
+    .region-badge {
+        display: inline-block;
+        background: rgba(41, 121, 255, 0.2);
+        color: var(--accent-blue);
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid rgba(41, 121, 255, 0.3);
+    }
+
+    .leader-icon {
+        background: var(--accent-gold);
+        color: #000;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        margin-right: 8px;
+    }
+
+    .logo-circle {
+        width: 70px;
+        height: 70px;
+        background: radial-gradient(circle, #2a2a2a 0%, #151515 100%);
+        border-radius: 50%;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #333;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .winner-border {
+        border-color: var(--accent-gold) !important;
+        box-shadow: var(--neon-gold);
+        transform: scale(1.05);
+    }
+
+    .sport-icon {
+        background: linear-gradient(135deg, rgba(0, 230, 118, 0.2), rgba(0, 230, 118, 0.05));
+        border-radius: 50%;
+        padding: 10px;
+        border: 1px solid rgba(0, 230, 118, 0.3);
+    }
+
+    /* MUD TABS CUSTOMIZATION */
+    .mud-tabs-tabbar {
+        background-color: transparent !important;
+        border-bottom: 1px solid #333;
+    }
+
+    .mud-tab {
+        color: #888 !important;
+        font-family: 'Orbitron';
+        font-weight: 700;
+        letter-spacing: 1px;
+        transition: color 0.3s;
+    }
+
+    .mud-tab-active {
+        color: var(--accent-green) !important;
+        font-weight: 900;
+        text-shadow: 0 0 10px rgba(0, 230, 118, 0.4);
+    }
+
+    .mud-tabs-indicator {
+        background-color: var(--accent-green) !important;
+        height: 3px;
+        box-shadow: 0 0 10px var(--accent-green);
+    }
+
+    @@keyframes pulse {
+        0% {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+        }
+
+        50% {
+            opacity: 0.8;
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.2);
+        }
+
+        100% {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+        }
+    }
+</style>
+
+<div class="dashboard-bg">
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge">
+
+        <!-- HEADER -->
+        <div class="header-container">
+            <div class="main-title">PALARONG PAMBANSA 2026</div>
+            <div class="sub-title">FIELD EVENTS SCOREBOARD</div>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="mt-16">
+                <MudProgressCircular Indeterminate="true" Color="Color.Success" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-4" Style="font-family:'Orbitron'; color:var(--accent-green);">LOADING FIELD EVENTS...</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="mt-6" Centered="true">
+
+                <!-- TAB 1: LIVE / ONGOING -->
+                <MudTabPanel Text="LIVE / ONGOING">
+                    @if (!_fieldEvents.Any(e => e.IsFinished != true))
+                    {
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.TrackChanges" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                            <MudText Typo="Typo.h5" Class="mt-4" Style="color: #666; font-family:'Orbitron'; font-weight:700;">NO LIVE FIELD EVENTS</MudText>
+                            <MudText Typo="Typo.body2" Style="color: #555;">Stand by for upcoming events</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in _fieldEvents.Where(e => e.IsFinished != true))
+                            {
+                                var topAthlete = GetTopAthlete(evt.ID);
+                                var isDistanceEvent = IsDistanceEvent(evt.Subcategory);
+                                var unit = GetEventUnit(evt.Subcategory);
+
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="/scoreboard/field-events/@evt.ID" target="_blank" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@evt.Subcategory</div>
+                                                <div class="status-badge badge-live">LIVE</div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="sport-icon mr-3">
+                                                        <MudIcon Icon="@GetFieldEventIcon(evt.Subcategory)" Size="Size.Small" Style="color:var(--accent-green);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">@evt.Sport</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">@evt.Gender • @evt.EventStage</MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Current Leader -->
+                                                <div class="performance-metric">
+                                                    <div class="d-flex align-center mb-2">
+                                                        @if (topAthlete != null)
+                                                        {
+                                                            <div class="leader-icon">
+                                                                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Small" />
+                                                            </div>
+                                                            <div style="flex: 1;">
+                                                                <div class="athlete-name">@topAthlete.PlayerName</div>
+                                                                <div class="region-badge">@topAthlete.Abbreviation</div>
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                                            <div class="athlete-name">No attempts yet</div>
+                                                        }
+                                                    </div>
+
+                                                    @if (topAthlete != null)
+                                                    {
+                                                        <div class="metric-value">
+                                                            @if (isDistanceEvent)
+                                                            {
+                                                                @topAthlete.BestDistance
+                                                            }
+                                                            else
+                                                            {
+                                                                @topAthlete.BestResult
+                                                            }
+                                                        </div>
+                                                        <div class="metric-label">@unit</div>
+                                                    }
+                                                </div>
+
+                                                <!-- Event Details -->
+                                                <div class="pa-2">
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Level:</b> @evt.Level
+                                                    </MudText>
+                                                  
+                                                    <MudText Typo="Typo.caption" Style="color: var(--accent-green); font-weight:600;">
+                                                        Click for full leaderboard
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+
+                <!-- TAB 2: FINISHED RESULTS -->
+                <MudTabPanel Text="PARTIAL RESULTS">
+                    @if (!_fieldEvents.Any(e => e.IsFinished == true))
+                    {
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Size="Size.Large" Style="color: #555;" />
+                            <MudText Typo="Typo.h6" Class="mt-4" Style="color: #777; font-family:'Orbitron'">NO COMPLETED EVENTS YET</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in _fieldEvents.Where(e => e.IsFinished == true))
+                            {
+                                var winner = GetWinner(evt.ID);
+                                var isDistanceEvent = IsDistanceEvent(evt.Subcategory);
+                                var unit = GetEventUnit(evt.Subcategory);
+
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="/scoreboard/field-events/@evt.ID" target="_blank" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@evt.Subcategory</div>
+                                                <div class="status-badge badge-final">FINAL</div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="sport-icon mr-3">
+                                                        <MudIcon Icon="@GetFieldEventIcon(evt.Subcategory)" Size="Size.Small" Style="color:var(--accent-green);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">@evt.Sport</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">@evt.Gender • @evt.EventStage</MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Winner Display -->
+                                                <div class="performance-metric">
+                                                    @if (winner != null)
+                                                    {
+                                                        <div class="d-flex align-center mb-2">
+                                                            <div class="leader-icon">
+                                                                <MudIcon Icon="@Icons.Material.Filled.MilitaryTech" Size="Size.Small" />
+                                                            </div>
+                                                            <div style="flex: 1;">
+                                                                <div class="athlete-name">@winner.PlayerName</div>
+                                                                <div class="region-badge">@winner.Abbreviation</div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="metric-value">
+                                                            @if (isDistanceEvent)
+                                                            {
+                                                                @winner.BestDistance
+                                                            }
+                                                            else
+                                                            {
+                                                                @winner.BestResult
+                                                            }
+                                                        </div>
+                                                        <div class="metric-label">WINNING @unit</div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="athlete-name">No Results Available</div>
+                                                        <div class="metric-value">-</div>
+                                                        <div class="metric-label">@unit</div>
+                                                    }
+                                                </div>
+
+                                                <!-- Event Details -->
+                                                <div class="pa-2">
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Level:</b> @evt.Level
+                                                    </MudText>
+                                                   
+                                                    <MudText Typo="Typo.caption" Style="color: var(--accent-green); font-weight:600;">
+                                                        Click for full results
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+            </MudTabs>
+        }
+    </MudContainer>
+</div>
+
+@code {
+#pragma warning disable CS8618
+
+    // --- MODELS ---
+    public class EventModel
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Level { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public bool? IsFinished { get; set; }
+        public string? SportMainCat { get; set; }
+        public string? Category { get; set; }
+        public List<EventVersusTeams>? EventVersusList { get; set; }
+        public string? GamePhase { get; set; }
+        public string? Venue { get; set; }
+        public string? Address { get; set; }
+        public DateTime? Date { get; set; }
+        public string? Time { get; set; }
+        public bool? OnStream { get; set; }
+    }
+
+    public class EventVersusTeams
+    {
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? Score { get; set; }
+        public string? Rank { get; set; }
+        public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+    }
+
+    public class EventVersusTeamPlayers
+    {
+        public int Id { get; set; }
+        public int EventVersusID { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? School { get; set; }
+    }
+
+    public class FieldEventResult
+    {
+        public string? PlayerName { get; set; }
+        public string? Abbreviation { get; set; }
+        public decimal? BestResult { get; set; }
+        public string? BestDistance { get; set; }
+    }
+
+    // --- STATE ---
+    private List<EventModel> _fieldEvents = new();
+    private bool _isLoading = true;
+    private Timer? _refreshTimer;
+    private string? _errorMessage;
+    private string? _debugInfo;
+
+    // --- LIFECYCLE ---
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadData();
+            _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 5000, 5000);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Initialization error: {ex.Message}";
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            _isLoading = true;
+              var allEventsRaw = await apiService.GetAsync<object>("/Events/Details");
+            List<EventModel> allEvents = new();
+
+            _fieldEvents = allEvents
+                .Where(e => e.Sport == "Athletics" && e.SportMainCat == "Field Events")
+                .OrderBy(e => e.IsFinished ?? true)
+                .ThenBy(e => e.Subcategory)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading events: {ex.Message}");
+            _fieldEvents.Clear();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // --- HELPERS ---
+    private FieldEventResult? GetTopAthlete(string eventId)
+    {
+        try
+        {
+            var evt = _fieldEvents.FirstOrDefault(e => e.ID == eventId);
+            if (evt?.EventVersusList != null)
+            {
+                var athlete = evt.EventVersusList
+                    .Where(v => !string.IsNullOrEmpty(v.Score) && v.EventVersusTeamPlayersList?.Any() == true)
+                    .SelectMany(v => v.EventVersusTeamPlayersList!.Select(p => new
+                    {
+                        PlayerName = $"{p.FirstName} {p.LastName}",
+                        v.Abbreviation,
+                        Score = v.Score
+                    }))
+                    .OrderByDescending(a => decimal.TryParse(a.Score, out decimal score) ? score : 0)
+                    .FirstOrDefault();
+
+                if (athlete != null)
+                {
+                    return new FieldEventResult
+                    {
+                        PlayerName = athlete.PlayerName,
+                        Abbreviation = athlete.Abbreviation,
+                        BestResult = decimal.TryParse(athlete.Score, out decimal s) ? s : 0
+                    };
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in GetTopAthlete: {ex.Message}");
+        }
+
+        return null;
+    }
+
+    private FieldEventResult? GetWinner(string eventId) => GetTopAthlete(eventId);
+
+    private bool IsDistanceEvent(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory)) return false;
+        var s = subcategory.ToLower();
+        return s.Contains("jump") || s.Contains("throw") || s.Contains("shot") ||
+               s.Contains("discus") || s.Contains("javelin") || s.Contains("long") ||
+               s.Contains("high") || s.Contains("triple") || s.Contains("pole");
+    }
+
+    private string GetEventUnit(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory)) return "Result";
+        var s = subcategory.ToLower();
+        if (s.Contains("jump") || s.Contains("throw") || s.Contains("shot") ||
+            s.Contains("discus") || s.Contains("javelin"))
+            return "Meters";
+        if (s.Contains("weight") || s.Contains("lift"))
+            return "Kgs";
+        return "Points";
+    }
+
+    private string GetFieldEventIcon(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory)) return Icons.Material.Filled.TrackChanges;
+        var s = subcategory.ToLower();
+        if (s.Contains("jump")) return Icons.Material.Filled.DirectionsRun;
+        if (s.Contains("throw")) return Icons.Material.Filled.Sports;
+        if (s.Contains("shot")) return Icons.Material.Filled.FitnessCenter;
+        if (s.Contains("discus")) return Icons.Material.Filled.Circle;
+        if (s.Contains("javelin")) return Icons.Material.Filled.North;
+        if (s.Contains("weight") || s.Contains("lift")) return Icons.Material.Filled.FitnessCenter;
+        return Icons.Material.Filled.TrackChanges;
+    }
+
+    // --- DISPOSE ---
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+        _refreshTimer = null;
+    }
+
+#pragma warning restore CS8618
+}

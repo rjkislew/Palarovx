@@ -1,0 +1,1489 @@
+﻿@page "/scoreboard/boxing/{EventID}"
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>Boxing Tournament Bracket | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
+
+    :root {
+        --bg-dark: #121212;
+        --panel-bg: rgba(20, 20, 25, 0.9);
+        --accent-gold: #FFD700;
+        --accent-blue: #00B0FF;
+        --accent-red: #FF1744;
+        --text-white: #ffffff;
+        --accent-green: #4CAF50;
+        --ring-red: #FF4136;
+        --ring-blue: #0074D9;
+        --ring-corner: #FFD700;
+    }
+
+    body {
+        background-color: black;
+        overflow: auto;
+    }
+
+    .tv-screen {
+        min-height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at center, #1e1e24 0%, #000000 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        padding: 20px;
+    }
+
+    .tournament-header {
+        text-align: center;
+        margin-bottom: 2vh;
+        width: 100%;
+    }
+
+    .palaro-branding {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2rem;
+        color: var(--accent-gold);
+        letter-spacing: 3px;
+        font-weight: bold;
+    }
+
+    .event-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2.5rem;
+        font-weight: 900;
+        color: var(--accent-red);
+        margin: 10px 0;
+    }
+
+    .event-subtitle {
+        font-size: 1.2rem;
+        color: #aaa;
+        margin-bottom: 20px;
+    }
+
+    .back-button {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid #333;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+        .back-button:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+    .status-badge {
+        font-family: 'Orbitron', sans-serif;
+        padding: 8px 30px;
+        border-radius: 50px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        display: inline-block;
+        margin: 10px 0;
+    }
+
+    .live {
+        background: var(--accent-red);
+        animation: pulse 1.5s infinite;
+    }
+
+    .final {
+        background: #00C853;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: 0.7
+        }
+    }
+
+    .bracket-container {
+        width: 100%;
+        max-width: 1400px;
+        margin-top: 20px;
+        overflow-x: auto;
+    }
+
+    .rounds-container {
+        display: flex;
+        justify-content: space-around;
+        gap: 20px;
+        padding: 20px 0;
+    }
+
+    .round-column {
+        flex: 1;
+        min-width: 300px;
+        background: var(--panel-bg);
+        border-radius: 15px;
+        padding: 20px;
+    }
+
+    .round-header {
+        text-align: center;
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--accent-gold);
+    }
+
+    .round-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.5rem;
+        color: var(--accent-gold);
+        margin-bottom: 5px;
+    }
+
+    .round-subtitle {
+        color: #aaa;
+        font-size: 0.9rem;
+    }
+
+    .bouts-list {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .bout-card {
+        background: rgba(255,255,255,0.05);
+        border-radius: 10px;
+        padding: 15px;
+        border-left: 4px solid transparent;
+        transition: all 0.3s ease;
+    }
+
+        .bout-card:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+
+        .bout-card.active {
+            border-left-color: var(--accent-red);
+            background: rgba(255, 23, 68, 0.1);
+        }
+
+        .bout-card.completed {
+            border-left-color: var(--accent-green);
+        }
+
+    .bout-number {
+        font-family: 'Orbitron', sans-serif;
+        color: var(--accent-gold);
+        font-size: 0.9rem;
+        margin-bottom: 10px;
+    }
+
+    .fighters-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 15px 0;
+    }
+
+    .fighter {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+        padding: 10px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+        .fighter.red {
+            background: rgba(255, 65, 54, 0.1);
+            border: 1px solid var(--ring-red);
+        }
+
+        .fighter.blue {
+            background: rgba(0, 116, 217, 0.1);
+            border: 1px solid var(--ring-blue);
+        }
+
+        .fighter.winner {
+            background: rgba(255, 215, 0, 0.2);
+            border: 2px solid var(--accent-gold);
+        }
+
+    .fighter-logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        overflow: hidden;
+        margin-bottom: 8px;
+        background: rgba(255,255,255,0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .fighter-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+    .fighter-name {
+        font-weight: bold;
+        font-size: 1rem;
+        text-align: center;
+        margin-bottom: 3px;
+    }
+
+    .fighter-region {
+        font-size: 0.8rem;
+        color: #aaa;
+        text-align: center;
+    }
+
+    .vs-separator {
+        margin: 0 20px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.2rem;
+        color: var(--accent-gold);
+        font-weight: bold;
+    }
+
+    .bout-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        font-size: 0.8rem;
+    }
+
+    .bout-time {
+        color: #aaa;
+    }
+
+    .bout-result {
+        color: var(--accent-gold);
+        font-weight: bold;
+    }
+
+    .empty-bout {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+        font-style: italic;
+    }
+
+    .winner-badge {
+        background: var(--accent-gold);
+        color: black;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.7rem;
+        font-weight: bold;
+        margin-top: 5px;
+        font-family: 'Orbitron', sans-serif;
+    }
+
+    .champion-section {
+        margin-top: 30px;
+        padding: 20px;
+        background: var(--panel-bg);
+        border-radius: 15px;
+        width: 100%;
+        max-width: 1400px;
+        text-align: center;
+    }
+
+    .champion-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.5rem;
+        color: var(--accent-gold);
+        margin-bottom: 10px;
+    }
+
+    .champion-name {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2rem;
+        color: var(--accent-red);
+        margin: 10px 0;
+    }
+
+    .champion-region {
+        font-size: 1.2rem;
+        color: #aaa;
+    }
+
+    .trophy-icon {
+        font-size: 3rem;
+        color: var(--accent-gold);
+        margin-bottom: 10px;
+    }
+
+    .loading-container {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 50px;
+    }
+
+    .boxing-ring {
+        width: 100px;
+        height: 100px;
+        border: 3px solid var(--accent-gold);
+        border-radius: 50%;
+        position: relative;
+        margin-bottom: 20px;
+        animation: spin 2s linear infinite;
+    }
+
+    @@keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .ring-inner {
+        width: 70px;
+        height: 70px;
+        border: 2px solid var(--accent-red);
+        border-radius: 50%;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    .corner-red {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        width: 20px;
+        height: 20px;
+        background: var(--ring-red);
+        border-radius: 50%;
+    }
+
+    .corner-blue {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        width: 20px;
+        height: 20px;
+        background: var(--ring-blue);
+        border-radius: 50%;
+    }
+
+    .event-stats {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 20px;
+        padding: 15px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 10px;
+        width: 100%;
+        max-width: 1400px;
+    }
+
+    .stat-item {
+        text-align: center;
+    }
+
+    .stat-value {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.5rem;
+        color: var(--accent-gold);
+        margin-bottom: 5px;
+    }
+
+    .stat-label {
+        font-size: 0.8rem;
+        color: #aaa;
+    }
+
+    /* Match Statistics Table Styles */
+    .scoreboard-table-section {
+        margin-top: 40px;
+        width: 100%;
+        max-width: 1400px;
+        background: var(--panel-bg);
+        border-radius: 15px;
+        padding: 25px;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid var(--accent-gold);
+    }
+
+    .section-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.5rem;
+        color: var(--accent-gold);
+    }
+
+    .table-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .search-box {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 8px;
+        padding: 8px 15px;
+        color: white;
+        font-family: 'Rajdhani', sans-serif;
+        width: 200px;
+    }
+
+    .search-box::placeholder {
+        color: #aaa;
+    }
+
+    .rows-per-page {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #aaa;
+        font-size: 0.9rem;
+    }
+
+    .rows-per-page select {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 6px;
+        color: white;
+        padding: 4px 8px;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .score-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .table-header {
+        background: rgba(255, 215, 0, 0.1);
+        border-bottom: 2px solid var(--accent-gold);
+    }
+
+    .table-header th {
+        padding: 15px;
+        text-align: left;
+        font-weight: 700;
+        color: var(--accent-gold);
+        text-transform: uppercase;
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+    }
+
+    .table-row {
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        transition: background 0.3s ease;
+    }
+
+    .table-row:hover {
+        background: rgba(255,255,255,0.05);
+    }
+
+    .table-row td {
+        padding: 15px;
+        color: var(--text-white);
+    }
+
+    .region-cell {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+    }
+
+    .region-logo {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255,255,255,0.1);
+    }
+
+    .region-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .win-rate-cell {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 700;
+    }
+
+    .win-rate-high {
+        color: var(--accent-green);
+    }
+
+    .win-rate-medium {
+        color: var(--accent-gold);
+    }
+
+    .win-rate-low {
+        color: var(--accent-red);
+    }
+
+    .performance-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+
+    .performance-excellent {
+        background: var(--accent-green);
+    }
+
+    .performance-good {
+        background: var(--accent-gold);
+    }
+
+    .performance-average {
+        background: #FF9800;
+    }
+
+    .performance-poor {
+        background: var(--accent-red);
+    }
+
+    .table-pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .pagination-info {
+        color: #aaa;
+        font-size: 0.9rem;
+    }
+
+    .pagination-controls {
+        display: flex;
+        gap: 10px;
+    }
+
+    .pagination-button {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 6px;
+        color: white;
+        padding: 6px 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 0.8rem;
+        min-width: 30px;
+    }
+
+    .pagination-button:hover:not(:disabled) {
+        background: var(--accent-blue);
+        border-color: var(--accent-blue);
+    }
+
+    .pagination-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .pagination-button.active {
+        background: var(--accent-gold);
+        color: black;
+        border-color: var(--accent-gold);
+    }
+
+    @@media (max-width: 768px) {
+        .rounds-container {
+            flex-direction: column;
+        }
+
+        .round-column {
+            min-width: unset;
+        }
+
+        .event-title {
+            font-size: 2rem;
+        }
+        
+        .section-header {
+            flex-direction: column;
+            gap: 15px;
+            align-items: stretch;
+        }
+        
+        .table-controls {
+            flex-direction: column;
+        }
+        
+        .search-box {
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="tv-screen">
+    <button class="back-button" @onclick="NavigateBack">← Back to Events</button>
+
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="boxing-ring">
+                <div class="ring-inner"></div>
+                <div class="corner-red"></div>
+                <div class="corner-blue"></div>
+            </div>
+            <MudText Typo="Typo.h6" Color="Color.Warning">Loading Tournament Bracket...</MudText>
+        </div>
+    }
+    else if (_event == null)
+    {
+        <div class="loading-container">
+            <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Large" Color="Color.Error" />
+            <MudText Typo="Typo.h5" Class="mt-3">Event Not Found</MudText>
+            <MudButton Color="Color.Primary" Variant="Variant.Filled"
+                       Class="mt-3" @onclick="NavigateBack">
+                Return to Events
+            </MudButton>
+        </div>
+    }
+    else
+    {
+        <div class="tournament-header">
+            <div class="palaro-branding">PALARONG PAMBANSA 2026</div>
+            <div class="event-title">@_event.MajorCategory</div>
+            <div class="event-subtitle">
+                @_event.SubCategory • @_event.Level • @_event.Gender
+            </div>
+            <div class="status-badge @(_event.Status == "Completed" ? "final" : "live")">
+                @_event.Status.ToUpper()
+            </div>
+        </div>
+
+        <!-- Event Stats -->
+        <div class="event-stats">
+            <div class="stat-item">
+                <div class="stat-value">@_event.TotalBouts</div>
+                <div class="stat-label">TOTAL BOUTS</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">@_event.CompletedBouts</div>
+                <div class="stat-label">COMPLETED</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">@_event.RemainingBouts</div>
+                <div class="stat-label">REMAINING</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">@_event.CurrentRound</div>
+                <div class="stat-label">CURRENT ROUND</div>
+            </div>
+        </div>
+
+        <!-- Bracket Display -->
+        <div class="bracket-container">
+            <div class="rounds-container">
+                @foreach (var round in _rounds)
+                {
+                    <div class="round-column">
+                        <div class="round-header">
+                            <div class="round-title">@round.Label</div>
+                            <div class="round-subtitle">@GetRoundDescription(round.Key)</div>
+                        </div>
+
+                        <div class="bouts-list">
+                            @if (!round.Bouts.Any())
+                            {
+                                <div class="empty-bout">
+                                    No bouts scheduled for this round
+                                </div>
+                            }
+                            else
+                            {
+                                @foreach (var bout in round.Bouts)
+                                {
+                                    <div class="bout-card @(bout.IsActive ? "active" : "") @(bout.IsCompleted ? "completed" : "")">
+                                        <div class="bout-number">Bout #@bout.Number</div>
+
+                                        <div class="fighters-container">
+                                            <!-- Red Corner -->
+                                            <div class="fighter red @(bout.Winner == "Red" ? "winner" : "")">
+                                                <div class="fighter-logo">
+                                                    <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{bout.RedRegion.ToUpper()}.webp")"
+                                                         onerror="this.style.display='none'" />
+                                                </div>
+                                                <div class="fighter-name">@bout.RedName</div>
+                                                <div class="fighter-region">@bout.RedRegion</div>
+                                                @if (bout.Winner == "Red")
+                                                {
+                                                    <div class="winner-badge">WINNER</div>
+                                                }
+                                            </div>
+
+                                            <div class="vs-separator">VS</div>
+
+                                            <!-- Blue Corner -->
+                                            <div class="fighter blue @(bout.Winner == "Blue" ? "winner" : "")">
+                                                <div class="fighter-logo">
+                                                    <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{bout.BlueRegion.ToUpper()}.webp")"
+                                                         onerror="this.style.display='none'" />
+                                                </div>
+                                                <div class="fighter-name">@bout.BlueName</div>
+                                                <div class="fighter-region">@bout.BlueRegion</div>
+                                                @if (bout.Winner == "Blue")
+                                                {
+                                                    <div class="winner-badge">WINNER</div>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div class="bout-info">
+                                            <div class="bout-time">
+                                                @(bout.Schedule?.ToString("MMM dd • h:mm tt") ?? "TBD")
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(bout.Result))
+                                            {
+                                                <div class="bout-result">@bout.Result</div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Match Statistics Table -->
+        <div class="scoreboard-table-section">
+            <div class="section-header">
+                <div class="section-title">TOURNAMENT SCOREBOARD</div>
+                <div class="table-controls">
+                    <input type="text" class="search-box" placeholder="Search region..." 
+                           @bind="_searchTerm" @bind:event="oninput" />
+                    <div class="rows-per-page">
+                        Rows per page:
+                        <select @bind="_rowsPerPage">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            @if (_matchStats == null || !_matchStats.Any())
+            {
+                <div class="empty-bout" style="padding: 40px;">
+                    <MudIcon Icon="@Icons.Material.Filled.SportsScore" Size="Size.Large" Color="Color.Secondary" />
+                    <div style="margin-top: 15px; font-size: 1.1rem;">No match statistics available</div>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="score-table">
+                        <thead class="table-header">
+                            <tr>
+                                <th>Region</th>
+                                <th>Player</th>
+                                <th>Matches Won</th>
+                                <th>Matches Lost</th>
+                                <th>Sets Won</th>
+                                <th>Sets Lost</th>
+                                <th>Win Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var stat in _filteredStats)
+                            {
+                                <tr class="table-row">
+                                    <td>
+                                        <div class="region-cell">
+                                            <div class="region-logo">
+                                                <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{stat.Region.ToUpper()}.webp")"
+                                                     onerror="this.style.display='none'" />
+                                            </div>
+                                            <span>@stat.Region</span>
+                                        </div>
+                                    </td>
+                                    <td>@stat.Player</td>
+                                    <td>
+                                        <span class="performance-indicator @GetPerformanceClass(stat.MatchesWon, _matchStats.Max(s => s.MatchesWon))"></span>
+                                        @stat.MatchesWon
+                                    </td>
+                                    <td>@stat.MatchesLost</td>
+                                    <td>@stat.SetsWon</td>
+                                    <td>@stat.SetsLost</td>
+                                    <td class="win-rate-cell @GetWinRateClass(stat.WinRate)">
+                                        @stat.WinRate.ToString("F1")%
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table-pagination">
+                    <div class="pagination-info">
+                        @if (_matchStats.Any())
+                        {
+                            <span>@(_currentPage * _rowsPerPage - _rowsPerPage + 1)-@Math.Min(_currentPage * _rowsPerPage, _matchStats.Count) of @_matchStats.Count</span>
+                        }
+                    </div>
+                    <div class="pagination-controls">
+                     
+                        
+                        @for (int i = Math.Max(1, _currentPage - 2); i <= Math.Min(_totalPages, _currentPage + 2); i++)
+                        {
+                            <button class="pagination-button @(i == _currentPage ? "active" : "")" 
+                                    @onclick="() => GoToPage(i)">
+                                @i
+                            </button>
+                        }
+                        
+                        <button class="pagination-button" @onclick="NextPage" :disabled="_currentPage == _totalPages">
+                            >
+                        </button>
+                        <button class="pagination-button" @onclick="LastPage" :disabled="_currentPage == _totalPages">
+                            >|
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Champion Display -->
+        @if (!string.IsNullOrEmpty(_champion))
+        {
+            <div class="champion-section">
+                <div class="trophy-icon">
+                    <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Large" />
+                </div>
+                <div class="champion-title">TOURNAMENT CHAMPION</div>
+                <div class="champion-name">@_championName</div>
+                <div class="champion-region">@_championRegion</div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string EventID { get; set; } = "";
+
+    private BoxingEvent? _event;
+    private List<BoutRound> _rounds = new();
+    private string _champion = "";
+    private string _championName = "";
+    private string _championRegion = "";
+    private bool _isLoading = true;
+    private Timer? _timer;
+    
+    // Match statistics properties
+    private List<MatchStat> _matchStats = new();
+    private List<MatchStat> _filteredStats = new();
+    private string _searchTerm = "";
+    private int _currentPage = 1;
+    private int _rowsPerPage = 10;
+    private int _totalPages = 1;
+    
+    // Store all bouts for statistics calculation
+    private List<EventDrawOfMatchDTO> _allEventMatches = new();
+
+    public class BoxingEvent
+    {
+        public string Id { get; set; } = "";
+        public string MajorCategory { get; set; } = "";
+        public string SubCategory { get; set; } = "";
+        public string Level { get; set; } = "";
+        public string Gender { get; set; } = "";
+        public string CurrentRound { get; set; } = "";
+        public string Status { get; set; } = "Upcoming";
+        public int TotalBouts { get; set; }
+        public int CompletedBouts { get; set; }
+        public int RemainingBouts { get; set; }
+    }
+
+    public class BoutRound
+    {
+        public string Key { get; set; } = "";
+        public string Label { get; set; } = "";
+        public int Order { get; set; }
+        public List<Bout> Bouts { get; set; } = new();
+    }
+
+    public class Bout
+    {
+        public int Number { get; set; }
+        public string Round { get; set; } = "";
+        public string RedName { get; set; } = "";
+        public string RedRegion { get; set; } = "";
+        public string BlueName { get; set; } = "";
+        public string BlueRegion { get; set; } = "";
+        public DateTime? Schedule { get; set; }
+        public string Result { get; set; } = "";
+        public string Winner { get; set; } = "";
+        public bool IsActive { get; set; }
+        public bool IsCompleted => !string.IsNullOrEmpty(Winner);
+    }
+    
+    public class MatchStat
+    {
+        public string Region { get; set; } = "";
+        public string Player { get; set; } = "";
+        public int MatchesWon { get; set; }
+        public int MatchesLost { get; set; }
+        public int SetsWon { get; set; }
+        public int SetsLost { get; set; }
+        public double WinRate { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _timer = new Timer(async _ => await InvokeAsync(LoadData), null, 5000, 5000);
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // Parse event ID to get major and category IDs
+            var parts = EventID.Split('_');
+            if (parts.Length != 2 || !int.TryParse(parts[0], out int majorId) || !int.TryParse(parts[1], out int categoryId))
+            {
+                _isLoading = false;
+                return;
+            }
+
+            // Load bouts for this event
+            var matches = await apiService.GetAsync<EventDrawOfMatchDTO>("/score/BoxingBout/list_match");
+
+            if (matches != null)
+            {
+                // Filter bouts for this event
+                _allEventMatches = matches
+                    .Where(b => b.MajorCategories_Id == majorId && b.Categories_Id == categoryId)
+                    .ToList();
+
+                // Load participants for each match
+                foreach (var match in _allEventMatches)
+                {
+                    var participants = await apiService.GetAsync<EventDrawOfMatchParticipantsDTO>($"/score/BoxingBout/list_participants/{match.Id}");
+                    match.Participants = participants?.ToList() ?? new List<EventDrawOfMatchParticipantsDTO>();
+                }
+
+                if (_allEventMatches.Any())
+                {
+                    var firstMatch = _allEventMatches.First();
+                    _event = new BoxingEvent
+                    {
+                        Id = EventID,
+                        MajorCategory = firstMatch.MajorCategory,
+                        SubCategory = firstMatch.SubCategory,
+                        Level = GetLevelFromCategory(firstMatch.MajorCategory),
+                        Gender = GetGenderFromCategory(firstMatch.SubCategory),
+                        TotalBouts = _allEventMatches.Count,
+                        CompletedBouts = CalculateCompletedBouts(_allEventMatches),
+                        RemainingBouts = CalculateRemainingBouts(_allEventMatches),
+                        CurrentRound = GetCurrentRound(_allEventMatches),
+                        Status = GetEventStatus(_allEventMatches)
+                    };
+
+                    // Organize bouts by round
+                    _rounds = OrganizeBoutsByRound(_allEventMatches);
+
+                    // Determine champion
+                    DetermineChampion(_allEventMatches);
+
+                    // Load match statistics using the actual API data
+                    await LoadMatchStatistics();
+                }
+            }
+
+            _isLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading boxing bracket: {ex.Message}");
+            _isLoading = false;
+        }
+    }
+    
+    private async Task LoadMatchStatistics()
+    {
+        try
+        {
+            // Calculate match statistics for each participant
+            var playerStats = new Dictionary<string, MatchStat>();
+
+            foreach (var match in _allEventMatches)
+            {
+                // Process red corner participant
+                var redParticipant = match.Participants.FirstOrDefault(p => p.Side_Name == "Red");
+                if (redParticipant != null)
+                {
+                    UpdatePlayerStats(playerStats, redParticipant, match);
+                }
+
+                // Process blue corner participant
+                var blueParticipant = match.Participants.FirstOrDefault(p => p.Side_Name == "Blue");
+                if (blueParticipant != null)
+                {
+                    UpdatePlayerStats(playerStats, blueParticipant, match);
+                }
+            }
+
+            // Convert dictionary to list and calculate win rates
+            _matchStats = playerStats.Values
+                .Select(stat =>
+                {
+                    var totalMatches = stat.MatchesWon + stat.MatchesLost;
+                    stat.WinRate = totalMatches > 0 ? (double)stat.MatchesWon / totalMatches * 100 : 0;
+                    return stat;
+                })
+                .OrderByDescending(s => s.WinRate)
+                .ThenByDescending(s => s.MatchesWon)
+                .ThenByDescending(s => s.SetsWon - s.SetsLost)
+                .ToList();
+
+            FilterStats();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading match statistics: {ex.Message}");
+            _matchStats = new List<MatchStat>();
+        }
+    }
+    
+    private void UpdatePlayerStats(Dictionary<string, MatchStat> playerStats, 
+                                   EventDrawOfMatchParticipantsDTO participant, 
+                                   EventDrawOfMatchDTO match)
+    {
+        var key = $"{participant.Region_Abbr}_{participant.Participant_Name}";
+        
+        if (!playerStats.ContainsKey(key))
+        {
+            playerStats[key] = new MatchStat
+            {
+                Region = participant.Region_Abbr,
+                Player = participant.Participant_Name
+            };
+        }
+
+        var stat = playerStats[key];
+
+        // Determine if this participant won the match
+        bool isWinner = DetermineMatchWinner(match, participant.Side_Name);
+        
+        if (isWinner)
+        {
+            stat.MatchesWon++;
+        }
+        else
+        {
+            stat.MatchesLost++;
+        }
+
+        // Add sets information (for boxing, these might be rounds won/lost)
+        // You'll need to implement actual sets calculation based on your data
+        var setsInfo = GetSetsInfo(match, participant.Side_Name);
+        stat.SetsWon += setsInfo.Won;
+        stat.SetsLost += setsInfo.Lost;
+    }
+    
+    private bool DetermineMatchWinner(EventDrawOfMatchDTO match, string sideName)
+    {
+        // Check if the match has a winner in the participants data
+        // For boxing, you might need to check bout results table
+        
+        // Placeholder logic - you should implement based on your actual data structure
+        // For now, return false or implement based on your bout results
+        return false;
+    }
+    
+    private (int Won, int Lost) GetSetsInfo(EventDrawOfMatchDTO match, string sideName)
+    {
+        // TODO: Implement actual sets/rounds calculation for boxing
+        // For boxing, this might be rounds won vs rounds lost
+        
+        // Placeholder: Return default values
+        return (0, 0);
+    }
+
+    private List<BoutRound> OrganizeBoutsByRound(List<EventDrawOfMatchDTO> bouts)
+    {
+        var rounds = new List<BoutRound>
+        {
+            new() { Key = "prelim", Label = "PRELIMINARY", Order = 1 },
+            new() { Key = "quarter", Label = "QUARTER-FINALS", Order = 2 },
+            new() { Key = "semi", Label = "SEMI-FINALS", Order = 3 },
+            new() { Key = "final", Label = "FINALS", Order = 4 }
+        };
+
+        foreach (var bout in bouts)
+        {
+            var roundKey = GetRoundKey(bout.Round_Name);
+            var round = rounds.FirstOrDefault(r => r.Key == roundKey);
+
+            if (round != null)
+            {
+                round.Bouts.Add(new Bout
+                {
+                    Number = bout.Bout_Id,
+                    Round = bout.Round_Name,
+                    RedName = bout.Participants?.FirstOrDefault(p => p.Side_Name == "Red")?.Participant_Name ?? "TBD",
+                    RedRegion = bout.Participants?.FirstOrDefault(p => p.Side_Name == "Red")?.Region_Abbr ?? "TBD",
+                    BlueName = bout.Participants?.FirstOrDefault(p => p.Side_Name == "Blue")?.Participant_Name ?? "TBD",
+                    BlueRegion = bout.Participants?.FirstOrDefault(p => p.Side_Name == "Blue")?.Region_Abbr ?? "TBD",
+                    Schedule = bout.Schedule,
+                    IsActive = bout.Schedule.Date == DateTime.Today,
+                    Winner = DetermineWinner(bout)
+                });
+            }
+        }
+
+        // Sort rounds by order
+        return rounds.OrderBy(r => r.Order).ToList();
+    }
+
+    private string GetRoundKey(string roundName)
+    {
+        if (string.IsNullOrEmpty(roundName)) return "prelim";
+
+        var lowerName = roundName.ToLower();
+        if (lowerName.Contains("final")) return "final";
+        if (lowerName.Contains("semi")) return "semi";
+        if (lowerName.Contains("quarter")) return "quarter";
+        return "prelim";
+    }
+
+    private string GetRoundDescription(string roundKey)
+    {
+        return roundKey switch
+        {
+            "prelim" => "Opening round matches",
+            "quarter" => "Top 8 contenders",
+            "semi" => "Final 4 showdown",
+            "final" => "Championship match",
+            _ => "Tournament round"
+        };
+    }
+
+    private string DetermineWinner(EventDrawOfMatchDTO bout)
+    {
+        // You'll need to implement actual winner determination logic
+        // This is a placeholder - check if there's a bout result in your data
+        return "";
+    }
+
+    private void DetermineChampion(List<EventDrawOfMatchDTO> bouts)
+    {
+        var finalBout = bouts.FirstOrDefault(b =>
+            b.Round_Name.ToLower().Contains("final") &&
+            !string.IsNullOrEmpty(DetermineWinner(b)));
+
+        if (finalBout != null)
+        {
+            var winner = DetermineWinner(finalBout);
+            var winnerParticipant = finalBout.Participants?.FirstOrDefault(p =>
+                p.Side_Name.Equals(winner, StringComparison.OrdinalIgnoreCase));
+
+            if (winnerParticipant != null)
+            {
+                _champion = winnerParticipant.Participant_Name;
+                _championName = winnerParticipant.Participant_Name;
+                _championRegion = winnerParticipant.Region_Abbr;
+            }
+        }
+    }
+
+    private string GetLevelFromCategory(string category)
+    {
+        if (category.Contains("Elementary")) return "Elementary";
+        if (category.Contains("Secondary")) return "Secondary";
+        if (category.Contains("High School")) return "High School";
+        return "Open";
+    }
+
+    private string GetGenderFromCategory(string subCategory)
+    {
+        if (subCategory.ToLower().Contains("boys")) return "Boys";
+        if (subCategory.ToLower().Contains("girls")) return "Girls";
+        return "Mixed";
+    }
+
+    private string GetCurrentRound(List<EventDrawOfMatchDTO> bouts)
+    {
+        if (!bouts.Any()) return "Not Started";
+
+        var rounds = bouts.Select(b => b.Round_Name).Distinct().ToList();
+        if (rounds.Contains("Finals")) return "Finals";
+        if (rounds.Contains("Semi-Finals")) return "Semi-Finals";
+        if (rounds.Contains("Quarter-Finals")) return "Quarter-Finals";
+        if (rounds.Contains("Preliminary")) return "Preliminary";
+
+        return rounds.FirstOrDefault() ?? "Not Started";
+    }
+
+    private string GetEventStatus(List<EventDrawOfMatchDTO> bouts)
+    {
+        if (!bouts.Any()) return "Upcoming";
+
+        var hasCompleted = bouts.Any(b => !string.IsNullOrEmpty(DetermineWinner(b)));
+        var hasScheduled = bouts.Any();
+
+        if (hasCompleted && bouts.All(b => !string.IsNullOrEmpty(DetermineWinner(b))))
+            return "Completed";
+        if (hasCompleted) return "Live";
+        if (hasScheduled) return "Scheduled";
+        return "Upcoming";
+    }
+
+    private int CalculateCompletedBouts(List<EventDrawOfMatchDTO> bouts)
+    {
+        return bouts.Count(b => !string.IsNullOrEmpty(DetermineWinner(b)));
+    }
+
+    private int CalculateRemainingBouts(List<EventDrawOfMatchDTO> bouts)
+    {
+        return bouts.Count(b => string.IsNullOrEmpty(DetermineWinner(b)));
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/scoreboard/boxing");
+    }
+    
+    // Match statistics helper methods
+    private void FilterStats()
+    {
+        var filtered = _matchStats;
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(_searchTerm))
+        {
+            filtered = filtered.Where(s => 
+                s.Region.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                s.Player.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+
+        // Calculate pagination
+        _totalPages = (int)Math.Ceiling(filtered.Count / (double)_rowsPerPage);
+        _currentPage = Math.Max(1, Math.Min(_currentPage, _totalPages));
+
+        // Apply pagination
+        _filteredStats = filtered
+            .Skip((_currentPage - 1) * _rowsPerPage)
+            .Take(_rowsPerPage)
+            .ToList();
+    }
+    
+    private string GetWinRateClass(double winRate)
+    {
+        return winRate switch
+        {
+            >= 80 => "win-rate-high",
+            >= 60 => "win-rate-medium",
+            _ => "win-rate-low"
+        };
+    }
+
+    private string GetPerformanceClass(int value, int maxValue)
+    {
+        if (maxValue == 0) return "performance-average";
+        
+        var percentage = (double)value / maxValue;
+        return percentage switch
+        {
+            >= 0.8 => "performance-excellent",
+            >= 0.6 => "performance-good",
+            >= 0.4 => "performance-average",
+            _ => "performance-poor"
+        };
+    }
+
+    // Pagination methods
+    private void FirstPage()
+    {
+        _currentPage = 1;
+        FilterStats();
+    }
+
+    private void PreviousPage()
+    {
+        if (_currentPage > 1)
+        {
+            _currentPage--;
+            FilterStats();
+        }
+    }
+
+    private void NextPage()
+    {
+        if (_currentPage < _totalPages)
+        {
+            _currentPage++;
+            FilterStats();
+        }
+    }
+
+    private void LastPage()
+    {
+        _currentPage = _totalPages;
+        FilterStats();
+    }
+
+    private void GoToPage(int page)
+    {
+        _currentPage = page;
+        FilterStats();
+    }
+    
+    // Handle search input
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _searchTerm = e.Value?.ToString() ?? "";
+        _currentPage = 1;
+        FilterStats();
+    }
+
+    public void Dispose() => _timer?.Dispose();
+
+
+    public class MajorCategoriesDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class CategoriesDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int LevelId { get; set; }
+    }
+
+    public class RoundsDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Abbreviation { get; set; } = string.Empty;
+    }
+
+    // API DTO classes
+    public class EventDrawOfMatchDTO
+    {
+        public int Id { get; set; }
+        public int Sport_Id { get; set; }
+        public int MajorCategories_Id { get; set; }
+        public string MajorCategory { get; set; } = string.Empty;
+        public int Categories_Id { get; set; }
+        public string SubCategory { get; set; } = string.Empty;
+        public int Bout_Id { get; set; }
+        public int Round_Id { get; set; }
+        public string Round_Name { get; set; } = string.Empty;
+        public int Arena_Id { get; set; }
+        public string Arena_Name { get; set; } = string.Empty;
+        public DateTime Schedule { get; set; }
+        public string User_Id { get; set; } = string.Empty;
+        public DateTime Datentime { get; set; }
+        public List<EventDrawOfMatchParticipantsDTO> Participants { get; set; } = new();
+    }
+
+    public class EventDrawOfMatchParticipantsDTO
+    {
+        public int Id { get; set; }
+        public int Match_Id { get; set; }
+        public int Side_Id { get; set; }
+        public string Side_Name { get; set; } = string.Empty;
+        public int Region_Id { get; set; }
+        public string Participant_Id { get; set; } = string.Empty;
+        public string Participant_Name { get; set; } = string.Empty;
+        public string Region_Name { get; set; } = string.Empty;
+        public string Region_Abbr { get; set; } = string.Empty;
+        public string Coach_Name { get; set; } = string.Empty;
+    }
+
+    // Updated BoxingBoutDto with all required properties including region IDs
+    public class BoxingBoutDto
+    {
+        public int Id { get; set; }
+        public int Number { get; set; }
+        public string Round { get; set; } = string.Empty;
+        public string Round_Name { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string MajorCategory { get; set; } = string.Empty;
+        public string SubCategory { get; set; } = string.Empty;
+        public string Arena_Name { get; set; } = string.Empty;
+        public DateTime? Schedule { get; set; }
+        public string RedCornerRegion { get; set; } = string.Empty;
+        public string RedCornerName { get; set; } = string.Empty;
+        public string RedCornerCoach { get; set; } = string.Empty;
+        public int RedRegionId { get; set; }
+        public string BlueCornerRegion { get; set; } = string.Empty;
+        public string BlueCornerName { get; set; } = string.Empty;
+        public string BlueCornerCoach { get; set; } = string.Empty;
+        public int BlueRegionId { get; set; }
+        public string WinnerRegion { get; set; } = string.Empty;
+        public string VictoryType { get; set; } = string.Empty;
+        public string Referee { get; set; } = string.Empty;
+        public string Notes { get; set; } = string.Empty;
+    }
+
+
+    public class UpdateBoxingBoutDto
+    {
+        public string Status { get; set; } = string.Empty;
+        public string Arena { get; set; } = string.Empty;
+        public string Referee { get; set; } = string.Empty;
+        public DateTime? Schedule { get; set; }
+        public string Notes { get; set; } = string.Empty;
+    }
+}

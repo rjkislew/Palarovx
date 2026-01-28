@@ -1,0 +1,1010 @@
+﻿@page "/score/martialarts-performance/{EventID}"
+@using System.Threading
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@layout NoMainLayout
+
+<PageTitle>Martial Arts Performance Scoring | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@600;700;800&display=swap');
+
+    :root {
+        --bg-black: #000000;
+        --card-bg: #0a0a0a;
+        --border-color: #333333;
+        --accent-gold: #FFD700;
+        --accent-red: #FF0000;
+        --text-white: #ffffff;
+        --table-border: #444;
+        --accent-blue: #1565c0;
+        --accent-green: #2e7d32;
+        --accent-maroon: #c62828;
+        --accent-purple: #9C27B0;
+    }
+
+    body {
+        background-color: var(--bg-black);
+        margin: 0;
+        overflow: hidden;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .tv-screen {
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding-top: 2vh;
+        color: var(--text-white);
+        box-sizing: border-box;
+        background: radial-gradient(circle at 50% 0%, #1a1a1a 0%, #000000 70%);
+        position: relative;
+    }
+
+    .palaro-main-logo {
+        position: absolute;
+        top: 30px;
+        left: 40px;
+        height: 14vh;
+        min-height: 120px;
+        width: auto;
+        z-index: 100;
+        filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.2));
+    }
+
+    .tournament-header {
+        text-align: center;
+        margin-bottom: 2vh;
+        z-index: 10;
+        width: 70%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .main-event-title {
+        font-family: 'Orbitron', sans-serif;
+        color: var(--accent-gold);
+        font-size: clamp(1.5rem, 3vh, 2.5rem);
+        font-weight: 900;
+        letter-spacing: 6px;
+        margin: 0 0 5px 0;
+        text-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+        border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+        padding-bottom: 10px;
+        width: 100%;
+        text-align: center;
+    }
+
+    .sport-name {
+        font-family: 'Orbitron', sans-serif;
+        font-size: clamp(2rem, 5vh, 4rem);
+        font-weight: 800;
+        text-transform: uppercase;
+        color: white;
+        letter-spacing: 2px;
+        line-height: 1.2;
+        margin-top: 5px;
+    }
+
+    .match-details {
+        font-family: 'Chakra Petch', sans-serif;
+        font-size: clamp(1rem, 2vh, 1.4rem);
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        font-weight: 600;
+    }
+
+    .performance-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 96vw;
+        position: relative;
+        background-color: var(--card-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 30px;
+        padding: 25px 30px;
+        box-shadow: 0 0 60px rgba(0,0,0,0.9);
+        margin-top: 1vh;
+        overflow: hidden;
+    }
+
+    .status-badge {
+        font-family: 'Chakra Petch', sans-serif;
+        font-weight: 800;
+        font-size: clamp(1.2rem, 2.5vh, 2rem);
+        padding: 5px 30px;
+        background: #000;
+        border: 2px solid #333;
+        border-radius: 12px;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        color: white;
+        margin: 0 15px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    }
+
+    .live {
+        border-color: var(--accent-red);
+        background: linear-gradient(180deg, #1a0000 0%, #000000 100%);
+        color: var(--accent-red);
+        text-shadow: 0 0 10px rgba(255,0,0,0.4);
+    }
+
+    .final {
+        border-color: #00ff00;
+        background: #001a00;
+        color: #00ff00;
+    }
+
+    .live-dot {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        background: var(--accent-red);
+        border-radius: 50%;
+        margin-right: 10px;
+        animation: blink 1.5s infinite;
+    }
+
+    .category-badge {
+        display: inline-block;
+        margin-left: 15px;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-family: 'Chakra Petch', sans-serif;
+        font-size: clamp(1rem, 2vh, 1.4rem);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+    }
+
+    .category-poomsae {
+        background: var(--accent-purple);
+        color: white;
+    }
+
+    .category-forms {
+        background: var(--accent-green);
+        color: white;
+    }
+
+    .category-anyo {
+        background: var(--accent-maroon);
+        color: white;
+    }
+
+    .category-kata {
+        background: var(--accent-blue);
+        color: white;
+    }
+
+    .judges-panel {
+        width: 100%;
+        background: rgba(255,255,255,0.05);
+        border-radius: 20px;
+        padding: 25px;
+        margin: 20px 0;
+        border: 2px solid rgba(255,215,0,0.2);
+    }
+
+    .judge-card {
+        background: rgba(30, 30, 30, 0.8);
+        border: 2px solid rgba(255,255,255,0.1);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 10px 0;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+        .judge-card:hover {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
+            transform: translateY(-5px);
+        }
+
+    .performance-score-input .mud-input-outlined-border {
+        border-color: var(--accent-gold) !important;
+        border-width: 2px !important;
+    }
+
+        .performance-score-input .mud-input-outlined-border:hover {
+            border-color: var(--accent-gold) !important;
+        }
+
+    .score-display {
+        font-family: 'Orbitron', sans-serif;
+        font-size: clamp(2.5rem, 5vh, 4rem);
+        font-weight: 900;
+        color: var(--accent-gold);
+        text-align: center;
+        text-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+        margin: 15px 0;
+        background: rgba(255,215,0,0.1);
+        padding: 20px;
+        border-radius: 20px;
+        border: 2px solid rgba(255,215,0,0.3);
+    }
+
+    .ranking-badge {
+        background: rgba(255,255,255,0.1);
+        color: white;
+        padding: 8px 20px;
+        border-radius: 25px;
+        font-weight: bold;
+        font-size: clamp(0.9rem, 1.5vh, 1.2rem);
+        font-family: 'Chakra Petch', sans-serif;
+        letter-spacing: 1px;
+    }
+
+    .gold-badge {
+        background: linear-gradient(135deg, #FFD700 0%, #FF9800 100%);
+        color: #000;
+        border: 2px solid rgba(255, 215, 0, 0.5);
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+    }
+
+    .silver-badge {
+        background: linear-gradient(135deg, #C0C0C0 0%, #808080 100%);
+        color: #000;
+        border: 2px solid rgba(192, 192, 192, 0.5);
+    }
+
+    .bronze-badge {
+        background: linear-gradient(135deg, #CD7F32 0%, #8B4513 100%);
+        color: white;
+        border: 2px solid rgba(205, 127, 50, 0.5);
+    }
+
+    .team-card {
+        background: var(--card-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 20px;
+        padding: 20px;
+        height: 100%;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+        .team-card:hover {
+            border-color: var(--accent-gold);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .team-card.active {
+            border-color: var(--accent-gold);
+            background: rgba(255,215,0,0.05);
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.15);
+        }
+
+    .team-score {
+        font-family: 'Orbitron', sans-serif;
+        font-size: clamp(1.8rem, 3vh, 2.5rem);
+        font-weight: 900;
+        color: var(--accent-gold);
+        text-align: center;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    }
+
+    .performer-list {
+        background: rgba(255,255,255,0.03);
+        border-radius: 12px;
+        padding: 15px;
+        margin-top: 10px;
+    }
+
+    .performer-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 8px;
+        margin-bottom: 8px;
+    }
+
+        .performer-item:last-child {
+            margin-bottom: 0;
+        }
+
+    .back-button {
+        position: absolute;
+        top: 30px;
+        right: 40px;
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 2px solid #333;
+        padding: 10px 20px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: 'Chakra Petch', sans-serif;
+        font-size: clamp(0.8rem, 1.5vh, 1.2rem);
+        font-weight: 700;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+        .back-button:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            transform: scale(1.05);
+        }
+
+    .finalize-button {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        font-size: clamp(1.2rem, 2vh, 1.6rem);
+        letter-spacing: 2px;
+        padding: 15px 40px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, var(--accent-red) 0%, #8e0000 100%);
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 30px;
+        text-transform: uppercase;
+    }
+
+        .finalize-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(198, 40, 40, 0.4);
+        }
+
+        .finalize-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+    .separator-dot {
+        color: var(--accent-gold);
+        font-weight: bold;
+        margin: 0 15px;
+        font-size: clamp(1.2rem, 2.5vh, 2rem);
+    }
+
+    @@keyframes blink {
+        0%, 100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.3;
+        }
+    }
+
+    /* MOBILE ADJUSTMENTS */
+    @@media screen and (max-aspect-ratio: 1/1) {
+        body {
+            overflow-y: auto;
+        }
+
+        .tv-screen {
+            height: auto;
+            min-height: 100vh;
+            padding: 10px 0 50px 0;
+            background: black;
+            justify-content: flex-start;
+        }
+
+        .palaro-main-logo {
+            position: relative;
+            top: auto;
+            left: auto;
+            height: 100px;
+            margin: 0 auto 10px auto;
+        }
+
+        .tournament-header {
+            width: 95%;
+            margin-bottom: 10px;
+        }
+
+        .main-event-title {
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+        }
+
+        .sport-name {
+            font-size: 2rem;
+        }
+
+        .match-details {
+            font-size: 1rem;
+        }
+
+        .performance-card {
+            width: 95%;
+            padding: 15px;
+            margin-top: 0;
+        }
+
+        .status-badge {
+            font-size: 1rem;
+            padding: 6px 18px;
+            margin: 5px 0;
+        }
+
+        .category-badge {
+            font-size: 0.9rem;
+            padding: 5px 12px;
+            margin-left: 0;
+            margin-top: 5px;
+        }
+
+        .back-button {
+            position: relative;
+            top: auto;
+            right: auto;
+            margin: 10px auto;
+            width: 90%;
+            text-align: center;
+        }
+
+        .judges-panel {
+            padding: 15px;
+        }
+
+        .judge-card {
+            padding: 15px;
+        }
+
+        .score-display {
+            font-size: 2.5rem;
+            padding: 15px;
+        }
+
+        .team-card {
+            padding: 15px;
+        }
+
+        .team-score {
+            font-size: 1.8rem;
+        }
+
+        .separator-dot {
+            display: none;
+        }
+
+        .performance-card > div {
+            display: block;
+            text-align: center;
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        .finalize-button {
+            padding: 12px 25px;
+            font-size: 1.1rem;
+        }
+    }
+</style>
+
+<div class="tv-screen">
+    <img src="~/media/images/palaro2026.png" class="palaro-main-logo" alt="Palaro Logo" onerror="this.style.display='none'" />
+    <button class="back-button" onclick="history.back()">← BACK TO SELECTION</button>
+
+    <div class="tournament-header">
+        <div class="main-event-title">PALARONG PAMBANSA 2026</div>
+        <div class="sport-name">PERFORMANCE SCORING</div>
+        <div class="match-details">
+            @if (_currentEvent?.IsFinished == true)
+            {
+                <div class="status-badge final">FINAL</div>
+            }
+            else
+            {
+                <div class="status-badge live"><span class="live-dot"></span>LIVE</div>
+            }
+        </div>
+    </div>
+
+    <div class="performance-card">
+        @if (_isLoading)
+        {
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh;">
+                <MudProgressCircular Indeterminate="true" Color="Color.Warning" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Style="margin-top: 20px; color: var(--accent-gold); font-family: 'Orbitron';">
+                    LOADING PERFORMANCE DATA...
+                </MudText>
+            </div>
+        }
+        else if (_teams == null || !_teams.Any())
+        {
+            <div style="text-align: center; padding: 50px 20px;">
+                <MudIcon Icon="@Icons.Material.Filled.SportsMartialArts" Size="Size.Large" Style="color: #666; font-size: 4rem;" />
+                <MudText Typo="Typo.h5" Style="margin-top: 20px; color: #777; font-family: 'Orbitron';">NO PERFORMERS FOUND</MudText>
+                <MudText Typo="Typo.body2" Style="color: #666;">No teams/performers registered for this event</MudText>
+            </div>
+        }
+        else
+        {
+            <!-- EVENT INFO -->
+            <div style="width: 100%; text-align: center; margin-bottom: 20px;">
+                <div style="font-family: 'Chakra Petch'; font-size: clamp(1rem, 2vh, 1.4rem); font-weight: 600; color: #aaa;">
+                    <span>@_currentEvent?.Sport</span>
+                    <span class="separator-dot">•</span>
+                    <span>@_currentEvent?.Subcategory</span>
+                    <span class="separator-dot">•</span>
+                    <span>@_currentEvent?.Level</span>
+                    <span class="separator-dot">•</span>
+                    <span>@_currentEvent?.Gender</span>
+                    <span class="separator-dot">•</span>
+                    <span>@_currentEvent?.EventStage</span>
+                    @if (!string.IsNullOrEmpty(_currentEvent?.Subcategory))
+                    {
+                        <span class="category-badge @GetCategoryClass(_currentEvent.Subcategory)">
+                            @GetCategoryType(_currentEvent.Subcategory)
+                        </span>
+                    }
+                </div>
+            </div>
+
+            <!-- JUDGES SCORING PANEL -->
+            <div class="judges-panel">
+                <MudText Typo="Typo.h6" Style="color: var(--accent-gold); margin-bottom: 20px; font-family: 'Orbitron'; text-align: center;">
+                    <MudIcon Icon="@Icons.Material.Filled.Gavel" /> JUDGES PANEL
+                </MudText>
+
+                <MudGrid Spacing="2">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        <MudItem xs="12" sm="6" md="4" lg="2">
+                            <div class="judge-card">
+                                <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 10px; font-family: 'Chakra Petch';">
+                                    JUDGE @i
+                                </MudText>
+                                <MudTextField T="decimal"
+                                              @bind-Value="_judgeScores[i-1]"
+                                              Label="Score"
+                                              Variant="Variant.Outlined"
+                                              Adornment="Adornment.End"
+                                              AdornmentText="pts"
+                                              Class="performance-score-input"
+                                              OnBlur="@(() => CalculateTotalScore())"
+                                              Style="font-family: 'Orbitron';"
+                                              InputContentStyle="font-size: clamp(1.2rem, 2vh, 1.6rem); text-align: center;" />
+                            </div>
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                <!-- TOTAL SCORE -->
+                <div style="margin-top: 30px; text-align: center;">
+                    <MudText Typo="Typo.body1" Style="color: #ccc; margin-bottom: 10px; font-family: 'Chakra Petch';">
+                  
+                    </MudText>
+                    <div class="score-display">
+                        @_totalScore.ToString("F2")
+                    </div>
+                </div>
+            </div>
+
+            <!-- PERFORMERS LIST -->
+            <div style="width: 100%; margin-top: 30px;">
+                <MudText Typo="Typo.h6" Style="color: var(--accent-gold); margin-bottom: 20px; font-family: 'Orbitron'; text-align: center;">
+                    <MudIcon Icon="@Icons.Material.Filled.People" /> PERFORMERS
+                </MudText>
+
+                <MudGrid Spacing="3">
+                    @foreach (var team in _teams.OrderBy(t => t.Rank))
+                    {
+                        <MudItem xs="12" md="6" lg="4">
+                            <div class="team-card @(team == _selectedTeam ? "active" : "")">
+                                <!-- TEAM HEADER -->
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                                    <div>
+                                        <MudText Typo="Typo.h6" Style="color: white; font-family: 'Chakra Petch'; font-weight: 700;">
+                                            @team.Region
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Style="color: #aaa; font-family: 'Chakra Petch';">
+                                            @team.Abbreviation
+                                        </MudText>
+                                    </div>
+                               
+                                </div>
+
+                                <!-- PERFORMER INFO -->
+                                <div class="performer-list">
+                                    @if (team.EventVersusTeamPlayersList != null && team.EventVersusTeamPlayersList.Any())
+                                    {
+                                        @foreach (var player in team.EventVersusTeamPlayersList)
+                                        {
+                                            <div class="performer-item">
+                                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="color: var(--accent-gold); margin-right: 10px;" />
+                                                <div style="flex: 1;">  
+                                                    <MudText Typo="Typo.body2" Style="color: white; font-weight: 600;">
+                                                        @player.FirstName @player.LastName
+                                                    </MudText>
+                                                    @if (!string.IsNullOrEmpty(player.School))
+                                                    {
+                                                        <MudText Typo="Typo.caption" Style="color: #888;">
+                                                            @player.School
+                                                        </MudText>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2" Style="color: #888; font-style: italic; text-align: center;">
+                                            No performer assigned
+                                        </MudText>
+                                    }
+                                </div>
+
+                                <!-- CURRENT SCORE -->
+                                <div style="margin: 20px 0; text-align: center;">
+                                    <MudText Typo="Typo.body2" Style="color: #aaa; font-family: 'Chakra Petch';">
+                                        CURRENT SCORE:
+                                    </MudText>
+                                    <div class="team-score">
+                                        @(team.Score ?? "0.00")
+                                    </div>
+                                </div>
+
+                                <!-- ACTION BUTTON -->
+                                <div style="display: flex; gap: 10px;">
+                                    <MudButton Variant="Variant.Filled"
+                                               Color="Color.Warning"
+                                               FullWidth
+                                               OnClick="@(() => AssignScoreToTeam(team))"
+                                               Disabled="_isSubmitting"
+                                               Style="font-family: 'Chakra Petch'; font-weight: 700;">
+                                        <MudIcon Icon="@Icons.Material.Filled.Check" />
+                                        ASSIGN SCORE (@_totalScore.ToString("F2"))
+                                    </MudButton>
+
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Secondary"
+                                               OnClick="@(() => ShowTeamDetails(team))"
+                                               Style="min-width: 50px;">
+                                        <MudIcon Icon="@Icons.Material.Filled.Info" />
+                                    </MudButton>
+                                </div>
+                            </div>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </div>
+
+          
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string EventID { get; set; } = "";
+
+    private EventInfo? _currentEvent;
+    private List<TeamInfo> _teams = new();
+    private bool _isLoading = true;
+    private bool _isSubmitting = false;
+    private TeamInfo? _selectedTeam;
+
+    // Judges scores (5 judges for performance events)
+    private decimal[] _judgeScores = new decimal[5];
+    private decimal _totalScore = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEventData();
+        await LoadTeams();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(EventID))
+        {
+            await LoadEventData();
+            await LoadTeams();
+        }
+    }
+
+    private async Task LoadEventData()
+    {
+        try
+        {
+            _isLoading = true;
+            var events = await apiService.GetAsync<EventInfo>($"/Events/Details/{EventID}");
+            _currentEvent = events?.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading event: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadTeams()
+    {
+        try
+        {
+            var url = $"/Events/Details?id={EventID}";
+            var eventData = await apiService.GetAsync<EventData>(url);
+
+            if (eventData != null && eventData.Any())
+            {
+                var eventWithTeams = eventData.First();
+                _teams = eventWithTeams.EventVersusList?.Select(t => new TeamInfo
+                {
+                    ID = t.ID,
+                    Region = t.Region,
+                    Abbreviation = t.Abbreviation,
+                    Score = t.Score,
+                    Rank = t.Rank,
+                    EventVersusTeamPlayersList = t.EventVersusTeamPlayersList
+                }).ToList() ?? new List<TeamInfo>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading teams: {ex.Message}", Severity.Error);
+            _teams = new List<TeamInfo>();
+        }
+    }
+
+    private void CalculateTotalScore()
+    {
+        var validScores = _judgeScores.Where(s => s > 0).ToList();
+
+        if (validScores.Count >= 3)
+        {
+            // Remove highest and lowest scores for performance events
+            validScores.Sort();
+            validScores.RemoveAt(0); // Remove lowest
+            validScores.RemoveAt(validScores.Count - 1); // Remove highest
+
+            _totalScore = validScores.Sum();
+        }
+        else
+        {
+            _totalScore = validScores.Sum();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task AssignScoreToTeam(TeamInfo team)
+    {
+        try
+        {
+            _isSubmitting = true;
+            _selectedTeam = team;
+
+            // Update the team's score
+            team.Score = _totalScore.ToString("F2");
+
+            // Update via API
+            var url = $"/Events/VersusTeams/{team.ID}";
+            var updateData = new
+            {
+                Score = team.Score,
+                Rank = team.Rank // Rank will be recalculated after all scores are in
+            };
+
+            // Uncomment when API is ready
+            // await apiService.PutAsync(url, updateData);
+
+            Snackbar.Add($"Score {_totalScore:F2} assigned to {team.Region}!", Severity.Success);
+
+            // Recalculate ranks after score assignment
+            await RecalculateRanks();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RecalculateRanks()
+    {
+        try
+        {
+            // Sort teams by score (highest first)
+            var sortedTeams = _teams
+                .Where(t => !string.IsNullOrEmpty(t.Score) && decimal.TryParse(t.Score, out _))
+                .Select(t => new { Team = t, Score = decimal.Parse(t.Score!) })
+                .OrderByDescending(x => x.Score)
+                .ToList();
+
+            // Assign ranks with ties handling
+            int rank = 1;
+            for (int i = 0; i < sortedTeams.Count; i++)
+            {
+                if (i > 0 && sortedTeams[i].Score != sortedTeams[i - 1].Score)
+                {
+                    rank = i + 1;
+                }
+
+                sortedTeams[i].Team.Rank = rank.ToString();
+
+                // Update rank in database
+                var url = $"/Events/VersusTeams/{sortedTeams[i].Team.ID}";
+                var updateData = new
+                {
+                    Rank = sortedTeams[i].Team.Rank
+                };
+
+                // Uncomment when API is ready
+                // await apiService.PutAsync(url, updateData);
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error recalculating ranks: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task FinalizeScores()
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Finalize Scores",
+            "Are you sure you want to finalize all scores? This will lock the rankings and mark the event as finished.",
+            yesText: "FINALIZE",
+            cancelText: "CANCEL");
+
+        if (result == true)
+        {
+            try
+            {
+                _isSubmitting = true;
+
+                // Mark event as finished
+                var eventUrl = $"/Events/{EventID}";
+
+                // Uncomment when API is ready
+                // await apiService.PutAsync(eventUrl, new { IsFinished = true });
+
+                Snackbar.Add("Event finalized successfully!", Severity.Success);
+
+                // Refresh data
+                await LoadEventData();
+                await LoadTeams();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error finalizing event: {ex.Message}", Severity.Error);
+            }
+            finally
+            {
+                _isSubmitting = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task ShowTeamDetails(TeamInfo team)
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("Team", team);
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            CloseOnEscapeKey = true,
+            FullWidth = true
+        };
+
+        // Uncomment when you have a dialog component
+        // DialogService.Show<TeamDetailsDialog>("Team Details", parameters, options);
+    }
+
+    private string GetCategoryType(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory))
+            return "Performance";
+
+        var s = subcategory.ToLower();
+        if (s.Contains("poomsae")) return "Poomsae";
+        if (s.Contains("anyo")) return "Anyo";
+        if (s.Contains("form")) return "Forms";
+        if (s.Contains("kata")) return "Kata";
+        return "Performance";
+    }
+
+    private string GetCategoryClass(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory))
+            return "category-forms";
+
+        var s = subcategory.ToLower();
+        if (s.Contains("poomsae")) return "category-poomsae";
+        if (s.Contains("anyo")) return "category-anyo";
+        if (s.Contains("form")) return "category-forms";
+        if (s.Contains("kata")) return "category-kata";
+        return "category-forms";
+    }
+
+    private string GetRankClass(string? rank)
+    {
+        if (string.IsNullOrEmpty(rank)) return "";
+
+        if (rank == "1") return "gold-badge";
+        if (rank == "2") return "silver-badge";
+        if (rank == "3") return "bronze-badge";
+        return "";
+    }
+
+    private string GetRankText(string? rank)
+    {
+        if (string.IsNullOrEmpty(rank)) return "Unranked";
+
+        if (rank == "1") return "🥇 GOLD";
+        if (rank == "2") return "🥈 SILVER";
+        if (rank == "3") return "🥉 BRONZE";
+        return $"Rank #{rank}";
+    }
+
+    /* ===================== MODELS ===================== */
+
+    public class EventInfo
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Level { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public bool? IsFinished { get; set; }
+    }
+
+    public class EventData
+    {
+        public string ID { get; set; } = "";
+        public List<EventVersusTeams>? EventVersusList { get; set; }
+    }
+
+    public class EventVersusTeams
+    {
+        public int ID { get; set; }
+        public string? Score { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? Rank { get; set; }
+        public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+    }
+
+    public class EventVersusTeamPlayers
+    {
+        public int ID { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? School { get; set; }
+    }
+
+    public class TeamInfo
+    {
+        public int ID { get; set; }
+        public string? Score { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? Rank { get; set; }
+        public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+    }
+}
