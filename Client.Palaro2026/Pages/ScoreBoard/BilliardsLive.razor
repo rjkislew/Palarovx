@@ -1,0 +1,1071 @@
+﻿@page "/scoreboard/billiards/{EventID}"
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>Billiards Scoreboard | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
+
+    :root {
+        --bg-dark: #121212;
+        --panel-bg: rgba(20, 20, 25, 0.9);
+        --accent-gold: #FFD700;
+        --accent-blue: #00B0FF;
+        --accent-red: #FF1744;
+        --text-white: #ffffff;
+        --accent-green: #4CAF50;
+        --accent-purple: #9C27B0;
+    }
+
+    body {
+        background-color: black;
+        overflow: hidden;
+    }
+
+    .tv-screen {
+        min-height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at center, #1e1e24 0%, #000000 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        padding: 20px;
+    }
+
+    .tournament-header {
+        text-align: center;
+        margin-bottom: 2vh;
+    }
+
+    .palaro-branding {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2.5rem;
+        color: var(--accent-gold);
+        letter-spacing: 5px;
+        font-weight: bold;
+    }
+
+    .sport-name {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 3rem;
+        font-weight: 900;
+    }
+
+    .match-details {
+        font-size: 1.5rem;
+        color: #aaa;
+        margin-top: 5px;
+    }
+
+    .scoreboard-card {
+        width: 95%;
+        max-width: 1400px;
+        background: var(--panel-bg);
+        border-radius: 25px;
+        padding: 30px;
+        margin-bottom: 3vh;
+        text-align: center;
+        font-size: 1.8rem;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .status-badge {
+        font-family: 'Orbitron', sans-serif;
+        padding: 8px 30px;
+        border-radius: 50px;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .live {
+        background: var(--accent-red);
+        animation: pulse 1.5s infinite;
+    }
+
+    .final {
+        background: #00C853;
+    }
+
+    .category-badge {
+        display: inline-block;
+        margin-left: 15px;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .category-team {
+        background: var(--accent-blue);
+        color: white;
+    }
+
+    .category-mixed {
+        background: var(--accent-purple);
+        color: white;
+    }
+
+    .category-individual {
+        background: var(--accent-green);
+        color: white;
+    }
+
+    .results-table {
+        width: 95%;
+        max-width: 1400px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 15px;
+        padding: 20px;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: 0.7
+        }
+    }
+
+    .back-button {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid #333;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+        .back-button:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+    /* Gold, Silver, Bronze highlighting */
+    .gold-row {
+        background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05)) !important;
+        border-left: 4px solid var(--accent-gold) !important;
+    }
+
+    .silver-row {
+        background: linear-gradient(90deg, rgba(192, 192, 192, 0.15), rgba(192, 192, 192, 0.05)) !important;
+        border-left: 4px solid #C0C0C0 !important;
+    }
+
+    .bronze-row {
+        background: linear-gradient(90deg, rgba(205, 127, 50, 0.15), rgba(205, 127, 50, 0.05)) !important;
+        border-left: 4px solid #CD7F32 !important;
+    }
+
+    .medal-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+
+    .gold-badge {
+        background: var(--accent-gold);
+        color: #000;
+    }
+
+    .silver-badge {
+        background: #C0C0C0;
+        color: #000;
+    }
+
+    .bronze-badge {
+        background: #CD7F32;
+        color: white;
+    }
+
+    /* Billiards specific styling */
+    .match-cell {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: bold;
+        text-align: center;
+        font-size: 1.2rem;
+    }
+
+    .score-cell {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: bold;
+        text-align: center;
+        font-size: 1.5rem;
+        color: var(--accent-gold);
+    }
+
+    .region-flag {
+        width: 30px;
+        height: 30px;
+        margin-right: 10px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: rgba(255,255,255,0.1);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .region-flag img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+    /* Separator dot */
+    .separator-dot {
+        color: #666;
+        font-size: 1.5rem;
+    }
+
+    /* Match status indicators */
+    .match-status {
+        font-family: 'Orbitron', sans-serif;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .status-winner {
+        background: var(--accent-green);
+        color: white;
+    }
+
+    .status-eliminated {
+        background: var(--accent-red);
+        color: white;
+    }
+
+    .status-ongoing {
+        background: var(--accent-blue);
+        color: white;
+        animation: pulse 1.5s infinite;
+    }
+
+    .table-header {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.8rem;
+        color: var(--accent-gold);
+        text-align: center;
+        margin: 20px 0 10px 0;
+    }
+
+    .table-badge {
+        background: rgba(255,215,0,0.1);
+        border: 2px solid var(--accent-gold);
+        border-radius: 10px;
+        padding: 5px 15px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.3rem;
+        margin-bottom: 15px;
+        display: inline-block;
+    }
+
+    .round-section {
+        margin-bottom: 30px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 15px;
+        padding: 20px;
+    }
+</style>
+
+
+<style>
+   
+  
+    .match-details {
+        font-size: 1.3rem;
+        color: #aaa;
+        margin-top: 5px;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 500;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .event-details-card {
+        width: 95%;
+        max-width: 1400px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 12px;
+        padding: 15px 25px;
+        margin-bottom: 2vh;
+        font-size: 1.4rem;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .category-badge {
+        display: inline-block;
+        padding: 6px 15px;
+        border-radius: 15px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.1rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .category-team {
+        background: var(--accent-blue);
+        color: white;
+    }
+
+    .category-mixed {
+        background: var(--accent-purple);
+        color: white;
+    }
+
+    .category-individual {
+        background: var(--accent-green);
+        color: white;
+    }
+
+    .round-section {
+        width: 95%;
+        max-width: 1400px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .round-header {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.8rem;
+        color: var(--accent-gold);
+        margin-bottom: 20px;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid rgba(255,215,0,0.3);
+    }
+
+    .results-table {
+        width: 100%;
+        background: rgba(0,0,0,0.3);
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: 0.7
+        }
+    }
+
+    .back-button {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid #333;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        font-family: 'Rajdhani', sans-serif;
+        z-index: 100;
+    }
+
+        .back-button:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+    /* Table styling */
+    .table-badge {
+        background: rgba(255,215,0,0.1);
+        border: 2px solid var(--accent-gold);
+        border-radius: 8px;
+        padding: 4px 12px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.1rem;
+        font-weight: bold;
+        display: inline-block;
+        color: var(--accent-gold);
+    }
+
+    .region-flag {
+        width: 35px;
+        height: 35px;
+        margin-right: 10px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: rgba(255,255,255,0.05);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+
+        .region-flag img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 2px;
+        }
+
+    .separator-dot {
+        color: var(--accent-gold);
+        font-size: 1.5rem;
+        font-weight: bold;
+        opacity: 0.7;
+    }
+
+    /* Match status indicators */
+    .match-status {
+        font-family: 'Orbitron', sans-serif;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .status-winner {
+        background: var(--accent-green);
+        color: white;
+    }
+
+    .status-eliminated {
+        background: var(--accent-red);
+        color: white;
+    }
+
+    .status-ongoing {
+        background: var(--accent-blue);
+        color: white;
+        animation: pulse 1.5s infinite;
+    }
+
+    /* Score styling */
+    .score-cell {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 700;
+        text-align: center;
+        font-size: 1.8rem;
+        color: white;
+    }
+
+    .winning-score {
+        color: var(--accent-green) !important;
+        text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+    }
+
+    /* Advancing players table */
+    .advancing-section {
+        width: 95%;
+        max-width: 1400px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 20px;
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .advancing-header {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.8rem;
+        color: var(--accent-gold);
+        margin-bottom: 20px;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid rgba(255,215,0,0.3);
+    }
+
+    /* Loader styling */
+    .loader-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 70vh;
+    }
+
+    /* Region name styling */
+    .region-name {
+        font-weight: bold;
+        font-size: 1.3rem;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    .player-name {
+        color: #aaa;
+        font-size: 0.95rem;
+        margin-top: 2px;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    /* Table header styling */
+    .table-header-cell {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.2rem;
+        color: var(--accent-gold) !important;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* Responsive adjustments */
+    @@media (max-width: 768px) {
+        .tv-screen {
+            padding: 10px;
+        }
+
+        .palaro-branding {
+            font-size: 1.5rem;
+        }
+
+        .sport-name {
+            font-size: 2.5rem;
+        }
+
+        .round-header, .advancing-header {
+            font-size: 1.5rem;
+        }
+
+        .event-details-card {
+            font-size: 1.1rem;
+            padding: 12px 15px;
+        }
+    }
+</style>
+
+<div class="tv-screen">
+    <button class="back-button" onclick="history.back()">← Back</button>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate Color="Color.Warning" Size="Size.Large" />
+    }
+    else if (_event == null)
+    {
+        <MudText Typo="Typo.h4" Color="Color.Error">EVENT NOT FOUND</MudText>
+    }
+    else
+    {
+        <div class="tournament-header">
+            <div class="palaro-branding">PALARONG PAMBANSA 2026</div>
+            <div class="sport-name">BILLIARDS</div>
+            <div class="match-details">
+                @if (_event.IsFinished == true)
+                {
+                    <div class="status-badge final">FINAL</div>
+                }
+                else
+                {
+                    <div class="status-badge live">LIVE</div>
+                }
+            </div>
+        </div>
+
+        <div class="scoreboard-card">
+            @_event.Sport
+            <span class="separator-dot">•</span>
+            @_event.Level
+            <span class="separator-dot">•</span>
+            @_event.Gender
+            <span class="separator-dot">•</span>
+            @_event.Subcategory
+            @if (!string.IsNullOrEmpty(_event.Subcategory))
+            {
+                var categoryType = GetCategoryType(_event.Subcategory);
+                <span class="category-badge @GetCategoryClass(categoryType)">
+                    @categoryType
+                </span>
+            }
+        </div>
+
+        @foreach (var roundGroup in _matches.GroupBy(m => m.SetNo).OrderBy(g => g.Key))
+        {
+            <div class="round-section">
+                <div class="round-header">
+                    @GetRoundName(roundGroup.Key) - ROUND @roundGroup.Key
+                </div>
+
+                <div class="results-table">
+                    <MudTable Items="roundGroup.OrderBy(m => m.TableNo).ToList()" Dense Hover Striped>
+                        <HeaderContent>
+                            <MudTh Class="table-header-cell">Table</MudTh>
+                            <MudTh Class="table-header-cell">Player 1</MudTh>
+                            <MudTh Class="table-header-cell" Style="text-align:center;">Score</MudTh>
+                            <MudTh Class="table-header-cell">Player 2</MudTh>
+                            <MudTh Class="table-header-cell" Style="text-align:center;">Score</MudTh>
+                            <MudTh Class="table-header-cell" Style="text-align:center;">Status</MudTh>
+                        </HeaderContent>
+
+                        <RowTemplate>
+                            <MudTd>
+                                <div class="table-badge">
+                                    Table @context.TableNo
+                                </div>
+                            </MudTd>
+
+                            <!-- Player 1 -->
+                            <MudTd>
+                                <div style="display:flex; align-items:center;">
+                                    <div class="region-flag">
+                                        <MudImage Src="@GetRegionLogo(context.Player1Region)"
+                                                  ObjectFit="ObjectFit.Contain"
+                                                  Alt="@context.Player1Region"
+                                                  Style="width:100%; height:100%;" />
+                                    </div>
+                                    <div>
+                                        <div class="region-name">
+                                            @context.Player1Region
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(context.Player1Name))
+                                        {
+                                            <div class="player-name">
+                                                @context.Player1Name
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </MudTd>
+
+                            <!-- Player 1 Score -->
+                            <MudTd Class="@(context.IsCompleted && context.Player1IsWinner == true ? "winning-score" : "")">
+                                <div class="score-cell">
+                                    @context.Player1Score
+                                </div>
+                            </MudTd>
+
+                            <!-- Player 2 -->
+                            <MudTd>
+                                <div style="display:flex; align-items:center;">
+                                    <div class="region-flag">
+                                        <MudImage Src="@GetRegionLogo(context.Player2Region)"
+                                                  ObjectFit="ObjectFit.Contain"
+                                                  Alt="@context.Player2Region"
+                                                  Style="width:100%; height:100%;" />
+                                    </div>
+                                    <div>
+                                        <div class="region-name">
+                                            @context.Player2Region
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(context.Player2Name))
+                                        {
+                                            <div class="player-name">
+                                                @context.Player2Name
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </MudTd>
+
+                            <!-- Player 2 Score -->
+                            <MudTd Class="@(context.IsCompleted && context.Player2IsWinner == true ? "winning-score" : "")">
+                                <div class="score-cell">
+                                    @context.Player2Score
+                                </div>
+                            </MudTd>
+
+                            <!-- Status -->
+                            <MudTd >
+                                @if (context.IsCompleted)
+                                {
+                                    if (context.Player1IsWinner == true)
+                                    {
+                                        <div class="match-status status-winner"
+                                             style="display:flex; align-items:center; justify-content:center; text-align:center;">
+                                            @context.Player1Region WINS
+                                        </div>
+                                    }
+                                    else if (context.Player2IsWinner == true)
+                                    {
+                                        <div class="match-status status-winner"
+                                             style="display:flex; align-items:center; justify-content:center; text-align:center;">
+                                            @context.Player2Region WINS
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="match-status status-ongoing"
+                                             style="display:flex; align-items:center; justify-content:center; text-align:center;">
+                                            ON GOING
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="match-status status-ongoing"
+                                         style="display:flex; align-items:center; justify-content:center; text-align:center;">
+                                        ON GOING
+                                    </div>
+                                }
+
+
+
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </div>
+            </div>
+        }
+
+        <!-- Advancing Players -->
+        @if (_advancingPlayers.Any())
+        {
+            <div class="advancing-section">
+                <div class="advancing-header">ADVANCING TO NEXT ROUND</div>
+                <div class="results-table">
+                    <MudTable Items="_advancingPlayers.OrderBy(a => a.NextRoundSetNo).ThenBy(a => a.RegionName).ToList()" Dense Hover Striped>
+                        <HeaderContent>
+                            <MudTh Class="table-header-cell">Round</MudTh>
+                            <MudTh Class="table-header-cell">Region</MudTh>
+                            <MudTh Class="table-header-cell">Player</MudTh>
+                            <MudTh Class="table-header-cell" Style="text-align:center;">Record</MudTh>
+                        </HeaderContent>
+
+                        <RowTemplate>
+                            <MudTd Style="font-family: 'Orbitron'; font-weight:bold; font-size:1.2rem;">
+                                Round @context.NextRoundSetNo
+                            </MudTd>
+                            <MudTd>
+                                <div style="display:flex; align-items:center;">
+                                    <div class="region-flag">
+                                        <MudImage Src="@GetRegionLogo(context.RegionName)"
+                                                  ObjectFit="ObjectFit.Contain"
+                                                  Alt="@context.RegionName"
+                                                  Style="width:100%; height:100%;" />
+                                    </div>
+                                    <div class="region-name">
+                                        @context.RegionName
+                                    </div>
+                                </div>
+                            </MudTd>
+                            <MudTd Style="font-family: 'Rajdhani'; font-size:1.2rem; font-weight:600;">
+                                @context.PlayerName
+                            </MudTd>
+                            <MudTd Style="font-family: 'Orbitron'; font-weight:bold; color:var(--accent-gold); font-size:1.3rem; text-align:center;">
+                                @context.Wins - @context.Losses
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string EventID { get; set; } = "";
+
+    /* ===================== MODELS ===================== */
+
+    public class EventInfo
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Level { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public int? RegionID { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+        public bool? IsFinished { get; set; }
+    }
+
+    public class MatchInfo
+    {
+        public int SetNo { get; set; }
+        public int TableNo { get; set; }
+        public string? Player1Region { get; set; }
+        public string? Player1Name { get; set; }
+        public int Player1Score { get; set; }
+        public bool? Player1IsWinner { get; set; }
+        public string? Player2Region { get; set; }
+        public string? Player2Name { get; set; }
+        public int Player2Score { get; set; }
+        public bool? Player2IsWinner { get; set; }
+        public bool IsCompleted { get; set; }
+    }
+
+    public class AdvancingPlayer
+    {
+        public int RegionID { get; set; }
+        public string RegionName { get; set; } = "";
+        public string PlayerName { get; set; } = "";
+        public int Wins { get; set; }
+        public int Losses { get; set; }
+        public int NextRoundSetNo { get; set; }
+    }
+
+    public class SchoolRegions
+    {
+        public int ID { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
+    public class BilliardsResult
+    {
+        public int SetNo { get; set; }
+        public int TableNo { get; set; }
+        public int RegionID { get; set; }
+        public string? PlayerPosition { get; set; }
+        public int? Score { get; set; }
+        public bool? IsWinner { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+    }
+
+    /* ===================== STATE ===================== */
+
+    private EventInfo? _event;
+    private List<MatchInfo> _matches = new();
+    private List<AdvancingPlayer> _advancingPlayers = new();
+    private List<SchoolRegions>? _allRegions;
+    private bool _isLoading = true;
+    private Timer? _refreshTimer;
+
+    /* ===================== INIT ===================== */
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        // Auto-refresh every 2 seconds for live updates
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 2000, 2000);
+    }
+
+    /* ===================== GET DATA ===================== */
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // Load regions
+            _allRegions = await apiService.GetAsync<SchoolRegions>("/Schools/Regions");
+
+            // Load event details
+            var events = await apiService.GetAsync<EventInfo>(
+                $"/BilliardsScoring/events?eventId={EventID}");
+
+            if (events != null && events.Any())
+            {
+                _event = events.First();
+                await LoadBilliardsResults();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading event: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadBilliardsResults()
+    {
+        if (_event == null) return;
+
+        var results = await apiService.GetAsync<BilliardsResult>(
+            $"/BilliardsScoring/event/{_event.ID}");
+
+        if (results == null) return;
+
+        // Group by Set and Table to create match pairs
+        var matchDict = new Dictionary<(int SetNo, int TableNo), MatchInfo>();
+        var advancingDict = new Dictionary<int, AdvancingPlayer>();
+
+        foreach (var result in results)
+        {
+            var key = (result.SetNo, result.TableNo);
+            if (!matchDict.ContainsKey(key))
+            {
+                matchDict[key] = new MatchInfo
+                {
+                    SetNo = result.SetNo,
+                    TableNo = result.TableNo,
+                    IsCompleted = false
+                };
+            }
+
+            var match = matchDict[key];
+            if (result.PlayerPosition == "Player1")
+            {
+                match.Player1Region = result.Abbreviation ?? result.Region ?? "Unknown";
+                match.Player1Name = result.PlayerName ?? "";
+                match.Player1Score = result.Score ?? 0;
+                match.Player1IsWinner = result.IsWinner;
+            }
+            else if (result.PlayerPosition == "Player2")
+            {
+                match.Player2Region = result.Abbreviation ?? result.Region ?? "Unknown";
+                match.Player2Name = result.PlayerName ?? "";
+                match.Player2Score = result.Score ?? 0;
+                match.Player2IsWinner = result.IsWinner;
+            }
+
+            // Check if match is completed
+            if (result.IsWinner.HasValue)
+            {
+                match.IsCompleted = true;
+            }
+
+            // Track advancing players
+            if (result.IsWinner == true && result.RegionID > 0)
+            {
+                var regionName = result.Abbreviation ?? result.Region ?? "Unknown";
+
+                if (!advancingDict.ContainsKey(result.RegionID))
+                {
+                    advancingDict[result.RegionID] = new AdvancingPlayer
+                    {
+                        RegionID = result.RegionID,
+                        RegionName = regionName,
+                        PlayerName = result.PlayerName ?? "",
+                        NextRoundSetNo = result.SetNo + 1,
+                        Wins = 0,
+                        Losses = 0
+                    };
+                }
+
+                var player = advancingDict[result.RegionID];
+                player.Wins++;
+            }
+            else if (result.IsWinner == false && result.RegionID > 0)
+            {
+                if (advancingDict.ContainsKey(result.RegionID))
+                {
+                    advancingDict[result.RegionID].Losses++;
+                }
+            }
+        }
+
+        _matches = matchDict.Values.Where(m =>
+            !string.IsNullOrEmpty(m.Player1Region) &&
+            !string.IsNullOrEmpty(m.Player2Region)).ToList();
+
+        _advancingPlayers = advancingDict.Values.ToList();
+    }
+
+    private string GetRegionLogo(string regionName)
+    {
+        if (string.IsNullOrWhiteSpace(regionName))
+            return "/images/region-placeholder.png";
+
+        var region = _allRegions?.FirstOrDefault(r =>
+            r.Abbreviation?.Equals(regionName, StringComparison.OrdinalIgnoreCase) == true ||
+            r.Region?.Equals(regionName, StringComparison.OrdinalIgnoreCase) == true);
+
+        var actualRegionName = region?.Region ?? regionName;
+        var cleanRegionName = CleanRegionName(actualRegionName);
+
+        return $"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{cleanRegionName}.webp";
+    }
+
+    private string CleanRegionName(string regionName)
+    {
+        if (string.IsNullOrWhiteSpace(regionName))
+            return string.Empty;
+
+        return regionName.Trim();
+    }
+
+    // Helper method to determine category type
+    private string GetCategoryType(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory))
+            return "Individual";
+
+        var subcategoryLower = subcategory.ToLower();
+
+        if (subcategoryLower.Contains("mixed"))
+            return "Mixed";
+        else if (subcategoryLower.Contains("team"))
+            return "Team";
+        else
+            return "Individual";
+    }
+
+    // Helper method to get CSS class for category badge
+    private string GetCategoryClass(string categoryType)
+    {
+        return categoryType.ToLower() switch
+        {
+            "team" => "category-team",
+            "mixed" => "category-mixed",
+            "individual" => "category-individual",
+            _ => "category-individual"
+        };
+    }
+
+    private string GetRoundName(int roundNumber)
+    {
+        return roundNumber switch
+        {
+            1 => "ELIMINATION",
+            2 => "QUARTER-FINALS",
+            3 => "SEMI-FINALS",
+            4 => "FINALS",
+            _ => $"ROUND {roundNumber}"
+        };
+    }
+
+    /* ===================== CLEANUP ===================== */
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+}
