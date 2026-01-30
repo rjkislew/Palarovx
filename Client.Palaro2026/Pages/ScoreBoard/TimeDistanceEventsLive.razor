@@ -1,0 +1,629 @@
+﻿@page "/scoreboard/time-distance/{EventID}"
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>Time & Distance Scoring | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
+
+    :root {
+        --bg-dark: #121212;
+        --panel-bg: rgba(20, 20, 25, 0.9);
+        --accent-gold: #FFD700;
+        --accent-blue: #00B0FF;
+        --accent-red: #FF1744;
+        --text-white: #ffffff;
+        --accent-green: #4CAF50;
+        --accent-purple: #9C27B0;
+    }
+
+    body {
+        background-color: black;
+        overflow: hidden;
+    }
+
+    .tv-screen {
+        min-height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at center, #1e1e24 0%, #000000 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        padding: 20px;
+    }
+
+    .tournament-header {
+        text-align: center;
+        margin-bottom: 2vh;
+    }
+
+    .palaro-branding {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2.5rem;
+        color: var(--accent-gold);
+        letter-spacing: 5px;
+        font-weight: bold;
+    }
+
+    .sport-name {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 3rem;
+        font-weight: 900;
+    }
+
+    .match-details {
+        font-size: 1.5rem;
+        color: #aaa;
+        margin-top: 5px;
+    }
+
+    .scoreboard-card {
+        width: 95%;
+        max-width: 1400px;
+        background: var(--panel-bg);
+        border-radius: 25px;
+        padding: 30px;
+        margin-bottom: 3vh;
+        text-align: center;
+        font-size: 1.8rem;
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .status-badge {
+        font-family: 'Orbitron', sans-serif;
+        padding: 8px 30px;
+        border-radius: 50px;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .live {
+        background: var(--accent-red);
+        animation: pulse 1.5s infinite;
+    }
+
+    .final {
+        background: #00C853;
+    }
+
+    .category-badge {
+        display: inline-block;
+        margin-left: 15px;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .category-team {
+        background: var(--accent-blue);
+        color: white;
+    }
+
+    .category-mixed {
+        background: var(--accent-purple);
+        color: white;
+    }
+
+    .category-individual {
+        background: var(--accent-green);
+        color: white;
+    }
+
+    .results-table {
+        width: 95%;
+        max-width: 1400px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 15px;
+        padding: 20px;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: 0.7
+        }
+    }
+
+    .back-button {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid #333;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+        .back-button:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+    .mixed-indicator {
+        background: linear-gradient(45deg, #FFD700 0%, #9C27B0 50%, #00B0FF 100%);
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        margin-left: 8px;
+        font-weight: bold;
+    }
+
+    .team-indicator {
+        background: var(--accent-blue);
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        margin-left: 8px;
+        font-weight: bold;
+    }
+
+    .individual-indicator {
+        background: var(--accent-green);
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        margin-left: 8px;
+        font-weight: bold;
+    }
+
+    /* Gold, Silver, Bronze highlighting */
+    .gold-row {
+        background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05)) !important;
+        border-left: 4px solid var(--accent-gold) !important;
+    }
+
+    .silver-row {
+        background: linear-gradient(90deg, rgba(192, 192, 192, 0.15), rgba(192, 192, 192, 0.05)) !important;
+        border-left: 4px solid #C0C0C0 !important;
+    }
+
+    .bronze-row {
+        background: linear-gradient(90deg, rgba(205, 127, 50, 0.15), rgba(205, 127, 50, 0.05)) !important;
+        border-left: 4px solid #CD7F32 !important;
+    }
+
+    .medal-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+
+    .gold-badge {
+        background: var(--accent-gold);
+        color: #000;
+    }
+
+    .silver-badge {
+        background: #C0C0C0;
+        color: #000;
+    }
+
+    .bronze-badge {
+        background: #CD7F32;
+        color: white;
+    }
+
+    .result-cell {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: bold;
+        text-align: center;
+        font-size: 1.3rem;
+    }
+
+    .region-flag {
+        width: 30px;
+        height: 30px;
+        margin-right: 10px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: rgba(255,255,255,0.1);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .region-flag img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+    /* Separator dot */
+    .separator-dot {
+        color: #666;
+        font-size: 1.5rem;
+    }
+
+    /* Time/Distance specific styling */
+    .time-result {
+        color: #00ff88;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: bold;
+    }
+
+    .distance-result {
+        color: #00e5ff;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: bold;
+    }
+
+    .heat-lane-badge {
+        background: rgba(255, 215, 0, 0.2);
+        color: var(--accent-gold);
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        font-weight: bold;
+        margin-left: 8px;
+        font-family: 'Orbitron', sans-serif;
+    }
+</style>
+
+<div class="tv-screen">
+    <button class="back-button" onclick="history.back()">← Back</button>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate Color="Color.Warning" Size="Size.Large" />
+    }
+    else if (_event == null)
+    {
+        <MudText Typo="Typo.h4" Color="Color.Error">EVENT NOT FOUND</MudText>
+    }
+    else
+    {
+        <div class="tournament-header">
+            <div class="palaro-branding">PALARONG PAMBANSA 2026</div>
+            <div class="sport-name">@_event.Subcategory</div>
+            <div class="match-details">
+                @if (_event.EventStage == "Completed" || _event.EventStage == "Final")
+                {
+                    <div class="status-badge final">FINAL</div>
+                }
+                else
+                {
+                    <div class="status-badge live">LIVE</div>
+                }
+            </div>
+        </div>
+
+        <div class="scoreboard-card">
+            @_event.Sport
+            <span class="separator-dot">•</span>
+            @_event.Level
+            <span class="separator-dot">•</span>
+            @_event.Gender
+            <span class="separator-dot">•</span>
+            @_event.Subcategory
+            @if (!string.IsNullOrEmpty(_event.Subcategory))
+            {
+                var categoryType = GetCategoryType(_event.Subcategory);
+                <span class="category-badge @GetCategoryClass(categoryType)">
+                    @categoryType
+                </span>
+            }
+        </div>
+
+        @if (_rankings.Any())
+        {
+            <div class="results-table">
+                <MudTable Items="_rankings.OrderBy(r => r.Rank).ToList()"
+                          Dense Hover>
+                    <HeaderContent>
+                        <MudTh style="font-size: 1.3rem;">Rank</MudTh>
+                        <MudTh style="font-size: 1.3rem;">Athlete</MudTh>
+                        <MudTh style="font-size: 1.3rem;">Region</MudTh>
+                        <MudTh style="text-align:center; font-size: 1.3rem;">
+                            Result @(_event.Sport == "Swimming" ? "(Time)" : "")
+                        </MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        @{
+                            var rowClass = GetRowClass(context.Rank);
+                            var medalClass = GetMedalClass(context.Rank);
+                        }
+
+                        <MudTd Class="@rowClass">
+                            @if (context.Rank > 0)
+                            {
+                                @if (context.Rank <= 3)
+                                {
+                                    <span class="medal-badge @medalClass">@context.Rank</span>
+                                }
+                                else
+                                {
+                                    <span style="font-family: Orbitron; font-weight:bold; color:white; font-size: 1.3rem;">
+                                        #@context.Rank
+                                    </span>
+                                }
+                            }
+                            else
+                            {
+                                <span style="color: #666;">-</span>
+                            }
+                        </MudTd>
+
+                        <MudTd Class="@rowClass">
+                            <div style="font-weight: bold; font-size: 1.3rem;">@context.PlayerName</div>
+                        </MudTd>
+
+                        <MudTd Class="@rowClass">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <div class="region-flag">
+                                    <MudImage Src="@GetRegionLogo(context.RegionAbbreviation)"
+                                              ObjectFit="ObjectFit.Contain"
+                                              Alt="@context.RegionAbbreviation"
+                                              Style="width:100%; height:100%;" />
+                                </div>
+                                <div style="font-weight:bold; font-size:1.3rem;">
+                                    @context.RegionAbbreviation
+                                </div>
+                            </div>
+                        </MudTd>
+
+                        <MudTd Class="@rowClass" style="text-align:center;">
+                            <span class="@(_event.Sport == "Swimming" ? "time-result" : "distance-result")"
+                                  style="font-family: Orbitron; font-weight:bold; font-size: 1.3rem;">
+                                @FormatResult(context.Result, _event.Sport)
+                            </span>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </div>
+        }
+        else
+        {
+            <div class="results-table">
+                <MudPaper Class="pa-10 text-center" Elevation="0" Style="background: rgba(255,255,255,0.05);">
+                    <MudIcon Icon="@Icons.Material.Filled.TimerOff" Size="Size.Large" Color="Color.Secondary" Class="mb-3" />
+                    <MudText Typo="Typo.h6">No results recorded yet</MudText>
+                    <MudText Typo="Typo.body2" Style="color: #888;">Results will appear here once entered by officials</MudText>
+                </MudPaper>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string EventID { get; set; } = "";
+
+    /* ===================== MODELS ===================== */
+
+    public class EventInfo
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Gender { get; set; }
+        public string? Level { get; set; }
+        public string? EventStage { get; set; }
+    }
+
+    public class RankingDTO
+    {
+        public string RegionAbbreviation { get; set; } = "";
+        public string? PlayerName { get; set; }
+        public string Result { get; set; } = "";
+        public int Rank { get; set; }
+    }
+
+    /* ===================== STATE ===================== */
+
+    private EventInfo? _event;
+    private List<RankingDTO> _rankings = new();
+    private bool _isLoading = true;
+    private Timer? _refreshTimer;
+
+    /* ===================== INIT ===================== */
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        // Auto-refresh every 5 seconds for live updates
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 5000, 5000);
+    }
+
+    /* ===================== GET DATA ===================== */
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // Load event details
+            var events = await apiService.GetAsync<EventInfo>($"TimeDistanceEvents/Sports/AthleticsSwimming?eventID={EventID}");
+
+            if (events != null && events.Any())
+            {
+                _event = events.First();
+                await LoadRankings();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading event: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadRankings()
+    {
+        if (_event == null) return;
+
+        var rankings = await apiService.GetAsync<RankingDTO>($"TimeDistanceEvents/GetRankings/{_event.ID}");
+
+        if (rankings != null && rankings.Any())
+        {
+            // Filter out empty results and sort by rank
+            _rankings = rankings
+                .Where(r => !string.IsNullOrEmpty(r.Result))
+                .OrderBy(r => r.Rank)
+                .ToList();
+        }
+        else
+        {
+            _rankings = new List<RankingDTO>();
+        }
+    }
+
+    private string GetRegionLogo(string regionAbbreviation)
+    {
+        if (string.IsNullOrWhiteSpace(regionAbbreviation))
+            return "/images/region-placeholder.png";
+
+        // Clean the region abbreviation for the logo filename
+        var cleanRegionName = CleanRegionName(regionAbbreviation);
+
+        return $"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{cleanRegionName}.webp";
+    }
+
+    private string CleanRegionName(string regionName)
+    {
+        if (string.IsNullOrWhiteSpace(regionName))
+            return string.Empty;
+
+        // Remove any characters that might cause issues in URLs
+        return regionName.Trim();
+    }
+
+    private string FormatResult(string result, string? sport)
+    {
+        if (string.IsNullOrEmpty(result))
+            return "N/A";
+
+        // For swimming, always format as time
+        if (sport == "Swimming")
+        {
+            if (TimeSpan.TryParse(result, out TimeSpan time))
+            {
+                if (time.Hours > 0)
+                    return time.ToString(@"hh\:mm\:ss\.ff");
+                else if (time.Minutes > 0)
+                    return time.ToString(@"mm\:ss\.ff");
+                else
+                    return time.ToString(@"ss\.ff");
+            }
+        }
+
+        // For athletics, check if it's a time or distance
+        if (sport == "Athletics")
+        {
+            // Check if it's a time (contains colon or dot for seconds)
+            if (result.Contains(":") || (result.Contains(".") && result.Split('.').Length > 1))
+            {
+                if (TimeSpan.TryParse(result, out TimeSpan time))
+                {
+                    if (time.Minutes > 0)
+                        return time.ToString(@"mm\:ss\.ff");
+                    else
+                        return time.ToString(@"ss\.ff");
+                }
+            }
+            else
+            {
+                // It's a distance
+                if (double.TryParse(result, out double distance))
+                {
+                    return distance.ToString("0.00");
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // Helper method to determine category type
+    private string GetCategoryType(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory))
+            return "Individual";
+
+        var subcategoryLower = subcategory.ToLower();
+
+        if (subcategoryLower.Contains("mixed"))
+            return "Mixed";
+        else if (subcategoryLower.Contains("relay") || subcategoryLower.Contains("team"))
+            return "Team";
+        else
+            return "Individual";
+    }
+
+    // Helper method to get CSS class for category badge
+    private string GetCategoryClass(string categoryType)
+    {
+        return categoryType.ToLower() switch
+        {
+            "team" => "category-team",
+            "mixed" => "category-mixed",
+            "individual" => "category-individual",
+            _ => "category-individual"
+        };
+    }
+
+    private string GetRowClass(int rank)
+    {
+        return rank switch
+        {
+            1 => "gold-row",
+            2 => "silver-row",
+            3 => "bronze-row",
+            _ => ""
+        };
+    }
+
+    private string GetMedalClass(int rank)
+    {
+        return rank switch
+        {
+            1 => "gold-badge",
+            2 => "silver-badge",
+            3 => "bronze-badge",
+            _ => ""
+        };
+    }
+
+    /* ===================== CLEANUP ===================== */
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+}
