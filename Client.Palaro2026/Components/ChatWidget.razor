@@ -625,9 +625,22 @@
 
     private string FormatInline(string text)
     {
+        // 1. Handle Markdown Links: [Link Title] (URL)
+        // CHANGE: Added [\r\n\s]* to catch new lines and spaces between ] and (
+        text = Regex.Replace(text,
+            @"\[([^\]]+)\][\r\n\s]*\((https?:\/\/[^)]+)\)",
+            "<a href='$2' target='_blank' style='color: #0284c7; text-decoration: underline; font-weight: bold;'>$1</a>");
+
+        // 2. Handle Bold **text**
         text = Regex.Replace(text, @"\*\*(.*?)\*\*", "<strong>$1</strong>");
+
+        // 3. Handle Italic *text*
         text = Regex.Replace(text, @"\*(.*?)\*", "<em>$1</em>");
-        text = Regex.Replace(text, @"((http|https):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&amp;:/~\+#]*[\w\-\@?^=%&amp;/~\+#])?)", "<a href='$1' target='_blank'>$1</a>");
+
+        // 4. Handle Raw URLs (Fallback)
+        string rawUrlPattern = @"(?<!href=['""])((http|https):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&amp;:/~\+#]*[\w\-\@?^=%&amp;/~\+#])?)";
+        text = Regex.Replace(text, rawUrlPattern, "<a href='$1' target='_blank' style='color: #0284c7; text-decoration: underline;'>$1</a>");
+
         return text;
     }
 
