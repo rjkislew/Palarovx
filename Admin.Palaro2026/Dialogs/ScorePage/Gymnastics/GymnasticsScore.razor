@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Components
+﻿﻿@using Microsoft.AspNetCore.Components
 
 @inject ISnackbar Snackbar
 @inject APIService apiService
@@ -22,7 +22,7 @@
                         <MudText Typo="Typo.h6" Class="mb-2">@_playerName</MudText>
                         <MudText Typo="Typo.caption">Region: @_regionName</MudText>
                     }
-                    <MudDivider Class="my-2"/>
+                    <MudDivider Class="my-2" />
                 </MudItem>
 
                 <!-- Sport Details -->
@@ -36,8 +36,7 @@
                                            ReadOnly="true">
                                     @if (!string.IsNullOrEmpty(_selectedMainCategory))
                                     {
-                                        <MudSelectItem
-                                            Value="@_selectedMainCategory">@_selectedMainCategory</MudSelectItem>
+                                        <MudSelectItem Value="@_selectedMainCategory">@_selectedMainCategory</MudSelectItem>
                                     }
                                 </MudSelect>
                             </MudItem>
@@ -45,7 +44,7 @@
                             <MudItem xs="12">
                                 <MudSelect Value="@_selectedSubcategoryId"
                                            ValueChanged="@((int? value) => OnSubcategoryChanged(value))"
-                                           Margin="Margin.Dense"
+                                           Margin="Margin.Dense" ReadOnly="@_isSubcategoryLocked"
                                            Label="Category" T="int?"
                                            ShrinkLabel Variant="Variant.Outlined" Clearable>
                                     <MudVirtualize Items="_sportSubcategories" Context="subCategory">
@@ -83,12 +82,12 @@
                                         <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
                                             <MudItem xs="12" sm="10">
                                                 <MudSelect @bind-Value="_selectedMedal"
-                                                Label="Select Medal"
-                                                ShrinkLabel
-                                                Clearable
-                                                T="string"
-                                                Variant="Variant.Outlined"
-                                                Margin="Margin.Dense" FullWidth="true">
+                                                           Label="Select Medal"
+                                                           ShrinkLabel
+                                                           Clearable
+                                                           T="string"
+                                                           Variant="Variant.Outlined"
+                                                           Margin="Margin.Dense" FullWidth="true">
                                                     <MudSelectItem Value="@("Gold")">Gold</MudSelectItem>
                                                     <MudSelectItem Value="@("Silver")">Silver</MudSelectItem>
                                                     <MudSelectItem Value="@("Bronze")">Bronze</MudSelectItem>
@@ -98,15 +97,15 @@
                                             <MudItem xs="12" sm="2">
                                                 <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
                                                     <MudIconButton Icon="@Icons.Material.Filled.Check" Variant="Variant.Filled"
-                                                    Color="Color.Success"
-                                                    OnClick="SaveMedal"
-                                                    Disabled="@(string.IsNullOrEmpty(_selectedMedal) && _existingMedal == null)" />
+                                                                   Color="Color.Success"
+                                                                   OnClick="SaveMedal"
+                                                                   Disabled="@(string.IsNullOrEmpty(_selectedMedal) && _existingMedal == null)" />
 
                                                     @if (_existingMedal != null && !string.IsNullOrEmpty(_existingMedal.Rank))
                                                     {
                                                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Variant="Variant.Filled"
-                                                        Color="Color.Error"
-                                                        OnClick="DeleteMedal" />
+                                                                       Color="Color.Error"
+                                                                       OnClick="DeleteMedal" />
                                                     }
                                                 </MudStack>
                                             </MudItem>
@@ -138,6 +137,13 @@
     [Parameter] public List<string> TeamPlayerIDs { get; set; } = new();
     [Parameter] public int? TeamID { get; set; }
 
+    [Parameter] public string? ForcedCategoryName { get; set; }
+
+    [Parameter] public bool SaveToLinkedPerformances { get; set; } = false;
+    [Parameter] public List<int> LinkedPerformanceIDs { get; set; } = new();
+
+    [Parameter] public bool IsAerobicRegionChampionship { get; set; } = false;
+
     private string _playerName = "Loading...";
     private string _regionName = "Loading...";
     private double _scoreValue;
@@ -149,6 +155,8 @@
     private bool _isScoreInputDisabled = false; // Add this flag
     private int? _eliminationRank; // Add this to store current rank
     private int _eventStageId = 0;
+
+    private bool _isSubcategoryLocked = false;
 
     private List<string> _mainCategories = new();
     private PerformanceBasedDTO.PerformanceEvent? _selectedEvent;
@@ -182,9 +190,12 @@
             await LoadAllOpposingTeams();
             await LoadEventData();
             await LoadPlayerAndRegionData();
-            await LoadSportData(); 
+            await LoadSportData();
             await LoadOpposingTeam();
-            await AutoSelectSubcategory();
+            await ApplyForcedCategoryIfAny();
+
+            if (!_isSubcategoryLocked)
+                await AutoSelectSubcategory();
         }
         catch (Exception ex)
         {
@@ -795,55 +806,55 @@
         }
     }
 
-    private async Task AutoSelectSubcategory()
-    {
-        if (_selectedEvent == null || !_sportSubcategories.Any()) return;
+    // private async Task AutoSelectSubcategory()
+    // {
+    //     if (_selectedEvent == null || !_sportSubcategories.Any()) return;
 
-        // First filter subcategories to only show relevant ones
-        await FilterSubcategoriesByMainCategory();
+    //     // First filter subcategories to only show relevant ones
+    //     await FilterSubcategoriesByMainCategory();
 
-        // Check if we can auto-select based on player count
-        var playerCount = GetPlayerCountPerRegion(_selectedEvent);
+    //     // Check if we can auto-select based on player count
+    //     var playerCount = GetPlayerCountPerRegion(_selectedEvent);
 
-        if (playerCount.HasValue)
-        {
-            string targetSubcategoryName = playerCount.Value switch
-            {
-                2 => "(Aero) Mixed Pair",
-                3 => "(Aero) Trio",
-                >= 5 and <= 8 => "(Aero) Aerobic Dance",
-                _ => null
-            };
+    //     if (playerCount.HasValue)
+    //     {
+    //         string targetSubcategoryName = playerCount.Value switch
+    //         {
+    //             2 => "(Aero) Mixed Pair",
+    //             3 => "(Aero) Trio",
+    //             >= 5 and <= 8 => "(Aero) Aerobic Dance",
+    //             _ => null
+    //         };
 
-            if (!string.IsNullOrEmpty(targetSubcategoryName))
-            {
-                var targetSubcategory = _sportSubcategories
-                    .FirstOrDefault(sc =>
-                        sc.Subcategory?.Contains(targetSubcategoryName) == true);
+    //         if (!string.IsNullOrEmpty(targetSubcategoryName))
+    //         {
+    //             var targetSubcategory = _sportSubcategories
+    //                 .FirstOrDefault(sc =>
+    //                     sc.Subcategory?.Contains(targetSubcategoryName) == true);
 
-                if (targetSubcategory != null)
-                {
-                    _selectedSubcategoryId = targetSubcategory.ID;
-                    await LoadExistingScore(); // Load existing score if any
-                    StateHasChanged();
-                }
-                else
-                {
-                    // Try fuzzy matching
-                    targetSubcategory = _sportSubcategories
-                        .FirstOrDefault(sc =>
-                            sc.Subcategory?.ToLower().Contains(targetSubcategoryName.ToLower().Replace("(aero) ", "")) == true);
+    //             if (targetSubcategory != null)
+    //             {
+    //                 _selectedSubcategoryId = targetSubcategory.ID;
+    //                 await LoadExistingScore(); // Load existing score if any
+    //                 StateHasChanged();
+    //             }
+    //             else
+    //             {
+    //                 // Try fuzzy matching
+    //                 targetSubcategory = _sportSubcategories
+    //                     .FirstOrDefault(sc =>
+    //                         sc.Subcategory?.ToLower().Contains(targetSubcategoryName.ToLower().Replace("(aero) ", "")) == true);
 
-                    if (targetSubcategory != null)
-                    {
-                        _selectedSubcategoryId = targetSubcategory.ID;
-                        await LoadExistingScore();
-                        StateHasChanged();
-                    }
-                }
-            }
-        }
-    }
+    //                 if (targetSubcategory != null)
+    //                 {
+    //                     _selectedSubcategoryId = targetSubcategory.ID;
+    //                     await LoadExistingScore();
+    //                     StateHasChanged();
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     private int? GetPlayerCountPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
     {
@@ -947,67 +958,103 @@
                 return;
             }
 
+            if (!EventID.HasValue)
+            {
+                Snackbar.Add("No event selected.", Severity.Error);
+                return;
+            }
+
             var currentUserId = await GetCurrentUserIdAsync();
 
-            // ✅ TEAM SCORE SAVE: upsert per member (per PerformanceTeamID)
-            if (IsTeamEvent && TeamID.HasValue)
+            // ================================
+            // ✅ TEAM SAVE (requires TeamID passed in)
+            // ================================
+            if (IsTeamEvent)
             {
-                if (_teamPerformanceTeamIds == null || _teamPerformanceTeamIds.Count == 0)
+                if (!TeamID.HasValue)
                 {
-                    Snackbar.Add("Team members not loaded. Please reopen the dialog.", Severity.Error);
+                    Snackbar.Add("No TeamID found. Please click 'Set as Team' first.", Severity.Warning);
                     return;
                 }
 
-                // Load all scores once
-                string getUrl = $"/PerformanceScore/Score/{EventID}";
-                var allScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(getUrl)
-                               ?? new List<PerformanceBasedDTO.PerformanceScore>();
+                // Save to linked performances (for non-aerobic combined cases)
+                var performanceIdsToSave =
+                    (SaveToLinkedPerformances && LinkedPerformanceIDs != null && LinkedPerformanceIDs.Any())
+                        ? LinkedPerformanceIDs.Distinct().ToList()
+                        : GetPerformanceIdsToSave();
 
-                int successCount = 0;
+                int totalSuccess = 0;
+                int totalAttempt = 0;
 
-                foreach (var kvp in _teamPerformanceTeamIds)
+                foreach (var perfId in performanceIdsToSave)
                 {
-                    int perfTeamId = kvp.Value;
+                    string teamUrl = $"/PerformanceBased/OpposingTeams/{perfId}";
+                    var teamsForPerf = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(teamUrl)
+                                     ?? new List<PerformanceBasedDTO.PerformanceTeam>();
 
-                    var existing = allScores.FirstOrDefault(s =>
-                        s.PerformanceTeamID == perfTeamId &&
-                        s.SportSubcategoryID == _selectedSubcategoryId.Value &&
-                        s.TeamID == TeamID);
+                    var members = teamsForPerf
+                        .Where(t => t.RegionID == RegionID && t.TeamID == TeamID.Value)
+                        .ToList();
 
-                    var scoreData = new PerformanceBasedDTO.PerformanceScore
+                    if (!members.Any())
+                        continue;
+
+                    // Dedupe (player can appear multiple times)
+                    var perfTeamIds = members
+                        .Where(m => m.ID > 0)
+                        .Select(m => m.ID)
+                        .Distinct()
+                        .ToList();
+
+                    string getUrl = $"/PerformanceScore/Score/{perfId}";
+                    var allScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(getUrl)
+                                   ?? new List<PerformanceBasedDTO.PerformanceScore>();
+
+                    foreach (var perfTeamId in perfTeamIds)
                     {
-                        PerformanceID = EventID.Value,
-                        PerformanceTeamID = perfTeamId,
-                        SportSubcategoryID = _selectedSubcategoryId.Value,
-                        Score = (decimal)_scoreValue,
-                        Rank = 0,
-                        UserID = currentUserId,
-                        UpdatedAt = DateTime.Now,
-                        TeamID = TeamID
-                    };
+                        totalAttempt++;
 
-                    if (existing != null)
-                    {
-                        scoreData.ID = existing.ID;
-                        var ok = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(
-                            $"/PerformanceScore/Score/{existing.ID}", scoreData);
-                        if (ok) successCount++;
+                        var existing = allScores.FirstOrDefault(s =>
+                            s.PerformanceTeamID == perfTeamId &&
+                            s.SportSubcategoryID == _selectedSubcategoryId.Value &&
+                            s.TeamID.HasValue &&
+                            s.TeamID.Value == TeamID.Value);
+
+                        var scoreData = new PerformanceBasedDTO.PerformanceScore
+                        {
+                            PerformanceID = perfId,
+                            PerformanceTeamID = perfTeamId,
+                            SportSubcategoryID = _selectedSubcategoryId.Value,
+                            Score = (decimal)_scoreValue,
+                            Rank = 0,
+                            UserID = currentUserId,
+                            UpdatedAt = DateTime.Now,
+                            TeamID = TeamID.Value
+                        };
+
+                        if (existing != null)
+                        {
+                            scoreData.ID = existing.ID;
+                            var ok = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(
+                                $"/PerformanceScore/Score/{existing.ID}", scoreData);
+
+                            if (ok) totalSuccess++;
+                        }
+                        else
+                        {
+                            var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(
+                                "/PerformanceScore/Score", scoreData);
+
+                            if (created != null) totalSuccess++;
+                        }
                     }
-                    else
-                    {
-                        var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(
-                            "/PerformanceScore/Score", scoreData);
-                        if (created != null) successCount++;
-                    }
+
+                    await CalculateAndUpdateRanks(perfId);
                 }
 
-                if (successCount > 0)
+                if (totalSuccess > 0)
                 {
-                    Snackbar.Add($"Team score saved for {successCount} player(s).", Severity.Success);
-
-                    // IMPORTANT: rank calc must not treat team duplicates as separate teams
-                    await CalculateAndUpdateRanks();
-
+                    Snackbar.Add($"Team score saved for {totalSuccess}/{totalAttempt} row(s).", Severity.Success);
                     MudDialog.Close(DialogResult.Ok(true));
                 }
                 else
@@ -1018,7 +1065,9 @@
                 return;
             }
 
-            // ✅ INDIVIDUAL SCORE SAVE: original behavior (TeamID must be null)
+            // ================================
+            // ✅ INDIVIDUAL SAVE
+            // ================================
             if (!_opposingTeamId.HasValue)
             {
                 Snackbar.Add("Player team info not found.", Severity.Warning);
@@ -1049,6 +1098,7 @@
             {
                 var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(
                     "/PerformanceScore/Score", individualScore);
+
                 success = created != null;
             }
 
@@ -1069,45 +1119,39 @@
         }
     }
 
-    private async Task CalculateAndUpdateRanks()
+    private Task CalculateAndUpdateRanks() => CalculateAndUpdateRanks(EventID);
+
+
+    private async Task CalculateAndUpdateRanks(int? performanceId)
     {
-        if (!EventID.HasValue || !_selectedSubcategoryId.HasValue) return;
+        if (!performanceId.HasValue || !_selectedSubcategoryId.HasValue) return;
 
         try
         {
-            string url = $"/PerformanceScore/Score/{EventID}";
+            string url = $"/PerformanceScore/Score/{performanceId.Value}";
             var allScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(url)
                             ?? new List<PerformanceBasedDTO.PerformanceScore>();
 
-            // only current subcategory
             var scores = allScores
                 .Where(s => s.SportSubcategoryID == _selectedSubcategoryId.Value)
                 .ToList();
 
             if (!scores.Any()) return;
 
-            // -------------------
-            // 1) TEAM RANKING
-            // -------------------
+            // TEAM ranking (unchanged)
             var teamScores = scores.Where(s => s.TeamID.HasValue).ToList();
             if (teamScores.Any())
             {
-                // representative score per team
                 var teamRep = teamScores
                     .GroupBy(s => s.TeamID!.Value)
-                    .Select(g => new
-                    {
-                        TeamID = g.Key,
-                        Score = g.Max(x => x.Score) // or First().Score if always same
-                    })
+                    .Select(g => new { TeamID = g.Key, Score = g.Max(x => x.Score) })
                     .OrderByDescending(x => x.Score)
                     .ToList();
 
-                // dense ranking by score
                 int rank = 1;
                 decimal? prev = null;
-
                 var teamRankMap = new Dictionary<int, int>();
+
                 foreach (var t in teamRep)
                 {
                     if (prev != null && t.Score != prev) rank++;
@@ -1125,9 +1169,7 @@
                 }
             }
 
-            // -------------------
-            // 2) INDIVIDUAL RANKING
-            // -------------------
+            // INDIV ranking (unchanged)
             var indivScores = scores.Where(s => !s.TeamID.HasValue).ToList();
             if (indivScores.Any())
             {
@@ -1158,7 +1200,8 @@
         }
     }
 
-    //MEDAL TALLY 
+
+    //MEDAL TALLY
 
     private string? _selectedMedal;
     private EventsDTO.EventVersusTeams? _existingMedal;
@@ -1221,7 +1264,6 @@
             // If no medal selected => behave like delete
             if (string.IsNullOrEmpty(_selectedMedal))
             {
-                // If something exists, delete it
                 if ((IsTeamEvent && _existingTeamMedals.Any()) || (!IsTeamEvent && _existingMedal != null))
                 {
                     await DeleteMedal();
@@ -1232,7 +1274,23 @@
                 return;
             }
 
+            // ================================
+            // ✅ SPECIAL CASE:
+            // WAG C1/C2 Team Championship medal propagation (linked performances)
+            // ================================
+            if (!string.IsNullOrWhiteSpace(ForcedCategoryName) &&
+                ForcedCategoryName.Contains("Team Championship", StringComparison.OrdinalIgnoreCase) &&
+                SaveToLinkedPerformances &&
+                LinkedPerformanceIDs != null && LinkedPerformanceIDs.Any())
+            {
+                await SaveLinkedTeamChampionshipMedal();
+                await LoadExistingMedal();
+                return;
+            }
+
+            // ================================
             // ✅ TEAM
+            // ================================
             if (IsTeamEvent && TeamID.HasValue && EventID.HasValue)
             {
                 if (_existingTeamScoreIds == null || !_existingTeamScoreIds.Any())
@@ -1241,8 +1299,6 @@
                     return;
                 }
 
-                // Load existing medals for this team (so we can update vs create)
-                // (If your LoadExistingMedal already filled _existingTeamMedals, great; otherwise load it here too)
                 if (_existingTeamMedals == null || !_existingTeamMedals.Any())
                 {
                     string loadUrl = $"/Events/VersusTeams?performanceID={EventID.Value}&teamID={TeamID.Value}";
@@ -1252,20 +1308,15 @@
 
                 int successCount = 0;
 
-                foreach (var scoreId in _existingTeamScoreIds)
+                foreach (var scoreId in _existingTeamScoreIds.Distinct())
                 {
-                    // find existing medal row for this member score
                     var existing = _existingTeamMedals.FirstOrDefault(m => m.PerformanceScoreID == scoreId);
 
                     var medalTally = new EventsDTO.EventVersusTeams
                     {
-                        // ✅ store these for grouping/queries
                         PerformanceID = EventID.Value,
                         TeamID = TeamID.Value,
-
-                        // ✅ still store per score id (per player)
                         PerformanceScoreID = scoreId,
-
                         SchoolRegionID = RegionID,
                         Score = null,
                         Rank = _selectedMedal,
@@ -1302,7 +1353,9 @@
                 return;
             }
 
+            // ================================
             // ✅ INDIVIDUAL
+            // ================================
             if (!_existingScoreId.HasValue)
             {
                 Snackbar.Add("No score exists to assign medal to", Severity.Warning);
@@ -1311,9 +1364,8 @@
 
             var medalSingle = new EventsDTO.EventVersusTeams
             {
-                PerformanceID = EventID,     // optional if you want always stored
-                TeamID = null,              // individual
-
+                PerformanceID = EventID,
+                TeamID = null,
                 PerformanceScoreID = _existingScoreId.Value,
                 SchoolRegionID = RegionID,
                 Score = null,
@@ -1452,7 +1504,7 @@
         bool isFinalsStage = _eventStageId == 4; // Assuming 4 is Finals stage ID
 
         if (IsAerobicGymnasticsSelected() && isFinalsStage)
-        return true;
+            return true;
 
         // For subcategories containing Team Championship or Individual All-Around: show during Elimination Rounds
         if (isSpecialCategory)
@@ -1464,6 +1516,133 @@
         return isFinalsStage;
     }
 
+    // ================================
+    // ✅ MEDAL PROPAGATION HELPERS
+    // ================================
+
+    private async Task<List<int>> GetScoreIdsForRegion_Subcategory(int performanceId, int regionId, int subcategoryId)
+    {
+        // 1) Load participants for this performance
+        string teamUrl = $"/PerformanceBased/OpposingTeams/{performanceId}";
+        var perfTeams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(teamUrl)
+                        ?? new List<PerformanceBasedDTO.PerformanceTeam>();
+
+        var regionPerfTeamIds = perfTeams
+            .Where(t => t.RegionID == regionId)
+            .Select(t => t.ID) // PerformanceTeamID
+            .Distinct()
+            .ToList();
+
+        if (!regionPerfTeamIds.Any())
+            return new List<int>();
+
+        // 2) Load scores for this performance
+        string scoresUrl = $"/PerformanceScore/Score/{performanceId}";
+        var scores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(scoresUrl)
+                     ?? new List<PerformanceBasedDTO.PerformanceScore>();
+
+        // 3) Return score IDs for those region participants + chosen subcategory
+        return scores
+            .Where(s => s.SportSubcategoryID == subcategoryId &&
+                        regionPerfTeamIds.Contains(s.PerformanceTeamID))
+            .Select(s => s.ID)
+            .Distinct()
+            .ToList();
+    }
+
+    private async Task UpsertMedalByScoreIds(
+     int performanceId,
+     int regionId,
+     List<int> scoreIds,
+     string medalRank,
+     int? teamId // ✅ added
+ )
+    {
+        if (scoreIds == null || scoreIds.Count == 0)
+            return;
+
+        // Load existing medals for this performance once
+        string loadUrl = $"/Events/VersusTeams?performanceID={performanceId}";
+        var existingMedals = await apiService.GetAsync<EventsDTO.EventVersusTeams>(loadUrl)
+                             ?? new List<EventsDTO.EventVersusTeams>();
+
+        int success = 0;
+
+        foreach (var scoreId in scoreIds.Distinct())
+        {
+            // ✅ IMPORTANT: match by scoreId AND teamId to avoid collisions
+            var existing = existingMedals.FirstOrDefault(m =>
+                m.PerformanceScoreID == scoreId &&
+                m.TeamID == teamId);
+
+            var payload = new EventsDTO.EventVersusTeams
+            {
+                PerformanceID = performanceId,
+                PerformanceScoreID = scoreId,
+                SchoolRegionID = regionId,
+                TeamID = teamId, // ✅ now saved
+                Rank = medalRank,
+                Score = null,
+                RecentUpdateAt = DateTime.Now
+            };
+
+            if (existing != null)
+            {
+                payload.ID = existing.ID;
+                var ok = await apiService.PutAsync<EventsDTO.EventVersusTeams>(
+                    $"/Events/VersusTeams/{existing.ID}", payload);
+
+                if (ok) success++;
+            }
+            else
+            {
+                var created = await apiService.PostAsync<EventsDTO.EventVersusTeams>(
+                    "/Events/VersusTeams", payload);
+
+                if (created != null) success++;
+            }
+        }
+
+        if (success > 0)
+            Snackbar.Add($"Medal saved ({success} record(s)).", Severity.Success);
+    }
+
+
+    private async Task SaveLinkedTeamChampionshipMedal()
+    {
+        if (!_selectedSubcategoryId.HasValue)
+        {
+            Snackbar.Add("Select a category first.", Severity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedMedal))
+        {
+            Snackbar.Add("Select a medal first.", Severity.Warning);
+            return;
+        }
+
+        if (LinkedPerformanceIDs == null || !LinkedPerformanceIDs.Any())
+        {
+            Snackbar.Add("No linked performances found. (LinkedPerformanceIDs is empty)", Severity.Warning);
+            return;
+        }
+
+        int totalScoresFound = 0;
+
+        foreach (var perfId in LinkedPerformanceIDs.Distinct())
+        {
+            var scoreIds = await GetScoreIdsForRegion_Subcategory(perfId, RegionID, _selectedSubcategoryId.Value);
+            totalScoresFound += scoreIds.Count;
+
+            if (scoreIds.Any())
+                await UpsertMedalByScoreIds(perfId, RegionID, scoreIds, _selectedMedal!, TeamID);
+        }
+
+        if (totalScoresFound == 0)
+            Snackbar.Add("No score rows found in linked performances. Save the score first.", Severity.Warning);
+    }
+
     private bool IsAerobicGymnasticsSelected()
     {
         var sportName =
@@ -1472,6 +1651,166 @@
         return !string.IsNullOrWhiteSpace(sportName)
                && sportName.Contains("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase);
     }
+
+    private async Task ApplyForcedCategoryIfAny()
+    {
+        if (string.IsNullOrWhiteSpace(ForcedCategoryName))
+            return;
+
+        // make sure subcategories are already loaded
+        if (_sportSubcategories == null || !_sportSubcategories.Any())
+            return;
+
+        var match = _sportSubcategories.FirstOrDefault(sc =>
+            !string.IsNullOrWhiteSpace(sc.Subcategory) &&
+            sc.Subcategory.Contains(ForcedCategoryName, StringComparison.OrdinalIgnoreCase));
+
+        if (match == null)
+        {
+            Snackbar.Add($"Category '{ForcedCategoryName}' not found for this event.", Severity.Warning);
+            return;
+        }
+
+        _selectedSubcategoryId = match.ID;
+        _isSubcategoryLocked = true;
+
+        // load existing if any
+        if (_opposingTeamId.HasValue)
+            await LoadExistingScore();
+
+        StateHasChanged();
+    }
+
+    //COMBINED EVENT
+
+    [Parameter] public int? CombinedEventID { get; set; }
+    [Parameter] public List<int> CombinedPerformanceIDs { get; set; } = new();
+
+    private List<int> GetPerformanceIdsToSave()
+    {
+        if (!EventID.HasValue)
+            return new List<int>();
+
+        // Default behavior: save only to the opened EventID
+        var result = new List<int> { EventID.Value };
+
+        // Only for team save do we expand to combined IDs
+        if (!IsTeamEvent || !TeamID.HasValue)
+            return result;
+
+        // ✅ If parent explicitly passed the IDs, trust it (best)
+        if (CombinedPerformanceIDs != null && CombinedPerformanceIDs.Any())
+            return CombinedPerformanceIDs.Distinct().ToList();
+
+        // ✅ Else try derive using CombinedEventID (same behavior as before)
+        if (CombinedEventID.HasValue && _allOpposingTeams != null && _allOpposingTeams.Any())
+        {
+            var ids = _allOpposingTeams
+                .Where(t => t.RegionID == RegionID
+                         && t.TeamID == TeamID
+                         && t.CombinedEventID == CombinedEventID.Value)
+                .Select(t => t.PerformanceID)
+                .Distinct()
+                .ToList();
+
+            if (ids.Any())
+                return ids;
+        }
+
+        return result;
+    }
+
+    private const int TeamChampionshipMinTeamId = 8_000_000;  // adjust to your real rule
+    private const int AerobicDanceMaxTeamId = 800_000;    // adjust to your real rule
+
+    private static bool IsTeamChampionshipTeam(int? teamId)
+        => teamId.HasValue && teamId.Value >= TeamChampionshipMinTeamId;
+
+    private static bool IsAerobicDanceTeam(int? teamId)
+        => teamId.HasValue && teamId.Value > 0 && teamId.Value <= AerobicDanceMaxTeamId;
+
+    private async Task AutoSelectSubcategory()
+    {
+        if (_selectedEvent == null || !_sportSubcategories.Any())
+            return;
+
+        // Only relevant for Aerobic Gymnastics main category
+        if (string.IsNullOrWhiteSpace(_selectedMainCategory) ||
+            !_selectedMainCategory.Contains("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // First filter subcategories to only show relevant ones
+        await FilterSubcategoriesByMainCategory();
+
+        // =========================================================
+        // ✅ 1) FORCE Aerobic Dance based on TeamID bucket (best)
+        // =========================================================
+        if (IsTeamEvent && TeamID.HasValue)
+        {
+            // If it's NOT team championship, treat it as aerobic dance team
+            // (or use IsAerobicDanceTeam(TeamID) if you have a strict range)
+            bool shouldForceAerobicDance =
+                IsAerobicDanceTeam(TeamID) || !IsTeamChampionshipTeam(TeamID);
+
+            if (shouldForceAerobicDance)
+            {
+                var dance = _sportSubcategories.FirstOrDefault(sc =>
+                    !string.IsNullOrWhiteSpace(sc.Subcategory) &&
+                    sc.Subcategory.Contains("Aerobic Dance", StringComparison.OrdinalIgnoreCase));
+
+                if (dance != null)
+                {
+                    _selectedSubcategoryId = dance.ID;
+                    await LoadExistingScore();
+                    StateHasChanged();
+                }
+
+                return; // ✅ stop here, do NOT let playerCount override it
+            }
+        }
+
+        // =========================================================
+        // ✅ 2) Otherwise fallback to player-count logic (original)
+        // =========================================================
+        var playerCount = GetPlayerCountPerRegion(_selectedEvent);
+
+        if (!playerCount.HasValue)
+            return;
+
+        string? targetSubcategoryName = playerCount.Value switch
+        {
+            2 => "(Aero) Mixed Pair",
+            3 => "(Aero) Trio",
+            >= 5 and <= 8 => "(Aero) Aerobic Dance",
+            _ => null
+        };
+
+        if (string.IsNullOrWhiteSpace(targetSubcategoryName))
+            return;
+
+        // Try normal matching
+        var targetSubcategory = _sportSubcategories.FirstOrDefault(sc =>
+            sc.Subcategory?.Contains(targetSubcategoryName, StringComparison.OrdinalIgnoreCase) == true);
+
+        // Fuzzy fallback
+        if (targetSubcategory == null)
+        {
+            var fuzzy = targetSubcategoryName
+                .Replace("(Aero)", "", StringComparison.OrdinalIgnoreCase)
+                .Trim();
+
+            targetSubcategory = _sportSubcategories.FirstOrDefault(sc =>
+                sc.Subcategory?.Contains(fuzzy, StringComparison.OrdinalIgnoreCase) == true);
+        }
+
+        if (targetSubcategory != null)
+        {
+            _selectedSubcategoryId = targetSubcategory.ID;
+            await LoadExistingScore();
+            StateHasChanged();
+        }
+    }
+
 
     // Data models
     public class PerformanceBasedDTO
@@ -1493,6 +1832,7 @@
             public int? TeamID { get; set; }
             public int RegionID { get; set; }
             public string PlayerID { get; set; }
+            public int? CombinedEventID { get; set; }
         }
 
         public class PerformanceScore
@@ -1569,5 +1909,4 @@
             public DateTime? RecentUpdateAt { get; set; }
         }
     }
-
 }
