@@ -83,7 +83,7 @@ public class PerformanceBasedController : ControllerBase
         try
         {
             string sql = @"
-            SELECT ID, PerformanceID, RegionID, PlayerID, TeamID 
+            SELECT ID, PerformanceID, RegionID, PlayerID, TeamID
             FROM [Palaro2026].[dbo].[PerformanceTeam] 
             ORDER BY PerformanceID, ID;";
 
@@ -103,7 +103,7 @@ public class PerformanceBasedController : ControllerBase
         try
         {
             string sql = @"
-            SELECT ID, PerformanceID, RegionID, PlayerID, TeamID 
+            SELECT ID, PerformanceID, RegionID, PlayerID, TeamID
             FROM [Palaro2026].[dbo].[PerformanceTeam] 
             WHERE PerformanceID = @eventId;";
 
@@ -124,7 +124,7 @@ public class PerformanceBasedController : ControllerBase
         try
         {
             string sql = @"
-            SELECT ID, PerformanceID, RegionID, PlayerID, TeamID 
+            SELECT ID, PerformanceID, RegionID, PlayerID, TeamID
             FROM [Palaro2026].[dbo].[PerformanceTeam] 
             WHERE ID = @id;";
 
@@ -191,7 +191,7 @@ public class PerformanceBasedController : ControllerBase
                 opposingTeam.PerformanceID,
                 opposingTeam.TeamID,
                 opposingTeam.RegionID,
-                opposingTeam.PlayerID
+                opposingTeam.PlayerID,
             };
 
             var createdTeam = (await _db.QueryAsync<PerformanceBasedDTO.PerformanceTeam, dynamic>(sql, parameters))
@@ -279,7 +279,7 @@ public class PerformanceBasedController : ControllerBase
                 ID = id,
                 team.PerformanceID,
                 team.RegionID,
-                team.PlayerID
+                team.PlayerID,
             };
 
             await _db.ExecuteAsync(sql, parameters);
