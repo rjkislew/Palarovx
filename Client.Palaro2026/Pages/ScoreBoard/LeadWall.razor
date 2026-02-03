@@ -1,0 +1,381 @@
+﻿@* @page "/flag/{FirstPlaceRegionID:int}/{SecondPlaceRegionID:int}/{ThirdPlaceRegionID:int}"
+@layout NoMainLayout
+@inject IJSRuntime JSRuntime
+
+<div class="flag-container" @onclick="HandleClick">
+    <canvas id="flag1" />
+    <canvas id="flag2" />
+    <canvas id="flag3" />
+</div>
+
+@code {
+    [Parameter]
+    public int FirstPlaceRegionID { get; set; }
+
+    [Parameter]
+    public int SecondPlaceRegionID { get; set; }
+
+    [Parameter]
+    public int ThirdPlaceRegionID { get; set; }
+
+    private int clickCount = 0;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initWavingFlags",
+                FirstPlaceRegionID,
+                SecondPlaceRegionID,
+                ThirdPlaceRegionID);
+        }
+    }
+
+    private async Task HandleClick()
+    {
+        if (clickCount < 3)
+        {
+            clickCount++;
+            await JSRuntime.InvokeVoidAsync("showFlag", clickCount);
+        }
+    }
+}
+
+<style>
+    html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        min-height: 100vh;
+        background: transparent;
+        overflow-y: auto;
+    }
+
+    .flag-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: linear-gradient(180deg, #f0f4f8 0%, #ffffff 50%, #f0f4f8 100%);
+        padding: 50px;
+        position: relative;
+        cursor: pointer;
+    }
+
+    /* Canvas waving flags - portrait orientation */
+    #flag1, #flag2, #flag3 {
+        position: fixed;
+        top: -500px;
+        transform: rotate(90deg);
+        transform-origin: center;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 9999;
+        transition: opacity 0.8s ease-in-out, top 0.8s ease-in-out;
+    }
+
+    #flag1 {
+        left: 50%;
+        transform: translateX(-50%) rotate(90deg);
+    }
+
+    #flag2 {
+        left: 85%;
+        transform: translateX(-50%) rotate(90deg);
+    }
+
+    #flag3 {
+        left: 15%;
+        transform: translateX(-50%) rotate(90deg);
+    }
+
+        #flag1.visible, #flag2.visible, #flag3.visible {
+            opacity: 0.85;
+        }
+</style>
+
+<script>
+    window.initWavingFlags = function (firstPlaceRegionID, secondPlaceRegionID, thirdPlaceRegionID) {
+        // Configuration for three flags based on region IDs
+        const flags = [
+            {
+                id: 'flag1',
+                imageUrl: `/image/${firstPlaceRegionID}.png`, // MIDDLE - 1st Place
+                offset: 0
+            },
+            {
+                id: 'flag2',
+                imageUrl: `/image/${thirdPlaceRegionID}.png`, // RIGHT - 2nd Place
+                offset: 0.3
+            },
+            {
+                id: 'flag3',
+                imageUrl: `/image/${secondPlaceRegionID}.png`, // LEFT - 3rd Place
+                offset: 0.6
+            }
+        ];
+
+        flags.forEach((flagConfig, index) => {
+            initSingleFlag(flagConfig.id, flagConfig.imageUrl, flagConfig.offset);
+        });
+    };
+
+    window.showFlag = function(clickNumber) {
+        const flagOrder = ['flag2', 'flag3', 'flag1']; // MIDDLE (1st), RIGHT (2nd), LEFT (3rd)
+        const flagId = flagOrder[clickNumber - 1];
+        const flag = document.getElementById(flagId);
+
+        if (flag) {
+            const centerY = (window.innerHeight - flag.height) / 2;
+            flag.style.top = centerY + 'px';
+            flag.classList.add('visible');
+        }
+    };
+
+    function initSingleFlag(flagId, flagImageUrl, timeOffset) {
+        const flag = document.getElementById(flagId);
+        if (!flag) return;
+
+        const width = 1100;
+        const padX = 0, padY = 30;
+        const height = width * 0.6;  // Landscape ratio for bigger display
+
+        flag.width = width + 2 * padX;
+        flag.height = height + 2 * padY;
+
+        const ctx = flag.getContext('2d');
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        img.onload = function() {
+            ctx.drawImage(img, padX, padY, width, height);
+            const base = ctx.getImageData(0, 0, flag.width, flag.height).data;
+
+            function frame() {
+                const imgData = ctx.getImageData(0, 0, flag.width, flag.height);
+                const d = imgData.data;
+                const t = Date.now() / 150 + timeOffset * 10;
+
+                for (let y = 0; y < flag.height; y++) {
+                    let lastO = 0;
+                    for (let x = 0; x < flag.width; x++) {
+                        const px = (y * flag.width + x) * 4;
+                        const pct = x / flag.width;
+                        const o = Math.sin(x / 50 - t) * 10 * pct;
+                        const y2 = Math.max(0, Math.min(flag.height - 1, (y + o) | 0));
+                        const opx = (y2 * flag.width + x) * 4;
+                        const shade = (o - lastO) * 100;
+
+                        d[px] = Math.max(0, Math.min(255, base[opx] + shade));
+                        d[px + 1] = Math.max(0, Math.min(255, base[opx + 1] + shade));
+                        d[px + 2] = Math.max(0, Math.min(255, base[opx + 2] + shade));
+                        d[px + 3] = base[opx + 3];
+                        lastO = o;
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+                requestAnimationFrame(frame);
+            }
+            frame();
+        };
+
+        img.onerror = function() {
+            console.error('Failed to load flag image: ' + flagImageUrl);
+        };
+
+        img.src = flagImageUrl;
+    }
+</script> *@
+
+
+
+@page "/flag/{FirstPlaceRegionID:int}/{SecondPlaceRegionID:int}/{ThirdPlaceRegionID:int}"
+@layout NoMainLayout
+@inject IJSRuntime JSRuntime
+
+<div class="flag-container" @onclick="HandleClick">
+    <canvas id="flag1" />
+    <canvas id="flag2" />
+    <canvas id="flag3" />
+</div>
+
+@code {
+    [Parameter]
+    public int FirstPlaceRegionID { get; set; }
+
+    [Parameter]
+    public int SecondPlaceRegionID { get; set; }
+
+    [Parameter]
+    public int ThirdPlaceRegionID { get; set; }
+
+    private int clickCount = 0;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initWavingFlags",
+                FirstPlaceRegionID,
+                SecondPlaceRegionID,
+                ThirdPlaceRegionID);
+        }
+    }
+
+    private async Task HandleClick()
+    {
+        if (clickCount < 3)
+        {
+            clickCount++;
+            await JSRuntime.InvokeVoidAsync("showFlag", clickCount);
+        }
+    }
+}
+
+<style>
+    html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        min-height: 100vh;
+        background: transparent;
+        overflow-y: auto;
+    }
+
+    .flag-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: linear-gradient(180deg, #f0f4f8 0%, #ffffff 50%, #f0f4f8 100%);
+        padding: 50px;
+        position: relative;
+        cursor: pointer;
+    }
+
+    /* Canvas waving flags - portrait orientation */
+    #flag1, #flag2, #flag3 {
+        position: fixed;
+        top: -500px;
+        transform: rotate(90deg);
+        transform-origin: center;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 9999;
+        transition: opacity 0.8s ease-in-out, top 0.8s ease-in-out;
+    }
+
+    #flag1 {
+        left: 50%;
+        transform: translateX(-50%) rotate(90deg);
+    }
+
+    #flag2 {
+        left: 85%;
+        transform: translateX(-50%) rotate(90deg);
+    }
+
+    #flag3 {
+        left: 15%;
+        transform: translateX(-50%) rotate(90deg);
+    }
+
+        #flag1.visible, #flag2.visible, #flag3.visible {
+            opacity: 0.85;
+        }
+</style>
+
+<script>
+    window.initWavingFlags = function (firstPlaceRegionID, secondPlaceRegionID, thirdPlaceRegionID) {
+        // Configuration for three flags based on region IDs
+        const flags = [
+            {
+                id: 'flag1',
+                imageUrl: `/image/${firstPlaceRegionID}.png`, // MIDDLE - 1st Place
+                offset: 0
+            },
+            {
+                id: 'flag2',
+                imageUrl: `/image/${thirdPlaceRegionID}.png`, // RIGHT - 2nd Place
+                offset: 0.3
+            },
+            {
+                id: 'flag3',
+                imageUrl: `/image/${secondPlaceRegionID}.png`, // LEFT - 3rd Place
+                offset: 0.6
+            }
+        ];
+
+        flags.forEach((flagConfig, index) => {
+            initSingleFlag(flagConfig.id, flagConfig.imageUrl, flagConfig.offset);
+        });
+    };
+
+    window.showFlag = function(clickNumber) {
+        const flagOrder = ['flag2', 'flag3', 'flag1']; // MIDDLE (1st), RIGHT (2nd), LEFT (3rd)
+        const flagId = flagOrder[clickNumber - 1];
+        const flag = document.getElementById(flagId);
+
+        if (flag) {
+            const centerY = (window.innerHeight - flag.height) / 2;
+            flag.style.top = centerY + 'px';
+            flag.classList.add('visible');
+        }
+    };
+
+    function initSingleFlag(flagId, flagImageUrl, timeOffset) {
+        const flag = document.getElementById(flagId);
+        if (!flag) return;
+
+        const width = 1100;
+        const padX = 0, padY = 30;
+        const height = width * 0.6;  // Landscape ratio for bigger display
+
+        flag.width = width + 2 * padX;
+        flag.height = height + 2 * padY;
+
+        const ctx = flag.getContext('2d');
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        img.onload = function() {
+            ctx.drawImage(img, padX, padY, width, height);
+            const base = ctx.getImageData(0, 0, flag.width, flag.height).data;
+
+            function frame() {
+                const imgData = ctx.getImageData(0, 0, flag.width, flag.height);
+                const d = imgData.data;
+                const t = Date.now() / 150 + timeOffset * 10;
+
+                for (let y = 0; y < flag.height; y++) {
+                    let lastO = 0;
+                    for (let x = 0; x < flag.width; x++) {
+                        const px = (y * flag.width + x) * 4;
+                        const pct = x / flag.width;
+                        const o = Math.sin(x / 50 - t) * 10 * pct;
+                        const y2 = Math.max(0, Math.min(flag.height - 1, (y + o) | 0));
+                        const opx = (y2 * flag.width + x) * 4;
+                        const shade = (o - lastO) * 100;
+
+                        d[px] = Math.max(0, Math.min(255, base[opx] + shade));
+                        d[px + 1] = Math.max(0, Math.min(255, base[opx + 1] + shade));
+                        d[px + 2] = Math.max(0, Math.min(255, base[opx + 2] + shade));
+                        d[px + 3] = base[opx + 3];
+                        lastO = o;
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+                requestAnimationFrame(frame);
+            }
+            frame();
+        };
+
+        img.onerror = function() {
+            console.error('Failed to load flag image: ' + flagImageUrl);
+        };
+
+        img.src = flagImageUrl;
+    }
+</script>
