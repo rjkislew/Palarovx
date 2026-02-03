@@ -1,0 +1,386 @@
+﻿@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@implements IDisposable
+
+<MudDialog DisableSidePadding="true" Class="scoreboard-dialog-clean">
+    <DialogContent>
+        <style>
+            /* 1. FONTS - Uniform with your Sports Details Page */
+            @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@500;700&display=swap');
+
+            /* 2. DIALOG OVERRIDES (Light Theme) */
+            .scoreboard-dialog-clean .mud-dialog-content {
+                padding: 0 !important;
+                background-color: #FFFFFF;
+                height: 80vh; /* Fixed height for scrolling */
+                overflow-y: auto;
+            }
+
+            /* 3. MAIN WRAPPER */
+            .sb-wrapper {
+                background-color: #FFFFFF;
+                background: linear-gradient(180deg, #FFFFFF 0%, #F8F9FA 100%);
+                color: #333333;
+                min-height: 100%;
+                font-family: 'Rajdhani', sans-serif;
+            }
+
+            /* 4. HEADER (Official Broadcast Look) */
+            .sb-broadcast-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 25px;
+                background: #FFFFFF;
+                border-bottom: 1px solid #E0E0E0;
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            }
+
+            .sb-sport-badge {
+                background-color: #0d47a1; /* DepEd Blue */
+                color: #FFFFFF;
+                font-family: 'Chakra Petch';
+                font-weight: 700;
+                padding: 6px 16px;
+                border-radius: 4px;
+                font-size: 0.9rem;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+
+            .sb-match-info {
+                font-family: 'Rajdhani';
+                font-size: 1rem;
+                color: #666666;
+                text-transform: uppercase;
+                font-weight: 600;
+            }
+
+            /* 5. TABLE STYLES (Modern/Clean) */
+            .table-container {
+                padding: 20px;
+            }
+
+            .modern-table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0;
+                background: white;
+                border-radius: 8px;
+                overflow: hidden;
+                border: 1px solid #E0E0E0;
+            }
+
+                .modern-table thead th {
+                    background: #F8F9FA;
+                    padding: 12px 15px;
+                    text-align: left;
+                    font-family: 'Rajdhani';
+                    font-weight: 700;
+                    color: #666;
+                    text-transform: uppercase;
+                    font-size: 0.85rem;
+                    border-bottom: 2px solid #E0E0E0;
+                }
+
+                .modern-table tbody td {
+                    padding: 12px 15px;
+                    border-bottom: 1px solid #EEEEEE;
+                    vertical-align: middle;
+                    color: #333;
+                }
+
+            /* Rank Badges (Adjusted for Light Theme) */
+            .rank-badge {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                font-weight: 800;
+                font-family: 'Orbitron';
+                font-size: 0.9rem;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+
+            .gold {
+                background: #FFD700;
+                color: #5c4d00;
+                border: 1px solid #e6c200;
+            }
+
+            .silver {
+                background: #E0E0E0;
+                color: #424242;
+                border: 1px solid #bdbdbd;
+            }
+
+            .bronze {
+                background: #CD7F32;
+                color: #fff;
+                border: 1px solid #a16328;
+            }
+
+            .normal-rank {
+                font-weight: 700;
+                color: #757575;
+                font-size: 1.1rem;
+                padding-left: 10px;
+            }
+
+            /* Player Info */
+            .player-flex {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .small-logo-box {
+                width: 45px;
+                height: 45px;
+                border-radius: 50%;
+                background: #fff;
+                border: 1px solid #eee;
+                padding: 4px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            }
+
+                .small-logo-box img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: contain;
+                }
+
+            .player-name {
+                font-family: 'Chakra Petch';
+                font-weight: 700;
+                font-size: 1.1rem;
+                line-height: 1.2;
+                color: #212529;
+            }
+
+            .player-region {
+                font-family: 'Rajdhani';
+                font-size: 0.85rem;
+                color: #6C757D;
+                font-weight: 600;
+            }
+
+            /* Score Numbers */
+            .total-score {
+                font-family: 'Orbitron';
+                font-weight: 700;
+                font-size: 1.4rem;
+                color: #0d47a1; /* Blue highlight */
+            }
+
+            .shot-count {
+                font-family: 'Rajdhani';
+                font-weight: 600;
+                color: #666;
+                font-size: 1rem;
+            }
+        </style>
+
+        <div class="sb-wrapper">
+            <!-- HEADER -->
+            <div class="sb-broadcast-header">
+                <div class="sb-sport-badge">ARCHERY</div>
+                <div class="sb-match-info">
+                    @_event?.Level <span style="color:#CCC; margin:0 5px;">|</span>
+                    @_event?.Gender <span style="color:#CCC; margin:0 5px;">|</span>
+                    @_event?.Subcategory
+                </div>
+            </div>
+
+            @if (_isLoading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height:300px;">
+                    <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
+                </MudStack>
+            }
+            else
+            {
+                <div class="table-container">
+                    <table class="modern-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 10%;">RANK</th>
+                                <th style="width: 60%;">ATHLETE / TEAM</th>
+                                <th style="width: 15%; text-align:center;">SCORE</th>
+                                <th style="width: 15%; text-align:center;">SHOTS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _scoringRows.OrderBy(r => r.Rank == 0).ThenBy(r => r.Rank).ThenByDescending(r => r.TotalScore))
+                            {
+                                <tr>
+                                    <!-- RANKING -->
+                                    <td>
+                                        @if (row.Rank > 0)
+                                        {
+                                            @if (row.Rank == 1)
+                                            {
+                                                <div class="rank-badge gold">1</div>
+                                            }
+                                            else if (row.Rank == 2)
+                                            {
+
+                                                <div class="rank-badge silver">2</div>
+                                            }
+                                            else if (row.Rank == 3)
+                                            {
+
+                                                <div class="rank-badge bronze">3</div>
+                                            }
+                                            else
+                                            {
+
+                                                <div class="normal-rank">@row.Rank</div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span style="color:#CCC; padding-left:10px;">-</span>
+                                        }
+                                    </td>
+
+                                    <!-- PLAYER INFO -->
+                                    <td>
+                                        <div class="player-flex">
+                                            <div class="small-logo-box">
+                                                <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{Uri.EscapeDataString(row.LogoFilename)}.webp")"
+                                                     onerror="this.style.display='none'" />
+                                            </div>
+                                            <div>
+                                                <div class="player-name">@row.PlayerName</div>
+                                                <div class="player-region">@row.RegionName</div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <!-- TOTAL SCORE -->
+                                    <td style="text-align:center;">
+                                        <span class="total-score">@row.TotalScore.ToString("N0")</span>
+                                    </td>
+
+                                    <!-- SHOT COUNT -->
+                                    <td style="text-align:center;">
+                                        <span class="shot-count">@row.ShotCount</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <div style="background-color: #F8F9FA; width:100%; padding: 10px 20px; text-align:right; border-top:1px solid #E0E0E0;">
+            <MudButton OnClick="Cancel" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Style="font-family:'Rajdhani'; font-weight:700;">CLOSE</MudButton>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+    [Parameter] public dynamic EventItem { get; set; }
+
+    // --- DATA MODELS ---
+    public class EventInfo
+    {
+        public string ID { get; set; } = "";
+        public string? Subcategory { get; set; }
+        public string? Level { get; set; }
+        public string? Gender { get; set; }
+        public string? SportMainCat { get; set; }
+        public int? RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+    }
+
+    public class ScoringRow
+    {
+        public int RegionID { get; set; }
+        public string RegionName { get; set; } = "";
+        public string LogoFilename { get; set; } = "";
+        public string PlayerID { get; set; } = "";
+        public string PlayerName { get; set; } = "";
+        public int TotalScore { get; set; }
+        public int ShotCount { get; set; }
+        public int Rank { get; set; } = 0;
+    }
+
+    public class SchoolRegions { public int ID { get; set; } public string? Region { get; set; } public string? Abbreviation { get; set; } }
+    public class ArcheryScoringDTO { public int RegionID { get; set; } public string? PlayerID { get; set; } public int ShotScore { get; set; } }
+
+    private EventInfo? _event;
+    private List<ScoringRow> _scoringRows = new();
+    private List<SchoolRegions>? _allRegions;
+    private bool _isLoading = true;
+    private Timer? _timer;
+    private string _eventID = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _eventID = EventItem.ID;
+        await LoadData();
+        _timer = new Timer(async _ => await InvokeAsync(LoadData), null, 2000, 2000);
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            _allRegions = await apiService.GetAsync<SchoolRegions>("/Schools/Regions");
+            var events = await apiService.GetAsync<EventInfo>("/score/ArcheryScoring/events");
+
+            _event = events?.FirstOrDefault(e => e.ID == _eventID);
+            if (_event == null) return;
+
+            _scoringRows = events.Where(e => e.ID == _eventID && e.RegionID.HasValue)
+                .Select(e =>
+                {
+                    var r = _allRegions?.FirstOrDefault(reg => reg.ID == e.RegionID);
+                    return new ScoringRow
+                    {
+                        RegionID = e.RegionID!.Value,
+                        RegionName = r?.Abbreviation ?? "UNK",
+                        LogoFilename = r?.Region ?? "Default",
+                        PlayerID = e.PlayerID ?? "",
+                        PlayerName = e.PlayerName ?? r?.Region ?? "Athlete"
+                    };
+                }).DistinctBy(x => x.PlayerName).ToList();
+
+            var scores = await apiService.GetAsync<ArcheryScoringDTO>($"/score/ArcheryScoring/event/{_eventID}");
+
+            // Score Calculation
+            foreach (var row in _scoringRows)
+            {
+                row.TotalScore = scores.Where(s => s.RegionID == row.RegionID && (string.IsNullOrEmpty(row.PlayerID) || s.PlayerID == row.PlayerID)).Sum(s => s.ShotScore);
+                row.ShotCount = scores.Count(s => s.RegionID == row.RegionID && (string.IsNullOrEmpty(row.PlayerID) || s.PlayerID == row.PlayerID));
+            }
+
+            // Ranking
+            var ranked = _scoringRows.Where(r => r.TotalScore > 0).OrderByDescending(r => r.TotalScore).ToList();
+            for (int i = 0; i < ranked.Count; i++) ranked[i].Rank = i + 1;
+
+            _isLoading = false;
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    void Cancel() => MudDialog?.Cancel();
+    public void Dispose() => _timer?.Dispose();
+}

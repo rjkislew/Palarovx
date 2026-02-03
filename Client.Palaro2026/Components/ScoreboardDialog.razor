@@ -1,610 +1,610 @@
-﻿@using System.Threading
-@using MudBlazor
-@using Client.Palaro2026.Services
-@inject APIService apiService
-@implements IDisposable
+﻿    @using System.Threading
+    @using MudBlazor
+    @using Client.Palaro2026.Services
+    @inject APIService apiService
+    @implements IDisposable
 
-<MudDialog DisableSidePadding="true" Class="scoreboard-dialog-clean">
-    <DialogContent>
-        <style>
-            /* 1. FONTS - Keep for Sporty Numbers */
-            @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@500;700&display=swap');
+    <MudDialog DisableSidePadding="true" Class="scoreboard-dialog-clean">
+        <DialogContent>
+            <style>
+                /* 1. FONTS - Keep for Sporty Numbers */
+                @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@500;700&display=swap');
 
-            /* 2. DIALOG OVERRIDES (Light Theme) */
-            .scoreboard-dialog-clean .mud-dialog-content {
-                padding: 0 !important;
-                background-color: #FFFFFF;
-            }
-
-            /* 3. MAIN WRAPPER */
-            .sb-wrapper {
-                background-color: #FFFFFF;
-                /* Subtle background pattern or gradient */
-                background: linear-gradient(180deg, #FFFFFF 0%, #F8F9FA 100%);
-                color: #333333;
-                position: relative;
-                overflow: hidden;
-                font-family: 'Rajdhani', sans-serif;
-                min-height: 450px;
-                display: flex;
-                flex-direction: column;
-            }
-
-            /* 4. HEADER (Clean Official Look) */
-            .sb-broadcast-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 15px 25px;
-                background: #FFFFFF;
-                border-bottom: 1px solid #E0E0E0;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-            }
-
-            .sb-sport-badge {
-                background-color: #0d47a1; /* DepEd Blue / Palaro Blue */
-                color: #FFFFFF;
-                font-family: 'Chakra Petch';
-                font-weight: 700;
-                padding: 6px 16px;
-                border-radius: 4px;
-                font-size: 0.9rem;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-            }
-
-            .sb-match-info {
-                font-family: 'Rajdhani';
-                font-size: 1rem;
-                color: #666666;
-                text-transform: uppercase;
-                font-weight: 600;
-            }
-
-            /* 5. MAIN STAGE */
-            .sb-main-stage {
-                padding: 30px 10px;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                gap: 20px;
-                flex-grow: 1;
-            }
-
-            /* TEAM CARDS */
-            .sb-team-card {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 8px;
-                z-index: 2;
-                transition: transform 0.3s;
-            }
-
-            .sb-logo-container {
-                width: 120px;
-                height: 120px;
-                position: relative;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                /* Clean Shadow */
-                filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
-                transition: all 0.3s ease;
-                background: #FFFFFF;
-                border-radius: 50%;
-                border: 1px solid #EEEEEE;
-                padding: 10px;
-            }
-
-                .sb-logo-container img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: contain;
+                /* 2. DIALOG OVERRIDES (Light Theme) */
+                .scoreboard-dialog-clean .mud-dialog-content {
+                    padding: 0 !important;
+                    background-color: #FFFFFF;
                 }
 
-            /* Winner Effects - Gold Border instead of Neon Glow */
-            .winner-glow .sb-logo-container {
-                transform: scale(1.05);
-                border: 3px solid #FFC107; /* Palaro Gold */
-                box-shadow: 0 0 15px rgba(255, 193, 7, 0.3);
-            }
-
-            .sb-team-name {
-                font-family: 'Chakra Petch';
-                font-weight: 700;
-                font-size: 1.8rem;
-                line-height: 1.2;
-                text-align: center;
-                color: #212529;
-                margin-top: 10px;
-            }
-
-            .sb-team-region {
-                font-size: 0.85rem;
-                color: #6C757D; /* Bootstrap muted gray */
-                text-transform: uppercase;
-                font-weight: 600;
-                letter-spacing: 0.5px;
-            }
-
-            /* CENTER SCOREBOARD (Clean Card) */
-            .sb-scoreboard-center {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                background: #FFFFFF;
-                padding: 20px 30px;
-                border-radius: 12px;
-                border: 1px solid #E0E0E0;
-                min-width: 220px;
-                box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-            }
-
-            .sb-phase-pill {
-                background: #FFEBEE; /* Very light red */
-                color: #D32F2F; /* Dark Red */
-                border: 1px solid #FFCDD2;
-                padding: 4px 12px;
-                border-radius: 20px;
-                font-size: 0.85rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                margin-bottom: 15px;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-
-            .pulse-dot {
-                width: 8px;
-                height: 8px;
-                background-color: #D32F2F;
-                border-radius: 50%;
-                animation: live-pulse 1.5s infinite;
-            }
-
-            .sb-score-numbers {
-                display: flex;
-                align-items: center;
-                gap: 15px;
-                font-family: 'Orbitron';
-                font-weight: 700;
-                font-size: 4rem;
-                line-height: 1;
-                color: #37474F; /* Dark Blue-Grey */
-            }
-
-            .sb-score-val {
-                min-width: 80px;
-                text-align: center;
-            }
-
-                /* Leading score gets Palaro Red or Dark Black */
-                .sb-score-val.leading {
-                    color: #D32F2F; /* Red highlight for leader */
-                    transform: scale(1.1);
-                }
-
-            .sb-divider {
-                color: #BDBDBD;
-                font-size: 2.5rem;
-                margin-top: -8px;
-            }
-
-            .sb-sets-info {
-                margin-top: 15px;
-                font-family: 'Rajdhani';
-                font-weight: 700;
-                color: #0d47a1; /* Blue */
-                font-size: 1.1rem;
-                letter-spacing: 2px;
-                padding-top: 10px;
-                border-top: 1px solid #F0F0F0;
-                width: 100%;
-                text-align: center;
-            }
-
-            /* 6. HISTORY TABLE (Clean Grid) */
-            .sb-history-section {
-                background: #F8F9FA;
-                margin-top: auto;
-                padding: 20px;
-                border-top: 1px solid #E0E0E0;
-            }
-
-            .modern-table {
-                width: 100%;
-                border-collapse: separate;
-                border-spacing: 0;
-            }
-
-                .modern-table th {
-                    font-family: 'Rajdhani';
-                    color: #666666;
-                    font-size: 0.8rem;
-                    text-transform: uppercase;
-                    padding: 8px 12px;
-                    font-weight: 700;
-                    border-bottom: 2px solid #E0E0E0;
-                }
-
-                .modern-table td {
-                    background: #FFFFFF;
-                    padding: 12px;
-                    text-align: center;
-                    font-family: 'Chakra Petch';
-                    font-weight: 600;
+                /* 3. MAIN WRAPPER */
+                .sb-wrapper {
+                    background-color: #FFFFFF;
+                    /* Subtle background pattern or gradient */
+                    background: linear-gradient(180deg, #FFFFFF 0%, #F8F9FA 100%);
                     color: #333333;
-                    font-size: 0.95rem;
-                    border-bottom: 1px solid #EEEEEE;
+                    position: relative;
+                    overflow: hidden;
+                    font-family: 'Rajdhani', sans-serif;
+                    min-height: 450px;
+                    display: flex;
+                    flex-direction: column;
                 }
 
-                    .modern-table td:first-child {
-                        text-align: left;
-                        padding-left: 20px;
-                        font-weight: 700;
-                        width: 30%;
-                        color: #000;
-                    }
-
-            /* Highlight winning set cell */
-            .col-win {
-                background-color: #FFF8E1 !important; /* Light Gold background */
-                color: #F57F17 !important; /* Dark Gold text */
-                font-weight: 800 !important;
-            }
-
-            /* ANIMATIONS */
-            @@keyframes live-pulse {
-                0% {
-                    opacity: 1;
-                    transform: scale(1);
+                /* 4. HEADER (Clean Official Look) */
+                .sb-broadcast-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 15px 25px;
+                    background: #FFFFFF;
+                    border-bottom: 1px solid #E0E0E0;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
                 }
 
-                50% {
-                    opacity: 0.6;
-                    transform: scale(0.9);
+                .sb-sport-badge {
+                    background-color: #0d47a1; /* DepEd Blue / Palaro Blue */
+                    color: #FFFFFF;
+                    font-family: 'Chakra Petch';
+                    font-weight: 700;
+                    padding: 6px 16px;
+                    border-radius: 4px;
+                    font-size: 0.9rem;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
                 }
 
-                100% {
-                    opacity: 1;
-                    transform: scale(1);
-                }
-            }
-
-            /* RESPONSIVE */
-            @@media(max-width: 768px) {
-                .sb-score-numbers {
-                    font-size: 2.5rem;
+                .sb-match-info {
+                    font-family: 'Rajdhani';
+                    font-size: 1rem;
+                    color: #666666;
+                    text-transform: uppercase;
+                    font-weight: 600;
                 }
 
-                .sb-team-name {
-                    font-size: 1.2rem;
+                /* 5. MAIN STAGE */
+                .sb-main-stage {
+                    padding: 30px 10px;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 20px;
+                    flex-grow: 1;
+                }
+
+                /* TEAM CARDS */
+                .sb-team-card {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 8px;
+                    z-index: 2;
+                    transition: transform 0.3s;
                 }
 
                 .sb-logo-container {
-                    width: 70px;
-                    height: 70px;
+                    width: 120px;
+                    height: 120px;
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    /* Clean Shadow */
+                    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+                    transition: all 0.3s ease;
+                    background: #FFFFFF;
+                    border-radius: 50%;
+                    border: 1px solid #EEEEEE;
+                    padding: 10px;
                 }
 
+                    .sb-logo-container img {
+                        width: 100%;
+                        height: 100%;
+                        object-fit: contain;
+                    }
+
+                /* Winner Effects - Gold Border instead of Neon Glow */
+                .winner-glow .sb-logo-container {
+                    transform: scale(1.05);
+                    border: 3px solid #FFC107; /* Palaro Gold */
+                    box-shadow: 0 0 15px rgba(255, 193, 7, 0.3);
+                }
+
+                .sb-team-name {
+                    font-family: 'Chakra Petch';
+                    font-weight: 700;
+                    font-size: 1.8rem;
+                    line-height: 1.2;
+                    text-align: center;
+                    color: #212529;
+                    margin-top: 10px;
+                }
+
+                .sb-team-region {
+                    font-size: 0.85rem;
+                    color: #6C757D; /* Bootstrap muted gray */
+                    text-transform: uppercase;
+                    font-weight: 600;
+                    letter-spacing: 0.5px;
+                }
+
+                /* CENTER SCOREBOARD (Clean Card) */
                 .sb-scoreboard-center {
-                    padding: 15px;
-                    min-width: auto;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    background: #FFFFFF;
+                    padding: 20px 30px;
+                    border-radius: 12px;
+                    border: 1px solid #E0E0E0;
+                    min-width: 220px;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
                 }
-            }
-        </style>
 
-        <div class="sb-wrapper">
-            <!-- Header -->
-            <div class="sb-broadcast-header">
-                <div class="sb-sport-badge">@EventItem.Sport</div>
-                <div class="sb-match-info">@EventItem.EventStage <span style="color:#CCC; margin:0 5px;">|</span> @EventItem.Gender</div>
-            </div>
+                .sb-phase-pill {
+                    background: #FFEBEE; /* Very light red */
+                    color: #D32F2F; /* Dark Red */
+                    border: 1px solid #FFCDD2;
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    font-size: 0.85rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    margin-bottom: 15px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
 
-            @if (_isLoading)
-            {
-                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="flex-grow:1; height:300px;">
-                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                </MudStack>
-            }
-            else
-            {
-                <!-- Main Score Stage -->
-                <div class="sb-main-stage">
+                .pulse-dot {
+                    width: 8px;
+                    height: 8px;
+                    background-color: #D32F2F;
+                    border-radius: 50%;
+                    animation: live-pulse 1.5s infinite;
+                }
 
-                    <!-- Team A -->
-                    <div class="sb-team-card @(_matchData.IsWinnerA ? "winner-glow" : "")">
-                        <div class="sb-logo-container">
-                            <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_matchData.TeamA.Region}.webp")" />
-                        </div>
-                        <div class="sb-team-name">@_matchData.TeamA.Abbreviation</div>
-                        <div class="sb-team-region">@_matchData.TeamA.Region</div>
-                        @if (_matchData.IsWinnerA)
-                        {
-                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="mt-1" Style="color:#FFC107; font-size: 1.8rem;" />
+                .sb-score-numbers {
+                    display: flex;
+                    align-items: center;
+                    gap: 15px;
+                    font-family: 'Orbitron';
+                    font-weight: 700;
+                    font-size: 4rem;
+                    line-height: 1;
+                    color: #37474F; /* Dark Blue-Grey */
+                }
+
+                .sb-score-val {
+                    min-width: 80px;
+                    text-align: center;
+                }
+
+                    /* Leading score gets Palaro Red or Dark Black */
+                    .sb-score-val.leading {
+                        color: #D32F2F; /* Red highlight for leader */
+                        transform: scale(1.1);
+                    }
+
+                .sb-divider {
+                    color: #BDBDBD;
+                    font-size: 2.5rem;
+                    margin-top: -8px;
+                }
+
+                .sb-sets-info {
+                    margin-top: 15px;
+                    font-family: 'Rajdhani';
+                    font-weight: 700;
+                    color: #0d47a1; /* Blue */
+                    font-size: 1.1rem;
+                    letter-spacing: 2px;
+                    padding-top: 10px;
+                    border-top: 1px solid #F0F0F0;
+                    width: 100%;
+                    text-align: center;
+                }
+
+                /* 6. HISTORY TABLE (Clean Grid) */
+                .sb-history-section {
+                    background: #F8F9FA;
+                    margin-top: auto;
+                    padding: 20px;
+                    border-top: 1px solid #E0E0E0;
+                }
+
+                .modern-table {
+                    width: 100%;
+                    border-collapse: separate;
+                    border-spacing: 0;
+                }
+
+                    .modern-table th {
+                        font-family: 'Rajdhani';
+                        color: #666666;
+                        font-size: 0.8rem;
+                        text-transform: uppercase;
+                        padding: 8px 12px;
+                        font-weight: 700;
+                        border-bottom: 2px solid #E0E0E0;
+                    }
+
+                    .modern-table td {
+                        background: #FFFFFF;
+                        padding: 12px;
+                        text-align: center;
+                        font-family: 'Chakra Petch';
+                        font-weight: 600;
+                        color: #333333;
+                        font-size: 0.95rem;
+                        border-bottom: 1px solid #EEEEEE;
+                    }
+
+                        .modern-table td:first-child {
+                            text-align: left;
+                            padding-left: 20px;
+                            font-weight: 700;
+                            width: 30%;
+                            color: #000;
                         }
-                    </div>
 
-                    <!-- Center Scoreboard -->
-                    <div class="sb-scoreboard-center">
-                        @if (!string.IsNullOrEmpty(_matchData.PhaseText))
-                        {
-                            <div class="sb-phase-pill">
-                                <div class="pulse-dot"></div>
-                                @_matchData.PhaseText
-                            </div>
-                        }
+                /* Highlight winning set cell */
+                .col-win {
+                    background-color: #FFF8E1 !important; /* Light Gold background */
+                    color: #F57F17 !important; /* Dark Gold text */
+                    font-weight: 800 !important;
+                }
 
-                        <div class="sb-score-numbers">
-                            <div class="sb-score-val @(_matchData.DisplayScoreA > _matchData.DisplayScoreB ? "leading" : "")">
-                                @_matchData.DisplayScoreA
-                            </div>
-                            <div class="sb-divider">:</div>
-                            <div class="sb-score-val @(_matchData.DisplayScoreB > _matchData.DisplayScoreA ? "leading" : "")">
-                                @_matchData.DisplayScoreB
-                            </div>
-                        </div>
+                /* ANIMATIONS */
+                @@keyframes live-pulse {
+                    0% {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
 
-                        @if (_matchData.IsSetGame)
-                        {
-                            <div class="sb-sets-info">SETS: @_matchData.SetsA - @_matchData.SetsB</div>
-                        }
-                    </div>
+                    50% {
+                        opacity: 0.6;
+                        transform: scale(0.9);
+                    }
 
-                    <!-- Team B -->
-                    <div class="sb-team-card @(_matchData.IsWinnerB ? "winner-glow" : "")">
-                        <div class="sb-logo-container">
-                            <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_matchData.TeamB.Region}.webp")" />
-                        </div>
-                        <div class="sb-team-name">@_matchData.TeamB.Abbreviation</div>
-                        <div class="sb-team-region">@_matchData.TeamB.Region</div>
-                        @if (_matchData.IsWinnerB)
-                        {
-                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="mt-1" Style="color:#FFC107; font-size: 1.8rem;" />
-                        }
-                    </div>
+                    100% {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                }
+
+                /* RESPONSIVE */
+                @@media(max-width: 768px) {
+                    .sb-score-numbers {
+                        font-size: 2.5rem;
+                    }
+
+                    .sb-team-name {
+                        font-size: 1.2rem;
+                    }
+
+                    .sb-logo-container {
+                        width: 70px;
+                        height: 70px;
+                    }
+
+                    .sb-scoreboard-center {
+                        padding: 15px;
+                        min-width: auto;
+                    }
+                }
+            </style>
+
+            <div class="sb-wrapper">
+                <!-- Header -->
+                <div class="sb-broadcast-header">
+                    <div class="sb-sport-badge">@EventItem.Sport</div>
+                    <div class="sb-match-info">@EventItem.EventStage <span style="color:#CCC; margin:0 5px;">|</span> @EventItem.Gender</div>
                 </div>
 
-                <!-- History Table -->
-                @if (_matchData.MatchHistory != null && _matchData.MatchHistory.Any())
+                @if (_isLoading)
                 {
-                    <div class="sb-history-section">
-                        <table class="modern-table">
-                            <thead>
-                                <tr>
-                                    <th>TEAM</th>
-                                    @foreach (var set in _matchData.MatchHistory)
-                                    {
-                                        <th>@GetTableColumnHeader(EventItem.Sport, set.PhaseNumber)</th>
-                                    }
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>@_matchData.TeamA.Abbreviation</td>
-                                    @foreach (var set in _matchData.MatchHistory)
-                                    {
-                                        <td class="@(set.ScoreA > set.ScoreB ? "col-win" : "")">@set.ScoreA</td>
-                                    }
-                                </tr>
-                                <tr>
-                                    <td>@_matchData.TeamB.Abbreviation</td>
-                                    @foreach (var set in _matchData.MatchHistory)
-                                    {
-                                        <td class="@(set.ScoreB > set.ScoreA ? "col-win" : "")">@set.ScoreB</td>
-                                    }
-                                </tr>
-                            </tbody>
-                        </table>
+                    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="flex-grow:1; height:300px;">
+                        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                    </MudStack>
+                }
+                else
+                {
+                    <!-- Main Score Stage -->
+                    <div class="sb-main-stage">
+
+                        <!-- Team A -->
+                        <div class="sb-team-card @(_matchData.IsWinnerA ? "winner-glow" : "")">
+                            <div class="sb-logo-container">
+                                <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_matchData.TeamA.Region}.webp")" />
+                            </div>
+                            <div class="sb-team-name">@_matchData.TeamA.Abbreviation</div>
+                            <div class="sb-team-region">@_matchData.TeamA.Region</div>
+                            @if (_matchData.IsWinnerA)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="mt-1" Style="color:#FFC107; font-size: 1.8rem;" />
+                            }
+                        </div>
+
+                        <!-- Center Scoreboard -->
+                        <div class="sb-scoreboard-center">
+                            @if (!string.IsNullOrEmpty(_matchData.PhaseText))
+                            {
+                                <div class="sb-phase-pill">
+                                    <div class="pulse-dot"></div>
+                                    @_matchData.PhaseText
+                                </div>
+                            }
+
+                            <div class="sb-score-numbers">
+                                <div class="sb-score-val @(_matchData.DisplayScoreA > _matchData.DisplayScoreB ? "leading" : "")">
+                                    @_matchData.DisplayScoreA
+                                </div>
+                                <div class="sb-divider">:</div>
+                                <div class="sb-score-val @(_matchData.DisplayScoreB > _matchData.DisplayScoreA ? "leading" : "")">
+                                    @_matchData.DisplayScoreB
+                                </div>
+                            </div>
+
+                            @if (_matchData.IsSetGame)
+                            {
+                                <div class="sb-sets-info">SETS: @_matchData.SetsA - @_matchData.SetsB</div>
+                            }
+                        </div>
+
+                        <!-- Team B -->
+                        <div class="sb-team-card @(_matchData.IsWinnerB ? "winner-glow" : "")">
+                            <div class="sb-logo-container">
+                                <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_matchData.TeamB.Region}.webp")" />
+                            </div>
+                            <div class="sb-team-name">@_matchData.TeamB.Abbreviation</div>
+                            <div class="sb-team-region">@_matchData.TeamB.Region</div>
+                            @if (_matchData.IsWinnerB)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="mt-1" Style="color:#FFC107; font-size: 1.8rem;" />
+                            }
+                        </div>
                     </div>
+
+                    <!-- History Table -->
+                    @if (_matchData.MatchHistory != null && _matchData.MatchHistory.Any())
+                    {
+                        <div class="sb-history-section">
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>TEAM</th>
+                                        @foreach (var set in _matchData.MatchHistory)
+                                        {
+                                            <th>@GetTableColumnHeader(EventItem.Sport, set.PhaseNumber)</th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>@_matchData.TeamA.Abbreviation</td>
+                                        @foreach (var set in _matchData.MatchHistory)
+                                        {
+                                            <td class="@(set.ScoreA > set.ScoreB ? "col-win" : "")">@set.ScoreA</td>
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td>@_matchData.TeamB.Abbreviation</td>
+                                        @foreach (var set in _matchData.MatchHistory)
+                                        {
+                                            <td class="@(set.ScoreB > set.ScoreA ? "col-win" : "")">@set.ScoreB</td>
+                                        }
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+            </div>
+        </DialogContent>
+        <DialogActions>
+            <div style="background-color: #F8F9FA; width:100%; padding: 10px 20px; text-align:right; border-top:1px solid #E0E0E0;">
+                <MudButton OnClick="Cancel" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Style="font-family:'Rajdhani'; font-weight:700;">CLOSE</MudButton>
+            </div>
+        </DialogActions>
+    </MudDialog>
+
+    @code {
+        [CascadingParameter]
+        private IMudDialogInstance? MudDialog { get; set; }
+
+        [Parameter] public dynamic EventItem { get; set; }
+
+        private bool _isLoading = true;
+        private MatchViewModel _matchData = new();
+        private Timer? _timer;
+
+        protected override async Task OnInitializedAsync()
+        {
+            await LoadScoreData();
+            // Auto-refresh every 5 seconds
+            _timer = new Timer(async _ => await InvokeAsync(LoadScoreData), null, 5000, 5000);
+        }
+
+        private async Task LoadScoreData()
+        {
+            try
+            {
+                string eventId = EventItem.ID;
+                // GetAsync<T> returns List<T>, so request ClientTeamMatchDTO to receive List<ClientTeamMatchDTO>
+                var scores = await apiService.GetAsync<ClientTeamMatchDTO>($"score/TeamMatch?eventId={eventId}");
+
+                if (scores != null)
+                {
+                    ProcessMatchData(scores);
                 }
             }
-        </div>
-    </DialogContent>
-    <DialogActions>
-        <div style="background-color: #F8F9FA; width:100%; padding: 10px 20px; text-align:right; border-top:1px solid #E0E0E0;">
-            <MudButton OnClick="Cancel" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Style="font-family:'Rajdhani'; font-weight:700;">CLOSE</MudButton>
-        </div>
-    </DialogActions>
-</MudDialog>
-
-@code {
-    [CascadingParameter]
-    private IMudDialogInstance? MudDialog { get; set; }
-
-    [Parameter] public dynamic EventItem { get; set; }
-
-    private bool _isLoading = true;
-    private MatchViewModel _matchData = new();
-    private Timer? _timer;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadScoreData();
-        // Auto-refresh every 5 seconds
-        _timer = new Timer(async _ => await InvokeAsync(LoadScoreData), null, 5000, 5000);
-    }
-
-    private async Task LoadScoreData()
-    {
-        try
-        {
-            string eventId = EventItem.ID;
-            // GetAsync<T> returns List<T>, so request ClientTeamMatchDTO to receive List<ClientTeamMatchDTO>
-            var scores = await apiService.GetAsync<ClientTeamMatchDTO>($"score/TeamMatch?eventId={eventId}");
-
-            if (scores != null)
+            catch (Exception ex)
             {
-                ProcessMatchData(scores);
+                Console.WriteLine($"Error loading scores: {ex.Message}");
             }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading scores: {ex.Message}");
-        }
-        finally
-        {
-            _isLoading = false;
-            StateHasChanged();
-        }
-    }
-
-    private void ProcessMatchData(List<ClientTeamMatchDTO> scores)
-    {
-        if (EventItem.EventVersusList == null || EventItem.EventVersusList.Count < 2) return;
-
-        var teamA = EventItem.EventVersusList[0];
-        var teamB = EventItem.EventVersusList[1];
-
-        // 1. Basic Team Info
-        _matchData.TeamA.Region = teamA.Region;
-        _matchData.TeamA.Abbreviation = teamA.Abbreviation;
-        _matchData.TeamB.Region = teamB.Region;
-        _matchData.TeamB.Abbreviation = teamB.Abbreviation;
-
-        bool isSetGame = IsSetBasedSport(EventItem.Sport);
-        _matchData.IsSetGame = isSetGame;
-
-        if (!scores.Any())
-        {
-            _matchData.DisplayScoreA = 0;
-            _matchData.DisplayScoreB = 0;
-            return;
-        }
-
-        int maxPhase = scores.Max(s => s.Phase);
-        _matchData.PhaseText = GetPhaseText(EventItem.Sport, maxPhase);
-        _matchData.MatchHistory.Clear();
-
-        int setsA = 0;
-        int setsB = 0;
-
-        // 2. Build History & Calculate Sets
-        for (int i = 1; i <= maxPhase; i++)
-        {
-            var sA = scores.FirstOrDefault(s => s.Region == teamA.Region && s.Phase == i)?.Score ?? 0;
-            var sB = scores.FirstOrDefault(s => s.Region == teamB.Region && s.Phase == i)?.Score ?? 0;
-
-            if (sA > 0 || sB > 0 || i == maxPhase)
+            finally
             {
-                _matchData.MatchHistory.Add(new PhaseScoreModel { PhaseNumber = i, ScoreA = sA, ScoreB = sB });
-            }
-
-            if (isSetGame && i < maxPhase)
-            {
-                if (sA > sB) setsA++;
-                else if (sB > sA) setsB++;
+                _isLoading = false;
+                StateHasChanged();
             }
         }
 
-        _matchData.SetsA = setsA;
-        _matchData.SetsB = setsB;
-
-        // 3. Determine Display Score (Main Big Number)
-        if (isSetGame)
+        private void ProcessMatchData(List<ClientTeamMatchDTO> scores)
         {
-            _matchData.DisplayScoreA = scores.FirstOrDefault(s => s.Region == teamA.Region && s.Phase == maxPhase)?.Score ?? 0;
-            _matchData.DisplayScoreB = scores.FirstOrDefault(s => s.Region == teamB.Region && s.Phase == maxPhase)?.Score ?? 0;
-        }
-        else
-        {
-            _matchData.DisplayScoreA = scores.Where(s => s.Region == teamA.Region).Sum(s => s.Score);
-            _matchData.DisplayScoreB = scores.Where(s => s.Region == teamB.Region).Sum(s => s.Score);
-        }
+            if (EventItem.EventVersusList == null || EventItem.EventVersusList.Count < 2) return;
 
-        // 4. Determine Winner Visuals
-        _matchData.IsWinnerA = false;
-        _matchData.IsWinnerB = false;
+            var teamA = EventItem.EventVersusList[0];
+            var teamB = EventItem.EventVersusList[1];
 
-        if (EventItem.IsFinished == true)
-        {
+            // 1. Basic Team Info
+            _matchData.TeamA.Region = teamA.Region;
+            _matchData.TeamA.Abbreviation = teamA.Abbreviation;
+            _matchData.TeamB.Region = teamB.Region;
+            _matchData.TeamB.Abbreviation = teamB.Abbreviation;
+
+            bool isSetGame = IsSetBasedSport(EventItem.Sport);
+            _matchData.IsSetGame = isSetGame;
+
+            if (!scores.Any())
+            {
+                _matchData.DisplayScoreA = 0;
+                _matchData.DisplayScoreB = 0;
+                return;
+            }
+
+            int maxPhase = scores.Max(s => s.Phase);
+            _matchData.PhaseText = GetPhaseText(EventItem.Sport, maxPhase);
+            _matchData.MatchHistory.Clear();
+
+            int setsA = 0;
+            int setsB = 0;
+
+            // 2. Build History & Calculate Sets
+            for (int i = 1; i <= maxPhase; i++)
+            {
+                var sA = scores.FirstOrDefault(s => s.Region == teamA.Region && s.Phase == i)?.Score ?? 0;
+                var sB = scores.FirstOrDefault(s => s.Region == teamB.Region && s.Phase == i)?.Score ?? 0;
+
+                if (sA > 0 || sB > 0 || i == maxPhase)
+                {
+                    _matchData.MatchHistory.Add(new PhaseScoreModel { PhaseNumber = i, ScoreA = sA, ScoreB = sB });
+                }
+
+                if (isSetGame && i < maxPhase)
+                {
+                    if (sA > sB) setsA++;
+                    else if (sB > sA) setsB++;
+                }
+            }
+
+            _matchData.SetsA = setsA;
+            _matchData.SetsB = setsB;
+
+            // 3. Determine Display Score (Main Big Number)
             if (isSetGame)
             {
-                if (setsA > setsB) _matchData.IsWinnerA = true;
-                else if (setsB > setsA) _matchData.IsWinnerB = true;
+                _matchData.DisplayScoreA = scores.FirstOrDefault(s => s.Region == teamA.Region && s.Phase == maxPhase)?.Score ?? 0;
+                _matchData.DisplayScoreB = scores.FirstOrDefault(s => s.Region == teamB.Region && s.Phase == maxPhase)?.Score ?? 0;
             }
             else
             {
-                if (_matchData.DisplayScoreA > _matchData.DisplayScoreB) _matchData.IsWinnerA = true;
-                else if (_matchData.DisplayScoreB > _matchData.DisplayScoreA) _matchData.IsWinnerB = true;
+                _matchData.DisplayScoreA = scores.Where(s => s.Region == teamA.Region).Sum(s => s.Score);
+                _matchData.DisplayScoreB = scores.Where(s => s.Region == teamB.Region).Sum(s => s.Score);
+            }
+
+            // 4. Determine Winner Visuals
+            _matchData.IsWinnerA = false;
+            _matchData.IsWinnerB = false;
+
+            if (EventItem.IsFinished == true)
+            {
+                if (isSetGame)
+                {
+                    if (setsA > setsB) _matchData.IsWinnerA = true;
+                    else if (setsB > setsA) _matchData.IsWinnerB = true;
+                }
+                else
+                {
+                    if (_matchData.DisplayScoreA > _matchData.DisplayScoreB) _matchData.IsWinnerA = true;
+                    else if (_matchData.DisplayScoreB > _matchData.DisplayScoreA) _matchData.IsWinnerB = true;
+                }
             }
         }
-    }
 
-    void Cancel() => MudDialog?.Cancel();
+        void Cancel() => MudDialog?.Cancel();
 
-    public void Dispose() => _timer?.Dispose();
+        public void Dispose() => _timer?.Dispose();
 
-    // --- Helpers ---
-    private bool IsSetBasedSport(string? sport)
-    {
-        if (string.IsNullOrEmpty(sport)) return false;
-        var s = sport.ToLower();
-        return s.Contains("volley") || s.Contains("tennis") || s.Contains("badminton") || s.Contains("sepak") || s.Contains("table");
-    }
-
-    private string GetPhaseText(string? sport, int phase)
-    {
-        var s = sport?.ToLower() ?? "";
-        if (s.Contains("basket"))
+        // --- Helpers ---
+        private bool IsSetBasedSport(string? sport)
         {
-            if (phase <= 4) return $"Q{phase}";
-            if (phase == 5) return "OT";
-            return $"{phase - 4}OT";
+            if (string.IsNullOrEmpty(sport)) return false;
+            var s = sport.ToLower();
+            return s.Contains("volley") || s.Contains("tennis") || s.Contains("badminton") || s.Contains("sepak") || s.Contains("table");
         }
-        if (s.Contains("base") || s.Contains("soft")) return $"INN {phase}";
-        return $"SET {phase}";
-    }
 
-    private string GetTableColumnHeader(string? sport, int phase)
-    {
-        var s = sport?.ToLower() ?? "";
-        if (s.Contains("basket"))
+        private string GetPhaseText(string? sport, int phase)
         {
-            if (phase <= 4) return $"Q{phase}";
-            if (phase == 5) return "OT";
-            return $"{phase - 4}OT";
+            var s = sport?.ToLower() ?? "";
+            if (s.Contains("basket"))
+            {
+                if (phase <= 4) return $"Q{phase}";
+                if (phase == 5) return "OT";
+                return $"{phase - 4}OT";
+            }
+            if (s.Contains("base") || s.Contains("soft")) return $"INN {phase}";
+            return $"SET {phase}";
         }
-        return phase.ToString();
-    }
 
-    // --- View Models & DTOs ---
-    public class MatchViewModel
-    {
-        public TeamSimple TeamA { get; set; } = new();
-        public TeamSimple TeamB { get; set; } = new();
-        public int DisplayScoreA { get; set; }
-        public int DisplayScoreB { get; set; }
-        public int SetsA { get; set; }
-        public int SetsB { get; set; }
-        public bool IsSetGame { get; set; }
-        public string PhaseText { get; set; } = "";
-        public bool IsWinnerA { get; set; }
-        public bool IsWinnerB { get; set; }
-        public List<PhaseScoreModel> MatchHistory { get; set; } = new();
-    }
+        private string GetTableColumnHeader(string? sport, int phase)
+        {
+            var s = sport?.ToLower() ?? "";
+            if (s.Contains("basket"))
+            {
+                if (phase <= 4) return $"Q{phase}";
+                if (phase == 5) return "OT";
+                return $"{phase - 4}OT";
+            }
+            return phase.ToString();
+        }
 
-    public class TeamSimple
-    {
-        public string Region { get; set; } = "";
-        public string Abbreviation { get; set; } = "";
-    }
+        // --- View Models & DTOs ---
+        public class MatchViewModel
+        {
+            public TeamSimple TeamA { get; set; } = new();
+            public TeamSimple TeamB { get; set; } = new();
+            public int DisplayScoreA { get; set; }
+            public int DisplayScoreB { get; set; }
+            public int SetsA { get; set; }
+            public int SetsB { get; set; }
+            public bool IsSetGame { get; set; }
+            public string PhaseText { get; set; } = "";
+            public bool IsWinnerA { get; set; }
+            public bool IsWinnerB { get; set; }
+            public List<PhaseScoreModel> MatchHistory { get; set; } = new();
+        }
 
-    public class PhaseScoreModel
-    {
-        public int PhaseNumber { get; set; }
-        public int ScoreA { get; set; }
-        public int ScoreB { get; set; }
-    }
+        public class TeamSimple
+        {
+            public string Region { get; set; } = "";
+            public string Abbreviation { get; set; } = "";
+        }
 
-    public class ClientTeamMatchDTO
-    {
-        public string? EventID { get; set; }
-        public string? Region { get; set; }
-        public int Phase { get; set; }
-        public int Score { get; set; }
+        public class PhaseScoreModel
+        {
+            public int PhaseNumber { get; set; }
+            public int ScoreA { get; set; }
+            public int ScoreB { get; set; }
+        }
+
+        public class ClientTeamMatchDTO
+        {
+            public string? EventID { get; set; }
+            public string? Region { get; set; }
+            public int Phase { get; set; }
+            public int Score { get; set; }
+        }
     }
-}

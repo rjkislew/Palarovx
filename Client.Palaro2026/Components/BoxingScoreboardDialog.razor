@@ -1,0 +1,449 @@
+﻿@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@implements IDisposable
+
+<MudDialog DisableSidePadding="true" Class="scoreboard-dialog-clean">
+    <DialogContent>
+        <style>
+            /* 1. FONTS */
+            @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@500;700&display=swap');
+
+            /* 2. DIALOG OVERRIDES (Light Theme) */
+            .scoreboard-dialog-clean .mud-dialog-content {
+                padding: 0 !important;
+                background-color: #FFFFFF;
+                height: 85vh; /* Fixed height for scroll */
+                overflow-y: auto;
+            }
+
+            /* 3. MAIN WRAPPER */
+            .sb-wrapper {
+                background-color: #FFFFFF;
+                background: linear-gradient(180deg, #FFFFFF 0%, #F8F9FA 100%);
+                color: #333333;
+                min-height: 100%;
+                font-family: 'Rajdhani', sans-serif;
+                padding-bottom: 30px;
+            }
+
+            /* 4. HEADER */
+            .sb-broadcast-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 25px;
+                background: #FFFFFF;
+                border-bottom: 1px solid #E0E0E0;
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            }
+
+            .sb-sport-badge {
+                background-color: #0d47a1; /* DepEd Blue */
+                color: #FFFFFF;
+                font-family: 'Chakra Petch';
+                font-weight: 700;
+                padding: 6px 16px;
+                border-radius: 4px;
+                font-size: 0.9rem;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+
+            .sb-match-info {
+                font-family: 'Rajdhani';
+                font-size: 1rem;
+                color: #666666;
+                text-transform: uppercase;
+                font-weight: 600;
+            }
+
+            /* 5. BRACKET LAYOUT */
+            .bracket-scroll {
+                display: flex;
+                gap: 20px;
+                padding: 20px;
+                overflow-x: auto;
+                background: #fdfdfd;
+            }
+
+            .round-col {
+                min-width: 280px;
+                flex: 1;
+            }
+
+            .round-header {
+                text-align: center;
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #0d47a1;
+                font-family: 'Orbitron';
+                color: #0d47a1;
+                font-weight: 700;
+                text-transform: uppercase;
+                font-size: 0.9rem;
+            }
+
+            /* 6. BOUT CARD */
+            .bout-card {
+                background: white;
+                border: 1px solid #E0E0E0;
+                border-radius: 8px;
+                padding: 10px;
+                margin-bottom: 15px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+                position: relative;
+            }
+
+            .bout-no {
+                font-size: 0.75rem;
+                color: #999;
+                font-weight: 700;
+                margin-bottom: 5px;
+            }
+
+            .fighter-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 6px 8px;
+                border-radius: 4px;
+                margin-bottom: 4px;
+                border: 1px solid transparent;
+            }
+
+                .fighter-row.red {
+                    background: #FFEBEE;
+                    border-color: #FFCDD2;
+                }
+
+                .fighter-row.blue {
+                    background: #E3F2FD;
+                    border-color: #BBDEFB;
+                }
+
+                .fighter-row.winner {
+                    border-color: #FFD700;
+                    box-shadow: 0 0 5px rgba(255, 215, 0, 0.4);
+                    font-weight: 700;
+                }
+
+            .f-info {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .f-logo {
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                background: white;
+                border: 1px solid #ddd;
+                object-fit: contain;
+            }
+
+            .f-name {
+                font-size: 0.9rem;
+                color: #333;
+                line-height: 1.1;
+                font-family: 'Chakra Petch';
+            }
+
+            .f-region {
+                font-size: 0.7rem;
+                color: #666;
+            }
+
+            .win-badge {
+                font-size: 0.6rem;
+                background: #FFD700;
+                color: #333;
+                padding: 1px 4px;
+                border-radius: 2px;
+                font-weight: 700;
+                font-family: 'Orbitron';
+            }
+
+            /* 7. STATS TABLE */
+            .stats-section {
+                padding: 0 25px;
+                margin-top: 20px;
+            }
+
+            .section-title {
+                font-family: 'Orbitron';
+                font-size: 1.1rem;
+                color: #333;
+                margin-bottom: 10px;
+                font-weight: 700;
+            }
+
+            .modern-table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0;
+                background: white;
+                border-radius: 8px;
+                overflow: hidden;
+                border: 1px solid #E0E0E0;
+            }
+
+                .modern-table thead th {
+                    background: #F8F9FA;
+                    padding: 10px;
+                    text-align: left;
+                    font-family: 'Rajdhani';
+                    font-weight: 700;
+                    color: #666;
+                    font-size: 0.8rem;
+                    border-bottom: 2px solid #E0E0E0;
+                }
+
+                .modern-table tbody td {
+                    padding: 8px 10px;
+                    border-bottom: 1px solid #EEEEEE;
+                    font-size: 0.9rem;
+                }
+
+            .perf-dot {
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                margin-right: 5px;
+            }
+
+            .p-good {
+                background: #4CAF50;
+            }
+
+            .p-avg {
+                background: #FFC107;
+            }
+
+            .p-bad {
+                background: #F44336;
+            }
+
+        </style>
+
+        <div class="sb-wrapper">
+            <!-- Header -->
+            <div class="sb-broadcast-header">
+                <div class="sb-sport-badge">BOXING</div>
+                <div class="sb-match-info">
+                    @_event?.MajorCategory <span style="color:#CCC; margin:0 5px;">|</span>
+                    @_event?.SubCategory
+                </div>
+            </div>
+
+            @if (_isLoading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height:300px;">
+                    <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
+                </MudStack>
+            }
+            else
+            {
+                <!-- BRACKET VIEW -->
+                <div class="bracket-scroll">
+                    @foreach (var round in _rounds)
+                    {
+                        <div class="round-col">
+                            <div class="round-header">@round.Label</div>
+
+                            @foreach (var bout in round.Bouts)
+                            {
+                                <div class="bout-card">
+                                    <div class="bout-no">BOUT #@bout.Number</div>
+
+                                    <!-- RED CORNER -->
+                                    <div class="fighter-row red @(bout.Winner == "Red" ? "winner" : "")">
+                                        <div class="f-info">
+                                            <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{bout.RedRegion}.webp")" class="f-logo" onerror="this.style.display='none'" />
+                                            <div>
+                                                <div class="f-name">@bout.RedName</div>
+                                                <div class="f-region">@bout.RedRegion</div>
+                                            </div>
+                                        </div>
+                                        @if (bout.Winner == "Red")
+                                        {
+                                            <div class="win-badge">WIN</div>
+                                        }
+                                    </div>
+
+                                    <!-- BLUE CORNER -->
+                                    <div class="fighter-row blue @(bout.Winner == "Blue" ? "winner" : "")">
+                                        <div class="f-info">
+                                            <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{bout.BlueRegion}.webp")" class="f-logo" onerror="this.style.display='none'" />
+                                            <div>
+                                                <div class="f-name">@bout.BlueName</div>
+                                                <div class="f-region">@bout.BlueRegion</div>
+                                            </div>
+                                        </div>
+                                        @if (bout.Winner == "Blue")
+                                        {
+                                            <div class="win-badge">WIN</div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- STATS TABLE (Simplified) -->
+                @if (_matchStats.Any())
+                {
+                    <div class="stats-section">
+                        <div class="section-title">BOXER STATISTICS</div>
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>REGION</th>
+                                    <th>BOXER</th>
+                                    <th>WINS</th>
+                                    <th>LOSS</th>
+                                    <th>RATE</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var stat in _matchStats.Take(10))
+                                {
+                                    <tr>
+                                        <td>@stat.Region</td>
+                                        <td style="font-weight:600;">@stat.Player</td>
+                                        <td><span class="perf-dot p-good"></span>@stat.MatchesWon</td>
+                                        <td><span class="perf-dot p-bad"></span>@stat.MatchesLost</td>
+                                        <td style="font-weight:700;">@stat.WinRate.ToString("F0")%</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <div style="background-color: #F8F9FA; width:100%; padding: 10px 20px; text-align:right; border-top:1px solid #E0E0E0;">
+            <MudButton OnClick="Cancel" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Style="font-family:'Rajdhani'; font-weight:700;">CLOSE</MudButton>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+    [Parameter] public dynamic EventItem { get; set; }
+
+    // --- MODELS ---
+    public class BoxingEvent
+    {
+        public string MajorCategory { get; set; } = "";
+        public string SubCategory { get; set; } = "";
+    }
+    public class BoutRound { public string Label { get; set; } = ""; public int Order { get; set; } public List<Bout> Bouts { get; set; } = new(); }
+    public class Bout
+    {
+        public int Number { get; set; }
+        public string RedName { get; set; } = ""; public string RedRegion { get; set; } = "";
+        public string BlueName { get; set; } = ""; public string BlueRegion { get; set; } = "";
+        public string Winner { get; set; } = "";
+    }
+    public class MatchStat { public string Region { get; set; } = ""; public string Player { get; set; } = ""; public int MatchesWon { get; set; } public int MatchesLost { get; set; } public double WinRate { get; set; } }
+
+    // DTOs for API
+    public class EventDrawOfMatchDTO
+    {
+        public int MajorCategories_Id { get; set; }
+        public int Categories_Id { get; set; }
+        public int Bout_Id { get; set; }
+        public string MajorCategory { get; set; } = ""; public string SubCategory { get; set; } = ""; public string Round_Name { get; set; } = "";
+        public List<EventDrawOfMatchParticipantsDTO> Participants { get; set; } = new();
+    }
+    public class EventDrawOfMatchParticipantsDTO
+    {
+        public string Side_Name { get; set; } = ""; public string Participant_Name { get; set; } = ""; public string Region_Abbr { get; set; } = "";
+    }
+
+    // --- STATE ---
+    private BoxingEvent? _event;
+    private List<BoutRound> _rounds = new();
+    private List<MatchStat> _matchStats = new();
+    private bool _isLoading = true;
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _timer = new Timer(async _ => await InvokeAsync(LoadData), null, 5000, 5000);
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            string eId = EventItem.ID; // Expecting "MajorID_CategoryID" format
+            var parts = eId.Split('_');
+            if (parts.Length != 2 || !int.TryParse(parts[0], out int mId) || !int.TryParse(parts[1], out int cId)) { _isLoading = false; return; }
+
+            var matches = await apiService.GetAsync<EventDrawOfMatchDTO>("/score/BoxingBout/list_match");
+            if (matches != null)
+            {
+                var eventMatches = matches.Where(b => b.MajorCategories_Id == mId && b.Categories_Id == cId).ToList();
+
+                foreach (var m in eventMatches)
+                {
+                    var partsList = await apiService.GetAsync<EventDrawOfMatchParticipantsDTO>($"/score/BoxingBout/list_participants/{m.Bout_Id}"); // Assuming ID match
+                    m.Participants = partsList?.ToList() ?? new();
+                }
+
+                if (eventMatches.Any())
+                {
+                    var f = eventMatches.First();
+                    _event = new BoxingEvent { MajorCategory = f.MajorCategory, SubCategory = f.SubCategory };
+
+                    // Organize Rounds
+                    _rounds = new List<BoutRound> {
+                        new() { Label = "PRELIMS", Order = 1 }, new() { Label = "QUARTER", Order = 2 },
+                        new() { Label = "SEMI", Order = 3 }, new() { Label = "FINAL", Order = 4 }
+                    };
+
+                    foreach (var b in eventMatches)
+                    {
+                        var rKey = GetRoundKey(b.Round_Name);
+                        var target = _rounds.First(r => r.Label.Contains(rKey));
+
+                        target.Bouts.Add(new Bout
+                        {
+                            Number = b.Bout_Id,
+                            RedName = b.Participants.FirstOrDefault(p => p.Side_Name == "Red")?.Participant_Name ?? "TBD",
+                            RedRegion = b.Participants.FirstOrDefault(p => p.Side_Name == "Red")?.Region_Abbr ?? "TBD",
+                            BlueName = b.Participants.FirstOrDefault(p => p.Side_Name == "Blue")?.Participant_Name ?? "TBD",
+                            BlueRegion = b.Participants.FirstOrDefault(p => p.Side_Name == "Blue")?.Region_Abbr ?? "TBD",
+                            Winner = "" // Need logic here if winner data exists in API
+                        });
+                    }
+                    // Filter empty rounds
+                    _rounds = _rounds.Where(r => r.Bouts.Any()).ToList();
+                }
+            }
+        }
+        catch { }
+        finally { _isLoading = false; StateHasChanged(); }
+    }
+
+    private string GetRoundKey(string n)
+    {
+        var s = n.ToLower();
+        if (s.Contains("final")) return "FINAL"; if (s.Contains("semi")) return "SEMI"; if (s.Contains("quarter")) return "QUARTER"; return "PRELIMS";
+    }
+
+    void Cancel() => MudDialog?.Cancel();
+    public void Dispose() => _timer?.Dispose();
+}

@@ -8,6 +8,7 @@
 @inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
+@inject NavigationManager NavigationManager
 
 <PageTitle>@Sports, @Category Category | PALARO 2026 - Agusan del Sur</PageTitle>
 
@@ -196,7 +197,6 @@
                                                          Style="font-weight: bold; letter-spacing: 1px;">
                                                     COMPETITION SCHEDULE
                                                 </MudText>
-                                                <!-- REMOVED: Height, FixedHeader, FixedFooter, Virtualize -->
                                                 <MudTable Outlined Items="GetFilteredEventDetails(group.Key)"
                                                           Context="eventDetail"
                                                           Elevation="0">
@@ -335,8 +335,17 @@
                                                             }
                                                         </MudTd>
                                                         <MudTd Datalabel="Scoreboard">
-                                                            @* Show scoreboard for any event that has at least two teams so all sports are catered *@
-                                                            @if (eventDetail.EventVersusList != null && eventDetail.EventVersusList.Count >= 2)
+                                                            @{
+                                                                // LOGIC TO SHOW BUTTON
+                                                                // Checks for specific sports (Archery, Billiards, Boxing)
+                                                                // OR checks for standard teams > 2
+                                                                bool isArchery = string.Equals(eventDetail.Sport, "Archery", StringComparison.OrdinalIgnoreCase);
+                                                                bool isBilliards = string.Equals(eventDetail.Sport, "Billiards", StringComparison.OrdinalIgnoreCase);
+                                                                bool isBoxing = string.Equals(eventDetail.Sport, "Boxing", StringComparison.OrdinalIgnoreCase);
+                                                                bool hasTeams = eventDetail.EventVersusList != null && eventDetail.EventVersusList.Count >= 2;
+                                                            }
+
+                                                            @if (isArchery || isBilliards || isBoxing || hasTeams)
                                                             {
                                                                 <MudButton Variant="Variant.Outlined"
                                                                            Color="Color.Primary"
@@ -579,32 +588,78 @@
             .ToList();
     }
 
-    // Logic to open Scoreboard
+    // UPDATED LOGIC TO OPEN SCOREBOARD
     private async Task OpenScoreboard(EventsDTO.EventDetails.Event eventItem)
     {
-        // 1. Check if valid teams exist
+        // 1. ARCHERY - Open Archery Dialog
+        if (string.Equals(eventItem.Sport, "Archery", StringComparison.OrdinalIgnoreCase))
+        {
+            var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                MaxWidth = MaxWidth.Large,
+                FullWidth = true,
+                NoHeader = true,
+                BackgroundClass = "scoreboard-blur-bg"
+            };
+            var parameters = new DialogParameters();
+            parameters.Add("EventItem", eventItem);
+            await DialogService.Show<ArcheryScoreboardDialog>("", parameters, options).Result;
+            return;
+        }
+
+        // 2. BILLIARDS - Open Billiards Dialog
+        if (string.Equals(eventItem.Sport, "Billiards", StringComparison.OrdinalIgnoreCase))
+        {
+            var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                MaxWidth = MaxWidth.Large,
+                FullWidth = true,
+                NoHeader = true,
+                BackgroundClass = "scoreboard-blur-bg"
+            };
+            var parameters = new DialogParameters();
+            parameters.Add("EventItem", eventItem);
+            await DialogService.Show<BilliardsScoreboardDialog>("", parameters, options).Result;
+            return;
+        }
+
+        // 3. BOXING - Open Boxing Dialog
+        if (string.Equals(eventItem.Sport, "Boxing", StringComparison.OrdinalIgnoreCase))
+        {
+            var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                MaxWidth = MaxWidth.Large,
+                FullWidth = true,
+                NoHeader = true,
+                BackgroundClass = "scoreboard-blur-bg"
+            };
+            var parameters = new DialogParameters();
+            parameters.Add("EventItem", eventItem);
+            await DialogService.Show<BoxingScoreboardDialog>("", parameters, options).Result;
+            return;
+        }
+
+        // 4. STANDARD (Basketball / Volleyball) - Open Standard Dialog
         if (eventItem.EventVersusList == null || eventItem.EventVersusList.Count < 2)
         {
             await DialogService.ShowMessageBox("Info", "Waiting for team setup...", yesText: "Close");
             return;
         }
 
-        // 2. Set options for the Dialog (Glass/Dark Theme look)
-        var options = new DialogOptions
+        var stdOptions = new DialogOptions
         {
             CloseOnEscapeKey = true,
-            MaxWidth = MaxWidth.Small, // Keeps it card-sized on desktop
-            FullWidth = true, // Responsive on mobile
-            NoHeader = true, // We made a custom header inside
-            BackgroundClass = "scoreboard-blur-bg" // Optional styling
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            NoHeader = true,
+            BackgroundClass = "scoreboard-blur-bg"
         };
-
-        // 3. Pass parameters
-        var parameters = new DialogParameters();
-        parameters.Add("EventItem", eventItem);
-
-        // 4. Show the dialog
-        await DialogService.Show<ScoreboardDialog>("", parameters, options).Result;
+        var stdParameters = new DialogParameters();
+        stdParameters.Add("EventItem", eventItem);
+        await DialogService.Show<ScoreboardDialog>("", stdParameters, stdOptions).Result;
     }
 
     public class DayScheduleGroup
