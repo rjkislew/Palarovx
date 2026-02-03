@@ -1,0 +1,685 @@
+﻿@page "/scoreboard/events"
+@using Client.Palaro2026.Services
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using System.Text
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject HttpClient httpClient
+@inject NavigationManager Navigation
+@inject APIService apiService
+
+
+<PageTitle>Events Management | PALARO 2026</PageTitle>
+
+<style>
+    /* --- IMPORTS --- */
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap');
+
+    :root {
+        --bg-dark: #0a0a0a;
+        --card-bg: rgba(30, 30, 30, 0.7);
+        --card-border: rgba(255, 255, 255, 0.1);
+        --accent-gold: #FFD700;
+        --accent-blue: #00e5ff;
+        --accent-green: #4CAF50;
+        --accent-warning: #FF9800;
+        --text-white: #ffffff;
+    }
+
+    body {
+        background-color: var(--bg-dark);
+        background-image: radial-gradient(circle at 15% 50%, rgba(0, 229, 255, 0.05) 0%, transparent 25%), radial-gradient(circle at 85% 30%, rgba(255, 215, 0, 0.05) 0%, transparent 25%);
+        font-family: 'Rajdhani', sans-serif;
+        color: white;
+        min-height: 100vh;
+    }
+
+    .page-header {
+        text-align: center;
+        padding: 40px 0 20px;
+    }
+
+    .main-title {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        font-size: 3rem;
+        background: linear-gradient(180deg, #FFFFFF 0%, #b0b0b0 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: 4px;
+        margin-bottom: 10px;
+    }
+
+    .page-subtitle {
+        font-size: 1.2rem;
+        color: #888;
+        margin-bottom: 30px;
+    }
+
+    /* MODERN CARD STYLE FOR TABLE */
+    .modern-table {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+        margin-bottom: 30px;
+    }
+
+    .table-header {
+        background: rgba(0, 0, 0, 0.3);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 20px;
+    }
+
+    .table-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--accent-gold);
+    }
+
+    /* STATS CARDS */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+
+    .stat-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+    }
+
+        .stat-card:hover {
+            border-color: var(--accent-gold);
+            transform: translateY(-5px);
+        }
+
+    .stat-value {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2.5rem;
+        font-weight: 900;
+        margin-bottom: 5px;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .stat-icon {
+        font-size: 2rem;
+        margin-bottom: 15px;
+        opacity: 0.8;
+    }
+
+    /* EVENT CARD STYLE */
+    .event-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+
+        .event-card:hover {
+            border-color: var(--accent-gold);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transform: translateY(-3px);
+        }
+
+    .event-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .event-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--accent-gold);
+    }
+
+    .event-details {
+        color: #aaa;
+        font-size: 0.9rem;
+        margin-top: 5px;
+    }
+
+    .event-status {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .status-finished {
+        background: var(--accent-green);
+        color: white;
+    }
+
+    .status-ongoing {
+        background: var(--accent-warning);
+        color: black;
+    }
+
+    .status-needs-players {
+        background: #333;
+        color: white;
+    }
+
+    .team-chip {
+        background: rgba(0, 229, 255, 0.1);
+        border: 1px solid var(--accent-blue);
+        border-radius: 20px;
+        padding: 8px 15px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+        display: inline-flex;
+        align-items: center;
+        transition: all 0.2s ease;
+    }
+
+        .team-chip:hover {
+            background: rgba(0, 229, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+    .team-abbrev {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 700;
+        color: var(--accent-blue);
+        margin-right: 10px;
+    }
+
+    /* ACTION BUTTONS */
+    .action-button {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: white;
+        padding: 10px 20px;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 10px;
+        margin-bottom: 10px;
+    }
+
+        .action-button:hover {
+            background: var(--accent-gold);
+            color: black;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+            transform: translateY(-2px);
+        }
+
+    .search-field {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: white !important;
+    }
+
+        .search-field input {
+            color: white !important;
+        }
+
+    /* RESPONSIVE GRID */
+    @@media (max-width: 768px) {
+        .main-title {
+            font-size: 2rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pb-16">
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+        <div class="main-title">EVENTS MANAGEMENT</div>
+        <div class="page-subtitle">Palaro 2026 Official Events Dashboard</div>
+    </div>
+
+    @if (_eventDetails is not null)
+    {
+        <!-- STATISTICS CARDS -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <MudIcon Icon="@Icons.Material.Filled.Event" Class="stat-icon" Color="Color.Primary" />
+                <div class="stat-value">@_eventDetails?.Count()</div>
+                <div class="stat-label">Total Events</div>
+            </div>
+            <div class="stat-card">
+                <MudIcon Icon="@Icons.Material.Filled.NotificationImportant" Class="stat-icon" Color="Color.Error" />
+                <div class="stat-value">@_eventDetails?.Where(x => x.IsFinished == false && x.EventVersusList?.Count() < 2).Count()</div>
+                <div class="stat-label">Need Players</div>
+            </div>
+            <div class="stat-card">
+                <MudIcon Icon="@Icons.Material.Filled.PlayCircleOutline" Class="stat-icon" Color="Color.Warning" />
+                <div class="stat-value">@_eventDetails?.Where(x => x.IsFinished == false && x.EventVersusList?.Count() >= 2).Count()</div>
+                <div class="stat-label">Ongoing</div>
+            </div>
+            <div class="stat-card">
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline" Class="stat-icon" Color="Color.Success" />
+                <div class="stat-value">@_eventDetails?.Where(x => x.IsFinished == true).Count()</div>
+                <div class="stat-label">Completed</div>
+            </div>
+        </div>
+
+        <!-- ACTION BAR -->
+        <MudPaper Class="modern-table mb-4">
+            <div class="table-header d-flex justify-space-between align-center">
+                <div class="table-title">Events Dashboard</div>
+                <div>
+                    <MudTextField @bind-Value="_searchString"
+                                  Class="search-field"
+                                  Immediate="true"
+                                  Placeholder="Search events..."
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+
+                    <MudButton Class="action-button ml-3"
+                               OnClick="GetEventsAsync"
+                               StartIcon="@Icons.Material.Filled.Refresh">
+                        Refresh
+                    </MudButton>
+
+                    @if (CanAddEvents)
+                    {
+                      
+                    }
+                </div>
+            </div>
+        </MudPaper>
+
+        <!-- EVENTS LIST -->
+        <MudGrid Spacing="3">
+            @if (FilteredEvents.Any())
+            {
+                @foreach (var eventDetail in FilteredEvents)
+                {
+                    <MudItem xs="12" md="6" lg="4">
+                        <div class="event-card">
+                            <!-- EVENT HEADER -->
+                            <div class="event-header">
+                                <div style="flex: 1;">
+                                    <div class="event-title">
+                                        @eventDetail.Sport
+                                        @if (!string.IsNullOrEmpty(eventDetail.Category))
+                                        {
+                                            <span style="color: #aaa; font-size: 1rem;">| @eventDetail.Category</span>
+                                        }
+                                    </div>
+                                    <div class="event-details">
+                                        @eventDetail.SportMainCat • @eventDetail.Subcategory
+                                    </div>
+                                    <div class="event-details">
+                                        @eventDetail.Level • @eventDetail.Gender
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="event-status @GetStatusClass(eventDetail)">
+                                        @GetStatusText(eventDetail)
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- TEAMS SECTION -->
+                            <div class="mb-3">
+                                <MudText Typo="Typo.subtitle2" Class="mb-2" Style="color: #aaa;">Teams</MudText>
+                                @if (eventDetail.EventVersusList?.Any() == true)
+                                {
+                                    <div>
+                                        @foreach (var team in eventDetail.EventVersusList)
+                                        {
+                                            <div class="team-chip" style="display: inline-block;">
+                                                <span class="team-abbrev">@team.Abbreviation</span>
+                                              
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption" Style="color: #666;">No teams assigned</MudText>
+                                }
+                            </div>
+
+                            <!-- EVENT DETAILS -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-space-between mb-2">
+                                    <MudText Typo="Typo.caption" Style="color: #aaa;">Schedule</MudText>
+                                    <MudText Typo="Typo.caption">
+                                        @(eventDetail.Date?.ToString("MMM d") ?? "TBD") • @(eventDetail.Time.HasValue? DateTime.Today.Add(eventDetail.Time.Value).ToString("h:mm tt") : "TBD")
+                                    </MudText>
+                                </div>
+                                <div class="d-flex justify-space-between mb-2">
+                                    <MudText Typo="Typo.caption" Style="color: #aaa;">Venue</MudText>
+                                    <MudLink Underline="Underline.Hover"
+                                             Href="@($"https://www.google.com/maps/?q={eventDetail.Latitude},{eventDetail.Longitude}")"
+                                             Target="_blank"
+                                             Style="color: var(--accent-blue); font-size: 0.9rem;">
+                                        @eventDetail.Venue <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" />
+                                    </MudLink>
+                                </div>
+                                @if (eventDetail.OnStream == true)
+                                {
+                                    <div class="d-flex justify-space-between mb-2">
+                                        <MudText Typo="Typo.caption" Style="color: #aaa;">Stream</MudText>
+                                        <MudLink Underline="Underline.Hover"
+                                                 Href="@eventDetail.StreamURL"
+                                                 Target="_blank"
+                                                 Style="color: var(--accent-blue); font-size: 0.9rem;">
+                                            @eventDetail.StreamService <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" />
+                                        </MudLink>
+                                    </div>
+                                }
+                            </div>
+
+                            <!-- ACTION BUTTONS -->
+                            <div class="d-flex justify-space-between mt-3">
+                                @if (eventDetail.EventVersusList?.Any() == true && eventDetail.IsFinished != true)
+                                {
+                                    <MudButton Class="action-button"
+                                               OnClick="() => RedirectToScoreboard(eventDetail)"
+                                               Variant="Variant.Filled"
+                                               Color="Color.Primary"
+                                               Size="Size.Small">
+                                        View Scoreboard
+                                    </MudButton>
+                                }
+                                else
+                                {
+                                    <div></div>
+                                }
+
+                          
+                            </div>
+                        </div>
+                    </MudItem>
+                }
+            }
+            else
+            {
+                <MudItem xs="12">
+                    <MudPaper Class="pa-8 text-center" Style="background: var(--card-bg); border: 1px solid var(--card-border);">
+                        <MudIcon Icon="@Icons.Material.Filled.EventBusy" Size="Size.Large" Class="mb-3" Style="color: #666;" />
+                        <MudText Typo="Typo.h6" Class="mb-2">No Events Found</MudText>
+                        <MudText Typo="Typo.caption" Style="color: #aaa;">Try adjusting your search or add a new event</MudText>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <!-- LOADING STATE -->
+        <div class="d-flex justify-center align-center" style="height: 50vh;">
+            <div class="text-center">
+                <MudProgressCircular Indeterminate="true" Color="Color.Warning" Size="Size.Large" />
+                <MudText Class="mt-4" Style="color: #aaa;">Loading Events Dashboard...</MudText>
+            </div>
+        </div>
+    }
+</MudContainer>
+
+@code {
+    // Variables
+    private List<EventsDTO.EventDetails.Event>? _eventDetails;
+    private string _searchString = "";
+    private string? UserRole;
+    private bool? _isLoaded = false;
+    private bool CanAddEvents => UserRole == "Regional Facilitator" || UserRole == "Superuser" || UserRole == "Event Manager";
+
+    private List<EventsDTO.EventDetails.Event> FilteredEvents =>
+        _eventDetails?.Where(FilterFunc).ToList() ?? new List<EventsDTO.EventDetails.Event>();
+
+    protected override async Task OnInitializedAsync()
+    {
+      
+        await LoadDataAsync();
+        _isLoaded = true;
+    }
+
+    private bool FilterFunc(EventsDTO.EventDetails.Event events)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        var searchTerms = _searchString.Split(',')
+                                       .Select(term => term.Trim().ToLower())
+                                       .Where(term => !string.IsNullOrEmpty(term))
+                                       .ToList();
+
+        foreach (var term in searchTerms)
+        {
+            // Status search
+            if ("finished".StartsWith(term) && events.IsFinished == true) return true;
+            if ("ongoing".StartsWith(term) && events.IsFinished == false && events.EventVersusList?.Count() >= 2) return true;
+            if ("needs players".Contains(term) && events.IsFinished == false && events.EventVersusList?.Count() < 2) return true;
+
+            // Content search
+            bool eventDetails = (events.Category?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.Sport?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.Subcategory?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.Gender?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.Level?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.StreamService?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (events.Venue?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
+
+            bool opposingTeamsMatch = (events.EventVersusList?.Any(team =>
+                (team?.Region?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (team?.Abbreviation?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)) ?? false);
+
+            if (eventDetails || opposingTeamsMatch)
+                return true;
+        }
+
+        return false;
+    }
+
+    private string GetStatusClass(EventsDTO.EventDetails.Event eventDetail)
+    {
+        if (eventDetail.IsFinished == true) return "status-finished";
+        if (eventDetail.IsFinished == false && eventDetail.EventVersusList?.Count() >= 2) return "status-ongoing";
+        return "status-needs-players";
+    }
+
+    private string GetStatusText(EventsDTO.EventDetails.Event eventDetail)
+    {
+        if (eventDetail.IsFinished == true) return "Finished";
+        if (eventDetail.IsFinished == false && eventDetail.EventVersusList?.Count() >= 2) return "Ongoing";
+        return "Needs Players";
+    }
+
+    // Data Transfer Objects
+    public class EventsDTO
+    {
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? SportMainCat { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public string? GamePhase { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public bool? IsFinished { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public string? Rank { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        await GetEventsAsync();
+    }
+
+    private async Task GetEventsAsync()
+    {
+        string url = "/Events/Details";
+        _eventDetails = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+        StateHasChanged();
+    }
+
+    // Dialog Methods
+
+
+    // Scoreboard navigation
+    private readonly Dictionary<string, string> _sportScoreboardRoutes = new()
+    {
+        { "Archery", "./score/archery" },
+        { "Arnis", "./score/martialarts" },
+        { "Boxing", "./score/martialarts" },
+        { "Taekwondo", "./score/martialarts" },
+        { "Wrestling", "./score/martialarts" },
+        { "Wushu", "./score/martialarts" },
+        { "Pencak Silat", "./score/martialarts" },
+        { "Billiards", "./score/billiards" },
+        { "Chess", "./score/chess" },
+        { "Athletics", "./score/time-distance" },
+        { "Badminton", "./score/teammatch" },
+        { "Baseball", "./score/teammatch" },
+        { "Basketball", "./score/teammatch" },
+        { "Football", "./score/teammatch" },
+        { "Futsal", "./score/teammatch" },
+        { "Softball", "./score/teammatch" },
+        { "Sepak Takraw", "./score/teammatch" },
+        { "Table Tennis", "./score/teammatch" },
+        { "Tennis", "./score/teammatch" },
+        { "Volleyball", "./score/teammatch" },
+        { "Bocce", "./score/teammatch" },
+        { "Goal Ball", "./score/teammatch" },
+        { "Swimming", "./score/time-distance" }
+    };
+
+    private string GetScoreboardUrl(EventsDTO.EventDetails.Event eventDetail)
+    {
+        if (string.IsNullOrEmpty(eventDetail.Sport))
+            return "./score/teammatch";
+
+        if (eventDetail.Sport == "Athletics" &&
+            eventDetail.SportMainCat?.Contains("Field", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "./score/field-events";
+        }
+
+        if ((eventDetail.Sport == "Arnis" && eventDetail.Subcategory?.Contains("Anyo", StringComparison.OrdinalIgnoreCase) == true) ||
+            (eventDetail.Sport == "Taekwondo" && eventDetail.Subcategory?.Contains("Poomsae", StringComparison.OrdinalIgnoreCase) == true))
+        {
+            return "./score/martialarts-performance";
+        }
+
+        if (eventDetail.Sport == "Arnis" || eventDetail.Sport == "Taekwondo" ||
+            eventDetail.Sport == "Boxing" || eventDetail.Sport == "Wrestling" ||
+            eventDetail.Sport == "Wushu" || eventDetail.Sport == "Pencak Silat")
+        {
+            return "./score/martialarts";
+        }
+
+        return _sportScoreboardRoutes.TryGetValue(eventDetail.Sport, out var route)
+            ? route
+            : "./score/teammatch";
+    }
+
+    private async Task RedirectToScoreboard(EventsDTO.EventDetails.Event eventDetail)
+    {
+        try
+        {
+            var scoreboardUrl = GetScoreboardUrl(eventDetail);
+            var queryParams = new Dictionary<string, string>
+            {
+                { "eventId", eventDetail.ID }
+            };
+
+            if (!string.IsNullOrEmpty(eventDetail.Sport))
+                queryParams["sport"] = Uri.EscapeDataString(eventDetail.Sport);
+
+            if (!string.IsNullOrEmpty(eventDetail.Level) && !string.IsNullOrEmpty(eventDetail.Gender))
+                queryParams["levelGender"] = Uri.EscapeDataString($"{eventDetail.Level} - {eventDetail.Gender}");
+
+            if (!string.IsNullOrEmpty(eventDetail.SportMainCat))
+                queryParams["mainCategory"] = Uri.EscapeDataString(eventDetail.SportMainCat);
+
+            if (!string.IsNullOrEmpty(eventDetail.Subcategory))
+                queryParams["subcategory"] = Uri.EscapeDataString(eventDetail.Subcategory);
+
+            if (!string.IsNullOrEmpty(eventDetail.EventStage))
+                queryParams["stage"] = Uri.EscapeDataString(eventDetail.EventStage);
+
+            var queryString = string.Join("&", queryParams.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+            var fullUrl = $"{scoreboardUrl}?{queryString}";
+
+            Navigation.NavigateTo(fullUrl);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error redirecting to scoreboard: {ex.Message}", Severity.Error);
+        }
+    }
+}

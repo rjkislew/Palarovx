@@ -1,0 +1,806 @@
+﻿@page "/scoreboard/chess"
+@using Client.Palaro2026.Services
+@inject ISnackbar Snackbar
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>Chess Scoreboard | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@600;700&display=swap');
+
+    :root {
+        --bg-dark: #0a0a0a;
+        --card-bg: rgba(30, 30, 30, 0.7);
+        --card-border: rgba(255, 255, 255, 0.1);
+        --text-primary: #ffffff;
+        --accent-blue: #4FC3F7;
+        --accent-cyan: #00BCD4;
+        --accent-teal: #0097A7;
+        --accent-green: #2e7d32;
+        --neon-blue: 0 0 10px rgba(79, 195, 247, 0.6), 0 0 20px rgba(79, 195, 247, 0.3);
+        --neon-cyan: 0 0 10px rgba(0, 188, 212, 0.4);
+        --neon-teal: 0 0 10px rgba(0, 151, 167, 0.6);
+    }
+
+    /* BACKGROUND TEXTURE */
+    .dashboard-bg {
+        background-color: var(--bg-dark);
+        background-image: radial-gradient(circle at 10% 20%, rgba(79, 195, 247, 0.08) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(0, 188, 212, 0.05) 0%, transparent 40%), linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+        min-height: 100vh;
+        color: var(--text-primary);
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    /* HEADER */
+    .header-container {
+        text-align: center;
+        margin-bottom: 40px;
+        position: relative;
+        padding: 30px 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+        border-bottom: 1px solid rgba(79, 195, 247, 0.2);
+    }
+
+    .main-title {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        background: linear-gradient(180deg, #4FC3F7 0%, #00BCD4 50%, #0097A7 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        filter: drop-shadow(0 0 15px rgba(79, 195, 247, 0.4));
+    }
+
+    .sub-title {
+        font-family: 'Chakra Petch', sans-serif;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: clamp(1rem, 1.5vw, 1.3rem);
+        letter-spacing: 8px;
+        font-weight: 700;
+        text-transform: uppercase;
+        position: relative;
+        display: inline-block;
+    }
+
+        .sub-title::before, .sub-title::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 60px;
+            height: 2px;
+            background: var(--accent-blue);
+            opacity: 0.5;
+        }
+
+        .sub-title::before {
+            left: -80px;
+        }
+
+        .sub-title::after {
+            right: -80px;
+        }
+
+    /* EVENT LINK */
+    .event-link {
+        text-decoration: none;
+        display: block;
+        height: 100%;
+    }
+
+    /* CARD DESIGN */
+    .event-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        height: 100%;
+    }
+
+        .event-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+            opacity: 0.5;
+        }
+
+        .event-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: var(--accent-blue);
+            box-shadow: 0 15px 40px rgba(79, 195, 247, 0.15);
+        }
+
+            .event-card:hover::before {
+                opacity: 1;
+            }
+
+    /* BADGES */
+    .status-container {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        display: flex;
+        gap: 8px;
+        z-index: 5;
+    }
+
+    .event-type-badge {
+        background: rgba(0,0,0,0.8);
+        color: var(--accent-blue);
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 700;
+        font-size: 0.8rem;
+        border: 1px solid var(--accent-blue);
+        box-shadow: 0 0 10px rgba(79, 195, 247, 0.2);
+    }
+
+    .status-badge {
+        padding: 4px 15px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 800;
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+    }
+
+    .badge-live {
+        background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%);
+        color: white;
+        box-shadow: 0 0 15px rgba(0, 188, 212, 0.5);
+        border: 1px solid #4FC3F7;
+        animation: pulse 2s infinite;
+    }
+
+    .badge-final {
+        background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+        color: white;
+        border: 1px solid #66bb6a;
+        box-shadow: 0 0 10px rgba(46, 125, 50, 0.4);
+    }
+
+    /* CHESS INFO */
+    .chess-info {
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 12px;
+        padding: 12px;
+        margin: 10px 0;
+        border: 1px solid rgba(79, 195, 247, 0.3);
+    }
+
+    .matches-count {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2rem;
+        font-weight: 900;
+        color: var(--accent-blue);
+        line-height: 1;
+        text-shadow: 0 0 10px rgba(79, 195, 247, 0.3);
+        text-align: center;
+    }
+
+    .info-label {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.75rem;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-align: center;
+        margin-top: 5px;
+    }
+
+    .sport-name {
+        font-family: 'Chakra Petch', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 4px;
+    }
+
+    .sport-icon {
+        background: linear-gradient(135deg, rgba(79, 195, 247, 0.2), rgba(79, 195, 247, 0.05));
+        border-radius: 50%;
+        padding: 10px;
+        border: 1px solid rgba(79, 195, 247, 0.3);
+    }
+
+    .chess-category {
+        display: inline-block;
+        background: rgba(0, 188, 212, 0.2);
+        color: var(--accent-cyan);
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid rgba(0, 188, 212, 0.3);
+    }
+
+    .format-badge {
+        display: inline-block;
+        background: rgba(0, 151, 167, 0.2);
+        color: var(--accent-teal);
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid rgba(0, 151, 167, 0.3);
+        margin-left: 5px;
+    }
+
+    /* MUD TABS CUSTOMIZATION */
+    .mud-tabs-tabbar {
+        background-color: transparent !important;
+        border-bottom: 1px solid #333;
+    }
+
+    .mud-tab {
+        color: #888 !important;
+        font-family: 'Orbitron';
+        font-weight: 700;
+        letter-spacing: 1px;
+        transition: color 0.3s;
+    }
+
+    .mud-tab-active {
+        color: var(--accent-blue) !important;
+        font-weight: 900;
+        text-shadow: 0 0 10px rgba(79, 195, 247, 0.4);
+    }
+
+    .mud-tabs-indicator {
+        background-color: var(--accent-blue) !important;
+        height: 3px;
+        box-shadow: 0 0 10px var(--accent-blue);
+    }
+
+    /* CHESS BOARD PREVIEW */
+    .board-preview {
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 8px;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-top: 10px;
+    }
+
+    .mini-board {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        grid-template-rows: repeat(8, 1fr);
+        width: 120px;
+        height: 120px;
+        margin: 0 auto;
+        border: 2px solid rgba(79, 195, 247, 0.3);
+    }
+
+    .board-square {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+    }
+
+    .board-square-white {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .board-square-black {
+        background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    /* STANDINGS PREVIEW */
+    .standings-preview {
+        margin-top: 15px;
+        padding: 8px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 6px;
+        border: 1px solid rgba(79, 195, 247, 0.2);
+    }
+
+    .standing-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+        font-size: 0.8rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+        .standing-item:last-child {
+            border-bottom: none;
+        }
+
+    .standing-rank {
+        color: var(--accent-blue);
+        font-weight: 700;
+        min-width: 20px;
+    }
+
+    .standing-name {
+        flex-grow: 1;
+        padding: 0 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .standing-points {
+        color: #FFD700;
+        font-weight: 700;
+        min-width: 30px;
+        text-align: right;
+    }
+
+    @@keyframes pulse {
+        0% {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(0, 188, 212, 0.5);
+        }
+
+        50% {
+            opacity: 0.8;
+            box-shadow: 0 0 5px rgba(0, 188, 212, 0.2);
+        }
+
+        100% {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(0, 188, 212, 0.5);
+        }
+    }
+</style>
+
+<div class="dashboard-bg">
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge">
+
+        <!-- HEADER -->
+        <div class="header-container">
+            <div class="main-title">PALARONG PAMBANSA 2026</div>
+            <div class="sub-title">CHESS SCOREBOARD</div>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="mt-16">
+                <MudProgressCircular Indeterminate="true" Color="Color.Info" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-4" Style="font-family:'Orbitron'; color:var(--accent-blue);">LOADING CHESS EVENTS...</MudText>
+            </MudStack>
+        }
+        else if (!_chessEvents.Any())
+        {
+            <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                <MudIcon Icon="@Icons.Material.Filled.PsychologyAlt" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                <MudText Typo="Typo.h5" Class="mt-4" Style="color: #666; font-family:'Orbitron'; font-weight:700;">NO CHESS EVENTS</MudText>
+                <MudText Typo="Typo.body2" Style="color: #555;">Waiting for event data...</MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="mt-6" Centered="true">
+
+                <!-- TAB 1: LIVE / ONGOING -->
+                <MudTabPanel Text="LIVE / ONGOING">
+                    @{
+                        var liveEvents = _chessEvents.Where(e => !e.IsFinished).ToList();
+                    }
+
+                    @if (!liveEvents.Any())
+                    {
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.PsychologyAlt" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                            <MudText Typo="Typo.h5" Class="mt-4" Style="color: #666; font-family:'Orbitron'; font-weight:700;">NO LIVE CHESS EVENTS</MudText>
+                            <MudText Typo="Typo.body2" Style="color: #555;">Stand by for upcoming matches</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in liveEvents)
+                            {
+                                var standings = GetEventStandings(evt.ID);
+                                var activeMatches = GetActiveMatchesCount(evt.ID);
+
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="@GetEventUrl(evt)" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@(evt.Level ?? "Open")</div>
+                                                <div class="status-badge badge-live">LIVE</div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="sport-icon mr-3">
+                                                        <MudIcon Icon="@Icons.Material.Filled.PsychologyAlt" Size="Size.Small" Style="color:var(--accent-blue);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">CHESS</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                                                            @(evt.Gender ?? "Mixed") • @(evt.EventStage ?? "Match")
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Chess Info -->
+                                                <div class="chess-info">
+                                                    <div class="sport-name text-center mb-3">
+                                                        @evt.Subcategory
+                                                        <span class="format-badge">@GetChessFormat(evt.Subcategory)</span>
+                                                    </div>
+
+                                                    <div class="matches-count">LIVE</div>
+                                                    <div class="info-label">BOARDS ACTIVE</div>
+                                                </div>
+
+                                                <!-- Chess Board Mini Preview -->
+                                                <div class="board-preview">
+                                                    <div class="mini-board">
+                                                        @for (int i = 0; i < 64; i++)
+                                                        {
+                                                            int row = i / 8;
+                                                            int col = i % 8;
+                                                            bool isWhite = (row + col) % 2 == 0;
+
+                                                            <div class="board-square @(isWhite ? "board-square-white" : "board-square-black")">
+                                                                @if ((row == 0 && col == 0) || (row == 7 && col == 7))
+                                                                {
+                                                                    <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" />
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+
+                                                <!-- Event Details -->
+                                                <div class="pa-2">
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Format:</b> @GetChessFormat(evt.Subcategory)
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Category:</b> @(evt.Level ?? "Open") - @(evt.Gender ?? "Mixed")
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 12px;">
+                                                        <b>Stage:</b> @(evt.EventStage ?? "Round")
+                                                    </MudText>
+
+                                                    <!-- Quick Standings Preview -->
+                                                    @if (standings.Any())
+                                                    {
+                                                        <div class="standings-preview">
+                                                            <MudText Typo="Typo.caption" Style="color: var(--accent-blue); font-weight:600; margin-bottom: 5px;">
+                                                                LEADING:
+                                                            </MudText>
+                                                            @foreach (var standing in standings.Take(3))
+                                                            {
+                                                                <div class="standing-item">
+                                                                    <div class="standing-rank">@standing.Rank</div>
+                                                                    <div class="standing-name">@standing.RegionName</div>
+                                                                    <div class="standing-points">@standing.TotalPoints.ToString("F1")</div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+
+                                                    <MudText Typo="Typo.caption" Style="color: var(--accent-blue); font-weight:600; margin-top: 10px;">
+                                                        Click for live scoreboard & details
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+
+                <!-- TAB 2: FINISHED RESULTS -->
+                <MudTabPanel Text="PARTAIL RESULT">
+                    @{
+                        var finishedEvents = _chessEvents.Where(e => e.IsFinished).ToList();
+                    }
+
+                    @if (!finishedEvents.Any())
+                    {
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Size="Size.Large" Style="color: #555;" />
+                            <MudText Typo="Typo.h6" Class="mt-4" Style="color: #777; font-family:'Orbitron'">NO COMPLETED EVENTS YET</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in finishedEvents)
+                            {
+                                var standings = GetEventStandings(evt.ID);
+
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="@GetEventUrl(evt)" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@(evt.Level ?? "Open")</div>
+                                                <div class="status-badge badge-final">FINISHED</div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="sport-icon mr-3">
+                                                        <MudIcon Icon="@Icons.Material.Filled.PsychologyAlt" Size="Size.Small" Style="color:var(--accent-blue);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">CHESS</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                                                            @(evt.Gender ?? "Mixed") • @(evt.EventStage ?? "Match")
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Results Display -->
+                                                <div class="chess-info">
+                                                    <div class="sport-name text-center mb-3">
+                                                        @evt.Subcategory
+                                                        <span class="format-badge">@GetChessFormat(evt.Subcategory)</span>
+                                                    </div>
+
+                                                    <div class="matches-count">✓</div>
+                                                    <div class="info-label">COMPLETED</div>
+                                                </div>
+
+                                                <!-- Event Details -->
+                                                <div class="pa-2">
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Format:</b> @GetChessFormat(evt.Subcategory)
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Category:</b> @(evt.Level ?? "Open") - @(evt.Gender ?? "Mixed")
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 12px;">
+                                                        <b>Stage:</b> @(evt.EventStage ?? "Round")
+                                                    </MudText>
+
+                                                    <!-- Final Standings Preview -->
+                                                    @if (standings.Any())
+                                                    {
+                                                        <div class="standings-preview">
+                                                            <MudText Typo="Typo.caption" Style="color: var(--accent-blue); font-weight:600; margin-bottom: 5px;">
+                                                                TOP 3:
+                                                            </MudText>
+                                                            @foreach (var standing in standings.Take(3))
+                                                            {
+                                                                <div class="standing-item">
+                                                                    <div class="standing-rank">@standing.Rank</div>
+                                                                    <div class="standing-name">@standing.RegionName</div>
+                                                                    <div class="standing-points">@standing.TotalPoints.ToString("F1")</div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+
+                                                    <MudText Typo="Typo.caption" Style="color: var(--accent-blue); font-weight:600; margin-top: 10px;">
+                                                        Click for final scoreboard & results
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+            </MudTabs>
+        }
+    </MudContainer>
+</div>
+
+@code {
+    /* ===================== MODELS ===================== */
+
+    public class EventInfo
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Level { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public string? SportMainCat { get; set; }
+        public int? RegionID { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+        public bool IsFinished { get; set; } = false;
+    }
+
+    public class ChessStanding
+    {
+        public int Rank { get; set; }
+        public string RegionName { get; set; } = "";
+        public decimal TotalPoints { get; set; }
+        public int GamesPlayed { get; set; }
+        public int Wins { get; set; }
+        public int Draws { get; set; }
+        public int Losses { get; set; }
+    }
+
+    public class ChessMatch
+    {
+        public int ID { get; set; }
+        public int SetNo { get; set; }
+        public int TableNo { get; set; }
+        public string? ColorGroup { get; set; }
+        public decimal? Score { get; set; }
+        public bool IsCompleted => Score.HasValue;
+    }
+
+    /* ===================== STATE ===================== */
+
+    private List<EventInfo> _chessEvents = new();
+    private Dictionary<string, List<ChessStanding>> _eventStandings = new();
+    private Dictionary<string, List<ChessMatch>> _eventMatches = new();
+    private bool _isLoading = true;
+    private Timer? _refreshTimer;
+
+    /* ===================== INIT ===================== */
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        // Auto-refresh every 5 seconds for live dashboard updates
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 5000, 5000);
+    }
+
+    /* ===================== GET DATA ===================== */
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // Use the new Events/Details endpoint which includes isFinished
+            var events = await apiService.GetAsync<EventInfo>("/Events/Details");
+
+            if (events != null)
+            {
+                _chessEvents = events
+                    .Where(x => x.Sport?.Equals("Chess", StringComparison.OrdinalIgnoreCase) == true)
+                    .GroupBy(x => x.ID)
+                    .Select(g => g.First())
+                    .OrderBy(x => x.IsFinished) // Show live events first
+                    .ThenBy(x => x.Level)
+                    .ThenBy(x => x.Gender)
+                    .ToList();
+
+                // Load additional data for each event
+                foreach (var evt in _chessEvents)
+                {
+                    await LoadEventStandings(evt.ID);
+                    await LoadEventMatches(evt.ID);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading chess events: {ex.Message}");
+            Snackbar.Add($"Error loading events: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadEventStandings(string eventId)
+    {
+        try
+        {
+            // Assuming your ChessScoring endpoint returns standings data
+            var standings = await apiService.GetAsync<ChessStanding>($"/ChessScoring/standings/{eventId}");
+
+            if (standings != null)
+            {
+                var standingList = standings.ToList();
+
+                // Assign ranks
+                for (int i = 0; i < standingList.Count; i++)
+                {
+                    standingList[i].Rank = i + 1;
+                }
+
+                _eventStandings[eventId] = standingList;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading standings for event {eventId}: {ex.Message}");
+            _eventStandings[eventId] = new List<ChessStanding>();
+        }
+    }
+
+    private async Task LoadEventMatches(string eventId)
+    {
+        try
+        {
+            var matches = await apiService.GetAsync<ChessMatch>($"/ChessScoring/event/{eventId}");
+            if (matches != null)
+            {
+                _eventMatches[eventId] = matches.ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading matches for event {eventId}: {ex.Message}");
+            _eventMatches[eventId] = new List<ChessMatch>();
+        }
+    }
+
+    /* ===================== HELPER METHODS ===================== */
+
+    private string GetChessFormat(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory)) return "Classical";
+
+        var s = subcategory.ToLower();
+        if (s.Contains("rapid")) return "Rapid";
+        if (s.Contains("blitz")) return "Blitz";
+        if (s.Contains("bullet")) return "Bullet";
+        if (s.Contains("team")) return "Team";
+        if (s.Contains("individual")) return "Individual";
+        return "Classical";
+    }
+
+    private int GetActiveMatchesCount(string eventId)
+    {
+        if (_eventMatches.ContainsKey(eventId))
+        {
+            // Count matches that are assigned but not completed
+            return _eventMatches[eventId].Count(m => !m.IsCompleted && m.TableNo > 0);
+        }
+        return 0;
+    }
+
+    private List<ChessStanding> GetEventStandings(string eventId)
+    {
+        if (_eventStandings.ContainsKey(eventId))
+        {
+            return _eventStandings[eventId];
+        }
+        return new List<ChessStanding>();
+    }
+
+    /* ===================== NAVIGATION LOGIC ===================== */
+
+    private string GetEventUrl(EventInfo evt)
+    {
+        if (evt == null) return "#";
+
+        // Navigate to the event-specific scoreboard page
+        return $"/scoreboard/chess/{evt.ID}";
+    }
+
+    /* ===================== CLEANUP ===================== */
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+        _refreshTimer = null;
+    }
+}

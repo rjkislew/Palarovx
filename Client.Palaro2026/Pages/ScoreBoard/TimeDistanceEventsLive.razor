@@ -7,7 +7,7 @@
 @implements IDisposable
 @layout NoMainLayout
 
-<PageTitle>Time & Distance Scoring | PALARO 2026</PageTitle>
+<PageTitle>Time-Distance Event Scoring | PALARO 2026</PageTitle>
 
 <style>
     @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
@@ -101,33 +101,6 @@
         background: #00C853;
     }
 
-    .category-badge {
-        display: inline-block;
-        margin-left: 15px;
-        padding: 8px 20px;
-        border-radius: 20px;
-        font-family: 'Orbitron', sans-serif;
-        font-size: 1.5rem;
-        font-weight: bold;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    .category-team {
-        background: var(--accent-blue);
-        color: white;
-    }
-
-    .category-mixed {
-        background: var(--accent-purple);
-        color: white;
-    }
-
-    .category-individual {
-        background: var(--accent-green);
-        color: white;
-    }
-
     .results-table {
         width: 95%;
         max-width: 1400px;
@@ -165,36 +138,6 @@
             border-color: var(--accent-blue);
         }
 
-    .mixed-indicator {
-        background: linear-gradient(45deg, #FFD700 0%, #9C27B0 50%, #00B0FF 100%);
-        color: white;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 0.9rem;
-        margin-left: 8px;
-        font-weight: bold;
-    }
-
-    .team-indicator {
-        background: var(--accent-blue);
-        color: white;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 0.9rem;
-        margin-left: 8px;
-        font-weight: bold;
-    }
-
-    .individual-indicator {
-        background: var(--accent-green);
-        color: white;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 0.9rem;
-        margin-left: 8px;
-        font-weight: bold;
-    }
-
     /* Gold, Silver, Bronze highlighting */
     .gold-row {
         background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05)) !important;
@@ -211,37 +154,12 @@
         border-left: 4px solid #CD7F32 !important;
     }
 
-    .medal-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        font-weight: bold;
-        margin-right: 10px;
-    }
-
-    .gold-badge {
-        background: var(--accent-gold);
-        color: #000;
-    }
-
-    .silver-badge {
-        background: #C0C0C0;
-        color: #000;
-    }
-
-    .bronze-badge {
-        background: #CD7F32;
-        color: white;
-    }
-
     .result-cell {
         font-family: 'Orbitron', sans-serif;
         font-weight: bold;
         text-align: center;
         font-size: 1.3rem;
+        color: var(--accent-gold);
     }
 
     .region-flag {
@@ -268,28 +186,15 @@
         font-size: 1.5rem;
     }
 
-    /* Time/Distance specific styling */
-    .time-result {
-        color: #00ff88;
-        font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
-    }
-
-    .distance-result {
-        color: #00e5ff;
-        font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
-    }
-
     .heat-lane-badge {
-        background: rgba(255, 215, 0, 0.2);
-        color: var(--accent-gold);
-        padding: 3px 10px;
+        background: rgba(0, 176, 255, 0.2);
+        color: var(--accent-blue);
+        padding: 4px 12px;
         border-radius: 12px;
         font-size: 0.9rem;
-        font-weight: bold;
-        margin-left: 8px;
+        margin-left: 10px;
         font-family: 'Orbitron', sans-serif;
+        font-weight: bold;
     }
 </style>
 
@@ -310,7 +215,7 @@
             <div class="palaro-branding">PALARONG PAMBANSA 2026</div>
             <div class="sport-name">@_event.Subcategory</div>
             <div class="match-details">
-                @if (_event.EventStage == "Completed" || _event.EventStage == "Final")
+                @if (_event.IsFinished == true)
                 {
                     <div class="status-badge final">FINAL</div>
                 }
@@ -329,13 +234,6 @@
             @_event.Gender
             <span class="separator-dot">•</span>
             @_event.Subcategory
-            @if (!string.IsNullOrEmpty(_event.Subcategory))
-            {
-                var categoryType = GetCategoryType(_event.Subcategory);
-                <span class="category-badge @GetCategoryClass(categoryType)">
-                    @categoryType
-                </span>
-            }
         </div>
 
         @if (_rankings.Any())
@@ -347,42 +245,27 @@
                         <MudTh style="font-size: 1.3rem;">Rank</MudTh>
                         <MudTh style="font-size: 1.3rem;">Athlete</MudTh>
                         <MudTh style="font-size: 1.3rem;">Region</MudTh>
-                        <MudTh style="text-align:center; font-size: 1.3rem;">
-                            Result @(_event.Sport == "Swimming" ? "(Time)" : "")
-                        </MudTh>
+                        <MudTh style="text-align:center; font-size: 1.3rem;">Heat/Lane</MudTh>
+                        <MudTh style="text-align:center; font-size: 1.3rem;">Result</MudTh>
                     </HeaderContent>
 
                     <RowTemplate>
-                        @{
-                            var rowClass = GetRowClass(context.Rank);
-                            var medalClass = GetMedalClass(context.Rank);
-                        }
-
-                        <MudTd Class="@rowClass">
+                        <MudTd>
                             @if (context.Rank > 0)
                             {
-                                @if (context.Rank <= 3)
-                                {
-                                    <span class="medal-badge @medalClass">@context.Rank</span>
-                                }
-                                else
-                                {
-                                    <span style="font-family: Orbitron; font-weight:bold; color:white; font-size: 1.3rem;">
-                                        #@context.Rank
-                                    </span>
-                                }
+                                <span style="font-family: Orbitron; font-weight:bold; color:white; font-size: 1.3rem;">
+                                    #@context.Rank
+                                </span>
                             }
                             else
                             {
                                 <span style="color: #666;">-</span>
                             }
                         </MudTd>
-
-                        <MudTd Class="@rowClass">
+                        <MudTd>
                             <div style="font-weight: bold; font-size: 1.3rem;">@context.PlayerName</div>
                         </MudTd>
-
-                        <MudTd Class="@rowClass">
+                        <MudTd>
                             <div style="display:flex; align-items:center; gap:10px;">
                                 <div class="region-flag">
                                     <MudImage Src="@GetRegionLogo(context.RegionAbbreviation)"
@@ -395,25 +278,28 @@
                                 </div>
                             </div>
                         </MudTd>
-
-                        <MudTd Class="@rowClass" style="text-align:center;">
-                            <span class="@(_event.Sport == "Swimming" ? "time-result" : "distance-result")"
-                                  style="font-family: Orbitron; font-weight:bold; font-size: 1.3rem;">
-                                @FormatResult(context.Result, _event.Sport)
-                            </span>
+                        <MudTd style="text-align:center;">
+                            @if (!string.IsNullOrEmpty(context.AssignedLane))
+                            {
+                                <span class="heat-lane-badge">@context.AssignedLane</span>
+                            }
+                            else
+                            {
+                                <span style="color: #666;">-</span>
+                            }
+                        </MudTd>
+                        <MudTd class="result-cell">
+                            @if (!string.IsNullOrEmpty(context.Result))
+                            {
+                                @context.Result
+                            }
+                            else
+                            {
+                                <text>-</text>
+                            }
                         </MudTd>
                     </RowTemplate>
                 </MudTable>
-            </div>
-        }
-        else
-        {
-            <div class="results-table">
-                <MudPaper Class="pa-10 text-center" Elevation="0" Style="background: rgba(255,255,255,0.05);">
-                    <MudIcon Icon="@Icons.Material.Filled.TimerOff" Size="Size.Large" Color="Color.Secondary" Class="mb-3" />
-                    <MudText Typo="Typo.h6">No results recorded yet</MudText>
-                    <MudText Typo="Typo.body2" Style="color: #888;">Results will appear here once entered by officials</MudText>
-                </MudPaper>
             </div>
         }
     }
@@ -429,23 +315,67 @@
         public string ID { get; set; } = "";
         public string? Sport { get; set; }
         public string? Subcategory { get; set; }
-        public string? Gender { get; set; }
         public string? Level { get; set; }
+        public string? Gender { get; set; }
         public string? EventStage { get; set; }
+        public bool? IsFinished { get; set; }
     }
 
     public class RankingDTO
     {
+        public int RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string Result { get; set; } = "";
         public string RegionAbbreviation { get; set; } = "";
         public string? PlayerName { get; set; }
-        public string Result { get; set; } = "";
+        public string? AssignedLane { get; set; }
         public int Rank { get; set; }
+    }
+
+    public class SchoolRegions
+    {
+        public int ID { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+    }
+
+    public class SavedScoringData
+    {
+        public List<SavedHeat> Heats { get; set; } = new();
+        public List<SavedAssignment> Assignments { get; set; } = new();
+    }
+
+    public class SavedHeat
+    {
+        public string HeatName { get; set; } = "";
+        public int HeatOrder { get; set; }
+        public List<SavedLane> Lanes { get; set; } = new();
+    }
+
+    public class SavedLane
+    {
+        public string LaneName { get; set; } = "";
+        public int LaneOrder { get; set; }
+        public string? Result { get; set; }
+        public int? RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+        public string? RegionAbbreviation { get; set; }
+    }
+
+    public class SavedAssignment
+    {
+        public int RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string RegionAbbreviation { get; set; } = "";
+        public string AssignedTable { get; set; } = "";
     }
 
     /* ===================== STATE ===================== */
 
     private EventInfo? _event;
     private List<RankingDTO> _rankings = new();
+    private List<SchoolRegions>? _allRegions;
     private bool _isLoading = true;
     private Timer? _refreshTimer;
 
@@ -453,9 +383,12 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Load regions first
+        _allRegions = await apiService.GetAsync<SchoolRegions>("/Schools/Regions");
+
         await LoadData();
-        // Auto-refresh every 5 seconds for live updates
-        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 5000, 5000);
+        // Auto-refresh every 2 seconds for live updates
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 2000, 2000);
     }
 
     /* ===================== GET DATA ===================== */
@@ -465,11 +398,17 @@
         try
         {
             // Load event details
-            var events = await apiService.GetAsync<EventInfo>($"TimeDistanceEvents/Sports/AthleticsSwimming?eventID={EventID}");
+            var events = await apiService.GetAsync<EventInfo>(
+                $"TimeDistanceEvents/Sports/AthleticsSwimming?eventID={EventID}");
 
             if (events != null && events.Any())
             {
                 _event = events.First();
+
+                // Determine if event is finished based on EventStage
+                _event.IsFinished = _event.EventStage?.Equals("Completed", StringComparison.OrdinalIgnoreCase) ?? false;
+
+                // Load rankings from saved data
                 await LoadRankings();
             }
         }
@@ -488,20 +427,103 @@
     {
         if (_event == null) return;
 
-        var rankings = await apiService.GetAsync<RankingDTO>($"TimeDistanceEvents/GetRankings/{_event.ID}");
+        try
+        {
+            var savedData = await apiService.GetSingleAsync<SavedScoringData>($"TimeDistanceEvents/Sports/AthleticsSwimming/{_event.ID}");
 
-        if (rankings != null && rankings.Any())
-        {
-            // Filter out empty results and sort by rank
-            _rankings = rankings
-                .Where(r => !string.IsNullOrEmpty(r.Result))
-                .OrderBy(r => r.Rank)
-                .ToList();
+            if (savedData == null || !savedData.Heats.Any())
+            {
+                _rankings = new List<RankingDTO>();
+                return;
+            }
+
+            var rankings = new List<RankingDTO>();
+
+            // Collect all results from heats
+            foreach (var heat in savedData.Heats)
+            {
+                foreach (var lane in heat.Lanes)
+                {
+                    if (lane.RegionID.HasValue && !string.IsNullOrEmpty(lane.Result))
+                    {
+                        rankings.Add(new RankingDTO
+                        {
+                            RegionID = lane.RegionID.Value,
+                            PlayerID = lane.PlayerID,
+                            PlayerName = lane.PlayerName ?? "",
+                            RegionAbbreviation = lane.RegionAbbreviation ?? "",
+                            Result = lane.Result,
+                            AssignedLane = $"{heat.HeatName} - {lane.LaneName}"
+                        });
+                    }
+                }
+            }
+
+            // Calculate rankings
+            _rankings = CalculateRankings(rankings);
         }
-        else
+        catch (Exception ex)
         {
+            Console.WriteLine($"Error loading rankings: {ex.Message}");
             _rankings = new List<RankingDTO>();
         }
+    }
+
+    private List<RankingDTO> CalculateRankings(List<RankingDTO> results)
+    {
+        if (!results.Any()) return results;
+
+        // Parse results to numeric values for ranking
+        var parsedResults = results.Select(r => new
+        {
+            Original = r,
+            NumericValue = ParseResult(r.Result)
+        }).Where(x => x.NumericValue.HasValue).ToList();
+
+        if (!parsedResults.Any()) return results;
+
+        // Determine if this is time-based (lower is better) or distance-based (higher is better)
+        // Check if results contain ":" (time format) or are just numbers (distance)
+        bool isTimeBased = results.Any(r => r.Result.Contains(":"));
+
+        // Sort and assign ranks
+        var sorted = isTimeBased
+            ? parsedResults.OrderBy(x => x.NumericValue.Value).ToList()
+            : parsedResults.OrderByDescending(x => x.NumericValue.Value).ToList();
+
+        int rank = 1;
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            if (i > 0 && sorted[i].NumericValue != sorted[i - 1].NumericValue)
+            {
+                rank = i + 1;
+            }
+            sorted[i].Original.Rank = rank;
+        }
+
+        return sorted.Select(x => x.Original).OrderBy(r => r.Rank).ToList();
+    }
+
+    private double? ParseResult(string result)
+    {
+        if (string.IsNullOrWhiteSpace(result)) return null;
+
+        // Try parsing as time (mm:ss.ms or ss.ms)
+        if (result.Contains(":"))
+        {
+            if (TimeSpan.TryParse(result, out TimeSpan timeResult))
+            {
+                return timeResult.TotalSeconds;
+            }
+        }
+
+        // Try parsing as distance (numeric)
+        if (double.TryParse(result, out double numericResult))
+        {
+            return numericResult;
+        }
+
+        return null;
     }
 
     private string GetRegionLogo(string regionAbbreviation)
@@ -509,115 +531,14 @@
         if (string.IsNullOrWhiteSpace(regionAbbreviation))
             return "/images/region-placeholder.png";
 
-        // Clean the region abbreviation for the logo filename
-        var cleanRegionName = CleanRegionName(regionAbbreviation);
+        // Find the actual region name from the abbreviation
+        var region = _allRegions?.FirstOrDefault(r =>
+            r.Abbreviation?.Equals(regionAbbreviation, StringComparison.OrdinalIgnoreCase) == true);
 
-        return $"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{cleanRegionName}.webp";
-    }
+        // Use the actual region name for the logo
+        var actualRegionName = region?.Region ?? regionAbbreviation;
 
-    private string CleanRegionName(string regionName)
-    {
-        if (string.IsNullOrWhiteSpace(regionName))
-            return string.Empty;
-
-        // Remove any characters that might cause issues in URLs
-        return regionName.Trim();
-    }
-
-    private string FormatResult(string result, string? sport)
-    {
-        if (string.IsNullOrEmpty(result))
-            return "N/A";
-
-        // For swimming, always format as time
-        if (sport == "Swimming")
-        {
-            if (TimeSpan.TryParse(result, out TimeSpan time))
-            {
-                if (time.Hours > 0)
-                    return time.ToString(@"hh\:mm\:ss\.ff");
-                else if (time.Minutes > 0)
-                    return time.ToString(@"mm\:ss\.ff");
-                else
-                    return time.ToString(@"ss\.ff");
-            }
-        }
-
-        // For athletics, check if it's a time or distance
-        if (sport == "Athletics")
-        {
-            // Check if it's a time (contains colon or dot for seconds)
-            if (result.Contains(":") || (result.Contains(".") && result.Split('.').Length > 1))
-            {
-                if (TimeSpan.TryParse(result, out TimeSpan time))
-                {
-                    if (time.Minutes > 0)
-                        return time.ToString(@"mm\:ss\.ff");
-                    else
-                        return time.ToString(@"ss\.ff");
-                }
-            }
-            else
-            {
-                // It's a distance
-                if (double.TryParse(result, out double distance))
-                {
-                    return distance.ToString("0.00");
-                }
-            }
-        }
-
-        return result;
-    }
-
-    // Helper method to determine category type
-    private string GetCategoryType(string? subcategory)
-    {
-        if (string.IsNullOrEmpty(subcategory))
-            return "Individual";
-
-        var subcategoryLower = subcategory.ToLower();
-
-        if (subcategoryLower.Contains("mixed"))
-            return "Mixed";
-        else if (subcategoryLower.Contains("relay") || subcategoryLower.Contains("team"))
-            return "Team";
-        else
-            return "Individual";
-    }
-
-    // Helper method to get CSS class for category badge
-    private string GetCategoryClass(string categoryType)
-    {
-        return categoryType.ToLower() switch
-        {
-            "team" => "category-team",
-            "mixed" => "category-mixed",
-            "individual" => "category-individual",
-            _ => "category-individual"
-        };
-    }
-
-    private string GetRowClass(int rank)
-    {
-        return rank switch
-        {
-            1 => "gold-row",
-            2 => "silver-row",
-            3 => "bronze-row",
-            _ => ""
-        };
-    }
-
-    private string GetMedalClass(int rank)
-    {
-        return rank switch
-        {
-            1 => "gold-badge",
-            2 => "silver-badge",
-            3 => "bronze-badge",
-            _ => ""
-        };
+        return $"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{actualRegionName.Trim()}.webp";
     }
 
     /* ===================== CLEANUP ===================== */

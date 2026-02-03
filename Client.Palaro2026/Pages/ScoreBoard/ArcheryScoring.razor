@@ -161,10 +161,10 @@
     }
 
     .badge-live {
-        background: linear-gradient(135deg, #FFC107 0%, #FF9800 100%);
-        color: #000;
-        box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
-        border: 1px solid #FFD54F;
+        background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+        color: white;
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+        border: 1px solid #FF4444;
         animation: pulse 2s infinite;
     }
 
@@ -283,19 +283,19 @@
     @@keyframes pulse {
         0% {
             opacity: 1;
-            box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
         }
 
         50% {
             opacity: 0.8;
-            box-shadow: 0 0 5px rgba(255, 193, 7, 0.2);
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
         }
 
         100% {
             opacity: 1;
-            box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
         }
-    }   
+    }
 </style>
 
 <div class="dashboard-bg">
@@ -329,7 +329,10 @@
                 <!-- TAB 1: LIVE / ONGOING -->
                 <MudTabPanel Text="LIVE / ONGOING">
                     @{
-                        var liveEvents = _archeryEvents.Where(e => e.IsFinished != true).ToList();
+                        // FIXED: Only show events where IsFinished is explicitly false or null (not finished yet)
+                        var liveEvents = _archeryEvents
+                        .Where(e => e.IsFinished != true)  // This means: false OR null
+                        .ToList();
                     }
 
                     @if (!liveEvents.Any())
@@ -387,7 +390,9 @@
                                                     <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
                                                         <b>Category:</b> @(evt.Subcategory ?? "Individual")
                                                     </MudText>
-                                                 
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Distance:</b> @GetEventDistance(evt.Subcategory)
+                                                    </MudText>
                                                     <MudText Typo="Typo.caption" Style="color: var(--accent-yellow); font-weight:600;">
                                                         Click for live scoring
                                                     </MudText>
@@ -402,9 +407,12 @@
                 </MudTabPanel>
 
                 <!-- TAB 2: FINISHED RESULTS -->
-                <MudTabPanel Text="PARTIAL RESULTS">
+                <MudTabPanel Text="PARTIAL RESULT">
                     @{
-                        var finishedEvents = _archeryEvents.Where(e => e.IsFinished == true).ToList();
+                        // FIXED: Only show events where IsFinished is explicitly TRUE
+                        var finishedEvents = _archeryEvents
+                        .Where(e => e.IsFinished == true)  // Only true values
+                        .ToList();
                     }
 
                     @if (!finishedEvents.Any())
@@ -484,24 +492,63 @@
 @code {
     /* ===================== MODELS ===================== */
 
-    public class EventInfo
+    public class EventsDTO
     {
-        public string ID { get; set; } = "";
-        public string? SportMainCat { get; set; }
-        public string? Subcategory { get; set; }
-        public string? Level { get; set; }
-        public string? Gender { get; set; }
-        public string? EventStage { get; set; }
-        public int? RegionID { get; set; }
-        public string? Abbreviation { get; set; }
-        public string? PlayerID { get; set; }
-        public string? PlayerName { get; set; }
-        public bool? IsFinished { get; set; }
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? SportMainCat { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public string? GamePhase { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public bool? IsFinished { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public string? Rank { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
     }
 
     /* ===================== STATE ===================== */
 
-    private List<EventInfo> _archeryEvents = new();
+    private List<EventsDTO.EventDetails.Event> _archeryEvents = new();
     private bool _isLoading = true;
     private Timer? _refreshTimer;
 
@@ -516,22 +563,26 @@
 
     /* ===================== GET DATA ===================== */
 
-
     private async Task LoadData()
     {
         try
         {
-            var events = await apiService.GetAsync<EventInfo>(
-                "/score/ArcheryScoring/events");
+            string url = "/Events/Details";
+            var allEvents = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
 
-            if (events != null)
+            if (allEvents != null)
             {
-                _archeryEvents = events
-                    .GroupBy(x => x.ID)
-                    .Select(g => g.First())
-                    .OrderBy(x => x.IsFinished)
+                // Filter only Archery events
+                _archeryEvents = allEvents
+                    .Where(e => e.Sport != null && e.Sport.Equals("Archery", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(x => x.IsFinished == true)  // Unfinished first
                     .ThenBy(x => x.Subcategory)
                     .ToList();
+
+                // DEBUG: Log the counts for troubleshooting
+                var liveCount = _archeryEvents.Where(e => e.IsFinished != true).Count();
+                var finishedCount = _archeryEvents.Where(e => e.IsFinished == true).Count();
+                Console.WriteLine($"[Archery Dashboard] Total: {_archeryEvents.Count}, Live: {liveCount}, Finished: {finishedCount}");
             }
         }
         catch (Exception ex)

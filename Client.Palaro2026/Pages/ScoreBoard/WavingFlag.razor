@@ -1,0 +1,119 @@
+﻿<canvas id="flag" />
+<style>
+	#flag {
+		position: fixed;
+		left: 50%;
+		top: -300px; /* start above screen */
+		transform: translateX(-50%) rotate(90deg);
+		transform-origin: center;
+		opacity: 0.85;
+		pointer-events: none;
+	}
+</style>
+<script>
+		window.onload = function () {
+		const flag = document.getElementById('flag');
+
+		/* ===== DRAW FLAG SHAPE ===== */
+		(function drawFlag() {
+			const width = 420;
+			const padX = 0, padY = 40;
+			const a = width / 1.9;
+			const b = width;
+			const l = a / 13;
+
+			flag.width = b + 2 * padX;
+			flag.height = a + 2 * padY;
+
+			const ctx = flag.getContext('2d');
+
+			ctx.fillStyle = '#fff';
+			ctx.fillRect(padX, padY, b, a);
+
+			ctx.fillStyle = '#900';
+			for (let i = 0; i < 13; i += 2) {
+				ctx.fillRect(padX, i * l + padY, b, l);
+			}
+
+			ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+			ctx.lineWidth = 3;
+			ctx.strokeRect(padX, padY, b, a);
+		})();
+
+		/* ===== RECOLOR TO ONE COLOR ===== */
+		(function recolor() {
+			const ctx = flag.getContext('2d');
+			const img = ctx.getImageData(0, 0, flag.width, flag.height);
+			const d = img.data;
+
+			const color = '#1e88e5';
+			const r = parseInt(color.substr(1, 2), 16);
+			const g = parseInt(color.substr(3, 2), 16);
+			const b = parseInt(color.substr(5, 2), 16);
+
+			for (let i = 0; i < d.length; i += 4) {
+				if (d[i + 3] > 0) {
+					d[i] = r;
+					d[i + 1] = g;
+					d[i + 2] = b;
+				}
+			}
+			ctx.putImageData(img, 0, 0);
+		})();
+
+		/* ===== WAVE + SCROLL (STOP AT CENTER) ===== */
+		(function animate() {
+			const ctx = flag.getContext('2d');
+			const w = flag.width;
+			const h = flag.height;
+			const base = ctx.getImageData(0, 0, w, h).data;
+
+			let yPos = -h;
+			const speed = 2;
+			const centerY = (window.innerHeight - h) / 2;
+			let scrolling = true;
+
+			function frame() {
+				// scroll until center
+				if (scrolling) {
+					yPos += speed;
+					if (yPos >= centerY) {
+						yPos = centerY;
+						scrolling = false; // STOP
+					}
+					flag.style.top = yPos + 'px';
+				}
+
+				// wave continues forever
+				const img = ctx.getImageData(0, 0, w, h);
+				const d = img.data;
+				const t = Date.now() / 150;
+
+				for (let y = 0; y < h; y++) {
+					let lastO = 0;
+					for (let x = 0; x < w; x++) {
+						const px = (y * w + x) * 4;
+						const pct = x / w;
+						const o = Math.sin(x / 20 - t) * 10 * pct;
+						const y2 = (y + o) | 0;
+						const opx = (y2 * w + x) * 4;
+						const shade = (o - lastO) * 200;
+
+						d[px] = base[opx] + shade;
+						d[px + 1] = base[opx + 1] + shade;
+						d[px + 2] = base[opx + 2] + shade;
+						d[px + 3] = base[opx + 3];
+
+						lastO = o;
+					}
+				}
+				ctx.putImageData(img, 0, 0);
+				requestAnimationFrame(frame);
+			}
+			frame();
+		})();
+	};
+</script>
+@code {
+
+}

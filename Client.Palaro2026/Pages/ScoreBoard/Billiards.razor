@@ -161,10 +161,10 @@
     }
 
     .badge-live {
-        background: linear-gradient(135deg, #FFC107 0%, #FF9800 100%);
-        color: #000;
-        box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
-        border: 1px solid #FFD54F;
+        background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+        color: white;
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+        border: 1px solid #FF4444;
         animation: pulse 2s infinite;
     }
 
@@ -315,17 +315,17 @@
     @@keyframes pulse {
         0% {
             opacity: 1;
-            box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
         }
 
         50% {
             opacity: 0.8;
-            box-shadow: 0 0 5px rgba(255, 193, 7, 0.2);
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
         }
 
         100% {
             opacity: 1;
-            box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
         }
     }
 
@@ -374,6 +374,7 @@
                 <!-- TAB 1: LIVE / ONGOING -->
                 <MudTabPanel Text="LIVE / ONGOING">
                     @{
+                        // FIXED: Only show events where IsFinished is false or null
                         var liveEvents = _billiardsEvents.Where(e => e.IsFinished != true).ToList();
                     }
 
@@ -390,17 +391,12 @@
                         <MudGrid Spacing="3">
                             @foreach (var evt in liveEvents)
                             {
-                                var currentMatch = GetCurrentMatch(evt.ID);
-
                                 <MudItem xs="12" md="6" lg="4" xl="3">
                                     <a href="/scoreboard/billiards/@evt.ID" target="_blank" class="event-link">
                                         <div class="event-card">
                                             <div class="status-container">
-                                                <div class="event-type-badge">@(evt.Subcategory ?? "Open")</div>
-                                                @if (currentMatch != null && !currentMatch.IsCompleted)
-                                                {
-                                                    <div class="status-badge badge-live">LIVE</div>
-                                                }
+                                                <div class="event-type-badge">@(evt.Subcategory ?? evt.Level ?? "Open")</div>
+                                                <div class="status-badge badge-live">LIVE</div>
                                             </div>
 
                                             <div class="pa-5">
@@ -419,58 +415,18 @@
 
                                                 <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
 
-                                                @if (currentMatch != null)
-                                                {
-                                                    <!-- Current Match Score Display -->
-                                                    <div class="score-display">
-                                                        <div class="d-flex align-center justify-center mb-2">
-                                                            <div class="leader-icon">
-                                                                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Small" />
-                                                            </div>
-                                                            <div class="athlete-name text-center">Current Match</div>
+                                                <!-- Score Display -->
+                                                <div class="score-display">
+                                                    <div class="d-flex align-center justify-center mb-2">
+                                                        <div class="leader-icon">
+                                                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Small" />
                                                         </div>
-
-                                                        <div class="match-score-display">
-                                                            <div class="player-score @(currentMatch.Player1IsWinner == true ? "winner-score" : "")">
-                                                                @currentMatch.Player1Score
-                                                            </div>
-                                                            <div class="vs-badge">VS</div>
-                                                            <div class="player-score @(currentMatch.Player2IsWinner == true ? "winner-score" : "")">
-                                                                @currentMatch.Player2Score
-                                                            </div>
-                                                        </div>
-
-                                                        @if (currentMatch.IsCompleted)
-                                                        {
-                                                            <div class="total-score" style="font-size: 1.5rem;">
-                                                                MATCH COMPLETE
-                                                            </div>
-                                                            <div class="score-label">@(currentMatch.Player1IsWinner == true ? currentMatch.Player1Region : currentMatch.Player2Region) WINS</div>
-                                                        }
-                                                        else
-                                                        {
-                                                            <div class="total-score" style="font-size: 1.5rem;">
-                                                                RACE TO @GetTargetScore(currentMatch.SetNo)
-                                                            </div>
-                                                            <div class="score-label">SET @currentMatch.SetNo • TABLE @currentMatch.TableNo</div>
-                                                        }
+                                                        <div class="athlete-name text-center">Live Scoring</div>
                                                     </div>
-                                                }
-                                                else
-                                                {
-                                                    <!-- No Active Match -->
-                                                    <div class="score-display">
-                                                        <div class="d-flex align-center justify-center mb-2">
-                                                            <div class="leader-icon">
-                                                                <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" />
-                                                            </div>
-                                                            <div class="athlete-name text-center">No Active Match</div>
-                                                        </div>
 
-                                                        <div class="total-score">STANDBY</div>
-                                                        <div class="score-label">WAITING FOR NEXT MATCH</div>
-                                                    </div>
-                                                }
+                                                    <div class="total-score">IN PROGRESS</div>
+                                                    <div class="score-label">EVENT STATUS</div>
+                                                </div>
 
                                                 <!-- Event Details -->
                                                 <div class="pa-2">
@@ -495,8 +451,9 @@
                 </MudTabPanel>
 
                 <!-- TAB 2: FINISHED RESULTS -->
-                <MudTabPanel Text="COMPLETED">
+                <MudTabPanel Text="PARTIAL RESULT">
                     @{
+                        // FIXED: Only show events where IsFinished is explicitly true
                         var finishedEvents = _billiardsEvents.Where(e => e.IsFinished == true).ToList();
                     }
 
@@ -512,14 +469,11 @@
                         <MudGrid Spacing="3">
                             @foreach (var evt in finishedEvents)
                             {
-                                var winner = GetWinner(evt.ID);
-                                var finalMatch = GetFinalMatch(evt.ID);
-
                                 <MudItem xs="12" md="6" lg="4" xl="3">
                                     <a href="/scoreboard/billiards/@evt.ID" target="_blank" class="event-link">
                                         <div class="event-card">
                                             <div class="status-container">
-                                                <div class="event-type-badge">@(evt.Subcategory ?? "Open")</div>
+                                                <div class="event-type-badge">@(evt.Subcategory ?? evt.Level ?? "Open")</div>
                                                 <div class="status-badge badge-final">FINAL</div>
                                             </div>
 
@@ -541,45 +495,15 @@
 
                                                 <!-- Champion Display -->
                                                 <div class="score-display">
-                                                    @if (winner != null)
-                                                    {
-                                                        <div class="d-flex align-center justify-center mb-2">
-                                                            <div class="leader-icon">
-                                                                <MudIcon Icon="@Icons.Material.Filled.MilitaryTech" Size="Size.Small" />
-                                                            </div>
-                                                            <div class="athlete-name text-center">@winner.PlayerName</div>
+                                                    <div class="d-flex align-center justify-center mb-2">
+                                                        <div class="leader-icon">
+                                                            <MudIcon Icon="@Icons.Material.Filled.MilitaryTech" Size="Size.Small" />
                                                         </div>
+                                                        <div class="athlete-name text-center">Results Available</div>
+                                                    </div>
 
-                                                        <div class="total-score" style="font-size: 1.8rem;">
-                                                            CHAMPION
-                                                        </div>
-                                                        <div class="score-label">@winner.RegionName</div>
-
-                                                        @if (finalMatch != null)
-                                                        {
-                                                            <div class="match-score-display mt-3">
-                                                                <div class="player-score @(finalMatch.Player1IsWinner == true ? "winner-score" : "loser-score")">
-                                                                    @finalMatch.Player1Score
-                                                                </div>
-                                                                <div class="vs-badge">FINAL</div>
-                                                                <div class="player-score @(finalMatch.Player2IsWinner == true ? "winner-score" : "loser-score")">
-                                                                    @finalMatch.Player2Score
-                                                                </div>
-                                                            </div>
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        <div class="d-flex align-center justify-center mb-2">
-                                                            <div class="leader-icon">
-                                                                <MudIcon Size="Size.Small" />
-                                                            </div>
-                                                            <div class="athlete-name text-center">Tournament Complete</div>
-                                                        </div>
-
-                                                        <div class="total-score">RESULTS</div>
-                                                        <div class="score-label">FINAL SCORES AVAILABLE</div>
-                                                    }
+                                                    <div class="total-score">COMPLETED</div>
+                                                    <div class="score-label">FINAL RESULTS</div>
                                                 </div>
 
                                                 <!-- Event Details -->
@@ -611,63 +535,63 @@
 @code {
     /* ===================== MODELS ===================== */
 
-    public class EventModel
+    public class EventsDTO
     {
-        public string ID { get; set; } = "";
-        public string? Sport { get; set; }
-        public string? Subcategory { get; set; }
-        public string? Level { get; set; }
-        public string? Gender { get; set; }
-        public string? EventStage { get; set; }
-        public bool? IsFinished { get; set; }
-        public string? SportMainCat { get; set; }
-        public string? Category { get; set; }
-    }
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? SportMainCat { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public string? GamePhase { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public bool? IsFinished { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
 
-    public class MatchInfo
-    {
-        public int SetNo { get; set; }
-        public int TableNo { get; set; }
-        public string? Player1Region { get; set; }
-        public string? Player1Name { get; set; }
-        public int Player1Score { get; set; }
-        public bool? Player1IsWinner { get; set; }
-        public string? Player2Region { get; set; }
-        public string? Player2Name { get; set; }
-        public int Player2Score { get; set; }
-        public bool? Player2IsWinner { get; set; }
-        public bool IsCompleted { get; set; }
-        public string? EventId { get; set; }
-    }
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public string? Rank { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
 
-    public class BilliardsResult
-    {
-        public int SetNo { get; set; }
-        public int TableNo { get; set; }
-        public int RegionID { get; set; }
-        public string? PlayerPosition { get; set; }
-        public int? Score { get; set; }
-        public bool? IsWinner { get; set; }
-        public string? Region { get; set; }
-        public string? Abbreviation { get; set; }
-        public string? PlayerID { get; set; }
-        public string? PlayerName { get; set; }
-        public string? EventId { get; set; }
-    }
-
-    public class WinnerInfo
-    {
-        public string PlayerName { get; set; } = "";
-        public string RegionName { get; set; } = "";
-        public int TotalWins { get; set; }
-        public int TotalLosses { get; set; }
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
     }
 
     /* ===================== STATE ===================== */
 
-    private List<EventModel> _billiardsEvents = new();
-    private Dictionary<string, List<MatchInfo>> _eventMatches = new();
-    private Dictionary<string, WinnerInfo> _eventWinners = new();
+    private List<EventsDTO.EventDetails.Event> _billiardsEvents = new();
     private bool _isLoading = true;
     private Timer? _refreshTimer;
 
@@ -686,237 +610,33 @@
     {
         try
         {
-            _isLoading = true;
+            string url = "/Events/Details";
+            var allEvents = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
 
-            // Load all billiards events
-            var events = await apiService.GetAsync<EventModel>("/BilliardsScoring/events");
-
-            if (events != null)
+            if (allEvents != null)
             {
-                // Filter for Billiards and remove duplicates
-                _billiardsEvents = events
-                    .Where(e => e.Sport == "Billiards" && !string.IsNullOrEmpty(e.ID))
-                    .GroupBy(e => e.ID)
-                    .Select(g => g.First())
-                    .OrderBy(e => e.IsFinished != true)
-                    .ThenBy(e => e.Subcategory)
+                // Filter only Billiards events
+                _billiardsEvents = allEvents
+                    .Where(e => e.Sport != null && e.Sport.Equals("Billiards", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(x => x.IsFinished == true)  // Unfinished first
+                    .ThenBy(x => x.Subcategory)
                     .ToList();
 
-                // Load matches for each unique event
-                _eventMatches.Clear();
-                _eventWinners.Clear();
-
-                foreach (var evt in _billiardsEvents)
-                {
-                    await LoadEventMatches(evt.ID);
-                }
+                // DEBUG: Log the counts for troubleshooting
+                var liveCount = _billiardsEvents.Where(e => e.IsFinished != true).Count();
+                var finishedCount = _billiardsEvents.Where(e => e.IsFinished == true).Count();
+                Console.WriteLine($"[Billiards Dashboard] Total: {_billiardsEvents.Count}, Live: {liveCount}, Finished: {finishedCount}");
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading billiards events: {ex.Message}");
-            _billiardsEvents.Clear();
         }
         finally
         {
             _isLoading = false;
             StateHasChanged();
         }
-    }
-
-    private async Task LoadEventMatches(string eventId)
-    {
-        try
-        {
-            var results = await apiService.GetAsync<BilliardsResult>($"/BilliardsScoring/event/{eventId}");
-
-            if (results != null && results.Any())
-            {
-                // Filter out incomplete or invalid records
-                var validResults = results
-                    .Where(r => r.SetNo > 0 && r.TableNo > 0 && !string.IsNullOrEmpty(r.PlayerPosition))
-                    .ToList();
-
-                if (!validResults.Any()) return;
-
-                // Group by Set and Table to create match pairs
-                var matchDict = new Dictionary<(int SetNo, int TableNo), MatchInfo>();
-
-                foreach (var result in validResults)
-                {
-                    var key = (result.SetNo, result.TableNo);
-                    if (!matchDict.ContainsKey(key))
-                    {
-                        matchDict[key] = new MatchInfo
-                        {
-                            SetNo = result.SetNo,
-                            TableNo = result.TableNo,
-                            EventId = eventId,
-                            IsCompleted = false
-                        };
-                    }
-
-                    var match = matchDict[key];
-                    if (result.PlayerPosition == "Player1")
-                    {
-                        match.Player1Region = GetRegionName(result.Abbreviation, result.Region);
-                        match.Player1Name = result.PlayerName ?? "Unknown Player";
-                        match.Player1Score = result.Score ?? 0;
-                        match.Player1IsWinner = result.IsWinner;
-                    }
-                    else if (result.PlayerPosition == "Player2")
-                    {
-                        match.Player2Region = GetRegionName(result.Abbreviation, result.Region);
-                        match.Player2Name = result.PlayerName ?? "Unknown Player";
-                        match.Player2Score = result.Score ?? 0;
-                        match.Player2IsWinner = result.IsWinner;
-                    }
-
-                    // Check if match is completed
-                    if (result.IsWinner.HasValue)
-                    {
-                        match.IsCompleted = true;
-                    }
-                }
-
-                // Get unique matches with both players
-                var matches = matchDict.Values
-                    .Where(m => !string.IsNullOrEmpty(m.Player1Region) && !string.IsNullOrEmpty(m.Player2Region))
-                    .GroupBy(m => new { m.SetNo, m.TableNo, m.Player1Region, m.Player2Region })
-                    .Select(g => g.First())
-                    .ToList();
-
-                _eventMatches[eventId] = matches;
-
-                // Determine winner
-                var winner = DetermineWinner(eventId, matches);
-                if (winner != null)
-                {
-                    _eventWinners[eventId] = winner;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading matches for event {eventId}: {ex.Message}");
-        }
-    }
-
-    private string GetRegionName(string? abbreviation, string? region)
-    {
-        if (!string.IsNullOrEmpty(abbreviation) && abbreviation != "Unknown")
-            return abbreviation;
-        if (!string.IsNullOrEmpty(region))
-            return region;
-        return "Unknown Region";
-    }
-
-    private WinnerInfo? DetermineWinner(string eventId, List<MatchInfo> matches)
-    {
-        try
-        {
-            if (!matches.Any()) return null;
-
-            // Group matches by round (SetNo)
-            var rounds = matches.GroupBy(m => m.SetNo)
-                               .OrderBy(g => g.Key)
-                               .ToList();
-
-            // Get the final round
-            var finalRound = rounds.LastOrDefault();
-            if (finalRound == null) return null;
-
-            // Find winner in the final round
-            var finalMatch = finalRound.Where(m => m.IsCompleted)
-                                      .OrderByDescending(m => m.TableNo)
-                                      .FirstOrDefault();
-
-            if (finalMatch != null)
-            {
-                if (finalMatch.Player1IsWinner == true)
-                {
-                    return new WinnerInfo
-                    {
-                        PlayerName = finalMatch.Player1Name ?? "Unknown",
-                        RegionName = finalMatch.Player1Region ?? "Unknown",
-                        TotalWins = 1,
-                        TotalLosses = 0
-                    };
-                }
-                else if (finalMatch.Player2IsWinner == true)
-                {
-                    return new WinnerInfo
-                    {
-                        PlayerName = finalMatch.Player2Name ?? "Unknown",
-                        RegionName = finalMatch.Player2Region ?? "Unknown",
-                        TotalWins = 1,
-                        TotalLosses = 0
-                    };
-                }
-            }
-
-            return null;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error determining winner: {ex.Message}");
-            return null;
-        }
-    }
-
-    /* ===================== HELPER METHODS ===================== */
-
-    private MatchInfo? GetCurrentMatch(string eventId)
-    {
-        if (_eventMatches.TryGetValue(eventId, out var matches))
-        {
-            // Return the first ongoing match, or the most recent completed match
-            var ongoingMatch = matches.FirstOrDefault(m => !m.IsCompleted);
-            if (ongoingMatch != null)
-                return ongoingMatch;
-
-            // If no ongoing match, return the most recent completed match
-            return matches.Where(m => m.IsCompleted)
-                         .OrderByDescending(m => m.SetNo)
-                         .ThenByDescending(m => m.TableNo)
-                         .FirstOrDefault();
-        }
-        return null;
-    }
-
-    private MatchInfo? GetFinalMatch(string eventId)
-    {
-        if (_eventMatches.TryGetValue(eventId, out var matches))
-        {
-            // Return the highest round completed match
-            var completedMatches = matches.Where(m => m.IsCompleted).ToList();
-            if (!completedMatches.Any()) return null;
-
-            var maxSet = completedMatches.Max(m => m.SetNo);
-            return completedMatches.Where(m => m.SetNo == maxSet)
-                                  .OrderByDescending(m => m.TableNo)
-                                  .FirstOrDefault();
-        }
-        return null;
-    }
-
-    private WinnerInfo? GetWinner(string eventId)
-    {
-        if (_eventWinners.TryGetValue(eventId, out var winner))
-            return winner;
-        return null;
-    }
-
-    private int GetTargetScore(int roundNumber)
-    {
-        return roundNumber switch
-        {
-            1 => 4,  // Elimination: Race to 4
-            2 => 5,  // Quarter-finals: Race to 5
-            3 => 6,  // Semi-finals: Race to 6
-            4 => 7,  // Finals: Race to 7
-            _ => 4   // Default
-        };
     }
 
     /* ===================== CLEANUP ===================== */
