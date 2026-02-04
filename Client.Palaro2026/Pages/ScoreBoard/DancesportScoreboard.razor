@@ -1,0 +1,1085 @@
+﻿@page "/scoreboard/dancesport"
+@layout NoMainLayout
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@implements IDisposable
+
+<PageTitle>Dancesport Scoreboard | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@600;700&display=swap');
+
+    :root {
+        --bg-dark: #0a0a0a;
+        --card-bg: rgba(30, 30, 30, 0.7);
+        --card-border: rgba(255, 255, 255, 0.1);
+        --text-primary: #ffffff;
+        --accent-yellow: #FFD700;
+        --accent-gold: #FFC107;
+        --accent-amber: #FFA000;
+        --accent-green: #00E676;
+        --neon-yellow: 0 0 10px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.3);
+        --neon-gold: 0 0 10px rgba(255, 193, 7, 0.4);
+        --neon-amber: 0 0 10px rgba(255, 160, 0, 0.6);
+    }
+
+    /* BACKGROUND TEXTURE */
+    .dashboard-bg {
+        background-color: var(--bg-dark);
+        background-image: 
+            radial-gradient(circle at 10% 20%, rgba(255, 215, 0, 0.08) 0%, transparent 40%),
+            radial-gradient(circle at 90% 80%, rgba(255, 193, 7, 0.05) 0%, transparent 40%),
+            linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+        min-height: 100vh;
+        color: var(--text-primary);
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    /* HEADER */
+    .header-container {
+        text-align: center;
+        margin-bottom: 40px;
+        position: relative;
+        padding: 30px 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+        border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+    }
+
+    .main-title {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        background: linear-gradient(180deg, #FFD700 0%, #FFC107 50%, #FFA000 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.4));
+    }
+
+    .sub-title {
+        font-family: 'Chakra Petch', sans-serif;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: clamp(1rem, 1.5vw, 1.3rem);
+        letter-spacing: 8px;
+        font-weight: 700;
+        text-transform: uppercase;
+        position: relative;
+        display: inline-block;
+    }
+
+        .sub-title::before, .sub-title::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 60px;
+            height: 2px;
+            background: var(--accent-yellow);
+            opacity: 0.5;
+        }
+
+        .sub-title::before {
+            left: -80px;
+        }
+
+        .sub-title::after {
+            right: -80px;
+        }
+
+    /* EVENT LINK */
+    .event-link {
+        text-decoration: none;
+        display: block;
+        height: 100%;
+    }
+
+    /* CARD DESIGN */
+    .event-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        height: 100%;
+    }
+
+        .event-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent-yellow), transparent);
+            opacity: 0.5;
+        }
+
+        .event-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: var(--accent-yellow);
+            box-shadow: 0 15px 40px rgba(255, 215, 0, 0.15);
+        }
+
+            .event-card:hover::before {
+                opacity: 1;
+            }
+
+    /* BADGES */
+    .status-container {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        display: flex;
+        gap: 8px;
+        z-index: 5;
+    }
+
+    .event-type-badge {
+        background: rgba(0,0,0,0.8);
+        color: var(--accent-yellow);
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 700;
+        font-size: 0.8rem;
+        border: 1px solid var(--accent-yellow);
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+    }
+
+    .status-badge {
+        padding: 4px 15px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 800;
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+    }
+
+    .badge-live {
+        background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+        color: white;
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+        border: 1px solid #FF4444;
+        animation: pulse 2s infinite;
+    }
+
+    .badge-final {
+        background: linear-gradient(135deg, #00C853 0%, #00695C 100%);
+        color: white;
+        border: 1px solid #69F0AE;
+        box-shadow: 0 0 10px rgba(0, 230, 118, 0.4);
+    }
+
+    /* SCORE DISPLAY */
+    .score-display {
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 12px;
+        padding: 12px;
+        margin: 10px 0;
+        border: 1px solid rgba(255, 215, 0, 0.3);
+    }
+
+    .total-score {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2.5rem;
+        font-weight: 900;
+        color: var(--accent-yellow);
+        line-height: 1;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        text-align: center;
+    }
+
+    .score-label {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.75rem;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-align: center;
+        margin-top: 5px;
+    }
+
+    .athlete-name {
+        font-family: 'Chakra Petch', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 4px;
+    }
+
+    .region-badge {
+        display: inline-block;
+        background: rgba(255, 215, 0, 0.2);
+        color: var(--accent-yellow);
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid rgba(255, 215, 0, 0.3);
+    }
+
+    .leader-icon {
+        background: var(--accent-yellow);
+        color: #000;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        margin-right: 8px;
+    }
+
+    .sport-icon {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.05));
+        border-radius: 50%;
+        padding: 10px;
+        border: 1px solid rgba(255, 215, 0, 0.3);
+    }
+
+    /* COUPLE DISPLAY */
+    .couple-display {
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 8px;
+        padding: 10px;
+        margin: 5px 0;
+        border: 1px solid rgba(255, 215, 0, 0.2);
+    }
+
+    .dancer-name {
+        font-family: 'Chakra Petch', sans-serif;
+        font-size: 0.9rem;
+        color: white;
+        margin: 2px 0;
+    }
+
+    /* RANK DISPLAY */
+    .rank-badge {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 24px;
+        font-weight: 900;
+        font-family: 'Orbitron';
+        font-size: 0.8rem;
+        margin-right: 8px;
+    }
+
+    .rank-1 { 
+        background: linear-gradient(135deg, #FFD700 0%, #FFA000 100%); 
+        color: #000; 
+    }
+    .rank-2 { 
+        background: linear-gradient(135deg, #C0C0C0 0%, #A0A0A0 100%); 
+        color: #000; 
+    }
+    .rank-3 { 
+        background: linear-gradient(135deg, #CD7F32 0%, #8B4513 100%); 
+        color: white; 
+    }
+    .rank-other { 
+        background: rgba(255,255,255,0.1); 
+        color: #ccc; 
+    }
+
+    /* MUD TABS CUSTOMIZATION */
+    .mud-tabs-tabbar {
+        background-color: transparent !important;
+        border-bottom: 1px solid #333;
+    }
+
+    .mud-tab {
+        color: #888 !important;
+        font-family: 'Orbitron';
+        font-weight: 700;
+        letter-spacing: 1px;
+        transition: color 0.3s;
+    }
+
+    .mud-tab-active {
+        color: var(--accent-yellow) !important;
+        font-weight: 900;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+    }
+
+    .mud-tabs-indicator {
+        background-color: var(--accent-yellow) !important;
+        height: 3px;
+        box-shadow: 0 0 10px var(--accent-yellow);
+    }
+
+    @@keyframes pulse {
+        0% {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+        }
+
+        50% {
+            opacity: 0.8;
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
+        }
+
+        100% {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+        }
+    }
+
+    /* EMPTY STATE */
+    .empty-state {
+        background-color: rgba(30,30,30,0.5);
+        border: 1px dashed #444;
+        border-radius: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 40px;
+        text-align: center;
+    }
+</style>
+
+<div class="dashboard-bg">
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge">
+
+        <!-- HEADER -->
+        <div class="header-container">
+            <div class="main-title">PALARONG PAMBANSA 2026</div>
+            <div class="sub-title">DANCESPORT SCOREBOARD</div>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="mt-16">
+                <MudProgressCircular Indeterminate="true" Color="Color.Warning" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-4" Style="font-family:'Orbitron'; color:var(--accent-yellow);">LOADING DANCESPORT EVENTS...</MudText>
+            </MudStack>
+        }
+        else if (!_dancesportEvents.Any())
+        {
+            <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                <MudIcon Icon="@Icons.Material.Filled.Dangerous" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                <MudText Typo="Typo.h5" Class="mt-4" Style="color: #666; font-family:'Orbitron'; font-weight:700;">NO DANCESPORT EVENTS</MudText>
+                <MudText Typo="Typo.body2" Style="color: #555;">Waiting for event data...</MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="mt-6" Centered="true">
+
+                <!-- TAB 1: LIVE / ONGOING -->
+                <MudTabPanel Text="LIVE / ONGOING">
+                    @{
+                        // Get live events (not finished)
+                        var liveEvents = _dancesportEvents.Where(e => !e.IsFinished).ToList();
+                    }
+
+                    @if (!liveEvents.Any())
+                    {
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                            <MudText Typo="Typo.h5" Class="mt-4" Style="color: #666; font-family:'Orbitron'; font-weight:700;">NO LIVE DANCESPORT EVENTS</MudText>
+                            <MudText Typo="Typo.body2" Style="color: #555;">Stand by for upcoming events</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in liveEvents)
+                            {
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="/score/dancesport" target="_blank" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@GetEventCategory(evt)</div>
+                                                <div class="status-badge badge-live">LIVE</div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="sport-icon mr-3">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Dangerous" Size="Size.Small" Style="color:var(--accent-yellow);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">DANCESPORT</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                                                            @GetSchoolLevelName(evt.LevelID) • @GetGenderName(evt.GenderID)
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Event Details -->
+                                                <div class="pa-2">
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Category:</b> @evt.MainCategory
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Stage:</b> @GetEventStageName(evt.StageID)
+                                                    </MudText>
+
+                                                    <!-- Couples Count -->
+                                                    <div class="score-display mt-3">
+                                                        <div class="d-flex align-center justify-center mb-2">
+                                                            <div class="leader-icon">
+                                                                <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" />
+                                                            </div>
+                                                            <div class="athlete-name text-center">@GetCouplesCount(evt.ID) COUPLES</div>
+                                                        </div>
+                                                        <div class="total-score">IN PROGRESS</div>
+                                                        <div class="score-label">CURRENT ROUND</div>
+                                                    </div>
+
+                                                    <!-- Top Couples Preview -->
+                                                    @if (GetTopCouples(evt.ID).Any())
+                                                    {
+                                                        <div class="mt-4">
+                                                            <MudText Typo="Typo.body2" Style="color: #aaa; margin-bottom: 8px;">
+                                                                <b>Current Leaders:</b>
+                                                            </MudText>
+                                                            @foreach (var couple in GetTopCouples(evt.ID).Take(2))
+                                                            {
+                                                                <div class="couple-display">
+                                                                    <div class="d-flex align-center">
+                                                                        <div class="rank-badge @($"rank-{couple.Rank}")">@couple.Rank</div>
+                                                                        <div>
+                                                                            <div class="dancer-name">@couple.Region</div>
+                                                                            <div class="d-flex" style="gap: 8px;">
+                                                                                @foreach (var dancer in couple.Dancers)
+                                                                                {
+                                                                                    <div class="region-badge">@dancer</div>
+                                                                                }
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+
+                                                    <MudText Typo="Typo.caption" Class="mt-3" Style="color: var(--accent-yellow); font-weight:600;">
+                                                        Click for live scoreboard & judging
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+
+                <!-- TAB 2: PARTIAL RESULT -->
+                <MudTabPanel Text="PARTIAL RESULT">
+                    @{
+                        // Get finished events
+                        var finishedEvents = _dancesportEvents.Where(e => e.IsFinished).ToList();
+                    }
+
+                    @if (!finishedEvents.Any())
+                    {
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Size="Size.Large" Style="color: #555;" />
+                            <MudText Typo="Typo.h6" Class="mt-4" Style="color: #777; font-family:'Orbitron'">NO COMPLETED EVENTS YET</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in finishedEvents)
+                            {
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="/score/dancesport" target="_blank" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@GetEventCategory(evt)</div>
+                                                <div class="status-badge badge-final">FINAL</div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="sport-icon mr-3">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Dangerous" Size="Size.Small" Style="color:var(--accent-yellow);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">DANCESPORT</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                                                            @GetSchoolLevelName(evt.LevelID) • @GetGenderName(evt.GenderID)
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Champion Display -->
+                                                <div class="score-display">
+                                                    <div class="d-flex align-center justify-center mb-2">
+                                                        <div class="leader-icon">
+                                                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Small" />
+                                                        </div>
+                                                        <div class="athlete-name text-center">WINNING COUPLE</div>
+                                                    </div>
+
+                                                    @if (GetWinningCouple(evt.ID) != null)
+                                                    {
+                                                        var winningCouple = GetWinningCouple(evt.ID);
+                                                        <div class="total-score">@winningCouple.Region</div>
+                                                        <div class="score-label">CHAMPION</div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="total-score">RESULTS</div>
+                                                        <div class="score-label">AVAILABLE</div>
+                                                    }
+                                                </div>
+
+                                                <!-- Event Details -->
+                                                <div class="pa-2">
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Category:</b> @evt.MainCategory
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Stage:</b> @GetEventStageName(evt.StageID)
+                                                    </MudText>
+
+                                                    <!-- Top 3 Couples -->
+                                                    @if (GetTopCouples(evt.ID).Any())
+                                                    {
+                                                        <div class="mt-4">
+                                                            <MudText Typo="Typo.body2" Style="color: #aaa; margin-bottom: 8px;">
+                                                                <b>Final Standings:</b>
+                                                            </MudText>
+                                                            @foreach (var couple in GetTopCouples(evt.ID).Take(3))
+                                                            {
+                                                                <div class="couple-display">
+                                                                    <div class="d-flex align-center">
+                                                                        <div class="rank-badge @($"rank-{couple.Rank}")">@couple.Rank</div>
+                                                                        <div>
+                                                                            <div class="dancer-name">@couple.Region</div>
+                                                                            <div class="d-flex" style="gap: 8px;">
+                                                                                @foreach (var dancer in couple.Dancers)
+                                                                                {
+                                                                                    <div class="region-badge">@dancer</div>
+                                                                                }
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+
+                                                    <MudText Typo="Typo.caption" Class="mt-3" Style="color: var(--accent-yellow); font-weight:600;">
+                                                        Click for detailed results & scores
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+
+                <!-- TAB 3: ALL EVENTS -->
+                <MudTabPanel Text="ALL EVENTS">
+                    @if (!_dancesportEvents.Any())
+                    {
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.Dangerous" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                            <MudText Typo="Typo.h6" Class="mt-4" Style="color: #777; font-family:'Orbitron'">NO EVENTS AVAILABLE</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in _dancesportEvents)
+                            {
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="/score/dancesport" target="_blank" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@GetEventCategory(evt)</div>
+                                                <div class="status-badge @(evt.IsFinished ? "badge-final" : "badge-live")">
+                                                    @(evt.IsFinished ? "FINAL" : "LIVE")
+                                                </div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="sport-icon mr-3">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Dangerous" Size="Size.Small" Style="color:var(--accent-yellow);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">DANCESPORT</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                                                            @GetSchoolLevelName(evt.LevelID) • @GetGenderName(evt.GenderID)
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Status Display -->
+                                                <div class="score-display">
+                                                    <div class="d-flex align-center justify-center mb-2">
+                                                        <div class="leader-icon">
+                                                            <MudIcon  Size="Size.Small" />
+                                                        </div>
+                                                        <div class="athlete-name text-center">
+                                                            @(evt.IsFinished ? "COMPLETED" : "IN PROGRESS")
+                                                        </div>
+                                                    </div>
+                                                    <div class="total-score">@GetCouplesCount(evt.ID) COUPLES</div>
+                                                    <div class="score-label">@GetEventStageName(evt.StageID)</div>
+                                                </div>
+
+                                                <!-- Event Details -->
+                                                <div class="pa-2">
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Category:</b> @evt.MainCategory
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Stage:</b> @GetEventStageName(evt.StageID)
+                                                    </MudText>
+
+                                                    <MudText Typo="Typo.caption" Class="mt-3" Style="color: var(--accent-yellow); font-weight:600;">
+                                                        Click for @(evt.IsFinished ? "results" : "live scoreboard")
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+            </MudTabs>
+        }
+    </MudContainer>
+</div>
+
+@code {
+    /* ===================== MODELS ===================== */
+
+    public class PerformanceEvent
+    {
+        public int ID { get; set; }
+        public int? SportID { get; set; }
+        public string MainCategory { get; set; } = string.Empty;
+        public int? LevelID { get; set; }
+        public int? GenderID { get; set; }
+        public int? StageID { get; set; }
+        public bool IsFinished { get; set; }
+    }
+
+    public class PerformanceTeam
+    {
+        public int ID { get; set; }
+        public int? PerformanceID { get; set; }
+        public int? TeamID { get; set; }
+        public int RegionID { get; set; }
+        public string PlayerID { get; set; } = string.Empty;
+    }
+
+    public class PerformanceScores
+    {
+        public int ID { get; set; }
+        public int? PerformanceID { get; set; }
+        public int PerformanceTeamID { get; set; }
+        public int SportSubcategoryID { get; set; }
+        public decimal Score { get; set; }
+        public int Rank { get; set; }
+        public string? UserID { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public int? TeamID { get; set; }
+    }
+
+    public class SchoolRegion
+    {
+        public int? ID { get; set; }
+        public string Region { get; set; } = string.Empty;
+        public string? Abbreviation { get; set; }
+    }
+
+    public class Player
+    {
+        public string ID { get; set; } = string.Empty;
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+    }
+
+    public class CoupleDisplay
+    {
+        public int RegionID { get; set; }
+        public string Region { get; set; } = string.Empty;
+        public string RegionAbbreviation { get; set; } = string.Empty;
+        public int? TeamID { get; set; }
+        public List<string> Dancers { get; set; } = new();
+        public int Rank { get; set; }
+        public int TotalScore { get; set; }
+    }
+
+    /* ===================== STATE ===================== */
+
+    private List<PerformanceEvent> _dancesportEvents = new();
+    private List<PerformanceTeam> _allOpposingTeams = new();
+    private List<PerformanceScores> _allDancesportScores = new();
+    private List<SchoolRegion> _schoolRegions = new();
+    private List<Player> _allPlayers = new();
+    private bool _isLoading = true;
+    private Timer? _refreshTimer;
+
+    /* ===================== INIT ===================== */
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        // Auto-refresh every 10 seconds for live dashboard updates
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 10000, 10000);
+    }
+
+    /* ===================== GET DATA ===================== */
+
+    private async Task LoadData()
+    {
+        try
+        {
+            _isLoading = true;
+            StateHasChanged();
+
+            // Load all required data
+            await Task.WhenAll(
+                GetPerformanceEventsAsync(),
+                GetOpposingTeamsAsync(),
+                GetScoreAsync(),
+                GetSchoolRegionsAsync(),
+                GetAllPlayersAsync()
+            );
+
+            _isLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading dancesport data: {ex.Message}");
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task GetPerformanceEventsAsync()
+    {
+        string url = "/PerformanceBased/PerformanceEvents?sportID=10"; // SportID 10 for Dancesport
+        var events = await apiService.GetAsync<PerformanceEvent>(url);
+        if (events != null)
+        {
+            _dancesportEvents = events
+                .OrderBy(x => x.IsFinished)
+                .ThenBy(x => x.MainCategory)
+                .ThenBy(x => x.LevelID)
+                .ToList();
+        }
+    }
+
+    private async Task GetOpposingTeamsAsync()
+    {
+        string url = "/PerformanceBased/OpposingTeams";
+        var teams = await apiService.GetAsync<PerformanceTeam>(url);
+        if (teams != null)
+        {
+            _allOpposingTeams = teams;
+        }
+    }
+
+    private async Task GetScoreAsync()
+    {
+        string url = "/PerformanceScore/Scores";
+        var scores = await apiService.GetAsync<PerformanceScores>(url);
+        if (scores != null)
+        {
+            _allDancesportScores = scores;
+        }
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+        var regions = await apiService.GetAsync<SchoolRegion>(url);
+        if (regions != null)
+        {
+            _schoolRegions = regions;
+        }
+    }
+
+    private async Task GetAllPlayersAsync()
+    {
+        string url = $"/Profiles/Player";
+        var players = await apiService.GetAsync<Player>(url);
+        if (players != null)
+        {
+            _allPlayers = players;
+        }
+    }
+
+    /* ===================== HELPER METHODS ===================== */
+
+    private string GetEventCategory(PerformanceEvent evt)
+    {
+        if (evt.MainCategory.Contains("Latin", StringComparison.OrdinalIgnoreCase))
+            return "LATIN";
+        else if (evt.MainCategory.Contains("Modern", StringComparison.OrdinalIgnoreCase))
+            return "MODERN";
+        else if (evt.MainCategory.Contains("Standard", StringComparison.OrdinalIgnoreCase))
+            return "STANDARD";
+        return evt.MainCategory.ToUpper();
+    }
+
+    private string GetSchoolLevelName(int? schoolLevelId)
+    {
+        if (!schoolLevelId.HasValue)
+            return "Unknown";
+
+        return schoolLevelId.Value switch
+        {
+            1 => "Elementary",
+            2 => "Secondary",
+            _ => "Unknown"
+        };
+    }
+
+    private string GetGenderName(int? genderCategoryId)
+    {
+        if (!genderCategoryId.HasValue) return "Unknown";
+
+        return genderCategoryId.Value switch
+        {
+            1 => "Male",
+            2 => "Female",
+            3 => "Mixed",
+            _ => "Unknown"
+        };
+    }
+
+    private string GetEventStageName(int? eventStageId)
+    {
+        if (!eventStageId.HasValue) return "Unknown";
+
+        return eventStageId.Value switch
+        {
+            1 => "Preliminary",
+            2 => "Quarter Final",
+            3 => "Semi Final",
+            4 => "Final",
+            _ => "Unknown"
+        };
+    }
+
+    private int GetCouplesCount(int eventId)
+    {
+        return _allOpposingTeams
+            .Where(t => t.PerformanceID == eventId)
+            .GroupBy(t => t.TeamID)
+            .Count();
+    }
+
+    private List<CoupleDisplay> GetTopCouples(int eventId, int limit = 3)
+    {
+        var couples = new List<CoupleDisplay>();
+
+        // Group teams by RegionID and TeamID to identify couples
+        var teamGroups = _allOpposingTeams
+            .Where(t => t.PerformanceID == eventId)
+            .GroupBy(t => new { t.RegionID, t.TeamID })
+            .ToList();
+
+        foreach (var teamGroup in teamGroups)
+        {
+            var regionId = teamGroup.Key.RegionID;
+            var teamId = teamGroup.Key.TeamID;
+
+            var region = _schoolRegions.FirstOrDefault(r => r.ID == regionId);
+            var regionName = region?.Region ?? $"Region {regionId}";
+            var abbreviation = region?.Abbreviation ?? $"R{regionId}";
+
+            // Get all players in this couple
+            var playerIds = teamGroup.Select(t => t.PlayerID).ToList();
+            var players = _allPlayers
+                .Where(p => playerIds.Contains(p.ID))
+                .Select(p => $"{p.FirstName?.FirstOrDefault()}. {p.LastName}")
+                .ToList();
+
+            // Get rank for this couple
+            int rank = 0;
+            var teamScores = _allDancesportScores
+                .Where(s => s.PerformanceID == eventId && s.TeamID == teamId)
+                .ToList();
+
+            if (teamScores.Any())
+            {
+                // For qualification rounds (StageID != 4), check qualification score
+                var evt = _dancesportEvents.FirstOrDefault(e => e.ID == eventId);
+                if (evt?.StageID != 4)
+                {
+                    var qualificationScore = teamScores.FirstOrDefault(s =>
+                        s.SportSubcategoryID == GetQualificationSubcategoryId(eventId));
+                    if (qualificationScore != null)
+                    {
+                        rank = qualificationScore.Rank == 1 ? 1 : 0;
+                    }
+                }
+                else
+                {
+                    // For finals, get average rank or use specific logic
+                    var mainCategory = evt.MainCategory;
+                    if (mainCategory.Contains("Latin"))
+                    {
+                        var overallScore = teamScores.FirstOrDefault(s =>
+                            s.SportSubcategoryID == GetLatinSubcategoryID(evt.LevelID, "Grade A - 5 Dance (Latin American)"));
+                        rank = overallScore?.Rank ?? 0;
+                    }
+                    else if (mainCategory.Contains("Modern") || mainCategory.Contains("Standard"))
+                    {
+                        var overallScore = teamScores.FirstOrDefault(s =>
+                            s.SportSubcategoryID == GetModernSubcategoryID(evt.LevelID, "Grade A - 5 Dance (Modern Standard)"));
+                        rank = overallScore?.Rank ?? 0;
+                    }
+                }
+            }
+
+            couples.Add(new CoupleDisplay
+            {
+                RegionID = regionId,
+                Region = regionName,
+                RegionAbbreviation = abbreviation,
+                TeamID = teamId,
+                Dancers = players,
+                Rank = rank,
+                TotalScore = teamScores.Sum(s => (int)s.Score)
+            });
+        }
+
+        // Sort by rank, then by score
+        return couples
+            .OrderBy(c => c.Rank == 0 ? int.MaxValue : c.Rank)
+            .ThenByDescending(c => c.TotalScore)
+            .Take(limit)
+            .ToList();
+    }
+
+    private CoupleDisplay? GetWinningCouple(int eventId)
+    {
+        return GetTopCouples(eventId, 1).FirstOrDefault();
+    }
+
+    private int GetQualificationSubcategoryId(int eventId)
+    {
+        var evt = _dancesportEvents.FirstOrDefault(e => e.ID == eventId);
+        if (evt == null || !evt.LevelID.HasValue)
+            return 0;
+
+        return (evt.MainCategory, evt.LevelID.Value) switch
+        {
+            ("Latin American", 1) => 164,
+            ("Modern Standard", 1) => 170,
+            ("Latin American", 2) => 176,
+            ("Modern Standard", 2) => 182,
+            _ => 0
+        };
+    }
+
+    private int GetLatinSubcategoryID(int? schoolLevelId, string danceName)
+    {
+        if (!schoolLevelId.HasValue) return 0;
+
+        var schoolLevelName = GetSchoolLevelName(schoolLevelId);
+        if (schoolLevelName == "Elementary")
+        {
+            return danceName switch
+            {
+                "Chachacha" => 165,
+                "Jive" => 166,
+                "Paso Doble" => 167,
+                "Rumba" => 168,
+                "Samba" => 169,
+                "Grade A - 5 Dance (Latin American)" => 164,
+                _ => 0
+            };
+        }
+        else if (schoolLevelName == "Secondary")
+        {
+            return danceName switch
+            {
+                "Chachacha" => 177,
+                "Jive" => 178,
+                "Paso Doble" => 179,
+                "Rumba" => 180,
+                "Samba" => 181,
+                "Grade A - 5 Dance (Latin American)" => 176,
+                _ => 0
+            };
+        }
+
+        return 0;
+    }
+
+    private int GetModernSubcategoryID(int? schoolLevelId, string danceName)
+    {
+        if (!schoolLevelId.HasValue) return 0;
+
+        var schoolLevelName = GetSchoolLevelName(schoolLevelId);
+        if (schoolLevelName == "Elementary")
+        {
+            return danceName switch
+            {
+                "Tango" => 171,
+                "Foxtrot" => 172,
+                "Quickstep" => 173,
+                "Viennese Waltz" => 174,
+                "Waltz" => 175,
+                "Grade A - 5 Dance (Modern Standard)" => 170,
+                _ => 0
+            };
+        }
+        else if (schoolLevelName == "Secondary")
+        {
+            return danceName switch
+            {
+                "Tango" => 183,
+                "Foxtrot" => 184,
+                "Quickstep" => 185,
+                "Viennese Waltz" => 186,
+                "Waltz" => 187,
+                "Grade A - 5 Dance (Modern Standard)" => 182,
+                _ => 0
+            };
+        }
+
+        return 0;
+    }
+
+    /* ===================== CLEANUP ===================== */
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+}

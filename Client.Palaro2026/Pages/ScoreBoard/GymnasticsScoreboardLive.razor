@@ -1,0 +1,1373 @@
+﻿@page "/scoreboard/gymnastics/details/{EventID:int}"
+@using Client.Palaro2026.Services
+@using MudBlazor
+@inject APIService apiService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@implements IDisposable
+@layout NoMainLayout
+
+<PageTitle>Gymnastics Event Details | PALARO 2026</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@600;700&display=swap');
+
+    :root {
+        --bg-dark: #0a0a0a;
+        --card-bg: rgba(30, 30, 30, 0.7);
+        --card-border: rgba(255, 255, 255, 0.1);
+        --text-primary: #ffffff;
+        --accent-yellow: #FFD700;
+        --accent-gold: #FFC107;
+        --accent-amber: #FFA000;
+        --accent-orange: #FF8C00;
+        --neon-yellow: 0 0 10px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.3);
+        --neon-gold: 0 0 10px rgba(255, 193, 7, 0.4);
+        --neon-amber: 0 0 10px rgba(255, 160, 0, 0.6);
+    }
+
+    .dashboard-bg {
+        background-color: var(--bg-dark);
+        background-image: radial-gradient(circle at 10% 20%, rgba(255, 215, 0, 0.08) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(255, 193, 7, 0.05) 0%, transparent 40%), linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+        min-height: 100vh;
+        color: var(--text-primary);
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    /* HEADER */
+    .header-container {
+        text-align: center;
+        margin-bottom: 30px;
+        position: relative;
+        padding: 20px 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+        border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+    }
+
+    .main-title {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        font-size: clamp(2rem, 5vw, 3rem);
+        background: linear-gradient(180deg, #FFD700 0%, #FFC107 50%, #FFA000 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.4));
+    }
+
+    .sub-title {
+        font-family: 'Chakra Petch', sans-serif;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+        letter-spacing: 3px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    /* BACK BUTTON */
+    .back-button {
+        background: rgba(255, 215, 0, 0.1) !important;
+        border: 1px solid rgba(255, 215, 0, 0.3) !important;
+        color: var(--accent-yellow) !important;
+        border-radius: 10px !important;
+        font-family: 'Orbitron' !important;
+        font-weight: 700 !important;
+        letter-spacing: 1px !important;
+        transition: all 0.3s ease !important;
+    }
+
+        .back-button:hover {
+            background: rgba(255, 215, 0, 0.2) !important;
+            border-color: var(--accent-yellow) !important;
+            transform: translateX(-5px);
+            box-shadow: var(--neon-gold) !important;
+        }
+
+    /* EVENT INFO CARD */
+    .event-info-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+        .event-info-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent-yellow), transparent);
+        }
+
+    .status-badge {
+        padding: 6px 20px;
+        border-radius: 8px;
+        font-family: 'Chakra Petch';
+        font-weight: 800;
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+        display: inline-block;
+    }
+
+    .badge-live {
+        background: linear-gradient(135deg, #FFA000 0%, #FF8C00 100%);
+        color: white;
+        box-shadow: 0 0 15px rgba(255, 160, 0, 0.6);
+        border: 1px solid #FFA000;
+        animation: pulse 2s infinite;
+    }
+
+    .badge-final {
+        background: linear-gradient(135deg, #FFC107 0%, #FF9800 100%);
+        color: black;
+        border: 1px solid #FFD700;
+        box-shadow: 0 0 10px rgba(255, 193, 7, 0.4);
+        font-weight: 900;
+    }
+
+    .badge-upcoming {
+        background: linear-gradient(135deg, #FFEB3B 0%, #FFC107 100%);
+        color: black;
+        border: 1px solid #FFEB3B;
+        box-shadow: 0 0 10px rgba(255, 235, 59, 0.4);
+    }
+
+    /* MEDAL PODIUM */
+    .medal-podium {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 20px;
+        margin: 30px 0;
+        height: 200px;
+    }
+
+    .podium-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        border-radius: 10px 10px 0 0;
+        min-width: 120px;
+        transition: transform 0.3s ease;
+    }
+
+        .podium-step:hover {
+            transform: translateY(-5px);
+        }
+
+    .podium-gold {
+        height: 150px;
+        background: linear-gradient(180deg, #FFD700 0%, #B8860B 100%);
+        box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        border: 2px solid #FFD700;
+    }
+
+    .podium-silver {
+        height: 120px;
+        background: linear-gradient(180deg, #C0C0C0 0%, #808080 100%);
+        box-shadow: 0 0 15px rgba(192, 192, 192, 0.4);
+        border: 2px solid #C0C0C0;
+    }
+
+    .podium-bronze {
+        height: 90px;
+        background: linear-gradient(180deg, #CD7F32 0%, #8B4513 100%);
+        box-shadow: 0 0 15px rgba(205, 127, 50, 0.4);
+        border: 2px solid #CD7F32;
+    }
+
+    .podium-rank {
+        position: absolute;
+        top: -40px;
+        font-family: 'Orbitron';
+        font-weight: 900;
+        font-size: 2rem;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+
+    .podium-name {
+        margin-top: 10px;
+        font-family: 'Chakra Petch';
+        font-weight: 700;
+        font-size: 0.9rem;
+        text-align: center;
+        max-width: 100px;
+        word-break: break-word;
+    }
+
+    /* SCORE CARD */
+    .score-card {
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 15px;
+        padding: 15px;
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        box-shadow: var(--neon-gold);
+        transition: all 0.3s ease;
+    }
+
+        .score-card:hover {
+            border-color: var(--accent-yellow);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+            transform: translateY(-3px);
+        }
+
+    .score-value {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2.5rem;
+        font-weight: 900;
+        color: var(--accent-yellow);
+        line-height: 1;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    }
+
+    .score-label {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.8rem;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 5px;
+    }
+
+    /* APPARATUS GRID */
+    .apparatus-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+    }
+
+    .apparatus-card {
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 215, 0, 0.1);
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+        .apparatus-card:hover {
+            border-color: var(--accent-yellow);
+            background: rgba(255, 215, 0, 0.05);
+            transform: translateY(-3px);
+        }
+
+    .apparatus-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        color: var(--accent-yellow);
+    }
+
+    .apparatus-name {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.9rem;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 5px;
+    }
+
+    .apparatus-score {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--accent-yellow);
+        text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+    }
+
+    /* TABLE STYLES */
+    .championship-table {
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 215, 0, 0.2);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--neon-gold);
+    }
+
+    .table-header {
+        background: linear-gradient(90deg, rgba(255, 215, 0, 0.2), rgba(255, 193, 7, 0.1));
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+    }
+
+    .rank-cell {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        color: var(--accent-yellow);
+    }
+
+    .score-cell {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 700;
+        color: var(--accent-amber);
+    }
+
+    .medal-gold {
+        color: #FFD700;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    }
+
+    .medal-silver {
+        color: #C0C0C0;
+        text-shadow: 0 0 10px rgba(192, 192, 192, 0.5);
+    }
+
+    .medal-bronze {
+        color: #CD7F32;
+        text-shadow: 0 0 10px rgba(205, 127, 50, 0.5);
+    }
+
+    /* STATS CARDS */
+    .stats-card {
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 215, 0, 0.2);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .stats-value {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2rem;
+        font-weight: 900;
+        color: var(--accent-yellow);
+        margin: 10px 0;
+    }
+
+    .stats-label {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.9rem;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* ANIMATIONS */
+    @@keyframes pulse {
+        0% {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(255, 160, 0, 0.6);
+        }
+
+        50% {
+            opacity: 0.8;
+            box-shadow: 0 0 5px rgba(255, 160, 0, 0.3);
+        }
+
+        100% {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(255, 160, 0, 0.6);
+        }
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-slide-in {
+        animation: slideIn 0.5s ease-out;
+    }
+
+    /* RESPONSIVE */
+    @@media (max-width: 768px) {
+        .medal-podium {
+            flex-direction: column;
+            align-items: center;
+            height: auto;
+            gap: 10px;
+        }
+
+        .podium-step {
+            width: 80%;
+            height: 80px !important;
+            flex-direction: row;
+            justify-content: space-between;
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+
+        .podium-rank {
+            position: static;
+            font-size: 1.5rem;
+        }
+
+        .apparatus-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .apparatus-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .main-title {
+            font-size: 1.5rem;
+        }
+
+        .sub-title {
+            font-size: 0.8rem;
+        }
+    }
+</style>
+
+<div class="dashboard-bg">
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
+
+        <!-- BACK BUTTON -->
+        <MudButton Variant="Variant.Outlined"
+                   Class="back-button mb-4"
+                   OnClick="NavigateBack"
+                   StartIcon="@Icons.Material.Filled.ArrowBack">
+            BACK TO SCOREBOARD
+        </MudButton>
+
+        @if (_isLoading)
+        {
+            <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background: rgba(0,0,0,0.7); border: 1px solid rgba(255,215,0,0.2); border-radius: 20px;">
+                <MudProgressCircular Indeterminate="true" Class="icon-gold" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-4 gold-gradient" Style="font-family:'Orbitron';">
+                    LOADING EVENT DETAILS...
+                </MudText>
+            </MudPaper>
+        }
+        else if (_currentEvent == null)
+        {
+            <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background: rgba(0,0,0,0.7); border: 1px solid rgba(255,215,0,0.2); border-radius: 20px;">
+                <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Class="icon-gold mb-4" />
+                <MudText Typo="Typo.h6" Class="mt-4" Style="color: var(--accent-yellow); font-family:'Orbitron';">
+                    EVENT NOT FOUND
+                </MudText>
+                <MudText Typo="Typo.body2" Style="color: rgba(255,215,0,0.7); text-align:center;">
+                    The requested gymnastics event could not be found.
+                </MudText>
+                <MudButton Variant="Variant.Filled"
+                           Class="gold-button mt-6"
+                           OnClick="NavigateBack">
+                    RETURN TO SCOREBOARD
+                </MudButton>
+            </MudPaper>
+        }
+        else
+        {
+            <!-- HEADER -->
+            <div class="header-container animate-slide-in">
+                <div class="main-title">@GetEventTitle(_currentEvent)</div>
+                <div class="sub-title">@GetGenderName(_currentEvent.GenderID) • @GetSchoolLevelName(_currentEvent.LevelID)</div>
+                
+                <!-- STATUS BADGE -->
+                <div class="mt-3">
+                    @if (IsLiveEvent(_currentEvent))
+                    {
+                        <div class="status-badge badge-live">
+                            <MudIcon Icon="@Icons.Material.Filled.LiveTv" Size="Size.Small" Class="mr-2" />
+                            LIVE
+                        </div>
+                    }
+                    else if (IsFinalEvent(_currentEvent))
+                    {
+                        <div class="status-badge badge-final">
+                            <MudIcon Icon="@Icons.Material.Filled.MilitaryTech" Size="Size.Small" Class="mr-2" />
+                            FINAL RESULTS
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="status-badge badge-upcoming">
+                            <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Class="mr-2" />
+                            UPCOMING
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- EVENT INFO -->
+            <MudGrid Spacing="3" Class="animate-slide-in" Style="animation-delay: 0.1s;">
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="event-info-card pa-4 h-100">
+                        <MudText Typo="Typo.h6" Class="mb-3" Style="color: var(--accent-yellow); font-family:'Orbitron';">
+                            <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" />
+                            EVENT INFORMATION
+                        </MudText>
+                        
+                     
+
+                        <!-- REFRESH BUTTON -->
+                        <MudButton Variant="Variant.Filled"
+                                   Class="gold-button mt-4"
+                                   FullWidth="true"
+                                   OnClick="async () => await LoadEventDataAsync()"
+                                   StartIcon="@Icons.Material.Filled.Refresh">
+                            REFRESH DATA
+                        </MudButton>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- MEDAL PODIUM -->
+                <MudItem xs="12" md="8">
+                    <MudPaper Class="event-info-card pa-4 h-100">
+                        <MudText Typo="Typo.h6" Class="mb-3" Style="color: var(--accent-yellow); font-family:'Orbitron';">
+                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="mr-2" />
+                            MEDAL PODIUM
+                        </MudText>
+
+                        @if (_medalists.Any())
+                        {
+                            <div class="medal-podium">
+                                <!-- SILVER (2nd) -->
+                                @if (_medalists.Count > 1)
+                                {
+                                    <div class="podium-step podium-silver">
+                                        <div class="podium-rank medal-silver">2</div>
+                                        <div class="podium-name">@_medalists[1].PlayerName</div>
+                                        <MudText Typo="Typo.caption" Class="mt-1" Style="color: #C0C0C0;">
+                                            @_medalists[1].Total.ToString("0.000")
+                                        </MudText>
+                                    </div>
+                                }
+
+                                <!-- GOLD (1st) -->
+                                @if (_medalists.Count > 0)
+                                {
+                                    <div class="podium-step podium-gold">
+                                        <div class="podium-rank medal-gold">1</div>
+                                        <div class="podium-name">@_medalists[0].PlayerName</div>
+                                        <MudText Typo="Typo.caption" Class="mt-1" Style="color: #FFD700;">
+                                            @_medalists[0].Total.ToString("0.000")
+                                        </MudText>
+                                    </div>
+                                }
+
+                                <!-- BRONZE (3rd) -->
+                                @if (_medalists.Count > 2)
+                                {
+                                    <div class="podium-step podium-bronze">
+                                        <div class="podium-rank medal-bronze">3</div>
+                                        <div class="podium-name">@_medalists[2].PlayerName</div>
+                                        <MudText Typo="Typo.caption" Class="mt-1" Style="color: #CD7F32;">
+                                            @_medalists[2].Total.ToString("0.000")
+                                        </MudText>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (_medalists.Count < 3)
+                            {
+                                <MudText Typo="Typo.body2" Class="text-center mt-4" Style="color: rgba(255,215,0,0.7);">
+                                    Waiting for more competitors to complete their routines...
+                                </MudText>
+                            }
+                        }
+                        else
+                        {
+                            <MudPaper Class="pa-8 d-flex flex-column align-center justify-center" Style="background: rgba(0,0,0,0.3); border-radius: 12px;">
+                                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Large" Class="icon-gold mb-3" />
+                                <MudText Typo="Typo.body1" Style="color: rgba(255,215,0,0.7); text-align: center;">
+                                    No medalists yet. Competition in progress...
+                                </MudText>
+                            </MudPaper>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <!-- APPARATUS SCORES -->
+            <MudPaper Class="event-info-card pa-4 mt-4 animate-slide-in" Style="animation-delay: 0.2s;">
+                <MudText Typo="Typo.h6" Class="mb-3" Style="color: var(--accent-yellow); font-family:'Orbitron';">
+                    <MudIcon Icon="@Icons.Material.Filled.SportsGymnastics" Class="mr-2" />
+                    APPARATUS SCORES
+                </MudText>
+
+                <div class="apparatus-grid">
+                    @foreach (var apparatus in GetApparatusForEvent(_currentEvent))
+                    {
+                        var topScore = GetTopApparatusScore(apparatus.Item1);
+                        <div class="apparatus-card">
+                            <div class="apparatus-icon">
+                                @GetApparatusIcon(apparatus.Item2)
+                            </div>
+                            <div class="apparatus-name">@apparatus.Item2</div>
+                            <div class="apparatus-score">@topScore.ToString("0.000")</div>
+                            <MudText Typo="Typo.caption" Style="color: #aaa;">
+                                Top Score
+                            </MudText>
+                        </div>
+                    }
+                </div>
+            </MudPaper>
+
+            <!-- STATS OVERVIEW -->
+            <MudGrid Spacing="3" Class="mt-4 animate-slide-in" Style="animation-delay: 0.3s;">
+                <MudItem xs="12" sm="6" md="3">
+                    <div class="stats-card">
+                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Large" Class="icon-gold" />
+                        <div class="stats-value">@_averageScore.ToString("0.000")</div>
+                        <div class="stats-label">Average Score</div>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <div class="stats-card">
+                        <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Large" Class="icon-gold" />
+                        <div class="stats-value">@_highestScore.ToString("0.000")</div>
+                        <div class="stats-label">Highest Score</div>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <div class="stats-card">
+                        <MudIcon Icon="@Icons.Material.Filled.Timeline" Size="Size.Large" Class="icon-gold" />
+                        <div class="stats-value">@_lowestScore.ToString("0.000")</div>
+                        <div class="stats-label">Lowest Score</div>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <div class="stats-card">
+                        <MudIcon Icon="@Icons.Material.Filled.Equalizer" Size="Size.Large" Class="icon-gold" />
+                        <div class="stats-value">@_scoreRange.ToString("0.000")</div>
+                        <div class="stats-label">Score Range</div>
+                    </div>
+                </MudItem>
+            </MudGrid>
+
+            <!-- DETAILED SCOREBOARD -->
+            <MudPaper Class="event-info-card pa-4 mt-4 animate-slide-in" Style="animation-delay: 0.4s;">
+                <div class="d-flex justify-space-between align-center mb-3">
+                    <MudText Typo="Typo.h6" Style="color: var(--accent-yellow); font-family:'Orbitron';">
+                        <MudIcon Icon="@Icons.Material.Filled.FormatListNumbered" Class="mr-2" />
+                        DETAILED SCOREBOARD
+                    </MudText>
+                    <MudText Typo="Typo.caption" Style="color: #aaa;">
+                        Showing @_scoreboardData.Count competitors
+                    </MudText>
+                </div>
+
+                <MudTable Items="@_scoreboardData" Dense="true" Hover="true" Class="championship-table">
+                    <HeaderContent>
+                        <MudTh Class="rank-cell">Rank</MudTh>
+                        <MudTh>Gymnast</MudTh>
+                        <MudTh>Region</MudTh>
+                        @foreach (var apparatus in GetApparatusForEvent(_currentEvent))
+                        {
+                            <MudTh Style="text-align: center">@apparatus.Item2</MudTh>
+                        }
+                        <MudTh Style="text-align: center">Total</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        @{
+                            var rank = GetPlayerRank(context.RegionID, context.PlayerID);
+                            var rankClass = rank <= 3 ? $"medal-{(rank == 1 ? "gold" : rank == 2 ? "silver" : "bronze")}" : "";
+                        }
+                        <MudTd Class="@rankClass" Style="font-family:'Orbitron'; font-weight:900;">
+                            @rank
+                        </MudTd>
+                        <MudTd>@context.Gymnast</MudTd>
+                        <MudTd>
+                            <span class="region-badge">@context.Region</span>
+                        </MudTd>
+                        @foreach (var apparatus in GetApparatusForEvent(_currentEvent))
+                        {
+                            var score = GetScoreForApparatus(context.RegionID, context.PlayerID, apparatus.Item1);
+                            <MudTd Style="text-align: center; font-family:'Orbitron'; font-weight:700; color: var(--accent-yellow);">
+                                @score.ToString("0.000")
+                            </MudTd>
+                        }
+                        <MudTd Class="score-cell" Style="text-align: center; font-weight:900;">
+                            @GetPlayerTotalScore(context.RegionID, context.PlayerID).ToString("0.000")
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+
+            <!-- TEAM CHAMPIONSHIP (If applicable) -->
+            @if (IsTeamEvent())
+            {
+                <MudPaper Class="event-info-card pa-4 mt-4 animate-slide-in" Style="animation-delay: 0.5s;">
+                    <MudText Typo="Typo.h6" Class="mb-3" Style="color: var(--accent-yellow); font-family:'Orbitron';">
+                        <MudIcon Icon="@Icons.Material.Filled.Groups" Class="mr-2" />
+                        TEAM CHAMPIONSHIP
+                    </MudText>
+
+                    <MudTable Items="@GetTeamRanking()" Dense="true" Hover="true" Class="championship-table">
+                        <HeaderContent>
+                            <MudTh Class="rank-cell">Rank</MudTh>
+                            <MudTh>Region</MudTh>
+                            <MudTh Style="text-align: center">Team Members</MudTh>
+                            <MudTh Style="text-align: center">Total Score</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd Class="@(context.Rank <= 3 ? $"medal-{(context.Rank == 1 ? "gold" : context.Rank == 2 ? "silver" : "bronze")}" : "rank-cell")">
+                                @context.Rank
+                            </MudTd>
+                            <MudTd>
+                                <span class="region-badge">@context.RegionName</span>
+                            </MudTd>
+                            <MudTd Style="text-align: center">
+                                @string.Join(", ", context.TeamMembers)
+                            </MudTd>
+                            <MudTd Class="score-cell" Style="text-align: center; font-weight:900;">
+                                @context.TeamTotal.ToString("0.000")
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            }
+        }
+    </MudContainer>
+</div>
+
+@code {
+    [Parameter] public int EventID { get; set; }
+
+    private bool _isLoading = true;
+    private PerformanceBasedDTO.PerformanceEvent? _currentEvent;
+    private List<PerformanceBasedDTO.PerformanceScore> _eventScores = new();
+    private List<ScoreboardItem> _scoreboardData = new();
+    private List<IndividualAllAroundRanking> _medalists = new();
+    private DateTime _lastUpdateTime = DateTime.Now;
+    private Timer? _refreshTimer;
+
+    // Stats
+    private decimal _averageScore = 0;
+    private decimal _highestScore = 0;
+    private decimal _lowestScore = 0;
+    private decimal _scoreRange = 0;
+
+    // Shared data (same as main page)
+    private List<SchoolsDTO.SchoolLevels>? _schoolLevels;
+    private List<SportsDTO.SportSubcategories>? _sportSubcategories;
+    private List<EventsDTO.EventStages>? _eventStages;
+    private List<PerformanceBasedDTO.PerformanceTeam>? _allOpposingTeams;
+    private List<SchoolsDTO.SchoolRegion>? _schoolRegions;
+    private List<ProfilePlayersDTO.Players>? _allPlayers;
+    private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSharedDataAsync();
+        await LoadEventDataAsync();
+        StartAutoRefresh();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadEventDataAsync();
+    }
+
+    private void StartAutoRefresh()
+    {
+        _refreshTimer = new Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                if (_currentEvent != null && IsLiveEvent(_currentEvent))
+                {
+                    await LoadEventDataAsync();
+                    StateHasChanged();
+                }
+            });
+        }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
+    }
+
+    private async Task LoadSharedDataAsync()
+    {
+        try
+        {
+            // Load all shared data (similar to main page)
+            await Task.WhenAll(
+                GetEventStagesAsync(),
+                GetGenderCategoriesAsync(),
+                GetSchoolLevelsAsync(),
+                GetSchoolRegionsAsync(),
+                GetAllPlayersAsync(),
+                GetSportSubCategoriesAsync(),
+                GetOpposingTeamsAsync()
+            );
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading shared data: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task LoadEventDataAsync()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Load event details
+            await GetEventDetailsAsync();
+            
+            if (_currentEvent != null)
+            {
+                // Load scores for this event
+                await LoadEventScoresAsync();
+                
+                // Load scoreboard data
+                await LoadScoreboardDataAsync();
+                
+                // Calculate stats
+                CalculateStats();
+                
+                // Get medalists
+                _medalists = GetIndividualAllAroundRanking().Take(3).ToList();
+                
+                _lastUpdateTime = DateTime.Now;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading event data: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task GetEventDetailsAsync()
+    {
+        try
+        {
+            string url = $"/PerformanceBased/PerformanceEvents/{EventID}";
+            _currentEvent = await apiService.GetSingleAsync<PerformanceBasedDTO.PerformanceEvent>(url);
+        }
+        catch
+        {
+            _currentEvent = null;
+        }
+    }
+
+    private async Task GetOpposingTeamsAsync()
+    {
+        string url = "/PerformanceBased/OpposingTeams";
+        _allOpposingTeams = await apiService.GetAsync<PerformanceBasedDTO.PerformanceTeam>(url);
+    }
+
+    private async Task GetEventStagesAsync()
+    {
+        string url = "/Events/Stages";
+        _eventStages = await apiService.GetAsync<EventsDTO.EventStages>(url);
+    }
+
+    private async Task GetGenderCategoriesAsync()
+    {
+        string url = "/Sports/GenderCategories";
+        _sportGenderCategories = await apiService.GetAsync<SportsDTO.SportGenderCategories>(url);
+    }
+
+    private async Task GetSchoolLevelsAsync()
+    {
+        string url = "/Schools/Levels";
+        _schoolLevels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>(url);
+    }
+
+    private async Task GetSchoolRegionsAsync()
+    {
+        string url = "/Schools/Regions";
+        _schoolRegions = await apiService.GetAsync<SchoolsDTO.SchoolRegion>(url);
+    }
+
+    private async Task GetAllPlayersAsync()
+    {
+        string url = $"/Profiles/Player";
+        _allPlayers = await apiService.GetAsync<ProfilePlayersDTO.Players>(url);
+    }
+
+    private async Task GetSportSubCategoriesAsync()
+    {
+        string url = $"/Sports/Subcategories?sportID=13";
+        _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>(url);
+    }
+
+    private async Task LoadEventScoresAsync()
+    {
+        try
+        {
+            string url = $"/PerformanceScore/Score/{EventID}";
+            _eventScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(url)
+                           ?? new List<PerformanceBasedDTO.PerformanceScore>();
+        }
+        catch
+        {
+            _eventScores = new List<PerformanceBasedDTO.PerformanceScore>();
+        }
+    }
+
+    private async Task LoadScoreboardDataAsync()
+    {
+        if (_currentEvent == null || _allOpposingTeams == null || _schoolRegions == null || _allPlayers == null)
+        {
+            _scoreboardData = new List<ScoreboardItem>();
+            return;
+        }
+
+        try
+        {
+            _scoreboardData = new List<ScoreboardItem>();
+
+            var eventTeams = _allOpposingTeams
+                .Where(t => t.PerformanceID == EventID)
+                .ToList();
+
+            var individualPlayers = eventTeams
+                .Where(t => !t.TeamID.HasValue)
+                .ToList();
+
+            foreach (var team in individualPlayers)
+            {
+                var region = _schoolRegions.FirstOrDefault(r => r.ID == team.RegionID);
+                var player = _allPlayers.FirstOrDefault(p => p.ID == team.PlayerID);
+
+                if (region != null && player != null)
+                {
+                    _scoreboardData.Add(new ScoreboardItem
+                    {
+                        RegionID = team.RegionID,
+                        Region = region.Abbreviation ?? region.Region,
+                        PlayerID = team.PlayerID,
+                        Gymnast = $"{player.FirstName} {player.LastName}",
+                        TeamID = null
+                    });
+                }
+            }
+
+            var teamGroups = eventTeams
+                .Where(team => team.TeamID.HasValue)
+                .GroupBy(team => new { team.RegionID, team.TeamID })
+                .ToList();
+
+            foreach (var teamGroup in teamGroups)
+            {
+                var region = _schoolRegions.FirstOrDefault(r => r.ID == teamGroup.Key.RegionID);
+                if (region == null) continue;
+
+                var teamPlayers = new List<string>();
+                var teamGymnastNames = new List<string>();
+
+                foreach (var team in teamGroup)
+                {
+                    var player = _allPlayers.FirstOrDefault(p => p.ID == team.PlayerID);
+                    if (player != null)
+                    {
+                        teamPlayers.Add(team.PlayerID);
+                        teamGymnastNames.Add($"{player.FirstName} {player.LastName}");
+                    }
+                }
+
+                if (teamPlayers.Any())
+                {
+                    _scoreboardData.Add(new ScoreboardItem
+                    {
+                        RegionID = teamGroup.Key.RegionID,
+                        Region = region.Abbreviation ?? region.Region,
+                        PlayerID = teamPlayers.First(),
+                        Gymnast = string.Join(" / ", teamGymnastNames),
+                        TeamID = teamGroup.Key.TeamID
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading scoreboard: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void CalculateStats()
+    {
+        var allScores = _scoreboardData
+            .Select(item => GetPlayerTotalScore(item.RegionID, item.PlayerID))
+            .Where(score => score > 0)
+            .ToList();
+
+        if (allScores.Any())
+        {
+            _averageScore = allScores.Average();
+            _highestScore = allScores.Max();
+            _lowestScore = allScores.Min();
+            _scoreRange = _highestScore - _lowestScore;
+        }
+    }
+
+    // Helper methods (similar to main page)
+    private string GetSchoolLevelName(int? schoolLevelId)
+    {
+        if (!schoolLevelId.HasValue) return "Unknown";
+        var level = _schoolLevels?.FirstOrDefault(sl => sl.ID == schoolLevelId.Value);
+        return level?.Level ?? "Unknown";
+    }
+
+    private string GetGenderName(int? genderCategoryId)
+    {
+        if (!genderCategoryId.HasValue) return "Unknown";
+        var gender = _sportGenderCategories?.FirstOrDefault(g => g.ID == genderCategoryId.Value);
+        return gender?.Gender ?? "Unknown";
+    }
+
+    private string GetEventStageName(int? eventStageId)
+    {
+        if (!eventStageId.HasValue) return "Unknown";
+        var stage = _eventStages?.FirstOrDefault(es => es.ID == eventStageId.Value);
+        return stage?.Stage ?? "Unknown";
+    }
+
+    private bool IsLiveEvent(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        return GetEventStageName(evt.StageID)?.Contains("Elimination", StringComparison.OrdinalIgnoreCase) == true ||
+               GetEventStageName(evt.StageID)?.Contains("Qualification", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private bool IsFinalEvent(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        return GetEventStageName(evt.StageID)?.Contains("Final", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private string GetEventTitle(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        // Use the same logic as main page
+        return evt?.MainCategory ?? "Gymnastics Event";
+    }
+
+    private int GetParticipantCount()
+    {
+        return _scoreboardData.Count;
+    }
+
+    private List<(int, string)> GetApparatusForEvent(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        // Use the same logic as main page
+        var apparatusList = new List<(int, string)>();
+
+        // Add your apparatus mapping logic here
+        // This should match the logic in your main page
+        
+        return apparatusList;
+    }
+
+    private decimal GetTopApparatusScore(int apparatusId)
+    {
+        var scores = _eventScores
+            .Where(s => s.SportSubcategoryID == apparatusId)
+            .Select(s => s.Score)
+            .ToList();
+        
+        return scores.Any() ? scores.Max() : 0;
+    }
+
+    private RenderFragment GetApparatusIcon(string apparatusName)
+    {
+        return apparatusName.ToLower() switch
+        {
+            "beam" => @<MudIcon Icon="@Icons.Material.Filled.Balance" Class="icon-gold" />,
+            "floor" => @<MudIcon Icon="@Icons.Material.Filled.SquareFoot" Class="icon-gold" />,
+            "bars" or "bar" => @<MudIcon Icon="@Icons.Material.Filled.HorizontalRule" Class="icon-gold" />,
+            "vault" => @<MudIcon Icon="@Icons.Material.Filled.SquareFoot" Class="icon-gold" />,
+            "horse" => @<MudIcon Icon="@Icons.Material.Filled.DirectionsRun" Class="icon-gold" />,
+            "ball" => @<MudIcon Icon="@Icons.Material.Filled.Sports" Class="icon-gold" />,
+            "hoop" => @<MudIcon Icon="@Icons.Material.Filled.Circle" Class="icon-gold" />,
+            "ribbon" => @<MudIcon Icon="@Icons.Material.Filled.Waves" Class="icon-gold" />,
+            "clubs" => @<MudIcon Icon="@Icons.Material.Filled.SportsMartialArts" Class="icon-gold" />,
+            "rope" => @<MudIcon Icon="@Icons.Material.Filled.SquareFoot" Class="icon-gold" />,
+            _ => @<MudIcon Icon="@Icons.Material.Filled.Star" Class="icon-gold" />
+        };
+    }
+
+    private int GetPlayerRank(int regionId, string playerId)
+    {
+        var rankings = GetIndividualAllAroundRanking();
+        var playerRanking = rankings.FirstOrDefault(r =>
+            r.RegionID == regionId && r.PlayerID == playerId);
+        return playerRanking?.Rank ?? 0;
+    }
+
+    private decimal GetPlayerTotalScore(int regionId, string playerId)
+    {
+        var rankings = GetIndividualAllAroundRanking();
+        var playerRanking = rankings.FirstOrDefault(r =>
+            r.RegionID == regionId && r.PlayerID == playerId);
+        return playerRanking?.Total ?? 0;
+    }
+
+    private decimal GetScoreForApparatus(int regionId, string playerId, int apparatusId)
+    {
+        if (_allOpposingTeams == null || _eventScores == null) return 0;
+
+        var opposingTeam = _allOpposingTeams.FirstOrDefault(ot =>
+            ot.PerformanceID == EventID &&
+            ot.RegionID == regionId &&
+            ot.PlayerID == playerId);
+
+        if (opposingTeam == null) return 0;
+
+        var score = _eventScores.FirstOrDefault(s =>
+            s.PerformanceTeamID == opposingTeam.ID &&
+            s.SportSubcategoryID == apparatusId &&
+            !s.TeamID.HasValue);
+
+        return score?.Score ?? 0;
+    }
+
+    private List<IndividualAllAroundRanking> GetIndividualAllAroundRanking()
+    {
+        if (_allOpposingTeams == null || _eventScores == null || _schoolRegions == null || _allPlayers == null)
+            return new List<IndividualAllAroundRanking>();
+
+        var individualPlayers = _allOpposingTeams
+            .Where(t => t.PerformanceID == EventID && !t.TeamID.HasValue)
+            .Select(t => new { t.PlayerID, t.RegionID })
+            .Distinct()
+            .ToList();
+
+        var rankings = new List<IndividualAllAroundRanking>();
+
+        foreach (var playerInfo in individualPlayers)
+        {
+            var player = _allPlayers.FirstOrDefault(p => p.ID == playerInfo.PlayerID);
+            var region = _schoolRegions.FirstOrDefault(r => r.ID == playerInfo.RegionID);
+
+            if (player == null || region == null) continue;
+
+            var opposingTeam = _allOpposingTeams
+                .FirstOrDefault(t => t.PerformanceID == EventID &&
+                               t.RegionID == playerInfo.RegionID &&
+                               t.PlayerID == playerInfo.PlayerID);
+
+            if (opposingTeam == null) continue;
+
+            var playerScores = _eventScores
+                .Where(s => s.PerformanceTeamID == opposingTeam.ID)
+                .Select(s => s.Score)
+                .ToList();
+
+            decimal totalScore = playerScores.Sum();
+
+            rankings.Add(new IndividualAllAroundRanking
+            {
+                RegionID = playerInfo.RegionID,
+                RegionName = region.Abbreviation ?? region.Region,
+                PlayerID = playerInfo.PlayerID,
+                PlayerName = $"{player.FirstName} {player.LastName}",
+                Total = totalScore
+            });
+        }
+
+        return rankings
+            .OrderByDescending(r => r.Total)
+            .Select((ranking, index) => new IndividualAllAroundRanking
+            {
+                Rank = index + 1,
+                RegionID = ranking.RegionID,
+                RegionName = ranking.RegionName,
+                PlayerID = ranking.PlayerID,
+                PlayerName = ranking.PlayerName,
+                Total = ranking.Total
+            })
+            .ToList();
+    }
+
+    private bool IsTeamEvent()
+    {
+        return _allOpposingTeams?
+            .Any(t => t.PerformanceID == EventID && t.TeamID.HasValue) ?? false;
+    }
+
+    private List<TeamRanking> GetTeamRanking()
+    {
+        if (_allOpposingTeams == null || _eventScores == null || _schoolRegions == null || _allPlayers == null)
+            return new List<TeamRanking>();
+
+        var teamIds = _allOpposingTeams
+            .Where(t => t.PerformanceID == EventID && t.TeamID.HasValue)
+            .Select(t => t.TeamID.Value)
+            .Distinct()
+            .ToList();
+
+        var rankings = new List<TeamRanking>();
+
+        foreach (var teamId in teamIds)
+        {
+            var teamMembers = _allOpposingTeams
+                .Where(t => t.PerformanceID == EventID && t.TeamID == teamId)
+                .ToList();
+
+            if (!teamMembers.Any()) continue;
+
+            var region = _schoolRegions.FirstOrDefault(r => r.ID == teamMembers.First().RegionID);
+            if (region == null) continue;
+
+            var teamScores = _eventScores
+                .Where(s => s.TeamID == teamId)
+                .Select(s => s.Score)
+                .ToList();
+
+            decimal totalScore = teamScores.Sum();
+
+            var playerNames = teamMembers
+                .Select(t => _allPlayers.FirstOrDefault(p => p.ID == t.PlayerID))
+                .Where(p => p != null)
+                .Select(p => $"{p.FirstName} {p.LastName}")
+                .ToList();
+
+            rankings.Add(new TeamRanking
+            {
+                RegionID = teamMembers.First().RegionID,
+                RegionName = region.Abbreviation ?? region.Region,
+                TeamTotal = totalScore,
+                TeamMembers = playerNames
+            });
+        }
+
+        return rankings
+            .OrderByDescending(r => r.TeamTotal)
+            .Select((ranking, index) => new TeamRanking
+            {
+                Rank = index + 1,
+                RegionID = ranking.RegionID,
+                RegionName = ranking.RegionName,
+                TeamTotal = ranking.TeamTotal,
+                TeamMembers = ranking.TeamMembers
+            })
+            .ToList();
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/scoreboard/gymnastics");
+    }
+
+    // Data models (same as main page)
+    public class ScoreboardItem
+    {
+        public int RegionID { get; set; }
+        public string Region { get; set; } = string.Empty;
+        public string PlayerID { get; set; } = string.Empty;
+        public string Gymnast { get; set; } = string.Empty;
+        public int? TeamID { get; set; }
+    }
+
+    public class IndividualAllAroundRanking
+    {
+        public int Rank { get; set; }
+        public string PlayerName { get; set; } = string.Empty;
+        public string RegionName { get; set; } = string.Empty;
+        public decimal Total { get; set; }
+        public int RegionID { get; set; }
+        public string PlayerID { get; set; } = string.Empty;
+    }
+
+    public class TeamRanking
+    {
+        public int Rank { get; set; }
+        public string RegionName { get; set; } = string.Empty;
+        public decimal TeamTotal { get; set; }
+        public int RegionID { get; set; }
+        public List<string> TeamMembers { get; set; } = new();
+    }
+
+    public class PerformanceBasedDTO
+    {
+        public class PerformanceEvent
+        {
+            public int ID { get; set; }
+            public int? SportID { get; set; }
+            public string MainCategory { get; set; } = string.Empty;
+            public int? LevelID { get; set; }
+            public int? GenderID { get; set; }
+            public int StageID { get; set; }
+        }
+
+        public class PerformanceTeam
+        {
+            public int ID { get; set; }
+            public int PerformanceID { get; set; }
+            public int? TeamID { get; set; }
+            public int RegionID { get; set; }
+            public string PlayerID { get; set; } = string.Empty;
+        }
+
+        public class PerformanceScore
+        {
+            public int ID { get; set; }
+            public int PerformanceID { get; set; }
+            public int? PerformanceTeamID { get; set; }
+            public int SportSubcategoryID { get; set; }
+            public decimal Score { get; set; }
+            public int Rank { get; set; }
+            public int? TeamID { get; set; }
+        }
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+
+        public class SchoolRegion
+        {
+            public int? ID { get; set; }
+            public string Region { get; set; } = string.Empty;
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+        }
+
+        public class SportGenderCategories
+        {
+            public int ID { get; set; }
+            public string? Gender { get; set; }
+        }
+    }
+
+    public class ProfilePlayersDTO
+    {
+        public class Players
+        {
+            public string ID { get; set; } = string.Empty;
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+    }
+
+    public class EventsDTO
+    {
+        public class EventStages
+        {
+            public int ID { get; set; }
+            public string? Stage { get; set; }
+        }
+    }
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+}

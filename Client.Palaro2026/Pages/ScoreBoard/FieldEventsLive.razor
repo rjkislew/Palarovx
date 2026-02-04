@@ -97,7 +97,7 @@
         animation: pulse 1.5s infinite;
     }
 
-    .final {
+    .finish {
         background: #00C853;
     }
 
@@ -297,7 +297,7 @@
             <div class="match-details">
                 @if (_event.IsFinished == true)
                 {
-                    <div class="status-badge final">FINAL</div> 
+                    <div class="status-badge finish">FINISH</div>
                 }
                 else
                 {
@@ -326,21 +326,24 @@
         @if (_scoringRows.Any())
         {
             <div class="results-table">
-                <MudTable Items="_scoringRows.OrderBy(r => r.Rank).ThenByDescending(r => r.BestResult).ToList()"
-                          Dense Hover>
-                    <HeaderContent>
-                        <MudTh style=" font-size: 1.3rem;">Rank</MudTh>
-                        <MudTh style="  font-size: 1.3rem;">Athlete</MudTh>
-                        <MudTh style="  font-size: 1.3rem;">Region</MudTh>
-                        <MudTh style="text-align:center;  font-size: 1.3rem;">Attempt 1</MudTh>
-                        <MudTh style="text-align:center;  font-size: 1.3rem;">Attempt 2</MudTh>
-                        <MudTh style="text-align:center; font-size: 1.3rem;">Attempt 3</MudTh>
-                        <MudTh style="text-align:center; font-size: 1.3rem;">Best Result</MudTh>
-                    </HeaderContent>
+                <MudTable Items="_scoringRows
+                                                        .OrderByDescending(r => r.BestResult) // highest score first
+                                                        .ThenBy(r => r.Rank)                  // optional: tie-break by rank if needed
+                                                        .ToList()"
+                  Dense Hover>
+            <HeaderContent>
+                <MudTh style=" font-size: 1.3rem;">Rank</MudTh>
+                <MudTh style="  font-size: 1.3rem;">Athlete</MudTh>
+                <MudTh style="  font-size: 1.3rem;">Region</MudTh>
+                <MudTh style="text-align:center;  font-size: 1.3rem;">Attempt 1</MudTh>
+                <MudTh style="text-align:center;  font-size: 1.3rem;">Attempt 2</MudTh>
+                <MudTh style="text-align:center; font-size: 1.3rem;">Attempt 3</MudTh>
+                <MudTh style="text-align:center; font-size: 1.3rem;">Best Result</MudTh>
+            </HeaderContent>
 
                     <RowTemplate>
                         <MudTd>
-                            @if (context.Rank > 0)
+                    @if (context.Rank > 0)
                             {
                                 <span style="font-family: Orbitron; font-weight:bold; color:white; font-size: 1.3rem;">
                                     #@context.Rank
@@ -399,6 +402,57 @@
 
     /* ===================== MODELS ===================== */
 
+    public class EventDetailsDTO
+    {
+        public class Event
+        {
+            public string ID { get; set; } = null!;
+            public string? EventStage { get; set; }
+            public List<EventVersus>? EventVersusList { get; set; }
+            public string? SportMainCat { get; set; }
+            public string? Category { get; set; }
+            public string? Sport { get; set; }
+            public string? GamePhase { get; set; }
+            public int? SubCategoryID { get; set; }
+            public string? Subcategory { get; set; }
+            public string? Gender { get; set; }
+            public string? Level { get; set; }
+            public string? Venue { get; set; }
+            public decimal? Latitude { get; set; }
+            public decimal? Longitude { get; set; }
+            public DateTime? Date { get; set; }
+            public TimeSpan? Time { get; set; }
+            public bool? OnStream { get; set; }
+            public string? StreamService { get; set; }
+            public string? StreamURL { get; set; }
+            public bool? IsFinished { get; set; }
+            public bool? Archived { get; set; }
+            public bool? Deleted { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+
+        public class EventVersus
+        {
+            public int ID { get; set; }
+            public string? Score { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+            public string? Rank { get; set; }
+            public DateTime? RecentUpdateAt { get; set; }
+        }
+
+        public class EventVersusTeamPlayers
+        {
+            public int ID { get; set; }
+            public int? EventVersusID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? School { get; set; }
+        }
+    }
+
     public class EventInfo
     {
         public string ID { get; set; } = "";
@@ -447,11 +501,13 @@
     private List<SchoolRegions>? _allRegions;
     private bool _isLoading = true;
     private Timer? _refreshTimer;
+    private bool _debugMode = true; // Set to false in production
 
     /* ===================== INIT ===================== */
 
     protected override async Task OnInitializedAsync()
     {
+        Console.WriteLine($"[FIELD EVENTS] Initializing for EventID: {EventID}");
         await LoadData();
         // Auto-refresh every 2 seconds for live updates
         _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 2000, 2000);
@@ -463,28 +519,144 @@
     {
         try
         {
+            if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Loading data for EventID: {EventID}");
+
             // Load regions
             _allRegions = await apiService.GetAsync<SchoolRegions>("/Schools/Regions");
+            if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Regions loaded: {_allRegions?.Count ?? 0}");
 
-            // Load event details
+            // LOAD EVENT DETAILS FROM /Events/Details ENDPOINT
+            var allEvents = await apiService.GetAsync<EventDetailsDTO.Event>("/Events/Details");
+
+            if (allEvents != null)
+            {
+                if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Total events from API: {allEvents.Count}");
+
+                // Find the event by ID (regardless of sport)
+                var eventDetails = allEvents.FirstOrDefault(e => e.ID == EventID);
+
+                if (eventDetails != null)
+                {
+                    if (_debugMode)
+                    {
+                        Console.WriteLine($"[FIELD EVENTS SUCCESS] Found event {EventID}");
+                        Console.WriteLine($"[FIELD EVENTS DETAILS] Sport: {eventDetails.Sport}");
+                        Console.WriteLine($"[FIELD EVENTS DETAILS] Subcategory: {eventDetails.Subcategory}");
+                        Console.WriteLine($"[FIELD EVENTS DETAILS] IsFinished: {eventDetails.IsFinished}");
+                        Console.WriteLine($"[FIELD EVENTS DETAILS] Type of IsFinished: {eventDetails.IsFinished?.GetType()}");
+                    }
+
+                    // Map to EventInfo
+                    _event = new EventInfo
+                    {
+                        ID = eventDetails.ID,
+                        Sport = eventDetails.Sport,
+                        Subcategory = eventDetails.Subcategory,
+                        Level = eventDetails.Level,
+                        Gender = eventDetails.Gender,
+                        EventStage = eventDetails.EventStage,
+                        // IMPORTANT: Get IsFinished from /Events/Details
+                        IsFinished = eventDetails.IsFinished
+                    };
+
+                    if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Event object created with IsFinished: {_event.IsFinished}");
+                }
+                else
+                {
+                    if (_debugMode) Console.WriteLine($"[FIELD EVENTS ERROR] Event {EventID} not found in /Events/Details");
+                    // Fallback to old API
+                    await LoadEventFromFallback();
+                }
+            }
+            else
+            {
+                if (_debugMode) Console.WriteLine($"[FIELD EVENTS ERROR] Could not load events from /Events/Details");
+                await LoadEventFromFallback();
+            }
+
+            if (_event != null)
+            {
+                if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Loading scoring data for event: {_event.ID}");
+                // Load scoring data from field events API
+                await LoadScoringData();
+            }
+            else
+            {
+                if (_debugMode) Console.WriteLine($"[FIELD EVENTS ERROR] _event is null after loading");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FIELD EVENTS ERROR] Error loading event: {ex.Message}");
+            Console.WriteLine($"[FIELD EVENTS ERROR] Stack trace: {ex.StackTrace}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Data loading completed. IsLoading: {_isLoading}");
+        }
+    }
+
+    private async Task LoadEventFromFallback()
+    {
+        if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Attempting fallback API...");
+
+        // Fallback to old API if /Events/Details fails
+        try
+        {
             var events = await apiService.GetAsync<EventInfo>(
                 $"FieldEvents/Sports/AthleticsFieldEvents?eventID={EventID}");
 
             if (events != null && events.Any())
             {
                 _event = events.First();
-                PopulateScoringRows(events);
-                await LoadSavedResults();
+                if (_debugMode) Console.WriteLine($"[FIELD EVENTS FALLBACK] Found event via fallback: {_event.ID}, IsFinished: {_event.IsFinished}");
+            }
+            else
+            {
+                if (_debugMode) Console.WriteLine($"[FIELD EVENTS FALLBACK] No events found via fallback API");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading event: {ex.Message}");
+            Console.WriteLine($"[FIELD EVENTS FALLBACK ERROR] Fallback API error: {ex.Message}");
         }
-        finally
+    }
+
+    private async Task LoadScoringData()
+    {
+        if (_event == null) return;
+
+        try
         {
-            _isLoading = false;
-            StateHasChanged();
+            if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Loading scoring data...");
+
+            // Clear existing rows
+            _scoringRows.Clear();
+
+            // Load athletes/participants for this event
+            var participants = await apiService.GetAsync<EventInfo>(
+                $"FieldEvents/Sports/AthleticsFieldEvents?eventID={_event.ID}");
+
+            if (participants != null && participants.Any())
+            {
+                if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Participants loaded: {participants.Count}");
+
+                // Populate scoring rows with participants
+                PopulateScoringRows(participants);
+
+                // Load saved results
+                await LoadSavedResults();
+            }
+            else
+            {
+                if (_debugMode) Console.WriteLine($"[FIELD EVENTS] No participants found for this event");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FIELD EVENTS ERROR] Error loading scoring data: {ex.Message}");
         }
     }
 
@@ -492,31 +664,32 @@
     {
         if (string.IsNullOrWhiteSpace(regionName))
             return "/images/region-placeholder.png";
-        
-        // FIX: Don't encode the region name - use it as-is to match the client page
-        // If the abbreviation doesn't match the actual region name in the files,
-        // we need to find the actual region name from the abbreviation
-        var region = _allRegions?.FirstOrDefault(r => 
+
+        // Find the region by abbreviation or name
+        var region = _allRegions?.FirstOrDefault(r =>
             r.Abbreviation?.Equals(regionName, StringComparison.OrdinalIgnoreCase) == true ||
             r.Region?.Equals(regionName, StringComparison.OrdinalIgnoreCase) == true);
-        
+
         // Try to get the actual region name (not abbreviation) for the logo
         var actualRegionName = region?.Region ?? regionName;
-        
+
         // Clean up the region name to match file naming conventions
-        // Remove any special characters, keep only alphanumeric and spaces
         var cleanRegionName = CleanRegionName(actualRegionName);
-        
-        return $"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{cleanRegionName}.webp";
+
+        // Use Uri.EscapeDataString to properly encode the region name
+        var encodedRegionName = Uri.EscapeDataString(cleanRegionName);
+
+        if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Region logo: {regionName} -> {encodedRegionName}");
+
+        return $"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{encodedRegionName}.webp";
     }
-    
+
     private string CleanRegionName(string regionName)
     {
         if (string.IsNullOrWhiteSpace(regionName))
             return string.Empty;
-            
+
         // Remove any characters that might cause issues in URLs
-        // Keep letters, numbers, spaces, and common punctuation
         return regionName.Trim();
     }
 
@@ -528,7 +701,7 @@
         {
             if (!e.RegionID.HasValue) continue;
 
-            var region = _allRegions?.FirstOrDefault(r => r.ID == e.RegionID);
+            var region = _allRegions?.FirstOrDefault(r => r.ID == e.RegionID.Value);
             if (region == null) continue;
 
             if (!regionMap.ContainsKey(region.ID))
@@ -538,42 +711,67 @@
                     RegionID = region.ID,
                     RegionName = region.Abbreviation ?? region.Region ?? "Unknown",
                     PlayerID = e.PlayerID,
-                    PlayerName = e.PlayerName ?? ""
+                    PlayerName = e.PlayerName ?? "Unknown Athlete"
                 };
+
+                if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Added athlete: {e.PlayerName} from region: {region.Region}");
             }
         }
 
         _scoringRows = regionMap.Values.ToList();
+        if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Total scoring rows: {_scoringRows.Count}");
     }
 
     private async Task LoadSavedResults()
     {
         if (_event == null) return;
 
-        var saved = await apiService.GetAsync<FieldEventResult>(
-            $"FieldEvents/GetResults/{_event.ID}");
-
-        if (saved == null) return;
-
-        foreach (var r in _scoringRows)
+        try
         {
-            r.AttemptResults = new decimal?[3];
-            r.BestResult = 0;
-            r.Rank = 0;
-        }
+            if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Loading saved results for event: {_event.ID}");
 
-        foreach (var s in saved)
+            var saved = await apiService.GetAsync<FieldEventResult>(
+                $"FieldEvents/GetResults/{_event.ID}");
+
+            if (saved != null && saved.Any())
+            {
+                if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Saved results loaded: {saved.Count}");
+
+                // Initialize attempt results for all rows
+                foreach (var r in _scoringRows)
+                {
+                    r.AttemptResults = new decimal?[3];
+                    r.BestResult = 0;
+                    r.Rank = 0;
+                }
+
+                foreach (var s in saved)
+                {
+                    var row = _scoringRows.FirstOrDefault(r => r.RegionID == s.RegionID);
+                    if (row == null) continue;
+
+                    if (s.AttemptNo >= 1 && s.AttemptNo <= 3)
+                    {
+                        row.AttemptResults[s.AttemptNo - 1] = s.Result;
+                        if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Set attempt {s.AttemptNo} for region {s.RegionID}: {s.Result}");
+                    }
+                }
+
+                // Calculate best results for each row
+                _scoringRows.ForEach(CalculateBestResult);
+
+                // Calculate rankings based on best results
+                CalculateRankings();
+            }
+            else
+            {
+                if (_debugMode) Console.WriteLine($"[FIELD EVENTS] No saved results found");
+            }
+        }
+        catch (Exception ex)
         {
-            var row = _scoringRows.FirstOrDefault(r => r.RegionID == s.RegionID);
-            if (row == null) continue;
-
-            row.AttemptResults[s.AttemptNo - 1] = s.Result;
+            Console.WriteLine($"[FIELD EVENTS ERROR] Error loading saved results: {ex.Message}");
         }
-
-        _scoringRows.ForEach(CalculateBestResult);
-
-        // Calculate rankings based on best results
-        CalculateRankings();
     }
 
     private void CalculateBestResult(ScoringRow row)
@@ -590,6 +788,8 @@
         var rankedRows = _scoringRows.Where(r => r.BestResult > 0)
                                      .OrderByDescending(r => r.BestResult)
                                      .ToList();
+
+        if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Ranking {rankedRows.Count} rows with BestResult > 0");
 
         int currentRank = 1;
 
@@ -619,6 +819,7 @@
             }
 
             currentRank = row.Rank;
+            if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Rank {row.Rank}: {row.PlayerName} - {row.BestResult}");
         }
 
         // Sort back ascending by rank for display
@@ -653,28 +854,6 @@
         };
     }
 
-    private string GetIndicatorClass(string categoryType)
-    {
-        return categoryType.ToLower() switch
-        {
-            "team" => "team-indicator",
-            "mixed" => "mixed-indicator",
-            "individual" => "individual-indicator",
-            _ => "individual-indicator"
-        };
-    }
-
-    private string GetIndicatorText(string categoryType)
-    {
-        return categoryType.ToLower() switch
-        {
-            "team" => "TEAM EVENT",
-            "mixed" => "MIXED TEAM",
-            "individual" => "INDIVIDUAL",
-            _ => "INDIVIDUAL"
-        };
-    }
-
     private string GetRowClass(int rank)
     {
         return rank switch
@@ -686,7 +865,29 @@
         };
     }
 
-    private string GetMedalClass(int rank)
+    private string? GetMedalIcon(int rank)
+    {
+        return rank switch
+        {
+            1 => Icons.Material.Filled.EmojiEvents,
+            2 => Icons.Material.Filled.MilitaryTech,
+            3 => Icons.Material.Filled.WorkspacePremium,
+            _ => null
+        };
+    }
+
+    private string GetMedalIconClass(int rank)
+    {
+        return rank switch
+        {
+            1 => "gold-icon",
+            2 => "silver-icon",
+            3 => "bronze-icon",
+            _ => ""
+        };
+    }
+
+    private string GetMedalBadgeClass(int rank)
     {
         return rank switch
         {
@@ -697,17 +898,35 @@
         };
     }
 
-    private string GetRomanNumeral(int number)
+    /* ===================== TEST FUNCTION ===================== */
+    private async Task TestAPIConnection()
     {
-        return number switch
+        Console.WriteLine("=== TESTING API CONNECTION ===");
+        try
         {
-            1 => "I",
-            2 => "II",
-            3 => "III",
-            4 => "IV",
-            5 => "V",
-            _ => number.ToString()
-        };
+            var testEvents = await apiService.GetAsync<EventDetailsDTO.Event>("/Events/Details");
+            Console.WriteLine($"API Test: Loaded {testEvents?.Count ?? 0} events");
+
+            if (testEvents != null)
+            {
+                var myEvent = testEvents.FirstOrDefault(e => e.ID == EventID);
+                if (myEvent != null)
+                {
+                    Console.WriteLine($"Found event: {myEvent.ID}");
+                    Console.WriteLine($"Sport: {myEvent.Sport}");
+                    Console.WriteLine($"Subcategory: {myEvent.Subcategory}");
+                    Console.WriteLine($"IsFinished: {myEvent.IsFinished}");
+                    Console.WriteLine($"IsFinished type: {myEvent.IsFinished?.GetType()}");
+                    Console.WriteLine($"IsFinished == true: {myEvent.IsFinished == true}");
+                    Console.WriteLine($"IsFinished == false: {myEvent.IsFinished == false}");
+                    Console.WriteLine($"IsFinished is null: {myEvent.IsFinished == null}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"API Test Error: {ex.Message}");
+        }
     }
 
     /* ===================== CLEANUP ===================== */
@@ -715,5 +934,6 @@
     public void Dispose()
     {
         _refreshTimer?.Dispose();
+        if (_debugMode) Console.WriteLine($"[FIELD EVENTS] Component disposed for EventID: {EventID}");
     }
 }
