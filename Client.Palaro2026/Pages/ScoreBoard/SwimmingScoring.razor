@@ -1,748 +1,684 @@
 ﻿@page "/scoreboard/swimming"
+@using System.Threading
 @using System.Linq
 @using Client.Palaro2026.Services
-@layout NoMainLayout
 @inject APIService apiService
 @inject NavigationManager Navigation
 @implements IDisposable
+@layout NoMainLayout
 
-<PageTitle>Swimming Events Scoreboard | PALARO 2026</PageTitle>
+<PageTitle>Swimming Scoreboard | PALARO 2026</PageTitle>
 
 <style>
-    /* --- IMPORTS --- */
-    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap');
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@600;700&display=swap');
 
     :root {
         --bg-dark: #0a0a0a;
         --card-bg: rgba(30, 30, 30, 0.7);
         --card-border: rgba(255, 255, 255, 0.1);
-        --accent-gold: #FFD700;
+        --text-primary: #ffffff;
         --accent-blue: #00e5ff;
-        --accent-teal: #00ffcc;
-        --accent-aqua: #00e5ff;
-        --accent-red: #ff1744;
+        --accent-aqua: #00ffcc;
+        --accent-teal: #00bcd4;
         --accent-green: #00ff88;
-        --text-white: #ffffff;
-        --swim-blue: #0066cc;
-        --pool-lane: rgba(0, 229, 255, 0.1);
+        --accent-red: #ff1744;
+        --neon-blue: 0 0 10px rgba(0, 229, 255, 0.6), 0 0 20px rgba(0, 229, 255, 0.3);
+        --neon-aqua: 0 0 10px rgba(0, 255, 204, 0.4);
+        --neon-teal: 0 0 10px rgba(0, 188, 212, 0.6);
     }
 
-    body {
+    /* BACKGROUND TEXTURE */
+    .dashboard-bg {
         background-color: var(--bg-dark);
-        background-image: radial-gradient(circle at 15% 50%, rgba(0, 102, 204, 0.05) 0%, transparent 25%), radial-gradient(circle at 85% 30%, rgba(0, 255, 204, 0.05) 0%, transparent 25%);
-        font-family: 'Rajdhani', sans-serif;
-        color: white;
+        background-image: radial-gradient(circle at 10% 20%, rgba(0, 229, 255, 0.08) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(0, 255, 204, 0.05) 0%, transparent 40%), linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
         min-height: 100vh;
+        color: var(--text-primary);
+        font-family: 'Rajdhani', sans-serif;
     }
 
-    .scoreboard-header {
+    /* HEADER */
+    .header-container {
         text-align: center;
-        padding: 40px 0 20px;
+        margin-bottom: 40px;
+        position: relative;
+        padding: 30px 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+        border-bottom: 1px solid rgba(0, 229, 255, 0.2);
     }
 
     .main-title {
         font-family: 'Orbitron', sans-serif;
         font-weight: 900;
-        font-size: 3rem;
-        background: linear-gradient(180deg, var(--accent-aqua) 0%, var(--swim-blue) 100%);
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        background: linear-gradient(180deg, var(--accent-aqua) 0%, var(--accent-blue) 50%, var(--accent-teal) 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         letter-spacing: 4px;
+        text-transform: uppercase;
         margin-bottom: 5px;
+        filter: drop-shadow(0 0 15px rgba(0, 229, 255, 0.4));
     }
 
-    /* MODERN CARD FOR SWIMMING EVENTS */
-    .modern-card {
+    .sub-title {
+        font-family: 'Chakra Petch', sans-serif;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: clamp(1rem, 1.5vw, 1.3rem);
+        letter-spacing: 8px;
+        font-weight: 700;
+        text-transform: uppercase;
+        position: relative;
+        display: inline-block;
+    }
+
+        .sub-title::before, .sub-title::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 60px;
+            height: 2px;
+            background: var(--accent-blue);
+            opacity: 0.5;
+        }
+
+        .sub-title::before {
+            left: -80px;
+        }
+
+        .sub-title::after {
+            right: -80px;
+        }
+
+    /* EVENT LINK */
+    .event-link {
+        text-decoration: none;
+        display: block;
+        height: 100%;
+    }
+
+    /* CARD DESIGN */
+    .event-card {
         background: var(--card-bg);
         border: 1px solid var(--card-border);
-        border-radius: 16px;
-        backdrop-filter: blur(10px);
-        display: flex;
-        flex-direction: column;
-        height: 550px;
-        overflow: hidden;
-        transition: all 0.3s ease;
+        border-radius: 20px;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        height: 100%;
     }
 
-        .modern-card:hover {
-            border-color: var(--accent-aqua);
-            box-shadow: 0 10px 30px rgba(0, 229, 255, 0.3);
-            transform: translateY(-2px);
+        .event-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+            opacity: 0.5;
         }
 
-    /* SWIMMING HEADER STYLING */
-    .card-header {
-        padding: 15px 20px;
-        background: linear-gradient(90deg, rgba(0,0,0,0.4) 0%, rgba(0,102,204,0.4) 100%);
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-        flex-shrink: 0;
-    }
-
-    .event-name {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: var(--accent-aqua);
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    .event-details {
-        display: flex;
-        gap: 15px;
-        font-size: 0.9rem;
-        color: #aaa;
-        margin-top: 5px;
-    }
-
-    .event-detail-item {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-
-    /* POOL VISUALIZATION */
-    .pool-visual {
-        padding: 15px;
-        background: rgba(0,0,0,0.2);
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-
-    .pool-lanes {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-top: 10px;
-    }
-
-    .pool-lane {
-        display: flex;
-        align-items: center;
-        background: var(--pool-lane);
-        border-radius: 8px;
-        padding: 8px 12px;
-        border-left: 4px solid var(--accent-teal);
-        transition: all 0.3s ease;
-    }
-
-        .pool-lane:hover {
-            background: rgba(0, 255, 204, 0.15);
-            transform: translateX(5px);
+        .event-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: var(--accent-blue);
+            box-shadow: 0 15px 40px rgba(0, 229, 255, 0.15);
         }
 
-    .lane-number {
-        font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
-        color: var(--accent-teal);
-        width: 30px;
-        text-align: center;
-    }
-
-    .lane-region {
-        flex-grow: 1;
-        font-weight: 600;
-        font-size: 0.95rem;
-    }
-
-    .lane-time {
-        font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
-        color: var(--accent-green);
-        text-align: right;
-        min-width: 80px;
-    }
-
-    /* SCROLLABLE RESULTS LIST */
-    .results-container {
-        flex-grow: 1;
-        overflow-y: auto;
-        padding: 10px;
-    }
-
-        .results-container::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .results-container::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.1);
-        }
-
-        .results-container::-webkit-scrollbar-thumb {
-            background: var(--accent-aqua);
-            border-radius: 3px;
-        }
-
-    .result-row {
-        display: flex;
-        align-items: center;
-        padding: 10px 12px;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        background: rgba(255,255,255,0.02);
-        border-radius: 8px;
-        margin-bottom: 8px;
-        transition: all 0.2s ease;
-    }
-
-        .result-row:hover {
-            background: rgba(255,255,255,0.05);
-            transform: translateX(3px);
-        }
-
-    .result-rank {
-        width: 40px;
-        font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
-        font-size: 1.1rem;
-        text-align: center;
-    }
-
-    .rank-1 {
-        color: #FFD700;
-        text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-    }
-
-    .rank-2 {
-        color: #C0C0C0;
-    }
-
-    .rank-3 {
-        color: #CD7F32;
-    }
-
-    .result-info {
-        flex-grow: 1;
-        padding: 0 15px;
-    }
-
-    .result-player {
-        font-weight: 700;
-        font-size: 1rem;
-        display: block;
-    }
-
-    .result-region {
-        font-size: 0.8rem;
-        color: var(--accent-aqua);
-        margin-top: 2px;
-    }
-
-    .result-time {
-        font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
-        font-size: 1.1rem;
-        color: var(--accent-green);
-        min-width: 100px;
-        text-align: right;
-    }
-
-    .result-lane {
-        background: rgba(0, 229, 255, 0.15);
-        color: var(--accent-aqua);
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-        font-weight: bold;
-        margin-left: 10px;
-    }
-
-    /* FOOTER BUTTON */
-    .card-footer {
-        padding: 15px;
-        background: rgba(0,0,0,0.3);
-        border-top: 1px solid rgba(255,255,255,0.05);
-        flex-shrink: 0;
-    }
-
-    .tv-btn {
-        display: block;
-        width: 100%;
-        padding: 12px;
-        background: linear-gradient(90deg, rgba(0,229,255,0.1) 0%, rgba(0,102,204,0.1) 100%);
-        color: white;
-        text-align: center;
-        text-decoration: none;
-        border-radius: 8px;
-        font-family: 'Orbitron';
-        font-size: 0.9rem;
-        font-weight: bold;
-        letter-spacing: 1px;
-        transition: all 0.2s;
-        border: 1px solid rgba(0, 229, 255, 0.2);
-    }
-
-        .tv-btn:hover {
-            background: linear-gradient(90deg, var(--accent-aqua) 0%, var(--swim-blue) 100%);
-            color: black;
-            box-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
-            transform: translateY(-1px);
-        }
+            .event-card:hover::before {
+                opacity: 1;
+            }
 
     /* BADGES */
-    .badge-live {
-        background: var(--accent-red);
-        color: white;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        font-weight: bold;
-        float: right;
-        animation: pulse 1.5s infinite;
-        text-transform: uppercase;
+    .status-container {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        display: flex;
+        gap: 8px;
+        z-index: 5;
+    }
+
+    .event-type-badge {
+        background: rgba(0,0,0,0.8);
+        color: var(--accent-blue);
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 700;
+        font-size: 0.8rem;
+        border: 1px solid var(--accent-blue);
+        box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+    }
+
+    .status-badge {
+        padding: 4px 15px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 800;
+        font-size: 0.8rem;
         letter-spacing: 1px;
+    }
+
+    .badge-live {
+        background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-teal) 100%);
+        color: #000;
+        box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
+        border: 1px solid #00e5ff;
+        animation: pulse 2s infinite;
     }
 
     .badge-final {
-        background: var(--accent-green);
+        background: linear-gradient(135deg, var(--accent-green) 0%, #00c853 100%);
         color: black;
-        padding: 4px 10px;
-        border-radius: 4px;
+        border: 1px solid #66bb6a;
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
+    }
+
+    /* SWIMMING INFO */
+    .swimming-info {
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 12px;
+        padding: 12px;
+        margin: 10px 0;
+        border: 1px solid rgba(0, 229, 255, 0.3);
+    }
+
+    .swimmers-count {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2rem;
+        font-weight: 900;
+        color: var(--accent-aqua);
+        line-height: 1;
+        text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+        text-align: center;
+    }
+
+    .info-label {
+        font-family: 'Rajdhani', sans-serif;
         font-size: 0.75rem;
-        font-weight: bold;
-        float: right;
+        color: #aaa;
         text-transform: uppercase;
         letter-spacing: 1px;
+        text-align: center;
+        margin-top: 5px;
     }
 
-    .badge-heat {
-        background: rgba(0, 255, 204, 0.2);
-        color: var(--accent-teal);
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 0.7rem;
-        font-weight: bold;
-        margin-left: 10px;
-        border: 1px solid rgba(0, 255, 204, 0.3);
+    .event-name {
+        font-family: 'Chakra Petch', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 4px;
     }
 
-    .swim-stroke {
-        background: rgba(0, 102, 204, 0.2);
+    .sport-icon {
+        background: linear-gradient(135deg, rgba(0, 229, 255, 0.2), rgba(0, 229, 255, 0.05));
+        border-radius: 50%;
+        padding: 10px;
+        border: 1px solid rgba(0, 229, 255, 0.3);
+    }
+
+    .stroke-type {
+        display: inline-block;
+        background: rgba(0, 229, 255, 0.2);
         color: var(--accent-blue);
-        padding: 2px 8px;
+        padding: 3px 10px;
         border-radius: 4px;
-        font-size: 0.7rem;
-        font-weight: bold;
-        margin-left: 10px;
-        border: 1px solid rgba(0, 102, 204, 0.3);
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid rgba(0, 229, 255, 0.3);
+    }
+
+    .distance-badge {
+        display: inline-block;
+        background: rgba(0, 255, 204, 0.2);
+        color: var(--accent-aqua);
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid rgba(0, 255, 204, 0.3);
+        margin-left: 5px;
+    }
+
+    /* MUD TABS CUSTOMIZATION */
+    .mud-tabs-tabbar {
+        background-color: transparent !important;
+        border-bottom: 1px solid #333;
+    }
+
+    .mud-tab {
+        color: #888 !important;
+        font-family: 'Orbitron';
+        font-weight: 700;
+        letter-spacing: 1px;
+        transition: color 0.3s;
+    }
+
+    .mud-tab-active {
+        color: var(--accent-blue) !important;
+        font-weight: 900;
+        text-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+    }
+
+    .mud-tabs-indicator {
+        background-color: var(--accent-blue) !important;
+        height: 3px;
+        box-shadow: 0 0 10px var(--accent-blue);
     }
 
     @@keyframes pulse {
         0% {
             opacity: 1;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
         }
 
         50% {
-            opacity: 0.6;
+            opacity: 0.8;
+            box-shadow: 0 0 5px rgba(0, 229, 255, 0.2);
         }
 
         100% {
             opacity: 1;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
         }
-    }
-
-    /* TIME FORMAT STYLING */
-    .time-result {
-        font-variant-numeric: tabular-nums;
-    }
-
-    /* EMPTY STATE */
-    .empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        padding: 40px;
-        text-align: center;
-        color: #666;
-    }
-
-    .empty-state-icon {
-        font-size: 3rem;
-        margin-bottom: 15px;
-        color: var(--pool-lane);
-    }
-
-    /* SWIM STROKE ICONS */
-    .stroke-icon-backstroke {
-        transform: rotate(180deg);
     }
 </style>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pb-16">
+<div class="dashboard-bg">
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge">
 
-    <div class="scoreboard-header">
-        <div class="main-title">SWIMMING EVENTS</div>
-        <MudText Typo="Typo.h6" Style="color: #aaa; letter-spacing: 2px;">OFFICIAL TIMING & RESULTS</MudText>
-    </div>
+        <!-- HEADER -->
+        <div class="header-container">
+            <div class="main-title">PALARONG PAMBANSA 2026</div>
+            <div class="sub-title">SWIMMING SCOREBOARD</div>
+        </div>
 
-    @if (_isLoading)
-    {
-        <MudStack AlignItems="AlignItems.Center" Class="mt-16">
-            <MudProgressCircular Indeterminate="true" Color="Color.Info" Size="Size.Large" />
-            <MudText Class="mt-4" Style="color: var(--accent-aqua)">Loading Swimming Events...</MudText>
-        </MudStack>
-    }
-    else
-    {
-        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Centered="true" Color="Color.Dark" Class="mt-4">
-            <!-- ALL SWIMMING EVENTS -->
-            <MudTabPanel Text="ALL EVENTS" Icon="@Icons.Material.Filled.List">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @if (!_allEvents.Any())
-                    {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.Pool" Class="empty-state-icon" />
-                                <MudText>No swimming events scheduled</MudText>
-                            </div>
-                        </MudItem>
-                    }
-                    else
-                    {
-                        @foreach (var evt in _allEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
-                    }
-                </MudGrid>
-            </MudTabPanel>
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="mt-16">
+                <MudProgressCircular Indeterminate="true" Color="Color.Info" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-4" Style="font-family:'Orbitron'; color:var(--accent-blue);">LOADING SWIMMING EVENTS...</MudText>
+            </MudStack>
+        }
+        else if (!_swimmingEvents.Any())
+        {
+            <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                <MudIcon Icon="@Icons.Material.Filled.Pool" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                <MudText Typo="Typo.h5" Class="mt-4" Style="color: #666; font-family:'Orbitron'; font-weight:700;">NO SWIMMING EVENTS</MudText>
+                <MudText Typo="Typo.body2" Style="color: #555;">Waiting for event data...</MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="mt-6" Centered="true">
 
-            <!-- FREESTYLE -->
-            <MudTabPanel Text="FREESTYLE" Icon="@Icons.Material.Filled.Waves">
-                <MudGrid Class="mt-4" Spacing="3">
+                <!-- TAB 1: LIVE / ONGOING -->
+                <MudTabPanel Text="LIVE / ONGOING">
                     @{
-                        var freestyleEvents = _allEvents.Where(e =>
-                        e.Subcategory?.ToLower().Contains("freestyle") == true).ToList();
-                    }
-
-                    @if (!freestyleEvents.Any())
-                    {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.Waves" Class="empty-state-icon" />
-                                <MudText>No freestyle events scheduled</MudText>
-                            </div>
-                        </MudItem>
-                    }
-                    else
-                    {
-                        @foreach (var evt in freestyleEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
-                    }
-                </MudGrid>
-            </MudTabPanel>
-
-            <!-- BACKSTROKE -->
-            <MudTabPanel Text="BACKSTROKE" Icon="@Icons.Material.Filled.Waves">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @{
-                        var backstrokeEvents = _allEvents.Where(e =>
-                        e.Subcategory?.ToLower().Contains("backstroke") == true ||
-                        e.SportMainCat?.ToLower() == "backstroke").ToList();
-                    }
-
-                    @if (!backstrokeEvents.Any())
-                    {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.Waves" Class="stroke-icon-backstroke empty-state-icon" />
-                                <MudText>No backstroke events scheduled</MudText>
-                            </div>
-                        </MudItem>
-                    }
-                    else
-                    {
-                        @foreach (var evt in backstrokeEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
-                    }
-                </MudGrid>
-            </MudTabPanel>
-
-            <!-- BREASTSTROKE -->
-            <MudTabPanel Text="BREASTSTROKE" Icon="@Icons.Material.Filled.Waves">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @{
-                        var breaststrokeEvents = _allEvents.Where(e =>
-                        e.Subcategory?.ToLower().Contains("breaststroke") == true ||
-                        e.SportMainCat?.ToLower() == "breaststroke").ToList();
-                    }
-
-                    @if (!breaststrokeEvents.Any())
-                    {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.Waves" Class="empty-state-icon" />
-                                <MudText>No breaststroke events scheduled</MudText>
-                            </div>
-                        </MudItem>
-                    }
-                    else
-                    {
-                        @foreach (var evt in breaststrokeEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
-                    }
-                </MudGrid>
-            </MudTabPanel>
-
-            <!-- BUTTERFLY -->
-            <MudTabPanel Text="BUTTERFLY" Icon="@Icons.Material.Filled.Waves">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @{
-                        var butterflyEvents = _allEvents.Where(e =>
-                        e.Subcategory?.ToLower().Contains("butterfly") == true ||
-                        e.SportMainCat?.ToLower() == "butterfly").ToList();
-                    }
-
-                    @if (!butterflyEvents.Any())
-                    {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.Waves" Class="empty-state-icon" />
-                                <MudText>No butterfly events scheduled</MudText>
-                            </div>
-                        </MudItem>
-                    }
-                    else
-                    {
-                        @foreach (var evt in butterflyEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
-                    }
-                </MudGrid>
-            </MudTabPanel>
-
-            <!-- MEDLEY -->
-            <MudTabPanel Text="MEDLEY" Icon="@Icons.Material.Filled.Waves">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @{
-                        var medleyEvents = _allEvents.Where(e =>
-                        e.Subcategory?.ToLower().Contains("medley") == true).ToList();
-                    }
-
-                    @if (!medleyEvents.Any())
-                    {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.Waves" Class="empty-state-icon" />
-                                <MudText>No medley events scheduled</MudText>
-                            </div>
-                        </MudItem>
-                    }
-                    else
-                    {
-                        @foreach (var evt in medleyEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
-                    }
-                </MudGrid>
-            </MudTabPanel>
-
-            <!-- RELAYS -->
-            <MudTabPanel Text="RELAYS" Icon="@Icons.Material.Filled.Groups">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @{
-                        var relayEvents = _allEvents.Where(e =>
-                        e.Subcategory?.ToLower().Contains("relay") == true ||
-                        e.Subcategory?.ToLower().Contains("x") == true).ToList();
-                    }
-
-                    @if (!relayEvents.Any())
-                    {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.Flag" Class="empty-state-icon" />
-                                <MudText>No relay events scheduled</MudText>
-                            </div>
-                        </MudItem>
-                    }
-                    else
-                    {
-                        @foreach (var evt in relayEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
-                    }
-                </MudGrid>
-            </MudTabPanel>
-
-            <!-- LIVE EVENTS -->
-            <MudTabPanel Text="LIVE" Icon="@Icons.Material.Filled.LiveTv">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @{
-                        var liveEvents = _allEvents.Where(e => e.EventStage != "Completed").ToList();
+                        var liveEvents = _swimmingEvents.Where(e => e.EventStage != "Completed").ToList();
                     }
 
                     @if (!liveEvents.Any())
                     {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.TimerOff" Class="empty-state-icon" />
-                                <MudText>No live events at the moment</MudText>
-                            </div>
-                        </MudItem>
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.Pool" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                            <MudText Typo="Typo.h5" Class="mt-4" Style="color: #666; font-family:'Orbitron'; font-weight:700;">NO LIVE SWIMMING EVENTS</MudText>
+                            <MudText Typo="Typo.body2" Style="color: #555;">Stand by for upcoming heats</MudText>
+                        </MudPaper>
                     }
                     else
                     {
-                        @foreach (var evt in liveEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in liveEvents)
+                            {
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="@GetEventUrl(evt)" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@(evt.Level ?? "Open")</div>
+                                                <div class="status-badge badge-live">LIVE</div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="sport-icon mr-3">
+                                                        <MudIcon Icon="@GetSwimmingIcon(evt.SportMainCat)" Size="Size.Small" Style="color:var(--accent-blue);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">SWIMMING</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                                                            @(evt.Gender ?? "Mixed") • @(evt.EventStage ?? "Heats")
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Race Info -->
+                                                <div class="swimming-info">
+                                                    <div class="event-name text-center mb-3">
+                                                        @evt.Subcategory
+                                                        <span class="distance-badge">@GetDistance(evt.Subcategory)</span>
+                                                    </div>
+
+                                                    <div class="swimmers-count">
+                                                        @GetParticipantCount(evt.ID) <span style="font-size: 1rem; color: var(--accent-aqua);">SWIMMERS</span>
+                                                    </div>
+                                                    <div class="info-label">IN PROGRESS</div>
+                                                </div>
+
+                                                <!-- Event Details -->
+                                                <div class="pa-2">
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Stroke:</b> @GetStrokeType(evt.SportMainCat, evt.Subcategory)
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Category:</b> @evt.Subcategory
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 12px;">
+                                                        <b>Format:</b> @GetSwimmingFormat(evt.Subcategory)
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Style="color: var(--accent-blue); font-weight:600;">
+                                                        Click for live timing & results
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
                     }
-                </MudGrid>
-            </MudTabPanel>
+                </MudTabPanel>
 
-        </MudTabs>
-    }
+                <!-- TAB 2: FINISHED RESULTS -->
+                <MudTabPanel Text="RESULTS">
+                    @{
+                        var finishedEvents = _swimmingEvents.Where(e => e.EventStage == "Completed").ToList();
+                    }
 
-</MudContainer>
+                    @if (!finishedEvents.Any())
+                    {
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Size="Size.Large" Style="color: #555;" />
+                            <MudText Typo="Typo.h6" Class="mt-4" Style="color: #777; font-family:'Orbitron'">NO COMPLETED EVENTS YET</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in finishedEvents)
+                            {
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="@GetEventUrl(evt)" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@(evt.Level ?? "Open")</div>
+                                                <div class="status-badge badge-final">FINAL</div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="sport-icon mr-3">
+                                                        <MudIcon Icon="@GetSwimmingIcon(evt.SportMainCat)" Size="Size.Small" Style="color:var(--accent-blue);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">SWIMMING</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                                                            @(evt.Gender ?? "Mixed") • @(evt.EventStage ?? "Final")
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Results Display -->
+                                                <div class="swimming-info">
+                                                    <div class="event-name text-center mb-3">
+                                                        @evt.Subcategory
+                                                        <span class="distance-badge">@GetDistance(evt.Subcategory)</span>
+                                                    </div>
+
+                                                    <div class="swimmers-count">
+                                                        FINAL
+                                                    </div>
+                                                    <div class="info-label">RESULTS</div>
+                                                </div>
+
+                                                <!-- Event Details -->
+                                                <div class="pa-2">
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Stroke:</b> @GetStrokeType(evt.SportMainCat, evt.Subcategory)
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                                                        <b>Category:</b> @evt.Subcategory
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 12px;">
+                                                        <b>Fastest Time:</b> @GetFastestTime(evt.ID)
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Style="color: var(--accent-blue); font-weight:600;">
+                                                        Click for final results & standings
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+
+                <!-- TAB 3: BY STROKE -->
+                <MudTabPanel Text="BY STROKE">
+                    <div class="mt-4">
+                        <!-- FREESTYLE -->
+                        <MudText Typo="Typo.h6" Class="mb-3" Style="color: var(--accent-blue); font-family:'Orbitron';">FREESTYLE</MudText>
+                        <MudGrid Spacing="3" Class="mb-6">
+                            @{
+                                var freestyleEvents = _swimmingEvents.Where(e =>
+                                e.Subcategory?.ToLower().Contains("freestyle") == true ||
+                                e.SportMainCat?.ToLower() == "freestyle").ToList();
+                            }
+                            @if (freestyleEvents.Any())
+                            {
+                                @foreach (var evt in freestyleEvents)
+                                {
+                                    <MudItem xs="12" md="6" lg="4" xl="3">
+                                        @RenderEventCard(evt)
+                                    </MudItem>
+                                }
+                            }
+                            else
+                            {
+                                <MudItem xs="12">
+                                    <MudPaper Class="pa-4 text-center" Style="background: rgba(0,0,0,0.3);">
+                                        <MudText Style="color: #666;">No freestyle events</MudText>
+                                    </MudPaper>
+                                </MudItem>
+                            }
+                        </MudGrid>
+
+                        <!-- BACKSTROKE -->
+                        <MudText Typo="Typo.h6" Class="mb-3" Style="color: var(--accent-blue); font-family:'Orbitron';">BACKSTROKE</MudText>
+                        <MudGrid Spacing="3" Class="mb-6">
+                            @{
+                                var backstrokeEvents = _swimmingEvents.Where(e =>
+                                e.Subcategory?.ToLower().Contains("backstroke") == true ||
+                                e.SportMainCat?.ToLower() == "backstroke").ToList();
+                            }
+                            @if (backstrokeEvents.Any())
+                            {
+                                @foreach (var evt in backstrokeEvents)
+                                {
+                                    <MudItem xs="12" md="6" lg="4" xl="3">
+                                        @RenderEventCard(evt)
+                                    </MudItem>
+                                }
+                            }
+                            else
+                            {
+                                <MudItem xs="12">
+                                    <MudPaper Class="pa-4 text-center" Style="background: rgba(0,0,0,0.3);">
+                                        <MudText Style="color: #666;">No backstroke events</MudText>
+                                    </MudPaper>
+                                </MudItem>
+                            }
+                        </MudGrid>
+
+                        <!-- BREASTSTROKE -->
+                        <MudText Typo="Typo.h6" Class="mb-3" Style="color: var(--accent-blue); font-family:'Orbitron';">BREASTSTROKE</MudText>
+                        <MudGrid Spacing="3" Class="mb-6">
+                            @{
+                                var breaststrokeEvents = _swimmingEvents.Where(e =>
+                                e.Subcategory?.ToLower().Contains("breaststroke") == true ||
+                                e.SportMainCat?.ToLower() == "breaststroke").ToList();
+                            }
+                            @if (breaststrokeEvents.Any())
+                            {
+                                @foreach (var evt in breaststrokeEvents)
+                                {
+                                    <MudItem xs="12" md="6" lg="4" xl="3">
+                                        @RenderEventCard(evt)
+                                    </MudItem>
+                                }
+                            }
+                            else
+                            {
+                                <MudItem xs="12">
+                                    <MudPaper Class="pa-4 text-center" Style="background: rgba(0,0,0,0.3);">
+                                        <MudText Style="color: #666;">No breaststroke events</MudText>
+                                    </MudPaper>
+                                </MudItem>
+                            }
+                        </MudGrid>
+
+                        <!-- BUTTERFLY -->
+                        <MudText Typo="Typo.h6" Class="mb-3" Style="color: var(--accent-blue); font-family:'Orbitron';">BUTTERFLY</MudText>
+                        <MudGrid Spacing="3" Class="mb-6">
+                            @{
+                                var butterflyEvents = _swimmingEvents.Where(e =>
+                                e.Subcategory?.ToLower().Contains("butterfly") == true ||
+                                e.SportMainCat?.ToLower() == "butterfly").ToList();
+                            }
+                            @if (butterflyEvents.Any())
+                            {
+                                @foreach (var evt in butterflyEvents)
+                                {
+                                    <MudItem xs="12" md="6" lg="4" xl="3">
+                                        @RenderEventCard(evt)
+                                    </MudItem>
+                                }
+                            }
+                            else
+                            {
+                                <MudItem xs="12">
+                                    <MudPaper Class="pa-4 text-center" Style="background: rgba(0,0,0,0.3);">
+                                        <MudText Style="color: #666;">No butterfly events</MudText>
+                                    </MudPaper>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </div>
+                </MudTabPanel>
+            </MudTabs>
+        }
+    </MudContainer>
+</div>
 
 @code {
-    // --- VARIABLES ---
-    private List<EventInfo> _allEvents = new();
-    private Dictionary<string, List<HeatData>> _eventHeats = new();
-    private Dictionary<string, List<RankingResult>> _eventRankings = new();
-    private Dictionary<string, int> _eventParticipantCount = new();
-    private bool _isLoading = true;
-    private System.Threading.Timer? _timer;
+    /* ===================== MODELS ===================== */
 
-    // --- LIFECYCLE ---
+    public class EventInfo
+    {
+        public string ID { get; set; } = "";
+        public string? Sport { get; set; }
+        public string? Subcategory { get; set; }
+        public string? Level { get; set; }
+        public string? Gender { get; set; }
+        public string? EventStage { get; set; }
+        public string? SportMainCat { get; set; }
+        public DateTime? Date { get; set; }
+        public string? Time { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public int? RegionID { get; set; }
+        public string? PlayerID { get; set; }
+        public string? PlayerName { get; set; }
+    }
+
+    /* ===================== STATE ===================== */
+
+    private List<EventInfo> _swimmingEvents = new();
+    private Dictionary<string, List<EventInfo>> _eventParticipants = new();
+    private Dictionary<string, List<RankingResult>> _eventRankings = new();
+    private bool _isLoading = true;
+    private Timer? _refreshTimer;
+
+    /* ===================== INIT ===================== */
+
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
-        // Auto refresh every 10 seconds for real-time updates
-        _timer = new System.Threading.Timer(async _ => await InvokeAsync(LoadData), null, 10000, 10000);
+        // Auto-refresh every 10 seconds for live dashboard updates
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 10000, 10000);
     }
+
+    /* ===================== GET DATA ===================== */
 
     private async Task LoadData()
     {
         try
         {
-            // Load all time/distance events using your existing endpoint
+            // Load all swimming events
             var participants = await apiService.GetAsync<EventInfo>("TimeDistanceEvents/Sports/AthleticsSwimming");
 
             if (participants != null && participants.Any())
             {
-                // FILTER: Only include events where Sport is "Swimming"
-                var swimmingEventsOnly = participants
-                    .Where(p => !string.IsNullOrEmpty(p.Sport) &&
-                                p.Sport == "Swimming")
+                // Filter for swimming events only
+                var swimmingParticipants = participants
+                    .Where(p => p.Sport == "Swimming")
                     .ToList();
 
-                // Group by event ID to create event list
-                _allEvents = swimmingEventsOnly
-                    .GroupBy(e => e.ID)
-                    .Select(g =>
-                    {
-                        var first = g.First();
-                        return new EventInfo
-                        {
-                            ID = first.ID,
-                            Sport = first.Sport,
-                            Subcategory = first.Subcategory,
-                            Gender = first.Gender,
-                            Level = first.Level,
-                            EventStage = first.EventStage,
-                            Date = first.Date,
-                            Time = first.Time,
-                            SportMainCat = first.SportMainCat
-                        };
-                    })
-                    .OrderBy(e => e.EventStage == "Completed" ? 1 : 0) // Completed events last
-                    .ThenBy(e => e.Gender)
-                    .ThenBy(e => e.Level)
-                    .ThenBy(e => e.Subcategory)
+                // Group events
+                _swimmingEvents = swimmingParticipants
+                    .GroupBy(x => x.ID)
+                    .Select(g => g.First())
+                    .OrderBy(x => x.EventStage == "Completed" ? 1 : 0)
+                    .ThenBy(x => x.Gender)
+                    .ThenBy(x => x.Level)
+                    .ThenBy(x => x.Subcategory)
                     .ToList();
 
-                // Count participants per event
-                _eventParticipantCount.Clear();
-                foreach (var evt in _allEvents)
+                // Store participants per event
+                _eventParticipants.Clear();
+                foreach (var evt in _swimmingEvents)
                 {
-                    var count = swimmingEventsOnly
+                    var participantsForEvent = swimmingParticipants
                         .Where(p => p.ID == evt.ID)
-                        .Count();
-                    _eventParticipantCount[evt.ID] = count;
+                        .ToList();
+                    _eventParticipants[evt.ID] = participantsForEvent;
                 }
 
-                // Load saved data for each event to get heats and rankings
-                foreach (var evt in _allEvents)
+                // Load rankings for each event
+                foreach (var evt in _swimmingEvents)
                 {
                     try
                     {
-                        // Load saved scoring data for this event
-                        var savedData = await LoadSavedScoringData(evt.ID);
-
-                        if (savedData != null)
+                        var rankings = await CalculateRankingsForEvent(evt.ID);
+                        if (rankings.Any())
                         {
-                            // Extract heat information
-                            if (savedData.Heats != null && savedData.Heats.Any())
-                            {
-                                var heatInfos = new List<HeatData>();
-
-                                foreach (var savedHeat in savedData.Heats.OrderBy(h => h.HeatOrder))
-                                {
-                                    var heatData = new HeatData
-                                    {
-                                        HeatName = savedHeat.HeatName,
-                                        HeatOrder = savedHeat.HeatOrder,
-                                        LaneCount = savedHeat.Lanes?.Count ?? 0
-                                    };
-
-                                    // Find fastest time in this heat
-                                    if (savedHeat.Lanes != null && savedHeat.Lanes.Any())
-                                    {
-                                        var validResults = savedHeat.Lanes
-                                            .Where(l => !string.IsNullOrEmpty(l.Result))
-                                            .Select(l => l.Result)
-                                            .ToList();
-
-                                        if (validResults.Any())
-                                        {
-                                            heatData.FastestTime = GetFastestResult(validResults, evt.Subcategory);
-                                        }
-                                    }
-
-                                    heatInfos.Add(heatData);
-                                }
-
-                                _eventHeats[evt.ID] = heatInfos;
-                            }
-
-                            // Calculate rankings from saved data
-                            var rankings = CalculateRankingsFromSavedData(savedData, evt);
-                            if (rankings.Any())
-                            {
-                                _eventRankings[evt.ID] = rankings;
-                            }
+                            _eventRankings[evt.ID] = rankings;
                         }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Error loading saved data for event {evt.ID}: {ex.Message}");
+                        Console.WriteLine($"Error loading rankings for event {evt.ID}: {ex.Message}");
                     }
                 }
             }
@@ -758,93 +694,68 @@
         }
     }
 
-    private async Task<SavedScoringData?> LoadSavedScoringData(string eventId)
-    {
-        try
-        {
-            var savedData = await apiService.GetSingleAsync<SavedScoringData>($"TimeDistanceEvents/Sports/AthleticsSwimming/{eventId}");
-            return savedData ?? new SavedScoringData();
-        }
-        catch
-        {
-            return new SavedScoringData();
-        }
-    }
-
-    private List<RankingResult> CalculateRankingsFromSavedData(SavedScoringData savedData, EventInfo evt)
+    private async Task<List<RankingResult>> CalculateRankingsForEvent(string eventId)
     {
         var rankings = new List<RankingResult>();
 
-        if (savedData.Heats == null || !savedData.Heats.Any())
-            return rankings;
-
-        var allResults = new List<(string RegionName, string PlayerName, string Result, string Lane, double NumericResult)>();
-
-        // Collect all results from all heats
-        foreach (var heat in savedData.Heats)
+        try
         {
-            if (heat.Lanes == null) continue;
+            // Try to load saved scoring data
+            var savedData = await apiService.GetSingleAsync<SavedScoringData>($"TimeDistanceEvents/Sports/AthleticsSwimming/{eventId}");
 
-            foreach (var lane in heat.Lanes)
+            if (savedData != null && savedData.Heats != null && savedData.Heats.Any())
             {
-                if (!string.IsNullOrEmpty(lane.Result) &&
-                    !string.IsNullOrEmpty(lane.RegionAbbreviation) &&
-                    TryParseResult(lane.Result, out double numericResult))
+                var allResults = new List<(string RegionName, string PlayerName, string Result, string Lane, double NumericResult)>();
+
+                // Collect all results from all heats
+                foreach (var heat in savedData.Heats)
                 {
-                    allResults.Add((
-                        lane.RegionAbbreviation,
-                        lane.PlayerName ?? "",
-                        lane.Result,
-                        $"{heat.HeatName}-{lane.LaneName}",
-                        numericResult
-                    ));
+                    if (heat.Lanes == null) continue;
+
+                    foreach (var lane in heat.Lanes)
+                    {
+                        if (!string.IsNullOrEmpty(lane.Result) &&
+                            !string.IsNullOrEmpty(lane.RegionAbbreviation) &&
+                            TryParseResult(lane.Result, out double numericResult))
+                        {
+                            allResults.Add((
+                                lane.RegionAbbreviation,
+                                lane.PlayerName ?? "",
+                                lane.Result,
+                                $"{heat.HeatName}-{lane.LaneName}",
+                                numericResult
+                            ));
+                        }
+                    }
+                }
+
+                if (allResults.Any())
+                {
+                    // Sort by time (lower is better for swimming)
+                    var sortedResults = allResults.OrderBy(r => r.NumericResult).ToList();
+
+                    for (int i = 0; i < sortedResults.Count; i++)
+                    {
+                        var result = sortedResults[i];
+                        rankings.Add(new RankingResult
+                        {
+                            RegionName = result.RegionName,
+                            PlayerName = result.PlayerName,
+                            Result = result.Result,
+                            AssignedLane = result.Lane,
+                            Rank = i + 1,
+                            NumericResult = result.NumericResult
+                        });
+                    }
                 }
             }
         }
-
-        if (!allResults.Any())
-            return rankings;
-
-        // For swimming events, it's always time-based (lower is better)
-        var sortedResults = allResults.OrderBy(r => r.NumericResult).ToList();
-
-        for (int i = 0; i < sortedResults.Count; i++)
+        catch
         {
-            var result = sortedResults[i];
-            rankings.Add(new RankingResult
-            {
-                RegionName = result.RegionName,
-                PlayerName = result.PlayerName,
-                Result = result.Result,
-                AssignedLane = result.Lane,
-                Rank = i + 1,
-                NumericResult = result.NumericResult
-            });
+            // Ignore errors - rankings will be empty
         }
 
         return rankings;
-    }
-
-    private string GetFastestResult(List<string> results, string? subcategory)
-    {
-        if (!results.Any()) return "";
-
-        // Try to parse each result
-        var parsedResults = new List<(string Original, double Numeric)>();
-
-        foreach (var result in results)
-        {
-            if (TryParseResult(result, out double numeric))
-            {
-                parsedResults.Add((result, numeric));
-            }
-        }
-
-        if (!parsedResults.Any()) return "";
-
-        // For swimming events, fastest is lowest time
-        var fastest = parsedResults.OrderBy(r => r.Numeric).First();
-        return fastest.Original;
     }
 
     private bool TryParseResult(string result, out double numericResult)
@@ -868,151 +779,20 @@
         return double.TryParse(result, out numericResult);
     }
 
-    private RenderFragment RenderEventCard(EventInfo evt)
+    /* ===================== HELPER METHODS ===================== */
+
+    private string GetSwimmingIcon(string? sportMainCat)
     {
-        var isLive = evt.EventStage?.ToLower() != "completed";
-        var hasHeats = _eventHeats.ContainsKey(evt.ID) && _eventHeats[evt.ID].Any();
-        var hasRankings = _eventRankings.ContainsKey(evt.ID) && _eventRankings[evt.ID].Any();
-        var participantCount = _eventParticipantCount.ContainsKey(evt.ID) ? _eventParticipantCount[evt.ID] : 0;
-        var strokeType = GetStrokeType(evt.SportMainCat, evt.Subcategory);
+        if (string.IsNullOrEmpty(sportMainCat))
+            return Icons.Material.Filled.Pool;
 
-        return @<div class="modern-card">
-            <!-- HEADER -->
-            <div class="card-header">
-                @if (isLive)
-                {
-                    <span class="badge-live">LIVE</span>
-                }
-                else
-                {
-                    <span class="badge-final">FINAL</span>
-                }
-                <div class="event-name">@evt.Subcategory</div>
-                <div class="event-details">
-                    <span class="event-detail-item">
-                        <MudIcon Icon="@Icons.Material.Filled.Pool" Size="Size.Small" />
-                        SWIMMING
-                    </span>
-                    <span class="event-detail-item">
-                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
-                        @evt.Gender
-                    </span>
-                    <span class="event-detail-item">
-                        <MudIcon Icon="@Icons.Material.Filled.School" Size="Size.Small" />
-                        @evt.Level
-                    </span>
-                </div>
-                @if (!string.IsNullOrEmpty(strokeType))
-                {
-                    <div style="font-size: 0.8rem; color: var(--accent-teal); margin-top: 5px;">
-                        <span class="swim-stroke">@strokeType.ToUpper()</span>
-                    </div>
-                }
-                @if (evt.Date.HasValue)
-                {
-                    <div style="font-size: 0.8rem; color: #888; margin-top: 5px;">
-                        <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" />
-                        @evt.Date.Value.ToString("MMM dd") @(!string.IsNullOrEmpty(evt.Time) ? $"• {evt.Time}" : "")
-                    </div>
-                }
-            </div>
-
-            <!-- POOL VISUALIZATION (HEATS) -->
-        @if (hasHeats)
-        {
-                <div class="pool-visual">
-                    <MudText Typo="Typo.caption" Style="color: #aaa; font-weight: bold;">
-                        <MudIcon Icon="@Icons.Material.Filled.FormatListNumbered" Size="Size.Small" Class="mr-1" />
-                        HEATS (@_eventHeats[evt.ID].Count) • @participantCount Swimmers
-                    </MudText>
-                    <div class="pool-lanes">
-                        @foreach (var heat in _eventHeats[evt.ID].Take(3))
-                        {
-                            <div class="pool-lane">
-                                <div class="lane-number">H@(heat.HeatOrder)</div>
-                                <div class="lane-region">@heat.HeatName</div>
-                                <div class="lane-time">
-                                    @if (!string.IsNullOrEmpty(heat.FastestTime))
-                                    {
-                                        @FormatResultDisplay(heat.FastestTime, evt.Subcategory)
-                                    }
-                                    else
-                                    {
-                                        <span style="color: #666;">No time</span>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-        }
-        else if (participantCount > 0)
-        {
-                <div class="pool-visual">
-                    <MudText Typo="Typo.caption" Style="color: #aaa; font-weight: bold;">
-                        <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Class="mr-1" />
-                        @participantCount Swimmers Registered
-                    </MudText>
-                    <div style="padding: 10px; text-align: center; color: #888;">
-                        <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Class="mr-1" />
-                        Event not started yet
-                    </div>
-                </div>
-        }
-
-            <!-- RESULTS LIST -->
-            <div class="results-container">
-                @if (hasRankings && _eventRankings[evt.ID].Any())
-                {
-                    @foreach (var result in _eventRankings[evt.ID].Take(8))
-                    {
-                        <div class="result-row">
-                            <div class="result-rank @GetRankClass(result.Rank)">
-                                @(result.Rank > 0 ? $"#{result.Rank}" : "-")
-                            </div>
-                            <div class="result-info">
-                                <span class="result-player">@result.PlayerName</span>
-                                <span class="result-region">@result.RegionName</span>
-                            </div>
-                            <div class="result-time time-result">
-                                @FormatResultDisplay(result.Result, evt.Subcategory)
-                            </div>
-                            @if (!string.IsNullOrEmpty(result.AssignedLane))
-                            {
-                                <div class="result-lane">@result.AssignedLane.Split('-').LastOrDefault()</div>
-                            }
-                        </div>
-                    }
-                }
-                else
-                {
-                    <div class="empty-state">
-                        <MudIcon Icon="@Icons.Material.Filled.TimerOff" Class="empty-state-icon" />
-                        <MudText Typo="Typo.caption" Style="color:#666">Waiting for results</MudText>
-                        @if (participantCount > 0)
-                        {
-                            <MudText Typo="Typo.caption" Style="color:#444; margin-top:5px;">
-                                @participantCount swimmers registered
-                            </MudText>
-                        }
-                    </div>
-                }
-            </div>
-
-            <!-- FOOTER LINK -->
-            <div class="card-footer">
-                <a href="/score/time-distance?eventId=@evt.ID" target="_blank" class="tv-btn">
-                    @if (isLive)
-                    {
-                        <span>LIVE SCORING <MudIcon Icon="@Icons.Material.Filled.LiveTv" Size="Size.Small" Class="ml-2" /></span>
-                    }
-                    else
-                    {
-                        <span>VIEW RESULTS <MudIcon Icon="@Icons.Material.Filled.Assignment" Size="Size.Small" Class="ml-2" /></span>
-                    }
-                </a>
-            </div>
-        </div>;
+        var s = sportMainCat.ToLower();
+        if (s.Contains("freestyle")) return Icons.Material.Filled.DirectionsRun;
+        if (s.Contains("backstroke")) return Icons.Material.Filled.RotateLeft;
+        if (s.Contains("breaststroke")) return Icons.Material.Filled.Waves;
+        if (s.Contains("butterfly")) return Icons.Material.Filled.Flight;
+        if (s.Contains("medley")) return Icons.Material.Filled.Merge;
+        return Icons.Material.Filled.Pool;
     }
 
     private string GetStrokeType(string? sportMainCat, string? subcategory)
@@ -1036,7 +816,50 @@
         return "Swimming";
     }
 
-    private string FormatResultDisplay(string result, string? subcategory)
+    private string GetDistance(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory))
+            return "50m";
+
+        var matches = System.Text.RegularExpressions.Regex.Match(subcategory, @"(\d+)\s*(m|meter|meters)");
+        if (matches.Success)
+        {
+            return $"{matches.Groups[1].Value}m";
+        }
+        return "50m";
+    }
+
+    private string GetSwimmingFormat(string? subcategory)
+    {
+        if (string.IsNullOrEmpty(subcategory))
+            return "Individual";
+
+        var s = subcategory.ToLower();
+        if (s.Contains("relay")) return "Team Relay";
+        if (s.Contains("medley")) return "Individual Medley";
+        return "Individual";
+    }
+
+    private int GetParticipantCount(string eventId)
+    {
+        if (_eventParticipants.ContainsKey(eventId))
+        {
+            return _eventParticipants[eventId].Count;
+        }
+        return 0;
+    }
+
+    private string GetFastestTime(string eventId)
+    {
+        if (_eventRankings.ContainsKey(eventId) && _eventRankings[eventId].Any())
+        {
+            var fastest = _eventRankings[eventId].First();
+            return FormatTimeDisplay(fastest.Result);
+        }
+        return "--:--";
+    }
+
+    private string FormatTimeDisplay(string result)
     {
         if (string.IsNullOrEmpty(result)) return "--:--";
 
@@ -1066,48 +889,72 @@
         return result;
     }
 
-    private string GetRankClass(int rank)
+    private string GetEventUrl(EventInfo evt)
     {
-        return rank switch
-        {
-            1 => "rank-1",
-            2 => "rank-2",
-            3 => "rank-3",
-            _ => ""
-        };
+        return $"/scoreboard/swimming/{evt.ID}";
     }
 
-    public void Dispose()
-    {
-        _timer?.Dispose();
-    }
+    /* ===================== CARD RENDERER ===================== */
 
-    // --- MODELS ---
-    public class EventInfo
-    {
-        public string ID { get; set; } = "";
-        public string? Sport { get; set; }
-        public string? Subcategory { get; set; }
-        public string? Gender { get; set; }
-        public string? Level { get; set; }
-        public string? EventStage { get; set; }
-        public string? SportMainCat { get; set; }
-        public DateTime? Date { get; set; }
-        public string? Time { get; set; }
-        public string? Region { get; set; }
-        public string? Abbreviation { get; set; }
-        public int? RegionID { get; set; }
-        public string? PlayerID { get; set; }
-        public string? PlayerName { get; set; }
-    }
+    private RenderFragment RenderEventCard(EventInfo evt) => @<a href="@GetEventUrl(evt)" class="event-link">
+        <div class="event-card">
+            <div class="status-container">
+                <div class="event-type-badge">@(evt.Level ?? "Open")</div>
+                <div class="status-badge @(evt.EventStage == "Completed" ? "badge-final" : "badge-live")">
+                    @(evt.EventStage == "Completed" ? "FINAL" : "LIVE")
+                </div>
+            </div>
 
-    public class HeatData
-    {
-        public string HeatName { get; set; } = "";
-        public int HeatOrder { get; set; }
-        public int LaneCount { get; set; }
-        public string? FastestTime { get; set; }
-    }
+            <div class="pa-5">
+                <!-- Sport Header -->
+                <div class="d-flex align-center mb-4">
+                    <div class="sport-icon mr-3">
+                        <MudIcon Icon="@GetSwimmingIcon(evt.SportMainCat)" Size="Size.Small" Style="color:var(--accent-blue);" />
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">SWIMMING</MudText>
+                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                            @(evt.Gender ?? "Mixed") • @(evt.EventStage ?? "Heats")
+                        </MudText>
+                    </div>
+                </div>
+
+                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                <!-- Race Info -->
+                <div class="swimming-info">
+                    <div class="event-name text-center mb-3">
+                        @evt.Subcategory
+                        <span class="distance-badge">@GetDistance(evt.Subcategory)</span>
+                    </div>
+
+                    <div class="swimmers-count">
+                        @GetParticipantCount(evt.ID) <span style="font-size: 1rem; color: var(--accent-aqua);">SWIMMERS</span>
+                    </div>
+                    <div class="info-label">@(evt.EventStage == "Completed" ? "RESULTS" : "IN PROGRESS")</div>
+                </div>
+
+                <!-- Event Details -->
+                <div class="pa-2">
+                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                        <b>Stroke:</b> @GetStrokeType(evt.SportMainCat, evt.Subcategory)
+                    </MudText>
+                    <MudText Typo="Typo.body2" Style="color: #ccc; margin-bottom: 8px;">
+                        <b>Category:</b> @evt.Subcategory
+                    </MudText>
+                    <MudText Typo="Typo.caption" Style="color: var(--accent-blue); font-weight:600;">
+                        Click for timing & results
+                    </MudText>
+                </div>
+            </div>
+        </div>
+    </a>;
+
+    /* ===================== CLEANUP ===================== */
+
+    public void Dispose() => _refreshTimer?.Dispose();
+
+    /* ===================== SUPPORTING CLASSES ===================== */
 
     public class RankingResult
     {
@@ -1119,7 +966,6 @@
         public double NumericResult { get; set; }
     }
 
-    // These classes should match your original scoring page
     public class SavedScoringData
     {
         public List<SavedHeat> Heats { get; set; } = new();

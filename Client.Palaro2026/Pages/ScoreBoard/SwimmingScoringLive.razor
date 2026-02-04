@@ -21,7 +21,7 @@ else if (_eventInfo == null)
         <MudIcon Icon="@Icons.Material.Filled.Pool" Size="Size.Large" Color="Color.Secondary" />
         <MudText Typo="Typo.h6" Class="mt-4">Event Not Found</MudText>
         <MudButton Variant="Variant.Outlined" Color="Color.Primary" 
-                  
+                 
                    StartIcon="@Icons.Material.Filled.ArrowBack" Class="mt-4">
             Back to Swimming Events
         </MudButton>
@@ -464,7 +464,26 @@ else
                     Pool Lanes & Heats
                 </div>
                 <div class="pool-lanes-grid">
-               
+                    @foreach (var lane in _eventHeats)
+                    {
+                        <div class="pool-lane-item">
+                            <div class="lane-number">H@(lane.HeatOrder)-@lane.LaneOrder</div>
+                            <div class="lane-info">
+                                <span class="lane-swimmer">@lane.PlayerName</span>
+                                <span class="lane-region">@lane.RegionAbbreviation</span>
+                            </div>
+                            <div class="lane-time">
+                                @if (!string.IsNullOrEmpty(lane.Result))
+                                {
+                                    @FormatTimeDisplay(lane.Result)
+                                }
+                                else
+                                {
+                                    <span style="color: #666;">--:--</span>
+                                }
+                            </div>
+                        </div>
+                    }
                 </div>
             </div>
         }
@@ -587,7 +606,7 @@ else
         <!-- BACK BUTTON -->
         <div class="back-section">
             <MudButton Variant="Variant.Outlined" Color="Color.Info" 
-                      
+                    
                        StartIcon="@Icons.Material.Filled.ArrowBack" Size="Size.Large">
                 Back to All Swimming Events
             </MudButton>
@@ -672,52 +691,75 @@ else
         }
     }
 
-    private async Task LoadSavedScoringData()
+   private async Task LoadSavedScoringData()
+{
+    try
     {
-        try
+        // FIX 1: Use the correct API endpoint based on your database structure
+        var savedData = await apiService.GetSingleAsync<SavedScoringData>($"scoreboard/swimming/{EventID}");
+        
+        if (savedData != null)
         {
-            var savedData = await apiService.GetSingleAsync<SavedScoringData>($"TimeDistanceEvents/Sports/AthleticsSwimming/{EventID}");
+            Console.WriteLine($"Loaded saved data: Heats count = {savedData.Heats?.Count ?? 0}");
             
-            if (savedData != null)
+            // Load heats information
+            _eventHeats.Clear();
+            if (savedData.Heats != null && savedData.Heats.Any())
             {
-                // Load heats information
-                _eventHeats.Clear();
-                if (savedData.Heats != null && savedData.Heats.Any())
+                _hasHeats = true;
+                Console.WriteLine($"Processing {savedData.Heats.Count} heats");
+                
+                foreach (var heat in savedData.Heats.OrderBy(h => h.HeatOrder))
                 {
-                    _hasHeats = true;
-                    foreach (var heat in savedData.Heats.OrderBy(h => h.HeatOrder))
+                    if (heat.Lanes != null)
                     {
-                        if (heat.Lanes != null)
+                        Console.WriteLine($"Heat {heat.HeatName} has {heat.Lanes.Count} lanes");
+                        
+                        foreach (var lane in heat.Lanes.OrderBy(l => l.LaneOrder))
                         {
-                            foreach (var lane in heat.Lanes.OrderBy(l => l.LaneOrder))
+                            Console.WriteLine($"Lane {lane.LaneName}: {lane.PlayerName} - {lane.Result}");
+                            
+                            _eventHeats.Add(new HeatLaneDisplay
                             {
-                                _eventHeats.Add(new HeatLaneDisplay
-                                {
-                                    HeatName = heat.HeatName,
-                                    HeatOrder = heat.HeatOrder,
-                                    LaneName = lane.LaneName,
-                                    LaneOrder = lane.LaneOrder,
-                                    PlayerName = lane.PlayerName,
-                                    RegionAbbreviation = lane.RegionAbbreviation,
-                                    Result = lane.Result
-                                });
-                            }
+                                HeatName = heat.HeatName,
+                                HeatOrder = heat.HeatOrder,
+                                LaneName = lane.LaneName,
+                                LaneOrder = lane.LaneOrder,
+                                PlayerName = lane.PlayerName,
+                                RegionAbbreviation = lane.RegionAbbreviation,
+                                Result = lane.Result
+                            });
                         }
                     }
                 }
-
-                // Calculate rankings
-                _allRankings = CalculateRankingsFromSavedData(savedData);
-                
-                // Get medal winners (top 3)
-                _medalWinners = _allRankings.Take(3).ToList();
             }
+            else
+            {
+                Console.WriteLine("No heats found in saved data");
+            }
+
+            // Calculate rankings
+            _allRankings = CalculateRankingsFromSavedData(savedData);
+            Console.WriteLine($"Calculated {_allRankings.Count} rankings");
+            
+            // Get medal winners (top 3)
+            _medalWinners = _allRankings.Take(3).ToList();
+            Console.WriteLine($"Medal winners count: {_medalWinners.Count}");
+            
+            // Update UI
+            StateHasChanged();
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine($"Error loading saved scoring data: {ex.Message}");
+            Console.WriteLine("No saved data found for this event");
         }
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error loading saved scoring data: {ex.Message}");
+        Console.WriteLine($"Stack trace: {ex.StackTrace}");
+    }
+}
 
     private List<RankingResult> CalculateRankingsFromSavedData(SavedScoringData savedData)
     {
