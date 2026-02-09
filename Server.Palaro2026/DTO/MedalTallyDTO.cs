@@ -10,6 +10,8 @@
             public int? Silver { get; set; }
             public int? Bronze { get; set; }
             public int? Total { get; set; }
+
+            public bool? IsFinished { get; set; }
         }
 
         public class SchoolLevelMedalTally
@@ -27,6 +29,7 @@
                 public int? Silver { get; set; }
                 public int? Bronze { get; set; }
                 public int? Total { get; set; }
+                public bool? IsFinished { get; set; }
             }
         }
     }

@@ -36,11 +36,14 @@ namespace Server.Palaro2026.Controller
         NULL AS PerformanceID,
         evt.ID AS EventVersusTeamID,
         evt.SchoolRegionID,
-
-        NULL AS TeamID, -- ✅ EVENT: teamid is null
-
+        NULL AS TeamID, -- EVENT: teamid is null
         CAST(evt.Rank AS VARCHAR(20)) AS TeamRank,
         evt.PerformanceScoreID,
+
+        -- ✅ LEVEL (from SportSubcategories -> SchoolLevels)
+        sc.SchoolLevelID,
+        sl.Level,
+
         pp.ID AS PlayerID,
         pp.FirstName,
         pp.LastName,
@@ -54,6 +57,8 @@ namespace Server.Palaro2026.Controller
     INNER JOIN EventVersusTeams evt ON evt.EventID = e.ID
     INNER JOIN EventVersusTeamPlayers evp ON evp.EventVersusID = evt.ID
     INNER JOIN ProfilePlayers pp ON pp.ID = evp.ProfilePlayerID
+    LEFT JOIN SportSubcategories sc ON sc.ID = e.SportSubcategoryID
+    LEFT JOIN SchoolLevels sl ON sl.ID = sc.SchoolLevelID
     WHERE e.IsFinished = 1
       AND evt.PerformanceScoreID IS NULL
 ),
@@ -69,11 +74,14 @@ PerformanceSource_WithVersus AS
         pe.ID AS PerformanceID,
         evt.ID AS EventVersusTeamID,
         evt.SchoolRegionID,
-
-        pt.TeamID AS TeamID, -- ✅ PERFORMANCE: store teamid from PerformanceTeam
-
+        pt.TeamID AS TeamID, -- PERFORMANCE: store teamid from PerformanceTeam
         CAST(evt.Rank AS VARCHAR(20)) AS TeamRank,
         evt.PerformanceScoreID,
+
+        -- ✅ LEVEL (from SportSubcategories -> SchoolLevels)
+        sc.SchoolLevelID,
+        sl.Level,
+
         pp.ID AS PlayerID,
         pp.FirstName,
         pp.LastName,
@@ -88,6 +96,8 @@ PerformanceSource_WithVersus AS
     INNER JOIN PerformanceTeam pt ON pt.ID = ps.PerformanceTeamID
     INNER JOIN ProfilePlayers pp ON pp.ID = pt.PlayerID
     INNER JOIN PerformanceEvent pe ON pe.ID = ps.PerformanceID
+    LEFT JOIN SportSubcategories sc ON sc.ID = ps.SportSubcategoryID
+    LEFT JOIN SchoolLevels sl ON sl.ID = sc.SchoolLevelID
     WHERE pe.IsFinished = 1
       AND evt.EventID IS NULL
       AND evt.PerformanceScoreID IS NOT NULL
@@ -104,11 +114,14 @@ PerformanceSource_NoVersus AS
         pe.ID AS PerformanceID,
         NULL AS EventVersusTeamID,
         pt.RegionID AS SchoolRegionID,
-
-        pt.TeamID AS TeamID, -- ✅ PERFORMANCE (no versus): store teamid from PerformanceTeam
-
+        pt.TeamID AS TeamID, -- PERFORMANCE (no versus): store teamid from PerformanceTeam
         CAST(ps.Rank AS VARCHAR(20)) AS TeamRank,
         NULL AS PerformanceScoreID,
+
+        -- ✅ LEVEL (from SportSubcategories -> SchoolLevels)
+        sc.SchoolLevelID,
+        sl.Level,
+
         pp.ID AS PlayerID,
         pp.FirstName,
         pp.LastName,
@@ -123,6 +136,8 @@ PerformanceSource_NoVersus AS
     INNER JOIN ProfilePlayers pp ON pp.ID = pt.PlayerID
     INNER JOIN PerformanceEvent pe ON pe.ID = ps.PerformanceID
     LEFT JOIN EventVersusTeams evt ON evt.PerformanceScoreID = ps.ID
+    LEFT JOIN SportSubcategories sc ON sc.ID = ps.SportSubcategoryID
+    LEFT JOIN SchoolLevels sl ON sl.ID = sc.SchoolLevelID
     WHERE pe.IsFinished = 1
       AND evt.ID IS NULL
 ),
@@ -140,7 +155,8 @@ Ranked AS
         c.*,
         CASE
             WHEN c.TeamRank IN ('Gold','Silver','Bronze') THEN 0
-            WHEN TRY_CAST(c.TeamRank AS INT) IS NOT NULL AND TRY_CAST(c.TeamRank AS INT) > 0 THEN 1
+            WHEN TRY_CAST(c.TeamRank AS INT) IS NOT NULL
+                 AND TRY_CAST(c.TeamRank AS INT) > 0 THEN 1
             ELSE 2
         END AS RankGroup,
         CASE
@@ -150,18 +166,24 @@ Ranked AS
             ELSE 999
         END AS MedalOrder,
         CASE
-            WHEN TRY_CAST(c.TeamRank AS INT) IS NOT NULL AND TRY_CAST(c.TeamRank AS INT) > 0
+            WHEN TRY_CAST(c.TeamRank AS INT) IS NOT NULL
+                 AND TRY_CAST(c.TeamRank AS INT) > 0
                 THEN TRY_CAST(c.TeamRank AS INT)
             ELSE 999
         END AS NumericOrder,
         ROW_NUMBER() OVER
         (
-            PARTITION BY c.PlayerID
+            PARTITION BY
+                c.PlayerID,
+                c.SportSubcategoryID,
+                COALESCE(CONVERT(VARCHAR(50), c.PerformanceID),
+                         CONVERT(VARCHAR(50), c.EventID))
             ORDER BY
                 ISNULL(c.EventStageID, 0) DESC,
                 CASE
                     WHEN c.TeamRank IN ('Gold','Silver','Bronze') THEN 0
-                    WHEN TRY_CAST(c.TeamRank AS INT) IS NOT NULL AND TRY_CAST(c.TeamRank AS INT) > 0 THEN 1
+                    WHEN TRY_CAST(c.TeamRank AS INT) IS NOT NULL
+                         AND TRY_CAST(c.TeamRank AS INT) > 0 THEN 1
                     ELSE 2
                 END,
                 CASE
@@ -171,7 +193,8 @@ Ranked AS
                     ELSE 999
                 END,
                 CASE
-                    WHEN TRY_CAST(c.TeamRank AS INT) IS NOT NULL AND TRY_CAST(c.TeamRank AS INT) > 0
+                    WHEN TRY_CAST(c.TeamRank AS INT) IS NOT NULL
+                         AND TRY_CAST(c.TeamRank AS INT) > 0
                         THEN TRY_CAST(c.TeamRank AS INT)
                     ELSE 999
                 END
@@ -186,7 +209,7 @@ ORDER BY
     RankGroup,
     MedalOrder,
     NumericOrder,
-    LastName; 
+    LastName;
 ";
 
                 var data = await _db.QueryAsync<TabulationResultDTO, dynamic>(sql, new { });

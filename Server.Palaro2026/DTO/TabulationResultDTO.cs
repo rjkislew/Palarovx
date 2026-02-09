@@ -13,6 +13,10 @@
         public int? PerformanceID { get; set; }
         public int? TeamID { get; set; }
 
+        public int? SchoolLevelID { get; set; }
+        public string? Level { get; set; }
+
+
         public int? EventVersusTeamID { get; set; }
         public int? SchoolRegionID { get; set; }
         public string? TeamRank { get; set; }

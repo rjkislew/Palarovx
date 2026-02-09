@@ -806,56 +806,6 @@
         }
     }
 
-    // private async Task AutoSelectSubcategory()
-    // {
-    //     if (_selectedEvent == null || !_sportSubcategories.Any()) return;
-
-    //     // First filter subcategories to only show relevant ones
-    //     await FilterSubcategoriesByMainCategory();
-
-    //     // Check if we can auto-select based on player count
-    //     var playerCount = GetPlayerCountPerRegion(_selectedEvent);
-
-    //     if (playerCount.HasValue)
-    //     {
-    //         string targetSubcategoryName = playerCount.Value switch
-    //         {
-    //             2 => "(Aero) Mixed Pair",
-    //             3 => "(Aero) Trio",
-    //             >= 5 and <= 8 => "(Aero) Aerobic Dance",
-    //             _ => null
-    //         };
-
-    //         if (!string.IsNullOrEmpty(targetSubcategoryName))
-    //         {
-    //             var targetSubcategory = _sportSubcategories
-    //                 .FirstOrDefault(sc =>
-    //                     sc.Subcategory?.Contains(targetSubcategoryName) == true);
-
-    //             if (targetSubcategory != null)
-    //             {
-    //                 _selectedSubcategoryId = targetSubcategory.ID;
-    //                 await LoadExistingScore(); // Load existing score if any
-    //                 StateHasChanged();
-    //             }
-    //             else
-    //             {
-    //                 // Try fuzzy matching
-    //                 targetSubcategory = _sportSubcategories
-    //                     .FirstOrDefault(sc =>
-    //                         sc.Subcategory?.ToLower().Contains(targetSubcategoryName.ToLower().Replace("(aero) ", "")) == true);
-
-    //                 if (targetSubcategory != null)
-    //                 {
-    //                     _selectedSubcategoryId = targetSubcategory.ID;
-    //                     await LoadExistingScore();
-    //                     StateHasChanged();
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
     private int? GetPlayerCountPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
     {
         if (_allOpposingTeams == null || evt?.ID == null) return null;
@@ -1411,6 +1361,76 @@
         }
     }
 
+    // private async Task DeleteMedal()
+    // {
+    //     bool? result = await DialogService.ShowMessageBox(
+    //         title: "Confirm Delete Medal",
+    //         message: "Are you sure you want to delete this medal?",
+    //         yesText: "Yes",
+    //         cancelText: "Cancel"
+    //     );
+
+    //     if (result != true) return;
+
+    //     try
+    //     {
+    //         // ✅ TEAM delete: delete all medals for this team (either by loaded list, or fetch by performance+team)
+    //         if (IsTeamEvent && TeamID.HasValue && EventID.HasValue)
+    //         {
+    //             if (_existingTeamMedals == null || !_existingTeamMedals.Any())
+    //             {
+    //                 string loadUrl = $"/Events/VersusTeams?performanceID={EventID.Value}&teamID={TeamID.Value}";
+    //                 _existingTeamMedals = await apiService.GetAsync<EventsDTO.EventVersusTeams>(loadUrl)
+    //                                      ?? new List<EventsDTO.EventVersusTeams>();
+    //             }
+
+    //             int deleted = 0;
+
+    //             foreach (var medal in _existingTeamMedals)
+    //             {
+    //                 var ok = await apiService.DeleteAsync($"/Events/VersusTeams/{medal.ID}");
+    //                 if (ok) deleted++;
+    //             }
+
+    //             if (deleted > 0)
+    //             {
+    //                 Snackbar.Add($"Team medal deleted ({deleted} record(s)).", Severity.Success);
+    //             }
+    //             else
+    //             {
+    //                 Snackbar.Add("No team medals deleted.", Severity.Warning);
+    //             }
+
+    //             _existingTeamMedals = new();
+    //             _existingMedal = null;
+    //             _selectedMedal = null;
+    //             StateHasChanged();
+    //             return;
+    //         }
+
+    //         // ✅ INDIVIDUAL delete
+    //         if (_existingMedal == null) return;
+
+    //         var success = await apiService.DeleteAsync($"/Events/VersusTeams/{_existingMedal.ID}");
+
+    //         if (success)
+    //         {
+    //             Snackbar.Add("Medal deleted successfully.", Severity.Success);
+    //             _existingMedal = null;
+    //             _selectedMedal = null;
+    //             StateHasChanged();
+    //         }
+    //         else
+    //         {
+    //             Snackbar.Add("Failed to delete medal.", Severity.Error);
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error deleting medal: {ex.Message}", Severity.Error);
+    //     }
+    // }
+
     private async Task DeleteMedal()
     {
         bool? result = await DialogService.ShowMessageBox(
@@ -1424,32 +1444,52 @@
 
         try
         {
-            // ✅ TEAM delete: delete all medals for this team (either by loaded list, or fetch by performance+team)
+            // ================================
+            // ✅ SPECIAL CASE:
+            // WAG C1/C2 Team Championship medal delete propagation (linked performances)
+            // ================================
+            if (!string.IsNullOrWhiteSpace(ForcedCategoryName) &&
+                ForcedCategoryName.Contains("Team Championship", StringComparison.OrdinalIgnoreCase) &&
+                SaveToLinkedPerformances &&
+                LinkedPerformanceIDs != null && LinkedPerformanceIDs.Any())
+            {
+                await DeleteLinkedTeamChampionshipMedal();
+                await LoadExistingMedal();
+                return;
+            }
+
+            // ✅ TEAM delete: delete all medals for this team
             if (IsTeamEvent && TeamID.HasValue && EventID.HasValue)
             {
-                if (_existingTeamMedals == null || !_existingTeamMedals.Any())
-                {
-                    string loadUrl = $"/Events/VersusTeams?performanceID={EventID.Value}&teamID={TeamID.Value}";
-                    _existingTeamMedals = await apiService.GetAsync<EventsDTO.EventVersusTeams>(loadUrl)
-                                         ?? new List<EventsDTO.EventVersusTeams>();
-                }
+                // ✅ If this dialog is used for a COMBINED EVENT, match SAVE behavior:
+                // delete medals across ALL linked performance IDs (both combined events)
+                var performanceIds = GetPerformanceIdsToSave();
 
+                var deletedIds = new HashSet<int>();
                 int deleted = 0;
 
-                foreach (var medal in _existingTeamMedals)
+                foreach (var perfId in performanceIds.Distinct())
                 {
-                    var ok = await apiService.DeleteAsync($"/Events/VersusTeams/{medal.ID}");
-                    if (ok) deleted++;
+                    // Prefer a team-scoped query (keeps it fast + safe)
+                    string loadUrl = $"/Events/VersusTeams?performanceID={perfId}&teamID={TeamID.Value}";
+                    var medals = await apiService.GetAsync<EventsDTO.EventVersusTeams>(loadUrl)
+                                 ?? new List<EventsDTO.EventVersusTeams>();
+
+                    foreach (var medal in medals)
+                    {
+                        // avoid double delete if API returns duplicates
+                        if (!deletedIds.Add(medal.ID))
+                            continue;
+
+                        var ok = await apiService.DeleteAsync($"/Events/VersusTeams/{medal.ID}");
+                        if (ok) deleted++;
+                    }
                 }
 
                 if (deleted > 0)
-                {
                     Snackbar.Add($"Team medal deleted ({deleted} record(s)).", Severity.Success);
-                }
                 else
-                {
                     Snackbar.Add("No team medals deleted.", Severity.Warning);
-                }
 
                 _existingTeamMedals = new();
                 _existingMedal = null;
@@ -1458,7 +1498,7 @@
                 return;
             }
 
-            // ✅ INDIVIDUAL delete
+            // ✅ INDIVIDUAL delete (unchanged behavior)
             if (_existingMedal == null) return;
 
             var success = await apiService.DeleteAsync($"/Events/VersusTeams/{_existingMedal.ID}");
@@ -1480,6 +1520,75 @@
             Snackbar.Add($"Error deleting medal: {ex.Message}", Severity.Error);
         }
     }
+
+    // ================================
+    // ✅ Linked Team Championship medal DELETE (mirrors SaveLinkedTeamChampionshipMedal)
+    // ================================
+    private async Task DeleteLinkedTeamChampionshipMedal()
+    {
+        if (!_selectedSubcategoryId.HasValue)
+        {
+            Snackbar.Add("Select a category first.", Severity.Warning);
+            return;
+        }
+
+        if (LinkedPerformanceIDs == null || !LinkedPerformanceIDs.Any())
+        {
+            Snackbar.Add("No linked performances found. (LinkedPerformanceIDs is empty)", Severity.Warning);
+            return;
+        }
+
+        int deletedTotal = 0;
+
+        foreach (var perfId in LinkedPerformanceIDs.Distinct())
+        {
+            var scoreIds = await GetScoreIdsForRegion_Subcategory(perfId, RegionID, _selectedSubcategoryId.Value);
+            if (scoreIds == null || !scoreIds.Any())
+                continue;
+
+            deletedTotal += await DeleteMedalsByScoreIds(perfId, scoreIds, TeamID);
+        }
+
+        if (deletedTotal > 0)
+            Snackbar.Add($"Medal deleted ({deletedTotal} record(s)).", Severity.Success);
+        else
+            Snackbar.Add("No medals deleted in linked performances.", Severity.Warning);
+    }
+
+    private async Task<int> DeleteMedalsByScoreIds(int performanceId, List<int> scoreIds, int? teamId)
+    {
+        if (scoreIds == null || scoreIds.Count == 0)
+            return 0;
+
+        // Load existing medals for this performance once
+        string loadUrl = $"/Events/VersusTeams?performanceID={performanceId}";
+        var existingMedals = await apiService.GetAsync<EventsDTO.EventVersusTeams>(loadUrl)
+                             ?? new List<EventsDTO.EventVersusTeams>();
+
+        int deleted = 0;
+        var seen = new HashSet<int>();
+
+        foreach (var scoreId in scoreIds.Distinct())
+        {
+            // ✅ Match by scoreId AND teamId to avoid collisions
+            var matches = existingMedals.Where(m =>
+                m.PerformanceScoreID == scoreId &&
+                m.TeamID == teamId)
+                .ToList();
+
+            foreach (var medal in matches)
+            {
+                if (!seen.Add(medal.ID))
+                    continue;
+
+                var ok = await apiService.DeleteAsync($"/Events/VersusTeams/{medal.ID}");
+                if (ok) deleted++;
+            }
+        }
+
+        return deleted;
+    }
+
 
     private bool ShouldShowMedalTally()
     {

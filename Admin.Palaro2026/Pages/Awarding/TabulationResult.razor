@@ -38,7 +38,7 @@
         </MudStack>
     </MudItem>
 
-    @if (_filteredDisplay.Any())
+    @if (_display.Any())
     {
             <MudItem xs="12">
             <MudTable Items="@_filteredDisplay" T="TallyDisplayRow"
@@ -63,23 +63,25 @@
                                   IconSize="Size.Medium" />
                     </ToolBarContent>
 
-                    <ColGroup>
-                        <col style="width: 20%" />
-                        <col style="width: 30%" />
-                        <col style="width: 15%" />
-                        <col style="width: 15%" />
-                        <col style="width: 10%" />
-                        <col style="width: 10%" />
-                    </ColGroup>
+                <ColGroup>
+                    <col style="width: 15%" />
+                    <col style="width: 30%" />
+                    <col style="width: 10%" />
+                    <col style="width: 10%" /> 
+                    <col style="width: 20%" />
+                    <col style="width: 10%" />
+                    <col style="width: 5%" />
+                </ColGroup>
 
-                    <HeaderContent>
-                        <MudTh>Region</MudTh>
-                        <MudTh Style="text-align: center">Athlete</MudTh>
-                        <MudTh>Sports</MudTh>
-                        <MudTh>Category</MudTh>
+                <HeaderContent>
+                    <MudTh>Region</MudTh>
+                    <MudTh Style="text-align: center">Athlete</MudTh>
+                    <MudTh>Sports</MudTh>
+                    <MudTh>School Level</MudTh>
+                    <MudTh>Category</MudTh>
                     <MudTh Style="text-align: center">Medal/Rank</MudTh>
                     <MudTh Style="text-align: center">Certificate</MudTh>
-                    </HeaderContent>
+                </HeaderContent>
 
                     <RowTemplate>
                         <MudTd DataLabel="Region">
@@ -112,18 +114,27 @@
                     </MudTd>
 
 
-                        <MudTd DataLabel="Sports">
+                    <MudTd DataLabel="Sports">
                         <MudText Typo="Typo.body2">@GetSportName(row.Head.SportID)</MudText>
                     </MudTd>
 
-                        <MudTd DataLabel="Category">
-                            <MudStack Spacing="0">
+                    <MudTd DataLabel="School Level">
+                        <MudText Typo="Typo.body2">
+                        @(string.IsNullOrWhiteSpace(row.Head.Level)
+                                                ? GetSchoolLevelName(row.Head.SchoolLevelID)
+                                                : row.Head.Level)
+                        </MudText>
+                    </MudTd>
+
+
+                    <MudTd DataLabel="Category">
+                        <MudStack Spacing="0">
                             <MudText Typo="Typo.body2">@row.Head.SportMainCat</MudText>
                             <MudText Typo="Typo.caption">
                                 @GetSportSubcategoryName(row.Head.SportSubcategoryID)
                             </MudText>
-                            </MudStack>
-                        </MudTd>
+                        </MudStack>
+                    </MudTd>
 
                     <MudTd DataLabel="Medal/Rank" Style="text-align: center">
                         @if (IsMedal(row.Head.TeamRank))
@@ -146,11 +157,10 @@
                         <MudButton Variant="Variant.Filled" Size="Size.Small"
                                    StartIcon="@Icons.Material.Filled.Print"
                                    Disabled="@(!row.PlayerIDs.Any())"
-                                   OnClick="@(() => PrintCertificates(row.PlayerIDs))">
+                                   OnClick="@(() => PrintCertificates(row))">
                             Print
                         </MudButton>
-
-                        </MudTd>
+                    </MudTd>
 
                     </RowTemplate>
 
@@ -192,6 +202,9 @@
 
         public int? PerformanceID { get; set; }
         public int? TeamID { get; set; }
+
+        public int? SchoolLevelID { get; set; }
+        public string? Level { get; set; }
 
         public int? EventVersusTeamID { get; set; }
         public int? SchoolRegionID { get; set; }
@@ -383,6 +396,7 @@
             .OrderBy(x => GetMedalSortOrder(x.Head.TeamRank))
             .ThenBy(x => GetNumericRankOrMax(x.Head.TeamRank))
             .ThenBy(x => GetSportName(x.Head.SportID))
+            .ThenBy(x => x.Head.Level ?? GetSchoolLevelName(x.Head.SchoolLevelID))
             .ThenBy(x => x.Head.SportMainCat)
             .ToList();
 
@@ -405,6 +419,7 @@
             GetSportName(row.SportID),
             row.SportMainCat,
             GetSportSubcategoryName(row.SportSubcategoryID),
+            row.Level,
             row.TeamRank,
             row.PlayerID,
             row.EventID
@@ -440,6 +455,7 @@
         GetSportName(m.SportID),
         m.SportMainCat,
         GetSportSubcategoryName(m.SportSubcategoryID),
+        m.Level,
         m.TeamRank,
         m.PlayerID,
         m.EventID,
@@ -770,6 +786,17 @@
     private string BuildGroupKey(TabulationResultDTO r)
     {
         var sub = r.SportSubcategoryID;
+        var region = r.SchoolRegionID ?? 0;
+
+        // ✅ SPECIAL CASE (Gymnastics only):
+        // Same TeamID (<8,000,000) + same subcategory => SAME ROW
+        // even if PerformanceID differs
+        if (IsGymnasticsUniqueTeam(r))
+            return $"GYM-UQ-{region}-T{r.TeamID!.Value}-S{sub}";
+
+        // -----------------------
+        // ✅ keep current behavior
+        // -----------------------
 
         // EVENT: team = same EventVersusTeamID (but keep subcategory separate)
         if (string.Equals(r.SourceType, "EVENT", StringComparison.OrdinalIgnoreCase))
@@ -779,7 +806,6 @@
 
         // PERFORMANCE: team = same PerformanceID + Region + TeamID (but keep subcategory separate)
         var perfId = r.PerformanceID ?? 0;
-        var region = r.SchoolRegionID ?? 0;
 
         if (r.TeamID.HasValue)
             return $"P-{perfId}-{region}-T-{r.TeamID.Value}-S{sub}";
@@ -787,6 +813,7 @@
         // PERFORMANCE individual: don't merge different athletes (keep subcategory separate)
         return $"P-{perfId}-{region}-IND-{r.PlayerID}-S{sub}";
     }
+
 
     private void BuildDisplayRows()
     {
@@ -812,29 +839,68 @@
 
     private void DeduplicateLatestPerPlayerPerSubcat()
     {
-        // Rule:
-        // - same PlayerID + same SportSubcategoryID → keep highest EventStageID
-        // - if same stage, keep best medal/rank using your ordering
         _tally = _tally
-            .GroupBy(x => new { x.PlayerID, x.SportSubcategoryID })
+            .GroupBy(x =>
+            {
+                // ✅ Gymnastics unique team: keep rows distinct per TeamID
+                if (IsGymnasticsUniqueTeam(x))
+                    return $"GYM|{x.PlayerID}|{x.TeamID}|{x.SportSubcategoryID}";
+
+                // ✅ default behavior (all other sports / cases)
+                return $"DEF|{x.PlayerID}|{x.SportSubcategoryID}";
+            })
             .Select(g =>
-                g.OrderByDescending(x => x.EventStageID ?? 0)             // stage priority: 4>3>2>1
-                 .ThenBy(x => GetMedalSortOrder(x.TeamRank))              // medals first
-                 .ThenBy(x => GetNumericRankOrMax(x.TeamRank))            // rank after medals
+                g.OrderByDescending(x => x.EventStageID ?? 0)     // stage priority
+                 .ThenBy(x => GetMedalSortOrder(x.TeamRank))      // medals first
+                 .ThenBy(x => GetNumericRankOrMax(x.TeamRank))    // rank after medals
                  .ThenBy(x => x.LastName)
                  .First()
             )
             .ToList();
     }
 
+
+    //LOGIC ONLY FOR GYMNASTICS
+
+    private const int GymnasticsSportId = 13;
+    private const int GymnasticsUniqueTeamLegacyMax = 8_000_000;     // legacy rule
+    private const int GymnasticsUniqueTeamNewMin = 80_000_000;       // new rule
+
+    private static bool IsGymnasticsUniqueTeam(TabulationResultDTO r)
+        => r.SportID == GymnasticsSportId
+           && r.TeamID.HasValue
+           && r.TeamID.Value > 0
+           && (r.TeamID.Value < GymnasticsUniqueTeamLegacyMax || r.TeamID.Value > GymnasticsUniqueTeamNewMin);
+
     //PRINT CERTIFICATE
 
-    private const string CertificateBaseUrl =
-    "https://reports.pgas.ph/Report/Share/PALARO/Certificate";
+    private const string ParticipationCertificateUrl =
+        "https://reports.pgas.ph/Report/Share/PALARO/Certificate";
 
-    private void PrintCertificates(List<string> playerIds)
+    private const string AchievementCertificateUrl =
+        "https://reports.pgas.ph/Report/View/PALARO/Certificate-of-Achievement";
+
+    private static bool HasMedal(TallyDisplayRow row)
     {
-        var url = $"{CertificateBaseUrl}?PlayerID={Uri.EscapeDataString(string.Join(',', playerIds))}";
+        // If ANY member has a medal, treat as "has medal"
+        return row.Members.Any(m => IsMedal(m.TeamRank));
+    }
+
+    private static string BuildCertificateUrl(bool hasMedal, List<string> playerIds)
+    {
+        var baseUrl = hasMedal ? AchievementCertificateUrl : ParticipationCertificateUrl;
+        var pid = Uri.EscapeDataString(string.Join(',', playerIds));
+        return $"{baseUrl}?PlayerID={pid}";
+    }
+
+    private void PrintCertificates(TallyDisplayRow row)
+    {
+        var playerIds = row.PlayerIDs;
+
+        if (playerIds == null || !playerIds.Any())
+            return;
+
+        var url = BuildCertificateUrl(HasMedal(row), playerIds);
         _ = jsRuntime.InvokeVoidAsync("open", url, "_blank");
     }
 }
