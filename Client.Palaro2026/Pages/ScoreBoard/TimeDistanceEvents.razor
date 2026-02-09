@@ -1,522 +1,766 @@
 ﻿@page "/scoreboard/track-events"
+@using System.Threading
 @using System.Linq
 @using Client.Palaro2026.Services
-@layout NoMainLayout
 @inject APIService apiService
 @inject NavigationManager Navigation
 @implements IDisposable
+@layout NoMainLayout
 
 <PageTitle>Track Events Scoreboard | PALARO 2026</PageTitle>
 
 <style>
-    /* --- IMPORTS --- */
-    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap');
+    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@600;700&display=swap');
 
     :root {
         --bg-dark: #0a0a0a;
         --card-bg: rgba(30, 30, 30, 0.7);
         --card-border: rgba(255, 255, 255, 0.1);
-        --accent-gold: #FFD700;
-        --accent-blue: #00e5ff;
-        --accent-green: #00ff88;
-        --accent-red: #ff1744;
-        --text-white: #ffffff;
-        --track-blue: #1a237e;
-        --track-lane: rgba(255, 255, 255, 0.05);
+        --text-primary: #ffffff;
+        --accent-yellow: #FFD700;
+        --accent-gold: #FFC107;
+        --accent-amber: #FFA000;
+        --accent-green: #00E676;
+        --accent-red: #FF0000;
+        --neon-yellow: 0 0 10px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.3);
+        --neon-gold: 0 0 10px rgba(255, 193, 7, 0.4);
+        --neon-red: 0 0 10px rgba(255, 0, 0, 0.6);
     }
 
-    body {
+    /* BACKGROUND TEXTURE */
+    .dashboard-bg {
         background-color: var(--bg-dark);
-        background-image: radial-gradient(circle at 15% 50%, rgba(0, 229, 255, 0.05) 0%, transparent 25%), radial-gradient(circle at 85% 30%, rgba(255, 215, 0, 0.05) 0%, transparent 25%);
-        font-family: 'Rajdhani', sans-serif;
-        color: white;
+        background-image: radial-gradient(circle at 10% 20%, rgba(255, 215, 0, 0.08) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(255, 193, 7, 0.05) 0%, transparent 40%), linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
         min-height: 100vh;
+        color: var(--text-primary);
+        font-family: 'Rajdhani', sans-serif;
     }
 
-    .scoreboard-header {
+    /* HEADER */
+    .header-container {
         text-align: center;
-        padding: 40px 0 20px;
+        margin-bottom: 40px;
+        position: relative;
+        padding: 30px 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+        border-bottom: 1px solid rgba(255, 215, 0, 0.2);
     }
 
     .main-title {
         font-family: 'Orbitron', sans-serif;
         font-weight: 900;
-        font-size: 3rem;
-        background: linear-gradient(180deg, #FFFFFF 0%, #b0b0b0 100%);
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        background: linear-gradient(180deg, #FFD700 0%, #FFC107 50%, #FFA000 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         letter-spacing: 4px;
+        text-transform: uppercase;
         margin-bottom: 5px;
+        filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.4));
     }
 
-    /* MODERN CARD FOR TRACK EVENTS */
-    .modern-card {
+    .sub-title {
+        font-family: 'Chakra Petch', sans-serif;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: clamp(1rem, 1.5vw, 1.3rem);
+        letter-spacing: 8px;
+        font-weight: 700;
+        text-transform: uppercase;
+        position: relative;
+        display: inline-block;
+    }
+
+        .sub-title::before, .sub-title::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 60px;
+            height: 2px;
+            background: var(--accent-yellow);
+            opacity: 0.5;
+        }
+
+        .sub-title::before {
+            left: -80px;
+        }
+
+        .sub-title::after {
+            right: -80px;
+        }
+
+    /* EVENT LINK */
+    .event-link {
+        text-decoration: none;
+        display: block;
+        height: 100%;
+    }
+
+    /* CARD DESIGN */
+    .event-card {
         background: var(--card-bg);
         border: 1px solid var(--card-border);
-        border-radius: 16px;
-        backdrop-filter: blur(10px);
-        display: flex;
-        flex-direction: column;
-        height: 550px;
-        overflow: hidden;
-        transition: all 0.3s ease;
+        border-radius: 20px;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        height: 100%;
     }
 
-        .modern-card:hover {
-            border-color: var(--accent-blue);
-            box-shadow: 0 10px 30px rgba(0, 229, 255, 0.2);
-            transform: translateY(-2px);
+        .event-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent-yellow), transparent);
+            opacity: 0.5;
         }
 
-    /* TRACK HEADER STYLING */
-    .card-header {
-        padding: 15px 20px;
-        background: linear-gradient(90deg, rgba(0,0,0,0.4) 0%, rgba(26,35,126,0.4) 100%);
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-        flex-shrink: 0;
+        .event-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: var(--accent-yellow);
+            box-shadow: 0 15px 40px rgba(255, 215, 0, 0.15);
+        }
+
+            .event-card:hover::before {
+                opacity: 1;
+            }
+
+    /* TRACK SPECIFIC ELEMENTS */
+    .track-icon {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 193, 7, 0.05));
+        border-radius: 50%;
+        padding: 10px;
+        border: 1px solid rgba(255, 215, 0, 0.3);
     }
 
-    .event-name {
+    .track-stats {
+        display: flex;
+        justify-content: space-between;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 12px;
+        padding: 10px 15px;
+        margin: 10px 0;
+        border: 1px solid rgba(255, 215, 0, 0.3);
+    }
+
+    .stat-item {
+        text-align: center;
+    }
+
+    .stat-value {
         font-family: 'Orbitron', sans-serif;
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: var(--accent-blue);
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: var(--accent-yellow);
+        line-height: 1;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    }
+
+    .stat-label {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.75rem;
+        color: #aaa;
         text-transform: uppercase;
         letter-spacing: 1px;
+        margin-top: 3px;
     }
 
-    .event-details {
-        display: flex;
-        gap: 15px;
-        font-size: 0.9rem;
-        color: #aaa;
-        margin-top: 5px;
-    }
-
-    .event-detail-item {
+    .lane-info {
         display: flex;
         align-items: center;
-        gap: 5px;
-    }
-
-    /* TRACK VISUALIZATION */
-    .track-visual {
-        padding: 15px;
-        background: rgba(0,0,0,0.2);
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-
-    .track-lanes {
-        display: flex;
-        flex-direction: column;
         gap: 8px;
-        margin-top: 10px;
+        padding: 6px 10px;
+        background: rgba(255, 215, 0, 0.1);
+        border-radius: 6px;
+        margin: 5px 0;
+        border: 1px solid rgba(255, 215, 0, 0.2);
     }
-
-    .track-lane {
-        display: flex;
-        align-items: center;
-        background: var(--track-lane);
-        border-radius: 8px;
-        padding: 8px 12px;
-        border-left: 4px solid var(--accent-gold);
-        transition: all 0.3s ease;
-    }
-
-        .track-lane:hover {
-            background: rgba(255, 215, 0, 0.1);
-            transform: translateX(5px);
-        }
 
     .lane-number {
         font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
-        color: var(--accent-gold);
-        width: 30px;
-        text-align: center;
-    }
-
-    .lane-region {
-        flex-grow: 1;
-        font-weight: 600;
-        font-size: 0.95rem;
-    }
-
-    .lane-result {
-        font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
-        color: var(--accent-green);
-        text-align: right;
-        min-width: 80px;
-    }
-
-    /* SCROLLABLE RESULTS LIST */
-    .results-container {
-        flex-grow: 1;
-        overflow-y: auto;
-        padding: 10px;
-    }
-
-        .results-container::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .results-container::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.1);
-        }
-
-        .results-container::-webkit-scrollbar-thumb {
-            background: var(--accent-blue);
-            border-radius: 3px;
-        }
-
-    .result-row {
-        display: flex;
-        align-items: center;
-        padding: 10px 12px;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        background: rgba(255,255,255,0.02);
-        border-radius: 8px;
-        margin-bottom: 8px;
-        transition: all 0.2s ease;
-    }
-
-        .result-row:hover {
-            background: rgba(255,255,255,0.05);
-            transform: translateX(3px);
-        }
-
-    .result-rank {
-        width: 40px;
-        font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
-        font-size: 1.1rem;
-        text-align: center;
-    }
-
-    .rank-1 {
-        color: #FFD700;
-        text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-    }
-
-    .rank-2 {
-        color: #C0C0C0;
-    }
-
-    .rank-3 {
-        color: #CD7F32;
-    }
-
-    .result-info {
-        flex-grow: 1;
-        padding: 0 15px;
-    }
-
-    .result-player {
         font-weight: 700;
-        font-size: 1rem;
-        display: block;
+        color: var(--accent-yellow);
+        min-width: 30px;
     }
 
-    .result-region {
-        font-size: 0.8rem;
-        color: var(--accent-blue);
-        margin-top: 2px;
-    }
-
-    .result-time {
+    .time-display {
         font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
-        font-size: 1.1rem;
+        font-weight: 700;
         color: var(--accent-green);
-        min-width: 100px;
-        text-align: right;
+        font-variant-numeric: tabular-nums;
     }
-
-    .result-lane {
-        background: rgba(0, 229, 255, 0.1);
-        color: var(--accent-blue);
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-        font-weight: bold;
-        margin-left: 10px;
-    }
-
-    /* FOOTER BUTTON */
-    .card-footer {
-        padding: 15px;
-        background: rgba(0,0,0,0.3);
-        border-top: 1px solid rgba(255,255,255,0.05);
-        flex-shrink: 0;
-    }
-
-    .tv-btn {
-        display: block;
-        width: 100%;
-        padding: 12px;
-        background: linear-gradient(90deg, rgba(0,229,255,0.1) 0%, rgba(26,35,126,0.1) 100%);
-        color: white;
-        text-align: center;
-        text-decoration: none;
-        border-radius: 8px;
-        font-family: 'Orbitron';
-        font-size: 0.9rem;
-        font-weight: bold;
-        letter-spacing: 1px;
-        transition: all 0.2s;
-        border: 1px solid rgba(0, 229, 255, 0.2);
-    }
-
-        .tv-btn:hover {
-            background: linear-gradient(90deg, var(--accent-blue) 0%, #1a237e 100%);
-            color: black;
-            box-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
-            transform: translateY(-1px);
-        }
 
     /* BADGES */
-    .badge-live {
-        background: var(--accent-red);
-        color: white;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        font-weight: bold;
-        float: right;
-        animation: pulse 1.5s infinite;
-        text-transform: uppercase;
+    .status-container {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        display: flex;
+        gap: 8px;
+        z-index: 5;
+    }
+
+    .event-type-badge {
+        background: rgba(0,0,0,0.8);
+        color: var(--accent-yellow);
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 700;
+        font-size: 0.8rem;
+        border: 1px solid var(--accent-yellow);
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+    }
+
+    .status-badge {
+        padding: 4px 15px;
+        border-radius: 6px;
+        font-family: 'Chakra Petch';
+        font-weight: 800;
+        font-size: 0.8rem;
         letter-spacing: 1px;
+    }
+
+    .badge-live {
+        background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+        color: white;
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+        border: 1px solid #FF4444;
+        animation: pulse 2s infinite;
     }
 
     .badge-final {
-        background: var(--accent-green);
-        color: black;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        font-weight: bold;
-        float: right;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+        background: linear-gradient(135deg, #00C853 0%, #00695C 100%);
+        color: white;
+        border: 1px solid #69F0AE;
+        box-shadow: 0 0 10px rgba(0, 230, 118, 0.4);
     }
 
-    .badge-heat {
-        background: rgba(255, 215, 0, 0.2);
-        color: var(--accent-gold);
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 0.7rem;
-        font-weight: bold;
-        margin-left: 10px;
-        border: 1px solid rgba(255, 215, 0, 0.3);
+    .badge-upcoming {
+        background: linear-gradient(135deg, #FFB300 0%, #F57C00 100%);
+        color: white;
+        border: 1px solid #FFB74D;
+        box-shadow: 0 0 10px rgba(255, 179, 0, 0.4);
+    }
+
+    .leader-icon {
+        background: var(--accent-yellow);
+        color: #000;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        margin-right: 8px;
+    }
+
+    /* RESULTS LIST */
+    .results-list {
+        max-height: 200px;
+        overflow-y: auto;
+        margin-top: 10px;
+        padding-right: 5px;
+    }
+
+    .result-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 6px;
+        margin-bottom: 5px;
+        border-left: 3px solid transparent;
+    }
+
+        .result-item:nth-child(1) {
+            border-left-color: #FFD700;
+            background: rgba(255, 215, 0, 0.05);
+        }
+
+        .result-item:nth-child(2) {
+            border-left-color: #C0C0C0;
+            background: rgba(192, 192, 192, 0.05);
+        }
+
+        .result-item:nth-child(3) {
+            border-left-color: #CD7F32;
+            background: rgba(205, 127, 50, 0.05);
+        }
+
+    .rank-badge {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        font-size: 0.9rem;
+        min-width: 30px;
+        text-align: center;
+    }
+
+    .result-item:nth-child(1) .rank-badge {
+        color: #FFD700;
+        text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+    }
+
+    .result-item:nth-child(2) .rank-badge {
+        color: #C0C0C0;
+    }
+
+    .result-item:nth-child(3) .rank-badge {
+        color: #CD7F32;
+    }
+
+    .athlete-info {
+        flex-grow: 1;
+        padding: 0 10px;
+    }
+
+    .athlete-name {
+        font-family: 'Chakra Petch', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: white;
+    }
+
+    .athlete-region {
+        font-size: 0.75rem;
+        color: var(--accent-yellow);
+        font-weight: 600;
+    }
+
+    /* MUD TABS CUSTOMIZATION */
+    .mud-tabs-tabbar {
+        background-color: transparent !important;
+        border-bottom: 1px solid #333;
+    }
+
+    .mud-tab {
+        color: #888 !important;
+        font-family: 'Orbitron';
+        font-weight: 700;
+        letter-spacing: 1px;
+        transition: color 0.3s;
+    }
+
+    .mud-tab-active {
+        color: var(--accent-yellow) !important;
+        font-weight: 900;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+    }
+
+    .mud-tabs-indicator {
+        background-color: var(--accent-yellow) !important;
+        height: 3px;
+        box-shadow: 0 0 10px var(--accent-yellow);
     }
 
     @@keyframes pulse {
         0% {
             opacity: 1;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
         }
 
         50% {
-            opacity: 0.6;
+            opacity: 0.8;
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
         }
 
         100% {
             opacity: 1;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
         }
     }
 
-    /* TIME FORMAT STYLING */
-    .time-result {
-        font-variant-numeric: tabular-nums;
+    /* SCROLLBAR STYLING */
+    .results-list::-webkit-scrollbar {
+        width: 4px;
     }
 
-    /* EMPTY STATE */
-    .empty-state {
+    .results-list::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 2px;
+    }
+
+    .results-list::-webkit-scrollbar-thumb {
+        background: linear-gradient(to bottom, var(--accent-yellow), #FFC107);
+        border-radius: 2px;
+    }
+
+    /* LOADING STATE */
+    .loading-state {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 100%;
-        padding: 40px;
-        text-align: center;
-        color: #666;
-    }
-
-    .empty-state-icon {
-        font-size: 3rem;
-        margin-bottom: 15px;
-        color: var(--track-lane);
+        padding: 60px 20px;
+        background: rgba(30,30,30,0.5);
+        border-radius: 20px;
+        border: 1px dashed #444;
     }
 </style>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pb-16">
+<div class="dashboard-bg">
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge">
 
-    <div class="scoreboard-header">
-        <div class="main-title">TRACK EVENTS</div>
-        <MudText Typo="Typo.h6" Style="color: #888; letter-spacing: 2px;">OFFICIAL TIMING & RESULTS</MudText>
-    </div>
+        <!-- HEADER -->
+        <div class="header-container">
+            <div class="main-title">PALARONG PAMBANSA 2026</div>
+            <div class="sub-title">TRACK & FIELD SCOREBOARD</div>
+        </div>
 
-    @if (_isLoading)
-    {
-        <MudStack AlignItems="AlignItems.Center" Class="mt-16">
-            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-            <MudText Class="mt-4" Style="color: var(--accent-blue)">Loading Track Events...</MudText>
-        </MudStack>
-    }
-    else
-    {
-        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Centered="true" Color="Color.Dark" Class="mt-4">
-            <!-- ALL TRACK EVENTS -->
-            <MudTabPanel Text="ALL EVENTS" Icon="@Icons.Material.Filled.List">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @if (!_allEvents.Any())
-                    {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.Timer" Class="empty-state-icon" />
-                                <MudText>No track events scheduled</MudText>
-                            </div>
-                        </MudItem>
-                    }
-                    else
-                    {
-                        @foreach (var evt in _allEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
-                    }
-                </MudGrid>
-            </MudTabPanel>
 
-            <!-- SPRINTS -->
-            <MudTabPanel Text="SPRINTS" Icon="@Icons.Material.Filled.DirectionsRun">
-                <MudGrid Class="mt-4" Spacing="3">
+        @if (_isLoading)
+        {
+            <div class="loading-state">
+                <MudProgressCircular Indeterminate="true" Color="Color.Warning" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="mt-4" Style="font-family:'Orbitron'; color:var(--accent-yellow);">LOADING TRACK EVENTS...</MudText>
+            </div>
+        }
+        else if (!_allEvents.Any())
+        {
+            <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                <MudIcon Icon="@Icons.Material.Filled.TimerOff" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                <MudText Typo="Typo.h5" Class="mt-4" Style="color: #666; font-family:'Orbitron'; font-weight:700;">NO TRACK EVENTS</MudText>
+                <MudText Typo="Typo.body2" Style="color: #555;">Waiting for event data...</MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="mt-6" Centered="true">
+
+                <!-- TAB 1: LIVE (Includes Scheduled Events) -->
+                <MudTabPanel Text="LIVE/ONGOING">
                     @{
-                        var sprintEvents = _allEvents.Where(e =>
-                        e.Subcategory?.ToLower().Contains("100") == true ||
-                        e.Subcategory?.ToLower().Contains("200") == true ||
-                        e.Subcategory?.ToLower().Contains("400") == true).ToList();
-                    }
-
-                    @if (!sprintEvents.Any())
-                    {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.Speed" Class="empty-state-icon" />
-                                <MudText>No sprint events scheduled</MudText>
-                            </div>
-                        </MudItem>
-                    }
-                    else
-                    {
-                        @foreach (var evt in sprintEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
-                    }
-                </MudGrid>
-            </MudTabPanel>
-
-            <!-- MIDDLE & LONG DISTANCE -->
-            <MudTabPanel Text="DISTANCE" Icon="@Icons.Material.Filled.Timeline">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @{
-                        var distanceEvents = _allEvents.Where(e =>
-                        e.Subcategory?.ToLower().Contains("800") == true ||
-                        e.Subcategory?.ToLower().Contains("1500") == true ||
-                        e.Subcategory?.ToLower().Contains("5000") == true ||
-                        e.Subcategory?.ToLower().Contains("10000") == true).ToList();
-                    }
-
-                    @if (!distanceEvents.Any())
-                    {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.Timeline" Class="empty-state-icon" />
-                                <MudText>No distance events scheduled</MudText>
-                            </div>
-                        </MudItem>
-                    }
-                    else
-                    {
-                        @foreach (var evt in distanceEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
-                    }
-                </MudGrid>
-            </MudTabPanel>
-
-            <!-- RELAYS -->
-            <MudTabPanel Text="RELAYS" Icon="@Icons.Material.Filled.Groups">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @{
-                        var relayEvents = _allEvents.Where(e =>
-                        e.Subcategory?.ToLower().Contains("relay") == true ||
-                        e.Subcategory?.ToLower().Contains("x") == true).ToList();
-                    }
-
-                    @if (!relayEvents.Any())
-                    {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.Flag" Class="empty-state-icon" />
-                                <MudText>No relay events scheduled</MudText>
-                            </div>
-                        </MudItem>
-                    }
-                    else
-                    {
-                        @foreach (var evt in relayEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
-                    }
-                </MudGrid>
-            </MudTabPanel>
-
-            <!-- LIVE EVENTS -->
-            <MudTabPanel Text="LIVE" Icon="@Icons.Material.Filled.LiveTv">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @{
-                        var liveEvents = _allEvents.Where(e => e.EventStage != "Completed").ToList();
+                        // Include Live, In Progress, and Scheduled events
+                        var liveEvents = _allEvents
+                        .Where(e => e.EventStage?.Equals("Live", StringComparison.OrdinalIgnoreCase) == true ||
+                        e.EventStage?.Equals("In Progress", StringComparison.OrdinalIgnoreCase) == true ||
+                        e.EventStage?.Equals("Scheduled", StringComparison.OrdinalIgnoreCase) == true ||
+                        (e.EventStage != "Completed" && e.EventStage != "Finished"))
+                        .ToList();
                     }
 
                     @if (!liveEvents.Any())
                     {
-                        <MudItem xs="12">
-                            <div class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.TimerOff" Class="empty-state-icon" />
-                                <MudText>No live events at the moment</MudText>
-                            </div>
-                        </MudItem>
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.LiveTv" Size="Size.Large" Style="color: #555; width: 60px; height: 60px;" />
+                            <MudText Typo="Typo.h5" Class="mt-4" Style="color: #666; font-family:'Orbitron'; font-weight:700;">NO TRACK EVENTS</MudText>
+                            <MudText Typo="Typo.body2" Style="color: #555;">All track events are completed</MudText>
+                        </MudPaper>
                     }
                     else
                     {
-                        @foreach (var evt in liveEvents)
-                        {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                @RenderEventCard(evt)
-                            </MudItem>
-                        }
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in liveEvents)
+                            {
+                                var isLive = evt.EventStage?.Equals("Live", StringComparison.OrdinalIgnoreCase) == true ||
+                                evt.EventStage?.Equals("In Progress", StringComparison.OrdinalIgnoreCase) == true;
+                                var isScheduled = evt.EventStage?.Equals("Scheduled", StringComparison.OrdinalIgnoreCase) == true;
+
+                                var eventResults = _eventRankings.ContainsKey(evt.ID) ? _eventRankings[evt.ID] : new List<RankingResult>();
+                                var participantCount = _eventParticipantCount.ContainsKey(evt.ID) ? _eventParticipantCount[evt.ID] : 0;
+                                var heatCount = _eventHeats.ContainsKey(evt.ID) ? _eventHeats[evt.ID].Count : 0;
+
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="/scoreboard/track-events/@evt.ID" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@(evt.Level ?? "All")</div>
+                                                @if (isLive)
+                                                {
+                                                    <div class="status-badge badge-live">LIVE</div>
+                                                }
+                                                else if (isScheduled)
+                                                {
+                                                    <div class="status-badge badge-upcoming">UPCOMING</div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="status-badge" style="background:linear-gradient(135deg, #FF0000 0%, #CC0000 100%); color:white; border:1px solid #FF4444; animation: pulse 2s infinite;">LIVE</div>
+                                                }
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="track-icon mr-3">
+                                                        <MudIcon Icon="@GetTrackIcon(evt.Subcategory)" Size="Size.Small" Style="color:var(--accent-yellow);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">@(evt.Subcategory?.ToUpper() ?? "TRACK EVENT")</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                                                            @(evt.Gender ?? "Mixed") • @(evt.Level ?? "Open")
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Event Stats -->
+                                                <div class="track-stats">
+                                                    <div class="stat-item">
+                                                        <div class="stat-value">@participantCount</div>
+                                                        <div class="stat-label">Athletes</div>
+                                                    </div>
+                                                    <div class="stat-item">
+                                                        <div class="stat-value">@heatCount</div>
+                                                        <div class="stat-label">Heats</div>
+                                                    </div>
+                                                    <div class="stat-item">
+                                                        <div class="stat-value">@(eventResults.Count)</div>
+                                                        <div class="stat-label">Results</div>
+                                                    </div>
+                                                </div>
+
+                                                @if (isScheduled)
+                                                {
+                                                    <!-- UPCOMING EVENT VIEW -->
+                                                    <div class="d-flex align-center mb-3">
+                                                        <div class="leader-icon" style="background:#FFB300;">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" />
+                                                        </div>
+                                                        <MudText Typo="Typo.caption" Style="font-family:'Chakra Petch'; font-weight:700; color:#FFB300;">UPCOMING EVENT</MudText>
+                                                    </div>
+
+                                                    <div style="background: rgba(255,179,0,0.1); border-radius: 8px; padding: 15px; border: 1px solid rgba(255,179,0,0.3); text-align: center;">
+                                                        @if (evt.Date.HasValue)
+                                                        {
+                                                            <div style="font-size: 1.1rem; color: #FFB300; font-weight: 700; margin-bottom: 5px;">
+                                                                @evt.Date.Value.ToString("MMM dd")
+                                                            </div>
+                                                            <div style="font-size: 0.9rem; color: white; margin-bottom: 10px;">
+                                                                @(!string.IsNullOrEmpty(evt.Time) ? $"{evt.Time}" : "Time TBD")
+                                                            </div>
+                                                        }
+                                                        <div style="font-size: 0.8rem; color: #ccc;">
+                                                            @participantCount athletes registered
+                                                        </div>
+                                                    </div>
+                                                }
+                                                else if (eventResults.Any())
+                                                {
+                                                    <!-- Top Results -->
+                                                    <div class="d-flex align-center mb-2">
+                                                        <div class="leader-icon">
+                                                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Small" />
+                                                        </div>
+                                                        <MudText Typo="Typo.caption" Style="font-family:'Chakra Petch'; font-weight:700; color:white;">LEADERBOARD</MudText>
+                                                    </div>
+
+                                                    <div class="results-list">
+                                                        @foreach (var result in eventResults.Take(3))
+                                                        {
+                                                            <div class="result-item">
+                                                                <div class="rank-badge">#@result.Rank</div>
+                                                                <div class="athlete-info">
+                                                                    <div class="athlete-name">@result.PlayerName</div>
+                                                                    <div class="athlete-region">@result.RegionName</div>
+                                                                </div>
+                                                                <div class="time-display">@FormatResultDisplay(result.Result, evt.Subcategory)</div>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <!-- Heats Preview or In Progress -->
+                                                    <div class="d-flex align-center mb-2">
+                                                        <div class="leader-icon">
+                                                            <MudIcon Icon="@Icons.Material.Filled.FormatListNumbered" Size="Size.Small" />
+                                                        </div>
+                                                        <MudText Typo="Typo.caption" Style="font-family:'Chakra Petch'; font-weight:700; color:white;">
+                                                            @(isLive ? "HEATS IN PROGRESS" : "EVENT IN PROGRESS")
+                                                        </MudText>
+                                                    </div>
+
+                                                    @if (_eventHeats.ContainsKey(evt.ID) && _eventHeats[evt.ID].Any())
+                                                    {
+                                                        @foreach (var heat in _eventHeats[evt.ID].Take(2))
+                                                        {
+                                                            <div class="lane-info">
+                                                                <div class="lane-number">H@(heat.HeatOrder)</div>
+                                                                <div style="flex-grow:1; font-size:0.9rem;">@heat.HeatName</div>
+                                                                @if (!string.IsNullOrEmpty(heat.FastestTime))
+                                                                {
+                                                                    <div class="time-display" style="font-size:0.9rem;">@FormatResultDisplay(heat.FastestTime, evt.Subcategory)</div>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="d-flex align-center justify-center py-4">
+                                                            <MudText Typo="Typo.body2" Style="color: #aaa; font-style: italic;">
+                                                                @(isLive ? "Live timing in progress" : "Event starting soon")
+                                                            </MudText>
+                                                        </div>
+                                                    }
+                                                }
+
+                                                <!-- Event Details -->
+                                                <div class="mt-4">
+                                                    @if (evt.Date.HasValue)
+                                                    {
+                                                        <div class="d-flex align-center" style="color: #ccc; font-size: 0.9rem;">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" Class="mr-2" />
+                                                            @evt.Date.Value.ToString("MMM dd") @(!string.IsNullOrEmpty(evt.Time) ? $"• {evt.Time}" : "")
+                                                        </div>
+                                                    }
+                                                    <MudText Typo="Typo.caption" Style="color: var(--accent-yellow); font-weight:600; margin-top: 8px;">
+                                                        Click for @(isScheduled ? "event details" : "live timing")
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
                     }
-                </MudGrid>
-            </MudTabPanel>
+                </MudTabPanel>
 
-        </MudTabs>
-    }
+                <!-- TAB 2: PARTIAL RESULT -->
+                <MudTabPanel Text="PARTIAL RESULT">
+                    @{
+                        var completedEvents = _allEvents
+                        .Where(e => e.EventStage?.Equals("Completed", StringComparison.OrdinalIgnoreCase) == true)
+                        .ToList();
+                    }
 
-</MudContainer>
+                    @if (!completedEvents.Any())
+                    {
+                        <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-4" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
+                            <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Size="Size.Large" Style="color: #555;" />
+                            <MudText Typo="Typo.h6" Class="mt-4" Style="color: #777; font-family:'Orbitron'">NO COMPLETED EVENTS YET</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var evt in completedEvents)
+                            {
+                                var eventResults = _eventRankings.ContainsKey(evt.ID) ? _eventRankings[evt.ID] : new List<RankingResult>();
+                                var participantCount = _eventParticipantCount.ContainsKey(evt.ID) ? _eventParticipantCount[evt.ID] : 0;
+
+                                <MudItem xs="12" md="6" lg="4" xl="3">
+                                    <a href="/scoreboard/track-events/@evt.ID" class="event-link">
+                                        <div class="event-card">
+                                            <div class="status-container">
+                                                <div class="event-type-badge">@(evt.Level ?? "All")</div>
+                                                <div class="status-badge badge-final">FINAL</div>
+                                            </div>
+
+                                            <div class="pa-5">
+                                                <!-- Sport Header -->
+                                                <div class="d-flex align-center mb-4">
+                                                    <div class="track-icon mr-3">
+                                                        <MudIcon Icon="@GetTrackIcon(evt.Subcategory)" Size="Size.Small" Style="color:var(--accent-yellow);" />
+                                                    </div>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1" Style="font-family:'Orbitron'; font-weight:900; color:white; line-height:1.2;">@(evt.Subcategory?.ToUpper() ?? "TRACK EVENT")</MudText>
+                                                        <MudText Typo="Typo.caption" Style="color:#aaa; font-family:'Rajdhani'; letter-spacing:1px; font-weight:600;">
+                                                            @(evt.Gender ?? "Mixed") • @(evt.Level ?? "Open")
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+
+                                                <MudDivider Class="mb-4" Style="border-color: rgba(255,255,255,0.1);" />
+
+                                                <!-- Event Stats -->
+                                                <div class="track-stats">
+                                                    <div class="stat-item">
+                                                        <div class="stat-value">@participantCount</div>
+                                                        <div class="stat-label">Athletes</div>
+                                                    </div>
+                                                    <div class="stat-item">
+                                                        <div class="stat-value">@eventResults.Count</div>
+                                                        <div class="stat-label">Finalists</div>
+                                                    </div>
+                                                    <div class="stat-item">
+                                                        <div class="stat-value" style="color:#FFD700;">GOLD</div>
+                                                        <div class="stat-label">Medal</div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Winner Display -->
+                                                @if (eventResults.Any())
+                                                {
+                                                    var winner = eventResults.FirstOrDefault();
+                                                    <div class="d-flex align-center mb-3">
+                                                        <div class="leader-icon" style="background:#FFD700;">
+                                                            <MudIcon Icon="@Icons.Material.Filled.MilitaryTech" Size="Size.Small" />
+                                                        </div>
+                                                        <MudText Typo="Typo.caption" Style="font-family:'Chakra Petch'; font-weight:700; color:#FFD700;">CHAMPION</MudText>
+                                                    </div>
+
+                                                    <div style="background: rgba(255,215,0,0.1); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,215,0,0.3);">
+                                                        <div class="d-flex align-center mb-2">
+                                                            <div class="rank-badge" style="color:#FFD700;">#1</div>
+                                                            <div class="athlete-info">
+                                                                <div class="athlete-name">@winner?.PlayerName</div>
+                                                                <div class="athlete-region">@winner?.RegionName</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="time-display" style="text-align:center; font-size:1.2rem;">
+                                                            @FormatResultDisplay(winner?.Result, evt.Subcategory)
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Show 2nd and 3rd place -->
+                                                    @if (eventResults.Count > 1)
+                                                    {
+                                                        <div class="results-list mt-3">
+                                                            @foreach (var result in eventResults.Skip(1).Take(2))
+                                                            {
+                                                                <div class="result-item">
+                                                                    <div class="rank-badge">#@result.Rank</div>
+                                                                    <div class="athlete-info">
+                                                                        <div class="athlete-name">@result.PlayerName</div>
+                                                                        <div class="athlete-region">@result.RegionName</div>
+                                                                    </div>
+                                                                    <div class="time-display">@FormatResultDisplay(result.Result, evt.Subcategory)</div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <div class="d-flex align-center justify-center py-6">
+                                                        <MudText Typo="Typo.body2" Style="color: #aaa; font-style: italic;">Final results pending</MudText>
+                                                    </div>
+                                                }
+
+                                                <!-- Event Details -->
+                                                <div class="mt-4">
+                                                    @if (evt.Date.HasValue)
+                                                    {
+                                                        <div class="d-flex align-center" style="color: #ccc; font-size: 0.9rem;">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" Class="mr-2" />
+                                                            @evt.Date.Value.ToString("MMM dd") @(!string.IsNullOrEmpty(evt.Time) ? $"• {evt.Time}" : "")
+                                                        </div>
+                                                    }
+                                                    <MudText Typo="Typo.caption" Style="color: var(--accent-yellow); font-weight:600; margin-top: 8px;">
+                                                        Click for full results
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+            </MudTabs>
+        }
+    </MudContainer>
+</div>
 
 @code {
     // --- VARIABLES ---
@@ -525,32 +769,52 @@
     private Dictionary<string, List<RankingResult>> _eventRankings = new();
     private Dictionary<string, int> _eventParticipantCount = new();
     private bool _isLoading = true;
-    private System.Threading.Timer? _timer;
+    private Timer? _refreshTimer;
+
+    // Statistics
+    private int _totalEvents = 0;
+    private int _liveEventsCount = 0;
+    private int _completedEventsCount = 0;
+    private int _totalParticipants = 0;
 
     // --- LIFECYCLE ---
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
-        // Auto refresh every 10 seconds for real-time updates
-        _timer = new System.Threading.Timer(async _ => await InvokeAsync(LoadData), null, 10000, 10000);
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 5000, 5000);
     }
 
     private async Task LoadData()
     {
         try
         {
-            // Load all time/distance events using your existing endpoint
             var participants = await apiService.GetAsync<EventInfo>("TimeDistanceEvents/Sports/AthleticsSwimming");
 
             if (participants != null && participants.Any())
             {
-                // FILTER: Only include events where SportMainCat is "Track Events"
+                // Filter only Track Events
                 var trackEventsOnly = participants
                     .Where(p => !string.IsNullOrEmpty(p.SportMainCat) &&
-                                p.SportMainCat == "Track Events")
+                                p.SportMainCat.Equals("Track Events", StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
-                // Group by event ID to create event list
+                // Calculate statistics
+                _totalParticipants = trackEventsOnly.Count;
+                _liveEventsCount = trackEventsOnly
+                    .Where(e => e.EventStage?.Equals("Live", StringComparison.OrdinalIgnoreCase) == true ||
+                               e.EventStage?.Equals("In Progress", StringComparison.OrdinalIgnoreCase) == true ||
+                               e.EventStage?.Equals("Scheduled", StringComparison.OrdinalIgnoreCase) == true)
+                    .Select(e => e.ID)
+                    .Distinct()
+                    .Count();
+
+                _completedEventsCount = trackEventsOnly
+                    .Where(e => e.EventStage?.Equals("Completed", StringComparison.OrdinalIgnoreCase) == true)
+                    .Select(e => e.ID)
+                    .Distinct()
+                    .Count();
+
+                // Group by event ID
                 _allEvents = trackEventsOnly
                     .GroupBy(e => e.ID)
                     .Select(g =>
@@ -566,15 +830,23 @@
                             EventStage = first.EventStage,
                             Date = first.Date,
                             Time = first.Time,
-                            SportMainCat = first.SportMainCat
+                            SportMainCat = first.SportMainCat,
+                            Region = first.Region,
+                            Abbreviation = first.Abbreviation,
+                            RegionID = first.RegionID,
+                            PlayerID = first.PlayerID,
+                            PlayerName = first.PlayerName
                         };
                     })
                     .OrderBy(e => e.EventStage == "Completed" ? 1 : 0) // Completed events last
+                    .ThenBy(e => e.EventStage == "Scheduled" ? 0 : 1) // Scheduled first in Live tab
                     .ThenBy(e => e.Sport)
                     .ThenBy(e => e.Gender)
                     .ThenBy(e => e.Level)
                     .ThenBy(e => e.Subcategory)
                     .ToList();
+
+                _totalEvents = _allEvents.Count;
 
                 // Count participants per event
                 _eventParticipantCount.Clear();
@@ -586,12 +858,11 @@
                     _eventParticipantCount[evt.ID] = count;
                 }
 
-                // Load saved data for each event to get heats and rankings
+                // Load saved data for each event
                 foreach (var evt in _allEvents)
                 {
                     try
                     {
-                        // Load saved scoring data for this event
                         var savedData = await LoadSavedScoringData(evt.ID);
 
                         if (savedData != null)
@@ -610,7 +881,6 @@
                                         LaneCount = savedHeat.Lanes?.Count ?? 0
                                     };
 
-                                    // Find fastest time in this heat
                                     if (savedHeat.Lanes != null && savedHeat.Lanes.Any())
                                     {
                                         var validResults = savedHeat.Lanes
@@ -630,7 +900,7 @@
                                 _eventHeats[evt.ID] = heatInfos;
                             }
 
-                            // Calculate rankings from saved data
+                            // Calculate rankings
                             var rankings = CalculateRankingsFromSavedData(savedData, evt);
                             if (rankings.Any())
                             {
@@ -678,7 +948,6 @@
 
         var allResults = new List<(string RegionName, string PlayerName, string Result, string Lane, double NumericResult)>();
 
-        // Collect all results from all heats
         foreach (var heat in savedData.Heats)
         {
             if (heat.Lanes == null) continue;
@@ -703,7 +972,6 @@
         if (!allResults.Any())
             return rankings;
 
-        // For track events, it's always time-based (lower is better)
         var sortedResults = allResults.OrderBy(r => r.NumericResult).ToList();
 
         for (int i = 0; i < sortedResults.Count; i++)
@@ -727,7 +995,6 @@
     {
         if (!results.Any()) return "";
 
-        // Try to parse each result
         var parsedResults = new List<(string Original, double Numeric)>();
 
         foreach (var result in results)
@@ -740,7 +1007,6 @@
 
         if (!parsedResults.Any()) return "";
 
-        // For track events, fastest is lowest time
         var fastest = parsedResults.OrderBy(r => r.Numeric).First();
         return fastest.Original;
     }
@@ -752,171 +1018,27 @@
         if (string.IsNullOrEmpty(result))
             return false;
 
-        // Try to parse as time (mm:ss.ff or ss.ff)
         if (result.Contains(":") || result.Contains("."))
         {
             if (TimeSpan.TryParse(result, out TimeSpan timeResult))
             {
-                numericResult = timeResult.TotalSeconds;
+                
                 return true;
             }
         }
 
-        // Try to parse as number
         return double.TryParse(result, out numericResult);
     }
 
-    private RenderFragment RenderEventCard(EventInfo evt)
-    {
-        var isLive = evt.EventStage?.ToLower() != "completed";
-        var hasHeats = _eventHeats.ContainsKey(evt.ID) && _eventHeats[evt.ID].Any();
-        var hasRankings = _eventRankings.ContainsKey(evt.ID) && _eventRankings[evt.ID].Any();
-        var participantCount = _eventParticipantCount.ContainsKey(evt.ID) ? _eventParticipantCount[evt.ID] : 0;
-
-        return @<div class="modern-card">
-            <!-- HEADER -->
-            <div class="card-header">
-                @if (isLive)
-                {
-                    <span class="badge-live">LIVE</span>
-                }
-                else
-                {
-                    <span class="badge-final">FINAL</span>
-                }
-                <div class="event-name">@evt.Subcategory</div>
-                <div class="event-details">
-                    <span class="event-detail-item">
-                        <MudIcon Icon="@Icons.Material.Filled.DirectionsRun" Size="Size.Small" />
-                        TRACK
-                    </span>
-                    <span class="event-detail-item">
-                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
-                        @evt.Gender
-                    </span>
-                    <span class="event-detail-item">
-                        <MudIcon Icon="@Icons.Material.Filled.School" Size="Size.Small" />
-                        @evt.Level
-                    </span>
-                </div>
-                @if (evt.Date.HasValue)
-                {
-                    <div style="font-size: 0.8rem; color: #888; margin-top: 5px;">
-                        <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" />
-                        @evt.Date.Value.ToString("MMM dd") @(!string.IsNullOrEmpty(evt.Time) ? $"• {evt.Time}" : "")
-                    </div>
-                }
-            </div>
-
-            <!-- TRACK VISUALIZATION (HEATS) -->
-        @if (hasHeats)
-        {
-                <div class="track-visual">
-                    <MudText Typo="Typo.caption" Style="color: #aaa; font-weight: bold;">
-                        <MudIcon Icon="@Icons.Material.Filled.FormatListNumbered" Size="Size.Small" Class="mr-1" />
-                        HEATS (@_eventHeats[evt.ID].Count) • @participantCount Participants
-                    </MudText>
-                    <div class="track-lanes">
-                        @foreach (var heat in _eventHeats[evt.ID].Take(3))
-                        {
-                            <div class="track-lane">
-                                <div class="lane-number">H@(heat.HeatOrder)</div>
-                                <div class="lane-region">@heat.HeatName</div>
-                                <div class="lane-result">
-                                    @if (!string.IsNullOrEmpty(heat.FastestTime))
-                                    {
-                                        @FormatResultDisplay(heat.FastestTime, evt.Subcategory)
-                                    }
-                                    else
-                                    {
-                                        <span style="color: #666;">No time</span>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-        }
-        else if (participantCount > 0)
-        {
-                <div class="track-visual">
-                    <MudText Typo="Typo.caption" Style="color: #aaa; font-weight: bold;">
-                        <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Class="mr-1" />
-                        @participantCount Participants Registered
-                    </MudText>
-                    <div style="padding: 10px; text-align: center; color: #888;">
-                        <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Class="mr-1" />
-                        Event not started yet
-                    </div>
-                </div>
-        }
-
-            <!-- RESULTS LIST -->
-            <div class="results-container">
-                @if (hasRankings && _eventRankings[evt.ID].Any())
-                {
-                    @foreach (var result in _eventRankings[evt.ID].Take(8))
-                    {
-                        <div class="result-row">
-                            <div class="result-rank @GetRankClass(result.Rank)">
-                                @(result.Rank > 0 ? $"#{result.Rank}" : "-")
-                            </div>
-                            <div class="result-info">
-                                <span class="result-player">@result.PlayerName</span>
-                                <span class="result-region">@result.RegionName</span>
-                            </div>
-                            <div class="result-time time-result">
-                                @FormatResultDisplay(result.Result, evt.Subcategory)
-                            </div>
-                            @if (!string.IsNullOrEmpty(result.AssignedLane))
-                            {
-                                <div class="result-lane">@result.AssignedLane.Split('-').LastOrDefault()</div>
-                            }
-                        </div>
-                    }
-                }
-                else
-                {
-                    <div class="empty-state">
-                        <MudIcon Icon="@Icons.Material.Filled.TimerOff" Class="empty-state-icon" />
-                        <MudText Typo="Typo.caption" Style="color:#666">Waiting for results</MudText>
-                        @if (participantCount > 0)
-                        {
-                            <MudText Typo="Typo.caption" Style="color:#444; margin-top:5px;">
-                                @participantCount participants registered
-                            </MudText>
-                        }
-                    </div>
-                }
-            </div>
-
-            <!-- FOOTER LINK -->
-            <div class="card-footer">
-                <a href="/scoreboard/time-distance?eventId=@evt.ID" target="_blank" class="tv-btn">
-                    @if (isLive)
-                    {
-                        <span>LIVE SCORING <MudIcon Icon="@Icons.Material.Filled.LiveTv" Size="Size.Small" Class="ml-2" /></span>
-                    }
-                    else
-                    {
-                        <span>VIEW RESULTS <MudIcon Icon="@Icons.Material.Filled.Assignment" Size="Size.Small" Class="ml-2" /></span>
-                    }
-                </a>
-            </div>
-        </div>;
-    }
-
-    private string FormatResultDisplay(string result, string? subcategory)
+    private string FormatResultDisplay(string? result, string? subcategory)
     {
         if (string.IsNullOrEmpty(result)) return "--:--";
 
-        // If it's already in time format, return as is
         if (result.Contains(":") || result.Contains("."))
         {
             return result;
         }
 
-        // Try to format as time if it's a numeric value
         if (double.TryParse(result, out double seconds))
         {
             if (seconds > 0)
@@ -936,20 +1058,28 @@
         return result;
     }
 
-    private string GetRankClass(int rank)
+    private string GetTrackIcon(string? subcategory)
     {
-        return rank switch
-        {
-            1 => "rank-1",
-            2 => "rank-2",
-            3 => "rank-3",
-            _ => ""
-        };
+        if (string.IsNullOrEmpty(subcategory))
+            return Icons.Material.Filled.DirectionsRun;
+
+        var s = subcategory.ToLower();
+        if (s.Contains("100") || s.Contains("200") || s.Contains("400"))
+            return Icons.Material.Filled.FlashOn;
+        if (s.Contains("800") || s.Contains("1500") || s.Contains("5000") || s.Contains("10000"))
+            return Icons.Material.Filled.Timeline;
+        if (s.Contains("hurdle") || s.Contains("steeple"))
+            return Icons.Material.Filled.Timeline;
+        if (s.Contains("relay") || s.Contains("x") || s.Contains("medley"))
+            return Icons.Material.Filled.Groups;
+        if (s.Contains("walk"))
+            return Icons.Material.Filled.DirectionsWalk;
+        return Icons.Material.Filled.TrackChanges;
     }
 
     public void Dispose()
     {
-        _timer?.Dispose();
+        _refreshTimer?.Dispose();
     }
 
     // --- MODELS ---
@@ -989,7 +1119,6 @@
         public double NumericResult { get; set; }
     }
 
-    // These classes should match your original scoring page
     public class SavedScoringData
     {
         public List<SavedHeat> Heats { get; set; } = new();

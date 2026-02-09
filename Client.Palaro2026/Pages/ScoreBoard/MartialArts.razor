@@ -161,10 +161,10 @@
     }
 
     .badge-live {
-        background: linear-gradient(135deg, #FFC107 0%, #FF9800 100%);
-        color: #000;
-        box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
-        border: 1px solid #FFD54F;
+        background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
+        color: white;
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+        border: 1px solid #FF4444;
         animation: pulse 2s infinite;
     }
 
@@ -271,17 +271,17 @@
     @@keyframes pulse {
         0% {
             opacity: 1;
-            box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
         }
 
         50% {
             opacity: 0.8;
-            box-shadow: 0 0 5px rgba(255, 193, 7, 0.2);
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
         }
 
         100% {
             opacity: 1;
-            box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
         }
     }
 </style>
@@ -317,6 +317,7 @@
                 <!-- TAB 1: LIVE / ONGOING -->
                 <MudTabPanel Text="LIVE / ONGOING">
                     @{
+                        // FIXED: Only show events where IsFinished is false or null
                         var liveEvents = _martialArtsEvents.Where(e => e.IsFinished != true).ToList();
                     }
 
@@ -360,12 +361,12 @@
                                                 <!-- Match Info -->
                                                 <div class="martialarts-info">
                                                     <div class="sport-name text-center mb-3">
-                                                        @evt.Subcategory
+                                                        @(evt.Subcategory ?? "Sparring")
                                                         <span class="format-badge">@GetMatchFormat(evt.Subcategory)</span>
                                                     </div>
 
-                                                    <div class="matches-count">ACTIVE</div>
-                                                    <div class="info-label">IN PROGRESS</div>
+                                                    <div class="matches-count">IN PROGRESS</div>
+                                                    <div class="info-label">EVENT STATUS</div>
                                                 </div>
 
                                                 <!-- Event Details -->
@@ -380,7 +381,7 @@
                                                         <b>Format:</b> @GetSportFormat(evt.Sport)
                                                     </MudText>
                                                     <MudText Typo="Typo.caption" Style="color: var(--accent-yellow); font-weight:600;">
-                                                        Click for live scoring & match management
+                                                        Click for live scoring
                                                     </MudText>
                                                 </div>
                                             </div>
@@ -393,8 +394,9 @@
                 </MudTabPanel>
 
                 <!-- TAB 2: FINISHED RESULTS -->
-                <MudTabPanel Text="PARTIAL RESULTS">
+                <MudTabPanel Text="PARTIAL RESULT">
                     @{
+                        // FIXED: Only show events where IsFinished is explicitly true
                         var finishedEvents = _martialArtsEvents.Where(e => e.IsFinished == true).ToList();
                     }
 
@@ -437,12 +439,12 @@
                                                 <!-- Results Display -->
                                                 <div class="martialarts-info">
                                                     <div class="sport-name text-center mb-3">
-                                                        @evt.Subcategory
+                                                        @(evt.Subcategory ?? "Sparring")
                                                         <span class="format-badge">@GetMatchFormat(evt.Subcategory)</span>
                                                     </div>
 
-                                                    <div class="matches-count">RESULTS</div>
-                                                    <div class="info-label">COMPLETED</div>
+                                                    <div class="matches-count">COMPLETED</div>
+                                                    <div class="info-label">FINAL RESULTS</div>
                                                 </div>
 
                                                 <!-- Event Details -->
@@ -457,7 +459,7 @@
                                                         <b>Format:</b> @GetSportFormat(evt.Sport)
                                                     </MudText>
                                                     <MudText Typo="Typo.caption" Style="color: var(--accent-yellow); font-weight:600;">
-                                                        Click for final results & standings
+                                                        Click for final results
                                                     </MudText>
                                                 </div>
                                             </div>
@@ -476,27 +478,71 @@
 @code {
     /* ===================== MODELS ===================== */
 
-    public class EventInfo
+    public class EventsDTO
     {
-        public string ID { get; set; } = "";
-        public string? Sport { get; set; }
-        public string? Subcategory { get; set; }
-        public string? Level { get; set; }
-        public string? Gender { get; set; }
-        public string? EventStage { get; set; }
-        public string? SportMainCat { get; set; }
-        public bool? IsFinished { get; set; }
-        public int? RegionID { get; set; }
-        public string? Abbreviation { get; set; }
-        public string? PlayerID { get; set; }
-        public string? PlayerName { get; set; }
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? SportMainCat { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public string? GamePhase { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public bool? IsFinished { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public string? Rank { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
     }
 
     /* ===================== STATE ===================== */
 
-    private List<EventInfo> _martialArtsEvents = new();
+    private List<EventsDTO.EventDetails.Event> _martialArtsEvents = new();
     private bool _isLoading = true;
     private Timer? _refreshTimer;
+
+    // List of martial arts sports
+    private readonly string[] _martialArtsSports = new[]
+    {
+        "Arnis", "Boxing", "Taekwondo", "Wrestling", "Wushu", "Pencak Silat"
+    };
 
     /* ===================== INIT ===================== */
 
@@ -513,18 +559,23 @@
     {
         try
         {
-            var events = await apiService.GetAsync<EventInfo>(
-                "/MartialArtsScoring/events");
+            string url = "/Events/Details";
+            var allEvents = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
 
-            if (events != null)
+            if (allEvents != null)
             {
-                _martialArtsEvents = events
-                    .GroupBy(x => x.ID)
-                    .Select(g => g.First())
-                    .OrderBy(x => x.IsFinished)
+                // Filter for martial arts events
+                _martialArtsEvents = allEvents
+                    .Where(e => e.Sport != null && _martialArtsSports.Contains(e.Sport, StringComparer.OrdinalIgnoreCase))
+                    .OrderBy(x => x.IsFinished == true)  // Unfinished first
                     .ThenBy(x => x.Sport)
                     .ThenBy(x => x.Level)
                     .ToList();
+
+                // DEBUG: Log the counts
+                var liveCount = _martialArtsEvents.Where(e => e.IsFinished != true).Count();
+                var finishedCount = _martialArtsEvents.Where(e => e.IsFinished == true).Count();
+                Console.WriteLine($"[Martial Arts Dashboard] Total: {_martialArtsEvents.Count}, Live: {liveCount}, Finished: {finishedCount}");
             }
         }
         catch (Exception ex)
@@ -579,7 +630,7 @@
 
     /* ===================== NAVIGATION LOGIC ===================== */
 
-    private string GetEventUrl(EventInfo evt)
+    private string GetEventUrl(EventsDTO.EventDetails.Event evt)
     {
         if (evt == null) return "#";
 

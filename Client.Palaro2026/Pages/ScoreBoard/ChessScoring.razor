@@ -160,10 +160,10 @@
     }
 
     .badge-live {
-        background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%);
+        background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
         color: white;
-        box-shadow: 0 0 15px rgba(0, 188, 212, 0.5);
-        border: 1px solid #4FC3F7;
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+        border: 1px solid #FF4444;
         animation: pulse 2s infinite;
     }
 
@@ -301,63 +301,20 @@
         background-color: rgba(0, 0, 0, 0.4);
     }
 
-    /* STANDINGS PREVIEW */
-    .standings-preview {
-        margin-top: 15px;
-        padding: 8px;
-        background: rgba(0, 0, 0, 0.3);
-        border-radius: 6px;
-        border: 1px solid rgba(79, 195, 247, 0.2);
-    }
-
-    .standing-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 4px 0;
-        font-size: 0.8rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-        .standing-item:last-child {
-            border-bottom: none;
-        }
-
-    .standing-rank {
-        color: var(--accent-blue);
-        font-weight: 700;
-        min-width: 20px;
-    }
-
-    .standing-name {
-        flex-grow: 1;
-        padding: 0 8px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .standing-points {
-        color: #FFD700;
-        font-weight: 700;
-        min-width: 30px;
-        text-align: right;
-    }
-
     @@keyframes pulse {
         0% {
             opacity: 1;
-            box-shadow: 0 0 15px rgba(0, 188, 212, 0.5);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
         }
 
         50% {
             opacity: 0.8;
-            box-shadow: 0 0 5px rgba(0, 188, 212, 0.2);
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
         }
 
         100% {
             opacity: 1;
-            box-shadow: 0 0 15px rgba(0, 188, 212, 0.5);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
         }
     }
 </style>
@@ -393,7 +350,8 @@
                 <!-- TAB 1: LIVE / ONGOING -->
                 <MudTabPanel Text="LIVE / ONGOING">
                     @{
-                        var liveEvents = _chessEvents.Where(e => !e.IsFinished).ToList();
+                        // FIXED: Only show events where IsFinished is false or null
+                        var liveEvents = _chessEvents.Where(e => e.IsFinished != true).ToList();
                     }
 
                     @if (!liveEvents.Any())
@@ -409,9 +367,6 @@
                         <MudGrid Spacing="3">
                             @foreach (var evt in liveEvents)
                             {
-                                var standings = GetEventStandings(evt.ID);
-                                var activeMatches = GetActiveMatchesCount(evt.ID);
-
                                 <MudItem xs="12" md="6" lg="4" xl="3">
                                     <a href="@GetEventUrl(evt)" class="event-link">
                                         <div class="event-card">
@@ -439,12 +394,12 @@
                                                 <!-- Chess Info -->
                                                 <div class="chess-info">
                                                     <div class="sport-name text-center mb-3">
-                                                        @evt.Subcategory
+                                                        @(evt.Subcategory ?? "Classical")
                                                         <span class="format-badge">@GetChessFormat(evt.Subcategory)</span>
                                                     </div>
 
-                                                    <div class="matches-count">LIVE</div>
-                                                    <div class="info-label">BOARDS ACTIVE</div>
+                                                    <div class="matches-count">IN PROGRESS</div>
+                                                    <div class="info-label">EVENT STATUS</div>
                                                 </div>
 
                                                 <!-- Chess Board Mini Preview -->
@@ -478,26 +433,8 @@
                                                         <b>Stage:</b> @(evt.EventStage ?? "Round")
                                                     </MudText>
 
-                                                    <!-- Quick Standings Preview -->
-                                                    @if (standings.Any())
-                                                    {
-                                                        <div class="standings-preview">
-                                                            <MudText Typo="Typo.caption" Style="color: var(--accent-blue); font-weight:600; margin-bottom: 5px;">
-                                                                LEADING:
-                                                            </MudText>
-                                                            @foreach (var standing in standings.Take(3))
-                                                            {
-                                                                <div class="standing-item">
-                                                                    <div class="standing-rank">@standing.Rank</div>
-                                                                    <div class="standing-name">@standing.RegionName</div>
-                                                                    <div class="standing-points">@standing.TotalPoints.ToString("F1")</div>
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    }
-
                                                     <MudText Typo="Typo.caption" Style="color: var(--accent-blue); font-weight:600; margin-top: 10px;">
-                                                        Click for live scoreboard & details
+                                                        Click for live scoreboard
                                                     </MudText>
                                                 </div>
                                             </div>
@@ -510,9 +447,10 @@
                 </MudTabPanel>
 
                 <!-- TAB 2: FINISHED RESULTS -->
-                <MudTabPanel Text="PARTAIL RESULT">
+                <MudTabPanel Text="PARTIAL RESULT">
                     @{
-                        var finishedEvents = _chessEvents.Where(e => e.IsFinished).ToList();
+                        // FIXED: Only show events where IsFinished is explicitly true
+                        var finishedEvents = _chessEvents.Where(e => e.IsFinished == true).ToList();
                     }
 
                     @if (!finishedEvents.Any())
@@ -527,8 +465,6 @@
                         <MudGrid Spacing="3">
                             @foreach (var evt in finishedEvents)
                             {
-                                var standings = GetEventStandings(evt.ID);
-
                                 <MudItem xs="12" md="6" lg="4" xl="3">
                                     <a href="@GetEventUrl(evt)" class="event-link">
                                         <div class="event-card">
@@ -556,12 +492,12 @@
                                                 <!-- Results Display -->
                                                 <div class="chess-info">
                                                     <div class="sport-name text-center mb-3">
-                                                        @evt.Subcategory
+                                                        @(evt.Subcategory ?? "Classical")
                                                         <span class="format-badge">@GetChessFormat(evt.Subcategory)</span>
                                                     </div>
 
-                                                    <div class="matches-count">✓</div>
-                                                    <div class="info-label">COMPLETED</div>
+                                                    <div class="matches-count">COMPLETED</div>
+                                                    <div class="info-label">FINAL RESULTS</div>
                                                 </div>
 
                                                 <!-- Event Details -->
@@ -576,26 +512,8 @@
                                                         <b>Stage:</b> @(evt.EventStage ?? "Round")
                                                     </MudText>
 
-                                                    <!-- Final Standings Preview -->
-                                                    @if (standings.Any())
-                                                    {
-                                                        <div class="standings-preview">
-                                                            <MudText Typo="Typo.caption" Style="color: var(--accent-blue); font-weight:600; margin-bottom: 5px;">
-                                                                TOP 3:
-                                                            </MudText>
-                                                            @foreach (var standing in standings.Take(3))
-                                                            {
-                                                                <div class="standing-item">
-                                                                    <div class="standing-rank">@standing.Rank</div>
-                                                                    <div class="standing-name">@standing.RegionName</div>
-                                                                    <div class="standing-points">@standing.TotalPoints.ToString("F1")</div>
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    }
-
                                                     <MudText Typo="Typo.caption" Style="color: var(--accent-blue); font-weight:600; margin-top: 10px;">
-                                                        Click for final scoreboard & results
+                                                        Click for final results
                                                     </MudText>
                                                 </div>
                                             </div>
@@ -614,48 +532,63 @@
 @code {
     /* ===================== MODELS ===================== */
 
-    public class EventInfo
+    public class EventsDTO
     {
-        public string ID { get; set; } = "";
-        public string? Sport { get; set; }
-        public string? Subcategory { get; set; }
-        public string? Level { get; set; }
-        public string? Gender { get; set; }
-        public string? EventStage { get; set; }
-        public string? SportMainCat { get; set; }
-        public int? RegionID { get; set; }
-        public string? Abbreviation { get; set; }
-        public string? PlayerID { get; set; }
-        public string? PlayerName { get; set; }
-        public bool IsFinished { get; set; } = false;
-    }
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? SportMainCat { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public string? GamePhase { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public bool? IsFinished { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
 
-    public class ChessStanding
-    {
-        public int Rank { get; set; }
-        public string RegionName { get; set; } = "";
-        public decimal TotalPoints { get; set; }
-        public int GamesPlayed { get; set; }
-        public int Wins { get; set; }
-        public int Draws { get; set; }
-        public int Losses { get; set; }
-    }
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public string? Rank { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
 
-    public class ChessMatch
-    {
-        public int ID { get; set; }
-        public int SetNo { get; set; }
-        public int TableNo { get; set; }
-        public string? ColorGroup { get; set; }
-        public decimal? Score { get; set; }
-        public bool IsCompleted => Score.HasValue;
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
     }
 
     /* ===================== STATE ===================== */
 
-    private List<EventInfo> _chessEvents = new();
-    private Dictionary<string, List<ChessStanding>> _eventStandings = new();
-    private Dictionary<string, List<ChessMatch>> _eventMatches = new();
+    private List<EventsDTO.EventDetails.Event> _chessEvents = new();
     private bool _isLoading = true;
     private Timer? _refreshTimer;
 
@@ -674,26 +607,23 @@
     {
         try
         {
-            // Use the new Events/Details endpoint which includes isFinished
-            var events = await apiService.GetAsync<EventInfo>("/Events/Details");
+            string url = "/Events/Details";
+            var allEvents = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
 
-            if (events != null)
+            if (allEvents != null)
             {
-                _chessEvents = events
-                    .Where(x => x.Sport?.Equals("Chess", StringComparison.OrdinalIgnoreCase) == true)
-                    .GroupBy(x => x.ID)
-                    .Select(g => g.First())
-                    .OrderBy(x => x.IsFinished) // Show live events first
+                // Filter only Chess events
+                _chessEvents = allEvents
+                    .Where(e => e.Sport != null && e.Sport.Equals("Chess", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(x => x.IsFinished == true)  // Unfinished first
                     .ThenBy(x => x.Level)
                     .ThenBy(x => x.Gender)
                     .ToList();
 
-                // Load additional data for each event
-                foreach (var evt in _chessEvents)
-                {
-                    await LoadEventStandings(evt.ID);
-                    await LoadEventMatches(evt.ID);
-                }
+                // DEBUG: Log the counts for troubleshooting
+                var liveCount = _chessEvents.Where(e => e.IsFinished != true).Count();
+                var finishedCount = _chessEvents.Where(e => e.IsFinished == true).Count();
+                Console.WriteLine($"[Chess Dashboard] Total: {_chessEvents.Count}, Live: {liveCount}, Finished: {finishedCount}");
             }
         }
         catch (Exception ex)
@@ -705,50 +635,6 @@
         {
             _isLoading = false;
             StateHasChanged();
-        }
-    }
-
-    private async Task LoadEventStandings(string eventId)
-    {
-        try
-        {
-            // Assuming your ChessScoring endpoint returns standings data
-            var standings = await apiService.GetAsync<ChessStanding>($"/ChessScoring/standings/{eventId}");
-
-            if (standings != null)
-            {
-                var standingList = standings.ToList();
-
-                // Assign ranks
-                for (int i = 0; i < standingList.Count; i++)
-                {
-                    standingList[i].Rank = i + 1;
-                }
-
-                _eventStandings[eventId] = standingList;
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading standings for event {eventId}: {ex.Message}");
-            _eventStandings[eventId] = new List<ChessStanding>();
-        }
-    }
-
-    private async Task LoadEventMatches(string eventId)
-    {
-        try
-        {
-            var matches = await apiService.GetAsync<ChessMatch>($"/ChessScoring/event/{eventId}");
-            if (matches != null)
-            {
-                _eventMatches[eventId] = matches.ToList();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading matches for event {eventId}: {ex.Message}");
-            _eventMatches[eventId] = new List<ChessMatch>();
         }
     }
 
@@ -767,28 +653,9 @@
         return "Classical";
     }
 
-    private int GetActiveMatchesCount(string eventId)
-    {
-        if (_eventMatches.ContainsKey(eventId))
-        {
-            // Count matches that are assigned but not completed
-            return _eventMatches[eventId].Count(m => !m.IsCompleted && m.TableNo > 0);
-        }
-        return 0;
-    }
-
-    private List<ChessStanding> GetEventStandings(string eventId)
-    {
-        if (_eventStandings.ContainsKey(eventId))
-        {
-            return _eventStandings[eventId];
-        }
-        return new List<ChessStanding>();
-    }
-
     /* ===================== NAVIGATION LOGIC ===================== */
 
-    private string GetEventUrl(EventInfo evt)
+    private string GetEventUrl(EventsDTO.EventDetails.Event evt)
     {
         if (evt == null) return "#";
 
