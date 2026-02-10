@@ -1,0 +1,921 @@
+﻿@page "/regional-teams/{Abbreviation}-{Region}"
+
+@using System.Net.Http
+@using System.Text.Json
+@using System.Threading.Tasks
+@using Client.Palaro2026.Services
+@inject IDialogService DialogService
+@inject APIService apiService
+@inject HttpClient httpClient
+@inject NavigationManager navigationManager
+
+<PageTitle>@Region | PALARO 2026 - Agusan del Sur</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large">
+    <MudGrid>
+        <MudItem xs="12">
+            <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h2">@Abbreviation</MudText>
+                    <MudText Typo="Typo.subtitle1">@Region</MudText>
+                </MudStack>
+                <MudStack Row>
+                    <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{Region}.webp")" Height="100" />
+                    <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/region_logo/{Region}.webp")" Height="100" />
+                </MudStack>
+            </MudStack>
+        </MudItem>
+        <MudItem xs="12">
+            <MudBreadcrumbs Style="font-size: 15px" Class="pa-0" Items="_items"></MudBreadcrumbs>
+            <MudDivider />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudLink Href="@($"./regional-teams/{Abbreviation}-{Region}/players")" Underline="Underline.None">
+                <MudPaper Outlined Class="scale-up-center">
+                    <MudStack Spacing="0" Class="pa-3">
+                        <MudText Typo="Typo.h3">Players 🙋‍♂️🙋‍♀️</MudText>
+                        <MudText>View the performance of each region.</MudText>
+                        <MudText Typo="Typo.caption">This section displays the official medal tally of participating regions, helping you track gold, silver, and bronze standings in real-time.</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudLink>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudLink Href="./regional-teams/billeting-quarters" Underline="Underline.None">
+                <MudPaper Outlined Class="scale-up-center">
+                    <MudStack Spacing="0" Class="pa-3">
+                        <MudText Typo="Typo.h3">Billeting Quarters 🏘️</MudText>
+                        <MudText>Know where each delegation stays.</MudText>
+                        <MudText Typo="Typo.caption">This section lists the billeting quarters assigned to each region, providing accommodation details for teams and officials.</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudLink>
+        </MudItem>
+        <MudItem xs="12">
+            <MudDivider />
+        </MudItem>
+        <MudItem xs="12">
+            <MudTabs KeepPanelsAlive Elevation="0" ApplyEffectsToContainer="true" PanelClass="pt-6" Centered>
+                <MudTabPanel Style="text-transform: none" Text="Grand Total">
+                    <MudPaper Outlined Class="pa-3 mb-10">
+                        <MudGrid>
+                            <MudItem xs="3">
+                                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudText>Gold</MudText>
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.Amber.Accent4}")" />
+                                    <MudText Typo="Typo.h5">
+                                        @((_regionalMedalTallies?.Gold ?? 0) == 0 ? "-" : _regionalMedalTallies?.Gold)
+                                    </MudText>
+                                </MudStack>
+                            </MudItem>
+                            <MudItem xs="3">
+                                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudText>Silver</MudText>
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.BlueGray.Lighten4}")" />
+                                    <MudText Typo="Typo.h5">
+                                        @((_regionalMedalTallies?.Silver ?? 0) == 0 ? "-" : _regionalMedalTallies?.Silver)
+                                    </MudText>
+                                </MudStack>
+                            </MudItem>
+                            <MudItem xs="3">
+                                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudText>Bronze</MudText>
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.DeepOrange.Lighten1}")" />
+                                    <MudText Typo="Typo.h5">
+                                        @((_regionalMedalTallies?.Bronze ?? 0) == 0 ? "-" : _regionalMedalTallies?.Bronze)
+                                    </MudText>
+                                </MudStack>
+                            </MudItem>
+                            <MudItem xs="3">
+                                <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudText>Total</MudText>
+                                    <MudStack Row Spacing="0">
+                                        <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.Amber.Accent4}")" />
+                                        <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.BlueGray.Lighten4}")" />
+                                        <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.DeepOrange.Lighten1}")" />
+                                    </MudStack>
+                                    <MudText Typo="Typo.h5">
+                                        @_regionalMedalTallies?.Total
+                                    </MudText>
+                                </MudStack>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+
+                    @if (_finalDisplay_GrandTotal.Any())
+                    {
+                        <MudItem xs="12">
+                        <MudTable Items="@_finalDisplay_GrandTotal" T="TallyDisplayRow" 
+                                  Dense="true" Elevation="0"
+                                  Style="border-radius: 8px; overflow: hidden;"
+                                  Loading="@_finalLoading">
+
+                            <ColGroup>
+                                <col style="width: 35%" />
+                                <col style="width: 12%" />
+                                <col style="width: 18%" />
+                                <col style="width: 25%" />
+                                <col style="width: 10%" />
+                            </ColGroup>
+
+                                <HeaderContent>
+                                    <MudTh Style="text-align:center;  font-weight: bold" Typo="Typo.body1">Athlete</MudTh>
+                                    <MudTh Style="font-weight: bold" Typo="Typo.body1">Sports</MudTh>
+                                    <MudTh Style="font-weight: bold" Typo="Typo.body1">School Level</MudTh>
+                                    <MudTh Style="font-weight: bold" Typo="Typo.body1">Category</MudTh>
+                                    <MudTh Style="text-align:center; font-weight: bold" Typo="Typo.body1">Medal</MudTh>
+                                </HeaderContent>
+
+                            <RowTemplate>
+                                <MudTd DataLabel="Athlete" Style="text-align:center">
+                                    <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                                        @if (context.IsTeam)
+                                        {
+                                            <MudStack Row Wrap="Wrap.Wrap" Justify="Justify.Center" Spacing="1">
+                                                @foreach (var m in context.Members.OrderBy(x => x.LastName).ThenBy(x => x.FirstName))
+                                                {
+                                                    <MudChip T="string" Variant="Variant.Outlined" Class="ma-1">
+                                                        @FormatFullName(m.FirstName, m.MiddleInitial, m.LastName)
+                                                    </MudChip>
+                                                }
+                                            </MudStack>
+                                        }
+                                        else
+                                        {
+                                            var p = context.Head;
+                                            <MudChip T="string" Variant="Variant.Outlined" Class="ma-1">
+                                                @FormatFullName(p.FirstName, p.MiddleInitial, p.LastName)
+                                            </MudChip>
+                                        }
+                                    </MudStack>
+                                </MudTd>
+
+                                <MudTd DataLabel="Sports">
+                                    <MudText Typo="Typo.body2">@GetSportName(context.Head.SportID)</MudText>
+                                </MudTd>
+
+                                <MudTd DataLabel="School Level">
+                                    <MudText Typo="Typo.body2">@GetRowLevel(context.Head)</MudText>
+                                </MudTd>
+
+                                <MudTd DataLabel="Category">
+                                    <MudStack Spacing="0">
+                                        <MudText Typo="Typo.body2">@context.Head.SportMainCat</MudText>
+                                        <MudText Typo="Typo.caption">@GetSportSubcategoryName(context.Head.SportSubcategoryID)</MudText>
+                                    </MudStack>
+                                </MudTd>
+
+                                <MudTd DataLabel="Medal/Rank" Style="text-align:center">
+                                    @if (IsMedal(context.Head.TeamRank))
+                                    {
+                                        <MudChip T="string" Style="min-width: 70px"
+                                                 Size="Size.Small"
+                                                 Variant="Variant.Filled"
+                                                 Color="@GetMedalChipColor(context.Head.TeamRank)">
+                                            @context.Head.TeamRank
+                                        </MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">@FormatRank(context.Head.TeamRank)</MudText>
+                                    }
+                                </MudTd>
+                            </RowTemplate>
+
+                            <NoRecordsContent>
+                                <MudTd ColSpan="5" Class="text-center py-4">
+                                    <MudText>@(_finalLoading ? "Loading..." : "No final results found.")</MudText>
+                                </MudTd>
+                            </NoRecordsContent>
+
+                        </MudTable>
+                        </MudItem>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Class="mt-2">
+                            @(_finalLoading ? "Loading..." : "No final results found.")
+                        </MudText>
+                    }
+                </MudTabPanel>
+
+                <MudVirtualize Items="_schoolLevelMedalTallies" Context="schoolLevelMedalTally">
+                    <MudTabPanel Style="text-transform: none" Text="@schoolLevelMedalTally.Level">
+                        <MudVirtualize Items="@schoolLevelMedalTally.RegionalMedalTallyList" Context="medal">
+                            <MudPaper Outlined Class="pa-3 mb-10">
+                                <MudGrid>
+                                    <MudItem xs="3">
+                                        <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudText>Gold</MudText>
+                                            <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.Amber.Accent4}")" />
+                                            <MudText Typo="Typo.h5">
+                                                @medal.Gold
+                                            </MudText>
+                                        </MudStack>
+                                    </MudItem>
+                                    <MudItem xs="3">
+                                        <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudText>Silver</MudText>
+                                            <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.BlueGray.Lighten4}")" />
+                                            <MudText Typo="Typo.h5">
+                                                @medal.Silver
+                                            </MudText>
+                                        </MudStack>
+                                    </MudItem>
+                                    <MudItem xs="3">
+                                        <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudText>Bronze</MudText>
+                                            <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.DeepOrange.Lighten1}")" />
+                                            <MudText Typo="Typo.h5">
+                                                @medal.Bronze
+                                            </MudText>
+                                        </MudStack>
+                                    </MudItem>
+                                    <MudItem xs="3">
+                                        <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudText>Total</MudText>
+                                            <MudStack Row Spacing="0">
+                                                <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.Amber.Accent4}")" />
+                                                <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.BlueGray.Lighten4}")" />
+                                                <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {Colors.DeepOrange.Lighten1}")" />
+                                            </MudStack>
+                                            <MudText Typo="Typo.h5">
+                                                @medal.Total
+                                            </MudText>
+                                        </MudStack>
+                                    </MudItem>
+                                </MudGrid>
+                            </MudPaper>
+
+
+                            @{
+                                var levelName = schoolLevelMedalTally.Level ?? "";
+                                var levelRows = GetFinalDisplayForLevel(levelName);
+                            }
+
+                            @if (levelRows.Any())
+                            {
+                                <MudTable Items="@levelRows" T="TallyDisplayRow"
+                                          Dense="true" Elevation="0"
+                                          Style="border-radius: 8px; overflow: hidden;"
+                                          Loading="@_finalLoading">
+
+                                    <ColGroup>
+                                        <col style="width: 43%" />
+                                        <col style="width: 12%" />
+                                        <col style="width: 30%" />
+                                        <col style="width: 15%" />
+                                    </ColGroup>
+
+                                    <HeaderContent>
+                                        <MudTh Style="text-align:center">Athlete</MudTh>
+                                        <MudTh>Sports</MudTh>
+                                        <MudTh>Category</MudTh>
+                                        <MudTh Style="text-align:center">Medal/Rank</MudTh>
+                                    </HeaderContent>
+
+                                    <RowTemplate>
+                                        <MudTd DataLabel="Athlete" Style="text-align:center">
+                                            <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                                                @if (context.IsTeam)
+                                                {
+                                                    <MudStack Row Wrap="Wrap.Wrap" Justify="Justify.Center" Spacing="1">
+                                                        @foreach (var m in context.Members.OrderBy(x => x.LastName).ThenBy(x => x.FirstName))
+                                                        {
+                                                            <MudChip T="string" Variant="Variant.Outlined" Class="ma-1">
+                                                                @FormatFullName(m.FirstName, m.MiddleInitial, m.LastName)
+                                                            </MudChip>
+                                                        }
+                                                    </MudStack>
+                                                }
+                                                else
+                                                {
+                                                    var p = context.Head;
+                                                    <MudChip T="string" Variant="Variant.Outlined" Class="ma-1">
+                                                        @FormatFullName(p.FirstName, p.MiddleInitial, p.LastName)
+                                                    </MudChip>
+                                                }
+                                            </MudStack>
+                                        </MudTd>
+
+                                        <MudTd DataLabel="Sports">
+                                            <MudText Typo="Typo.body2">@GetSportName(context.Head.SportID)</MudText>
+                                        </MudTd>
+
+                                        <MudTd DataLabel="Category">
+                                            <MudStack Spacing="0">
+                                                <MudText Typo="Typo.body2">@context.Head.SportMainCat</MudText>
+                                                <MudText Typo="Typo.caption">@GetSportSubcategoryName(context.Head.SportSubcategoryID)</MudText>
+                                            </MudStack>
+                                        </MudTd>
+
+                                        <MudTd DataLabel="Medal/Rank" Style="text-align:center">
+                                            @if (IsMedal(context.Head.TeamRank))
+                                            {
+                                                <MudChip T="string" Style="min-width: 100px"
+                                                         Size="Size.Medium"
+                                                         Variant="Variant.Filled"
+                                                         Color="@GetMedalChipColor(context.Head.TeamRank)">
+                                                    @context.Head.TeamRank
+                                                </MudChip>
+                                            }
+                                            else
+                                            {
+                                                <MudText Typo="Typo.body2">@FormatRank(context.Head.TeamRank)</MudText>
+                                            }
+                                        </MudTd>
+                                    </RowTemplate>
+
+                                    <NoRecordsContent>
+                                        <MudTd ColSpan="5" Class="text-center py-4">
+                                            <MudText>@(_finalLoading ? "Loading..." : "No final results found for this level.")</MudText>
+                                        </MudTd>
+                                    </NoRecordsContent>
+                                </MudTable>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2" Class="mt-2">
+                                    @(_finalLoading ? "Loading..." : "No final results found for this level.")
+                                </MudText>
+                            }
+
+                        </MudVirtualize>
+                    </MudTabPanel>
+                </MudVirtualize>
+            </MudTabs>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+<FooterComponent />
+
+@code {
+
+    // parameters to be passed via URL
+    [Parameter] public string? Region { get; set; }
+    [Parameter] public string? Abbreviation { get; set; }
+
+    // variables to store data from API calls
+    private List<EventsDTO.EventDetails.Event>? _eventDetails;
+    private MedalTallyDTO.RegionalMedalTally? _regionalMedalTallies;
+    private List<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>? _schoolLevelMedalTallies;
+
+    // list to store breadcrumb items
+    private List<BreadcrumbItem> _items = new();
+
+    // status flags
+    private bool isEmpty = false;
+    private bool noConnection = false;
+
+
+    // method to get YouTube thumbnail URL or default image
+    private string GetThumbnailUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
+
+        if (url.Contains("youtube.com/watch?v="))
+        {
+            var videoId = url.Split("v=")[1].Split('&')[0];
+            return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
+        }
+
+        return "media/images/no-thumbnail-default.webp";
+    }
+
+    // method to get medal color based on index
+    private string GetMedalColor(int index)
+    {
+        return index switch
+        {
+            0 => Colors.Amber.Accent4,       // Gold
+            1 => Colors.BlueGray.Lighten4,   // Silver
+            2 => Colors.DeepOrange.Lighten1, // Bronze
+            _ => "transparent"
+        };
+    }
+
+    // decode url and fetches data when the component is initialized
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrEmpty(Abbreviation))
+            Abbreviation = Uri.UnescapeDataString(Abbreviation);
+
+        if (!string.IsNullOrEmpty(Region))
+            Region = Uri.UnescapeDataString(Region);
+
+        await GetEventsAsync();
+        await GetMedalTallyByRegionAsync();
+        await GetMedalTallyBySchoolLevelAsync();
+
+        // ✅ ADD THIS
+        await LoadFinalResultsForThisRegionAsync();
+
+        _items = new List<BreadcrumbItem>
+    {
+        new("Home", href: "./"),
+        new("Regional Teams", href: "./regional-teams"),
+        new($"{Region}", href: null, disabled: true)
+    };
+    }
+
+
+    // Fetches event details for the specified region from the API
+    private async Task GetEventsAsync()
+    {
+        string url = $"/Events/Details?region={Region}";
+        _eventDetails = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+    }
+
+    // Fetches medal tally for the specified region from the API
+    // private async Task GetMedalTallyByRegionAsync()
+    // {
+    //     string url = $"/MedalTally?region={Region}";
+    //     _regionalMedalTallies = await apiService.GetSingleAsync<MedalTallyDTO.RegionalMedalTally>(url);
+    // }
+
+    // Fetches medal tally by school level for the specified region from the API
+    // private async Task GetMedalTallyBySchoolLevelAsync()
+    // {
+    //     string url = $"/MedalTally/BySchoolLevel?region={Region}";
+    //     _schoolLevelMedalTallies = await apiService.GetAsync<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>(url);
+    // }
+
+    // private async Task GetMedalTallyBySchoolLevelAsync()
+    // {
+    //     string url = $"/MedalTally/BySchoolLevel?region={Region}";
+    //     _schoolLevelMedalTallies = await apiService
+    //         .GetAsync<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>(url);
+
+    //     _schoolLevelMedalTallies = _schoolLevelMedalTallies?
+    //         .Where(x => !string.Equals(x.Level, "Mixed Level", StringComparison.OrdinalIgnoreCase))
+    //         .ToList();
+    // }
+
+    private async Task GetMedalTallyByRegionAsync()
+    {
+        var regionQuery = BuildRegionQueryValue();
+        string url = $"/MedalTally?region={regionQuery}";
+        _regionalMedalTallies = await apiService.GetSingleAsync<MedalTallyDTO.RegionalMedalTally>(url);
+    }
+
+    private async Task GetMedalTallyBySchoolLevelAsync()
+    {
+        var regionQuery = BuildRegionQueryValue();
+        string url = $"/MedalTally/BySchoolLevel?region={regionQuery}";
+        _schoolLevelMedalTallies = await apiService.GetAsync<MedalTallyDTO.SchoolLevelMedalTally.SchoolLevel>(url);
+
+        _schoolLevelMedalTallies = _schoolLevelMedalTallies?
+            .Where(x => !string.Equals(x.Level, "Mixed Level", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+
+    private string BuildRegionQueryValue()
+    {
+        var value = !string.IsNullOrWhiteSpace(Region) ? Region : Abbreviation;
+        return Uri.EscapeDataString(value?.Trim() ?? "");
+    }
+
+    private string GetSportName(int? sportId)
+    {
+        if (!sportId.HasValue) return "-";
+        return _sportNames.TryGetValue(sportId.Value, out var name) ? name : $"Sport {sportId.Value}";
+    }
+
+    private string GetSportSubcategoryName(int? sportSubcategoryId)
+    {
+        if (!sportSubcategoryId.HasValue) return "-";
+        return _subcatNames.TryGetValue(sportSubcategoryId.Value, out var name) ? name : $"Subcat {sportSubcategoryId.Value}";
+    }
+
+    private string GetSchoolLevelName(int? schoolLevelId)
+    {
+        if (!schoolLevelId.HasValue) return "Unknown";
+        return _schoolLevels.FirstOrDefault(x => x.ID == schoolLevelId.Value)?.Level ?? "Unknown";
+    }
+
+    private string GetRowLevel(TabulationResultDTO r)
+    {
+        return string.IsNullOrWhiteSpace(r.Level)
+            ? GetSchoolLevelName(r.SchoolLevelID)
+            : r.Level!;
+    }
+
+    private static string FormatFullName(string? first, string? mi, string? last)
+    {
+        if (string.IsNullOrWhiteSpace(first) && string.IsNullOrWhiteSpace(last))
+            return "Unknown Athlete";
+
+        var mid = string.IsNullOrWhiteSpace(mi) ? "" : $" {mi}";
+        return $"{first}{mid} {last}".Trim();
+    }
+
+    private static bool IsMedal(string? rank) => rank is "Gold" or "Silver" or "Bronze";
+
+    private static string FormatRank(string? rank)
+    {
+        if (string.IsNullOrWhiteSpace(rank)) return "Eliminated";
+
+        if (int.TryParse(rank, out var n))
+        {
+            if (n == 0) return "Eliminated";
+            return $"Rank {n}";
+        }
+        return rank;
+    }
+
+    private static int GetMedalSortOrder(string? rank) => rank switch
+    {
+        "Gold" => 0,
+        "Silver" => 1,
+        "Bronze" => 2,
+        _ => 99
+    };
+
+    private static int GetNumericRankOrMax(string? rank)
+    {
+        if (int.TryParse(rank, out var n) && n > 0) return n;
+        return int.MaxValue;
+    }
+
+    // MudBlazor chip color
+    private Color GetMedalChipColor(string? rank) => rank switch
+    {
+        "Gold" => Color.Warning,
+        "Silver" => Color.Default,
+        "Bronze" => Color.Tertiary,
+        _ => Color.Default
+    };
+
+    // Level match for tabs
+    private bool IsRowInLevel(TallyDisplayRow row, string tabLevel)
+    {
+        var rowLevel = GetRowLevel(row.Head);
+
+        // Your tab labels are likely "Elementary", "Secondary", "SPED"
+        // Use Contains to tolerate variations like "Elementary Level"
+        return rowLevel.Contains(tabLevel, StringComparison.OrdinalIgnoreCase)
+               || tabLevel.Contains(rowLevel, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private List<TallyDisplayRow> GetFinalDisplayForLevel(string level)
+    {
+        return _finalDisplay_ByLevel.TryGetValue(level, out var list) ? list : new List<TallyDisplayRow>();
+    }
+
+
+    // -------------------------
+    // FINAL RESULTS TABLE STATE
+    // -------------------------
+    private bool _finalLoading = false;
+
+    private List<TabulationResultDTO> _finalTally = new();
+    private List<TallyDisplayRow> _finalDisplay_GrandTotal = new();
+
+    // per level display cache (Elementary/Secondary/SPED)
+    private Dictionary<string, List<TallyDisplayRow>> _finalDisplay_ByLevel = new(StringComparer.OrdinalIgnoreCase);
+
+    // lookups needed for final results
+    private List<SchoolsDTO.SchoolRegion> _schoolRegions = new();
+    private Dictionary<int, string> _sportNames = new();
+    private Dictionary<int, string> _subcatNames = new();
+    private List<SchoolsDTO.SchoolLevels> _schoolLevels = new();
+
+    // current region id resolved from url params
+    private int? _currentRegionId = null;
+
+    private async Task LoadFinalResultsForThisRegionAsync()
+    {
+        try
+        {
+            _finalLoading = true;
+            StateHasChanged();
+
+            // --- 1) load region list so we can resolve Region/Abbreviation -> RegionID
+            var regions = await apiService.GetAsync<SchoolsDTO.SchoolRegion>("/Schools/Regions");
+            _schoolRegions = regions ?? new List<SchoolsDTO.SchoolRegion>();
+
+            _currentRegionId = _schoolRegions
+                .Where(r => r.ID.HasValue)
+                .FirstOrDefault(r =>
+                    string.Equals(r.Region?.Trim(), Region?.Trim(), StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(r.Abbreviation?.Trim(), Abbreviation?.Trim(), StringComparison.OrdinalIgnoreCase)
+                )?.ID;
+
+            // If we cannot resolve, do nothing
+            if (!_currentRegionId.HasValue)
+            {
+                _finalTally = new();
+                _finalDisplay_GrandTotal = new();
+                _finalDisplay_ByLevel.Clear();
+                return;
+            }
+
+            // --- 2) load needed lookup names for sport/subcat/level display
+            var sports = await apiService.GetAsync<SportsDTO.Sports>("/Sports");
+            _sportNames = (sports ?? new List<SportsDTO.Sports>())
+                .ToDictionary(s => s.ID, s => s.Sport ?? $"Sport {s.ID}");
+
+            var subcats = await apiService.GetAsync<SportsDTO.SportSubcategories>("/Sports/Subcategories");
+            _subcatNames = (subcats ?? new List<SportsDTO.SportSubcategories>())
+                .ToDictionary(s => s.ID, s => s.Subcategory ?? $"Subcategory {s.ID}");
+
+            var levels = await apiService.GetAsync<SchoolsDTO.SchoolLevels>("/Schools/Levels");
+            _schoolLevels = levels ?? new List<SchoolsDTO.SchoolLevels>();
+
+            // --- 3) load final result rows (same endpoint as certificates page)
+            _finalTally = await apiService.GetAsync<TabulationResultDTO>("/Tabulation/result")
+                         ?? new List<TabulationResultDTO>();
+
+            // --- 4) filter by region (automatic)
+            _finalTally = _finalTally
+                .Where(x => x.SchoolRegionID.HasValue && x.SchoolRegionID.Value == _currentRegionId.Value)
+                .ToList();
+
+            // ✅ 4.1) filter ONLY medalists
+            _finalTally = _finalTally
+                .Where(x =>
+                    !string.IsNullOrWhiteSpace(x.TeamRank) &&
+                    (x.TeamRank.Trim().Equals("Gold", StringComparison.OrdinalIgnoreCase) ||
+                     x.TeamRank.Trim().Equals("Silver", StringComparison.OrdinalIgnoreCase) ||
+                     x.TeamRank.Trim().Equals("Bronze", StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            // --- 5) apply your existing dedupe + grouping logic
+            DeduplicateLatestPerPlayerPerSubcat_Final();
+            BuildDisplayRows_Final();
+
+
+            // --- 6) build displays for tabs
+            _finalDisplay_GrandTotal = _finalDisplay_GrandTotal
+                .OrderBy(x => GetMedalSortOrder(x.Head.TeamRank))
+                .ThenBy(x => GetNumericRankOrMax(x.Head.TeamRank))
+                .ThenBy(x => GetSportName(x.Head.SportID))
+                .ThenBy(x => GetRowLevel(x.Head))
+                .ThenBy(x => x.Head.SportMainCat)
+                .ToList();
+
+            _finalDisplay_ByLevel.Clear();
+
+            // Use your tab labels as keys (Elementary/Secondary/SPED)
+            if (_schoolLevelMedalTallies != null)
+            {
+                foreach (var lvl in _schoolLevelMedalTallies.Select(x => x.Level).Where(x => !string.IsNullOrWhiteSpace(x)))
+                {
+                    _finalDisplay_ByLevel[lvl!] = _finalDisplay_GrandTotal
+                        .Where(r => IsRowInLevel(r, lvl!))
+                        .ToList();
+                }
+            }
+        }
+        catch
+        {
+            _finalTally = new();
+            _finalDisplay_GrandTotal = new();
+            _finalDisplay_ByLevel.Clear();
+        }
+        finally
+        {
+            _finalLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private const int GymnasticsSportId = 13;
+    private const int GymnasticsUniqueTeamLegacyMax = 8_000_000;
+    private const int GymnasticsUniqueTeamNewMin = 80_000_000;
+
+    private static bool IsGymnasticsUniqueTeam(TabulationResultDTO r)
+        => r.SportID == GymnasticsSportId
+           && r.TeamID.HasValue
+           && r.TeamID.Value > 0
+           && (r.TeamID.Value < GymnasticsUniqueTeamLegacyMax || r.TeamID.Value > GymnasticsUniqueTeamNewMin);
+
+    private string BuildGroupKey_Final(TabulationResultDTO r)
+    {
+        var sub = r.SportSubcategoryID;
+        var region = r.SchoolRegionID ?? 0;
+
+        if (IsGymnasticsUniqueTeam(r))
+            return $"GYM-UQ-{region}-T{r.TeamID!.Value}-S{sub}";
+
+        if (string.Equals(r.SourceType, "EVENT", StringComparison.OrdinalIgnoreCase))
+            return r.EventVersusTeamID.HasValue
+                ? $"E-{r.EventVersusTeamID.Value}-S{sub}"
+                : $"E-IND-{r.PlayerID}-{r.EventID}-S{sub}";
+
+        var perfId = r.PerformanceID ?? 0;
+
+        if (r.TeamID.HasValue)
+            return $"P-{perfId}-{region}-T-{r.TeamID.Value}-S{sub}";
+
+        return $"P-{perfId}-{region}-IND-{r.PlayerID}-S{sub}";
+    }
+
+    private void BuildDisplayRows_Final()
+    {
+        _finalDisplay_GrandTotal = _finalTally
+            .GroupBy(BuildGroupKey_Final)
+            .Select(g =>
+            {
+                var head = g
+                    .OrderBy(x => GetMedalSortOrder(x.TeamRank))
+                    .ThenBy(x => GetNumericRankOrMax(x.TeamRank))
+                    .ThenBy(x => x.LastName)
+                    .First();
+
+                return new TallyDisplayRow
+                {
+                    Head = head,
+                    Members = g.ToList()
+                };
+            })
+            .ToList();
+    }
+
+    private void DeduplicateLatestPerPlayerPerSubcat_Final()
+    {
+        _finalTally = _finalTally
+            .GroupBy(x =>
+            {
+                if (IsGymnasticsUniqueTeam(x))
+                    return $"GYM|{x.PlayerID}|{x.TeamID}|{x.SportSubcategoryID}";
+
+                return $"DEF|{x.PlayerID}|{x.SportSubcategoryID}";
+            })
+            .Select(g =>
+                g.OrderByDescending(x => x.EventStageID ?? 0)
+                 .ThenBy(x => GetMedalSortOrder(x.TeamRank))
+                 .ThenBy(x => GetNumericRankOrMax(x.TeamRank))
+                 .ThenBy(x => x.LastName)
+                 .First()
+            )
+            .ToList();
+    }
+
+    public class SchoolsDTO
+    {
+        public class SchoolLevels
+        {
+            public int ID { get; set; }
+            public string? Level { get; set; }
+        }
+
+        public class SchoolRegion
+        {
+            public int? ID { get; set; }
+            public string Region { get; set; } = string.Empty;
+            public string? Abbreviation { get; set; }
+        }
+    }
+
+    public class SportsDTO
+    {
+        public class Sports
+        {
+            public int ID { get; set; }
+            public string? Sport { get; set; }
+        }
+
+        public class SportSubcategories
+        {
+            public int ID { get; set; }
+            public string? Subcategory { get; set; }
+        }
+    }
+
+    public class TabulationResultDTO
+    {
+        public string SourceType { get; set; } = "";
+
+        public string? EventID { get; set; }
+        public int? EventStageID { get; set; }
+        public int SportSubcategoryID { get; set; }
+        public string? SportMainCat { get; set; }
+        public bool IsFinished { get; set; }
+
+        public int? PerformanceID { get; set; }
+        public int? TeamID { get; set; }
+
+        public int? SchoolLevelID { get; set; }
+        public string? Level { get; set; }
+
+        public int? EventVersusTeamID { get; set; }
+        public int? SchoolRegionID { get; set; }
+        public string? TeamRank { get; set; }
+        public int? PerformanceScoreID { get; set; }
+
+        public string PlayerID { get; set; } = "";
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? MiddleInitial { get; set; }
+        public int? SportID { get; set; }
+
+        // optional
+        public int RankGroup { get; set; }
+        public int MedalOrder { get; set; }
+        public int NumericOrder { get; set; }
+        public int rn_global { get; set; }
+    }
+
+    public class TallyDisplayRow
+    {
+        public TabulationResultDTO Head { get; set; } = new();
+        public List<TabulationResultDTO> Members { get; set; } = new();
+
+        public bool IsTeam => Members.Select(m => m.PlayerID).Distinct().Count() > 1;
+
+        public List<string> PlayerIDs =>
+            Members.Select(m => m.PlayerID).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+    }
+
+
+    // Events DTO
+    public class EventsDTO
+    {
+        public class EventDetails
+        {
+            public class Event
+            {
+                public string ID { get; set; } = null!;
+                public string? EventStage { get; set; }
+                public List<EventVersusTeams>? EventVersusList { get; set; }
+                public string? Category { get; set; }
+                public string? Sport { get; set; }
+                public int? SubCategoryID { get; set; }
+                public string? Subcategory { get; set; }
+                public string? Gender { get; set; }
+                public string? Level { get; set; }
+                public string? Venue { get; set; }
+                public decimal? Latitude { get; set; }
+                public decimal? Longitude { get; set; }
+                public DateTime? Date { get; set; }
+                public TimeSpan? Time { get; set; }
+                public bool? OnStream { get; set; }
+                public string? StreamService { get; set; }
+                public string? StreamURL { get; set; }
+                public string? StreamTitle { get; set; }
+                public bool? IsFinished { get; set; }
+                public bool? Archived { get; set; }
+                public bool? Deleted { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+            }
+
+            public class EventVersusTeams
+            {
+                public int ID { get; set; }
+                public string? Score { get; set; }
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+                public DateTime? RecentUpdateAt { get; set; }
+            }
+
+            public class EventVersusTeamPlayers
+            {
+                public int ID { get; set; }
+                public int? EventVersusID { get; set; }
+                public string? FirstName { get; set; }
+                public string? LastName { get; set; }
+                public string? School { get; set; }
+            }
+        }
+    }
+
+    // Medal Tally DTO
+    public class MedalTallyDTO
+    {
+        public class RegionalMedalTally
+        {
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public int? Gold { get; set; }
+            public int? Silver { get; set; }
+            public int? Bronze { get; set; }
+            public int? Total { get; set; }
+        }
+
+        public class SchoolLevelMedalTally
+        {
+            public class SchoolLevel
+            {
+                public string? Level { get; set; }
+                public List<RegionalMedalTally>? RegionalMedalTallyList { get; set; }
+            }
+
+            public class RegionalMedalTally
+            {
+                public string? Region { get; set; }
+                public string? Abbreviation { get; set; }
+                public int? Gold { get; set; }
+                public int? Silver { get; set; }
+                public int? Bronze { get; set; }
+                public int? Total { get; set; }
+            }
+        }
+    }
+}
+
+

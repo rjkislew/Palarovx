@@ -563,29 +563,109 @@ public class CoachImportService : ICoachImportService
         return 2;
     }
 
-// NEW: Helper method to resolve SchoolRegionID
-    private async Task<int?> ResolveSchoolRegionId(string regionName)
-    {
-        if (string.IsNullOrWhiteSpace(regionName))
-        {
-            _logger.LogWarning("School region is empty");
-            return null;
-        }
+    // NEW: Helper method to resolve SchoolRegionID
+    //private async Task<int?> ResolveSchoolRegionId(string regionName)
+    //{
+    //    if (string.IsNullOrWhiteSpace(regionName))
+    //    {
+    //        _logger.LogWarning("School region is empty");
+    //        return null;
+    //    }
 
-        var regions = await _db.SchoolRegions
-            .AsNoTracking()
+    //    var regions = await _db.SchoolRegions
+    //        .AsNoTracking()
+    //        .ToListAsync();
+
+    //    var region = regions.FirstOrDefault(sr =>
+    //        sr.Region != null &&
+    //        sr.Region.Trim().Equals(regionName.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    //    if (region == null)
+    //    {
+    //        _logger.LogWarning("School region not found in database: {RegionName}", regionName);
+    //    }
+
+    //    return region?.ID;
+    //}
+
+    private static string NormalizeRegionKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        var s = value.Trim();
+
+        // Normalize whitespace
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ");
+
+        // Normalize common "Region" prefix formats:
+        // "Region XIII" -> "XIII"
+        // "REGION XIII" -> "XIII"
+        // "Region XIII, Caraga" -> "XIII CARAGA"
+        s = s.Replace(",", " "); // remove commas that break matching
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim();
+
+        // Keep a version without the word "Region"
+        var noRegionWord = System.Text.RegularExpressions.Regex
+            .Replace(s, @"\bREGION\b", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            .Trim();
+
+        // Return both possibilities joined? We'll just use this in comparisons.
+        // We'll compare against multiple normalized variants.
+        return noRegionWord.ToUpperInvariant();
+    }
+
+    private static IEnumerable<string> RegionMatchKeys(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            yield break;
+
+        var raw = input.Trim();
+        var rawUpper = raw.ToUpperInvariant();
+
+        // Key A: normalized without "REGION" word
+        var keyA = NormalizeRegionKey(raw);
+        if (!string.IsNullOrWhiteSpace(keyA)) yield return keyA;
+
+        // Key B: raw uppercase (for exact matches like "CAR")
+        yield return rawUpper;
+
+        // Key C: if input contains multiple tokens, try the first token (useful for "Region XIII")
+        var tokens = System.Text.RegularExpressions.Regex.Replace(raw, @"[,\s]+", " ")
+            .Trim()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (tokens.Length > 0)
+            yield return tokens[0].ToUpperInvariant();
+
+        // Key D: if starts with "Region", try the next token (e.g., "Region XIII" -> "XIII")
+        if (tokens.Length >= 2 && tokens[0].Equals("REGION", StringComparison.OrdinalIgnoreCase))
+            yield return tokens[1].ToUpperInvariant();
+    }
+
+    private async Task<int?> ResolveSchoolRegionId(string regionOrAbbrev)
+    {
+        if (string.IsNullOrWhiteSpace(regionOrAbbrev)) return null;
+
+        var keys = RegionMatchKeys(regionOrAbbrev).Distinct().ToList();
+        if (keys.Count == 0) return null;
+
+        // Pull from DB once
+        var regions = await _db.SchoolRegions.AsNoTracking()
+            .Select(r => new { r.ID, r.Region, r.Abbreviation })
             .ToListAsync();
 
-        var region = regions.FirstOrDefault(sr =>
-            sr.Region != null &&
-            sr.Region.Trim().Equals(regionName.Trim(), StringComparison.OrdinalIgnoreCase));
-
-        if (region == null)
+        foreach (var r in regions)
         {
-            _logger.LogWarning("School region not found in database: {RegionName}", regionName);
+            // Build candidate keys from DB values
+            var regionKeys = RegionMatchKeys(r.Region).ToList();
+            var abbrevKeys = RegionMatchKeys(r.Abbreviation).ToList();
+
+            // Match if ANY uploaded key matches ANY db key (region or abbreviation)
+            if (keys.Any(k => regionKeys.Contains(k)) || keys.Any(k => abbrevKeys.Contains(k)))
+                return r.ID;
         }
 
-        return region?.ID;
+        return null;
     }
 
     private async Task<int?> ResolveSchoolDivisionId(string divisionName)
