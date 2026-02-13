@@ -31,7 +31,6 @@ public class PlayerImportService : IPlayerImportService
             return result;
         }
 
-        // Header detection
         int headerRow = DetectHeaderRow(worksheet);
         if (headerRow == -1)
         {
@@ -41,7 +40,6 @@ public class PlayerImportService : IPlayerImportService
 
         var headerMap = BuildHeaderMap(worksheet, headerRow);
 
-        // Get column indexes
         var colMapping = GetColumnMappings(headerMap);
         if (colMapping.LastName == -1 || colMapping.FirstName == -1)
         {
@@ -49,35 +47,33 @@ public class PlayerImportService : IPlayerImportService
             return result;
         }
 
-        // UPDATED: Pre-load lookup data with normalized sport names
+        // Sports cache (normalized sport + category)
         var sportsCache = await _db.Sports
             .AsNoTracking()
             .Where(s => !string.IsNullOrEmpty(s.Sport))
             .ToDictionaryAsync(
-                s => $"{NormalizeSportName(s.Sport.Trim())}|{GetCategoryName(s.SportCategoryID)}", // Use normalized names
+                s => $"{NormalizeSportName(s.Sport.Trim())}|{GetCategoryName(s.SportCategoryID)}",
                 s => s.ID,
                 StringComparer.OrdinalIgnoreCase
             );
 
-        // NEW: Pre-load regions/divisions for fast lookups (prevents per-row DB hits)
+        // Regions cache: accept both Region + Abbreviation
         var regionRows = await _db.SchoolRegions.AsNoTracking().ToListAsync();
-
         var regionCache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var r in regionRows)
+        foreach (var rr in regionRows)
         {
-            if (!string.IsNullOrWhiteSpace(r.Region))
-                regionCache[r.Region.Trim()] = r.ID;
+            if (!string.IsNullOrWhiteSpace(rr.Region))
+                regionCache[rr.Region.Trim()] = rr.ID;
 
-            if (!string.IsNullOrWhiteSpace(r.Abbreviation))
-                regionCache[r.Abbreviation.Trim()] = r.ID;
+            if (!string.IsNullOrWhiteSpace(rr.Abbreviation))
+                regionCache[rr.Abbreviation.Trim()] = rr.ID;
         }
 
-
+        // Divisions cache: allow duplicates by grouping
         var divisionRows = await _db.SchoolDivisions
-    .AsNoTracking()
-    .Where(d => d.Division != null && d.Division.Trim() != "")
-    .ToListAsync();
+            .AsNoTracking()
+            .Where(d => d.Division != null && d.Division.Trim() != "")
+            .ToListAsync();
 
         var divisionCache = divisionRows
             .GroupBy(d => d.Division!.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -87,29 +83,28 @@ public class PlayerImportService : IPlayerImportService
                 StringComparer.OrdinalIgnoreCase
             );
 
-
         // Schools cache by code (Code + Level + Region)
         var schoolsByCodeList = await _db.Schools.AsNoTracking()
             .Where(s => !string.IsNullOrEmpty(s.SchoolCode) && s.SchoolLevelsID.HasValue)
             .ToListAsync();
 
         var schoolCacheByCode = schoolsByCodeList
-    .GroupBy(s => $"{(s.SchoolCode ?? "").Trim()}|{s.SchoolLevelsID.Value}|{(s.SchoolRegionID ?? 0)}",
-             StringComparer.OrdinalIgnoreCase)
-    .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-
-
-        // Schools cache by name (Name + Level + Region)
-        // Schools cache by name (Name + Level + Region)
-        var schoolsByNameList = await _db.Schools.AsNoTracking().ToListAsync();
-
-        var schoolCacheByNameAndLevel = schoolsByNameList
-            .GroupBy(s => $"{(s.School ?? "").Trim()}|{(s.SchoolLevelsID ?? 0)}|{(s.SchoolRegionID ?? 0)}",
-                     StringComparer.OrdinalIgnoreCase)
+            .GroupBy(s => $"{(s.SchoolCode ?? "").Trim()}|{s.SchoolLevelsID.Value}|{(s.SchoolRegionID ?? 0)}",
+                StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
+        // Schools cache by name (Name + Level + Region)
+        var schoolsByNameList = await _db.Schools.AsNoTracking().ToListAsync();
+        var schoolCacheByNameLevelRegion = schoolsByNameList
+            .GroupBy(s => $"{(s.School ?? "").Trim()}|{(s.SchoolLevelsID ?? 0)}|{(s.SchoolRegionID ?? 0)}",
+                StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         var playersBatch = new List<ProfilePlayers>();
+
+        // Deduplicate within the uploaded file itself (same row repeated)
+        var uploadFingerprints = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         int startRow = headerRow + 1;
         int endRow = worksheet.Dimension.End.Row;
         result.TotalRows = Math.Max(0, endRow - headerRow);
@@ -128,34 +123,45 @@ public class PlayerImportService : IPlayerImportService
                 string firstName = GetCellValue(worksheet, r, colMapping.FirstName);
                 string lrn = GetCellValue(worksheet, r, colMapping.LRN);
 
-                if (string.IsNullOrWhiteSpace(lastName) && string.IsNullOrWhiteSpace(firstName) &&
-                    string.IsNullOrWhiteSpace(lrn))
+                if (string.IsNullOrWhiteSpace(lastName) && string.IsNullOrWhiteSpace(firstName) && string.IsNullOrWhiteSpace(lrn))
                 {
                     result.SkippedCount++;
                     continue;
                 }
 
-                // Process the row
                 var player = await ProcessPlayerRow(
-    worksheet,
-    r,
-    colMapping,
-    sportsCache,
-    schoolCacheByCode,
-    schoolCacheByNameAndLevel,
-    regionCache,
-    divisionCache,
-    uploadedBy
-);
-                if (player != null)
+                    worksheet,
+                    r,
+                    colMapping,
+                    sportsCache,
+                    schoolCacheByCode,
+                    schoolCacheByNameLevelRegion,
+                    regionCache,
+                    divisionCache,
+                    uploadedBy
+                );
+
+                if (player == null)
                 {
-                    playersBatch.Add(player);
+                    result.SkippedCount++;
+                    continue;
                 }
+
+                // Upload-file dedupe (exact match within file)
+                var fp = CreatePlayerFingerprint(player);
+                if (!uploadFingerprints.Add(fp))
+                {
+                    result.SkippedCount++;
+                    continue;
+                }
+
+                playersBatch.Add(player);
 
                 if (playersBatch.Count >= BatchSize)
                 {
-                    await PersistBatchAsync(playersBatch);
+                    var inserted = await PersistBatchAsync(playersBatch);
                     playersBatch.Clear();
+                    result.ImportedCount += inserted;
                 }
             }
             catch (Exception ex)
@@ -169,14 +175,17 @@ public class PlayerImportService : IPlayerImportService
         // Final batch
         if (playersBatch.Any())
         {
-            await PersistBatchAsync(playersBatch);
+            var inserted = await PersistBatchAsync(playersBatch);
+            result.ImportedCount += inserted;
         }
 
-        result.ImportedCount = result.TotalRows - result.SkippedCount - result.Errors.Count;
+        // ImportedCount is now tracked by actual inserts; don’t re-derive it.
         return result;
     }
 
-    // NEW: Method to normalize sport names from Excel
+    // -----------------------------
+    // Sport normalization
+    // -----------------------------
     private string NormalizeSportName(string sportName)
     {
         if (string.IsNullOrWhiteSpace(sportName))
@@ -184,69 +193,28 @@ public class PlayerImportService : IPlayerImportService
 
         string normalized = sportName.Trim().ToUpperInvariant();
 
-        // Remove variations and keep only the base sport name
-        if (normalized.Contains("BASKETBALL"))
-        {
-            return "BASKETBALL"; // Always map to BASKETBALL regardless of variations
-        }
-        else if (normalized.Contains("DANCE SPORTS") || normalized.Contains("DANCESPORT") || normalized.Contains("DANCE"))
-        {
-            return "DANCE SPORTS"; // Always map to DANCE SPORTS
-        }
-        else if (normalized.Contains("GYMNASTICS"))
-        {
-            return "GYMNASTICS"; // Always map to GYMNASTICS regardless of variations
-        }
-        else if (normalized.Contains("VOLLEYBALL"))
-        {
-            return "VOLLEYBALL"; // Always map to VOLLEYBALL
-        }
-        else if (normalized.Contains("FOOTBALL"))
-        {
-            return "FOOTBALL"; // Always map to FOOTBALL
-        }
-        else if (normalized.Contains("SWIMMING"))
-        {
-            return "SWIMMING"; // Always map to SWIMMING
-        }
-        else if (normalized.Contains("ATHLETICS") || normalized.Contains("TRACK AND FIELD"))
-        {
-            return "ATHLETICS"; // Always map to ATHLETICS
-        }
-        else if (normalized.Contains("TABLE TENNIS"))
-        {
-            return "TABLE TENNIS"; // Always map to TABLE TENNIS
-        }
-        else if (normalized.Contains("BADMINTON"))
-        {
-            return "BADMINTON"; // Always map to BADMINTON
-        }
-        else if (normalized.Contains("CHESS"))
-        {
-            return "CHESS"; // Always map to CHESS
-        }
-        else if (normalized.Contains("SEPAK TAKRAW"))
-        {
-            return "SEPAK TAKRAW"; // Always map to CHESS
-        }
-        else if (normalized.Contains("BOCCE"))
-        {
-            return "BOCCE"; // Always map to CHESS
-        }
+        if (normalized.Contains("BASKETBALL")) return "BASKETBALL";
+        if (normalized.Contains("DANCE SPORTS") || normalized.Contains("DANCESPORT") || normalized.Contains("DANCE")) return "DANCE SPORTS";
+        if (normalized.Contains("GYMNASTICS")) return "GYMNASTICS";
+        if (normalized.Contains("VOLLEYBALL")) return "VOLLEYBALL";
+        if (normalized.Contains("FOOTBALL")) return "FOOTBALL";
+        if (normalized.Contains("SWIMMING")) return "SWIMMING";
+        if (normalized.Contains("ATHLETICS") || normalized.Contains("TRACK AND FIELD")) return "ATHLETICS";
+        if (normalized.Contains("TABLE TENNIS")) return "TABLE TENNIS";
+        if (normalized.Contains("BADMINTON")) return "BADMINTON";
+        if (normalized.Contains("CHESS")) return "CHESS";
+        if (normalized.Contains("SEPAK TAKRAW")) return "SEPAK TAKRAW";
+        if (normalized.Contains("BOCCE")) return "BOCCE";
 
-        // For other sports, return as is but remove any parenthetical content
         var index = normalized.IndexOf('(');
         if (index > 0)
-        {
             normalized = normalized.Substring(0, index).Trim();
-        }
 
         return normalized;
     }
 
     private string GetCategoryName(int? sportCategoryId)
     {
-        // Map SportCategoryID to category names
         if (!sportCategoryId.HasValue) return "Regular Sports";
 
         return sportCategoryId switch
@@ -258,6 +226,9 @@ public class PlayerImportService : IPlayerImportService
         };
     }
 
+    // -----------------------------
+    // Header / mapping helpers
+    // -----------------------------
     private int DetectHeaderRow(ExcelWorksheet worksheet)
     {
         var maxHeaderScan = Math.Min(40, worksheet.Dimension.End.Row);
@@ -265,11 +236,8 @@ public class PlayerImportService : IPlayerImportService
         {
             var rowValues = new List<string>();
             for (int c = 1; c <= worksheet.Dimension.End.Column; c++)
-            {
                 rowValues.Add((worksheet.Cells[r, c].Text ?? "").Trim().ToLowerInvariant());
-            }
 
-            // UPDATED: Match the actual Excel headers
             if (rowValues.Any(v => v.Contains("last name")) &&
                 rowValues.Any(v => v.Contains("first name")) &&
                 rowValues.Any(v => v.Contains("lrn")) &&
@@ -289,16 +257,14 @@ public class PlayerImportService : IPlayerImportService
         {
             var headerText = (worksheet.Cells[headerRow, c].Text ?? "").Trim();
             if (!string.IsNullOrWhiteSpace(headerText))
-            {
                 headerMap[headerText] = c;
-            }
         }
 
         return headerMap;
     }
 
-    private (int LastName, int FirstName, int LRN, int Sport, int SchoolName, int SchoolCode, int MI, int Sex, int Bdate
-        , int Category, int SchoolLevel, int SchoolDivision, int SchoolRegion, int SchoolType, int SchoolAddress)
+    private (int LastName, int FirstName, int LRN, int Sport, int SchoolName, int SchoolCode, int MI, int Sex, int Bdate,
+        int Category, int SchoolLevel, int SchoolDivision, int SchoolRegion, int SchoolType, int SchoolAddress)
         GetColumnMappings(Dictionary<string, int> headerMap)
     {
         int GetCol(params string[] names)
@@ -309,12 +275,9 @@ public class PlayerImportService : IPlayerImportService
                 if (match != null) return headerMap[match];
 
                 foreach (var key in headerMap.Keys)
-                {
                     if (key.IndexOf(n, StringComparison.OrdinalIgnoreCase) >= 0)
                         return headerMap[key];
-                }
             }
-
             return -1;
         }
 
@@ -332,44 +295,41 @@ public class PlayerImportService : IPlayerImportService
             GetCol("level", "school level"),
             GetCol("schdiv", "school division", "division", "schooldivision"),
             GetCol("region", "school region"),
-            GetCol("school type", "schooltype", "type"), // NEW
-            GetCol("school address", "address", "schooladdress") // NEW
+            GetCol("school type", "schooltype", "type"),
+            GetCol("school address", "address", "schooladdress")
         );
     }
 
     private bool RowHasData(ExcelWorksheet worksheet, int row, int lastCol)
     {
         for (int c = 1; c <= lastCol; c++)
-        {
             if (!string.IsNullOrWhiteSpace(worksheet.Cells[row, c].Text))
                 return true;
-        }
-
         return false;
     }
 
     private string GetCellValue(ExcelWorksheet worksheet, int row, int col)
-    {
-        return col != -1 ? worksheet.Cells[row, col].Text.Trim() : "";
-    }
+        => col != -1 ? (worksheet.Cells[row, col].Text ?? "").Trim() : "";
 
+    // -----------------------------
+    // Row -> entity
+    // -----------------------------
     private async Task<ProfilePlayers?> ProcessPlayerRow(
-    ExcelWorksheet worksheet,
-    int row,
-    (int LastName, int FirstName, int LRN, int Sport, int SchoolName, int SchoolCode, int MI, int Sex, int Bdate,
-     int Category, int SchoolLevel, int SchoolDivision, int SchoolRegion, int SchoolType, int SchoolAddress) cols,
-    Dictionary<string, int> sportsCache,
-    Dictionary<string, Schools> schoolCacheByCode,
-    Dictionary<string, Schools> schoolCacheByNameAndLevel,
-    Dictionary<string, int> regionCache,
-   Dictionary<string, List<int>> divisionCache,
-    string uploadedBy)
+        ExcelWorksheet worksheet,
+        int row,
+        (int LastName, int FirstName, int LRN, int Sport, int SchoolName, int SchoolCode, int MI, int Sex, int Bdate,
+            int Category, int SchoolLevel, int SchoolDivision, int SchoolRegion, int SchoolType, int SchoolAddress) cols,
+        Dictionary<string, int> sportsCache,
+        Dictionary<string, Schools> schoolCacheByCode,
+        Dictionary<string, Schools> schoolCacheByNameLevelRegion,
+        Dictionary<string, int> regionCache,
+        Dictionary<string, List<int>> divisionCache,
+        string uploadedBy)
     {
         string lastName = GetCellValue(worksheet, row, cols.LastName);
         string firstName = GetCellValue(worksheet, row, cols.FirstName);
         string lrn = GetCellValue(worksheet, row, cols.LRN);
 
-        // Parse birthdate
         DateTime? birthDate = null;
         if (cols.Bdate != -1)
         {
@@ -384,7 +344,7 @@ public class PlayerImportService : IPlayerImportService
         }
 
         string level = GetCellValue(worksheet, row, cols.SchoolLevel);
-        string category = "Regular Sports"; // Default
+        string category = "Regular Sports";
         int? sportCategoryId = null;
 
         if (!string.IsNullOrWhiteSpace(level))
@@ -401,59 +361,43 @@ public class PlayerImportService : IPlayerImportService
             }
         }
 
-        // UPDATED: Resolve SportID with normalized names and category-based search
         int? sportId = null;
         if (cols.Sport != -1)
         {
             var sportName = GetCellValue(worksheet, row, cols.Sport);
-
             if (!string.IsNullOrWhiteSpace(sportName))
             {
-                // Normalize the sport name from Excel
                 var normalizedSportName = NormalizeSportName(sportName);
+                var searchKeys = new List<string>
+                {
+                    $"{normalizedSportName}|{category.Trim()}"
+                };
 
-                // Create search keys for different category scenarios
-                var searchKeys = new List<string>();
-
-                // Always try the exact category first
-                var exactKey = $"{normalizedSportName}|{category.Trim()}";
-                searchKeys.Add(exactKey);
-
-                // If it's PARAGAMES, also try searching in Regular category as fallback
                 if (category.Equals("Paragames", StringComparison.OrdinalIgnoreCase))
-                {
                     searchKeys.Add($"{normalizedSportName}|Regular Sports");
-                }
 
-                // Try each search key until we find a match
-                foreach (var searchKey in searchKeys)
+                foreach (var key in searchKeys)
                 {
-                    if (sportsCache.TryGetValue(searchKey, out var sid))
+                    if (sportsCache.TryGetValue(key, out var sid))
                     {
                         sportId = sid;
-                        _logger.LogInformation("Found sport: {NormalizedSport} (Original: {OriginalSport}) with Category: {Category}",
-                            normalizedSportName, sportName, category);
                         break;
                     }
-                }
-
-                if (!sportId.HasValue)
-                {
-                    _logger.LogWarning("Sport not found: {OriginalSport} -> {NormalizedSport} (Category: {Category})",
-                        sportName, normalizedSportName, category);
                 }
             }
         }
 
-        // Resolve SchoolID
         int? schoolId = await ResolveSchoolId(
-        worksheet, row,
-        (cols.SchoolName, cols.SchoolCode, cols.SchoolLevel, cols.SchoolDivision, cols.SchoolRegion, cols.SchoolType, cols.SchoolAddress),
-        schoolCacheByCode, schoolCacheByNameAndLevel,
-        regionCache, divisionCache
-    );
+            worksheet,
+            row,
+            (cols.SchoolName, cols.SchoolCode, cols.SchoolLevel, cols.SchoolDivision, cols.SchoolRegion, cols.SchoolType, cols.SchoolAddress),
+            schoolCacheByCode,
+            schoolCacheByNameLevelRegion,
+            regionCache,
+            divisionCache
+        );
 
-        // Generate a unique ID for the player
+        // ID generation is still needed for new inserts, but duplicates will be skipped before insert.
         string playerId = GeneratePlayerId(firstName, lastName, lrn, sportId);
 
         return new ProfilePlayers
@@ -472,304 +416,169 @@ public class PlayerImportService : IPlayerImportService
         };
     }
 
-    // Helper method to generate player IDs
     private string GeneratePlayerId(string firstName, string lastName, string lrn, int? sportId)
     {
-        // Option 1: Use LRN + SportID if available
         if (!string.IsNullOrWhiteSpace(lrn) && sportId.HasValue)
-        {
             return $"{lrn.Trim()}-{sportId.Value}";
-        }
 
-        // Option 2: Use name-based ID with timestamp
         var timestamp = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-        var namePart =
-            $"{firstName?.Substring(0, Math.Min(3, firstName.Length)) ?? "FNU"}{lastName?.Substring(0, Math.Min(3, lastName.Length)) ?? "LNU"}";
-
-        return $"{namePart.ToUpper()}{timestamp}";
+        var namePart = $"{firstName?.Substring(0, Math.Min(3, firstName.Length)) ?? "FNU"}{lastName?.Substring(0, Math.Min(3, lastName.Length)) ?? "LNU"}";
+        return $"{namePart.ToUpperInvariant()}{timestamp}";
     }
 
-    // Alternative: Use GUID-based IDs
-    private string GeneratePlayerId()
-    {
-        return Guid.NewGuid().ToString("N").Substring(0, 20); // Match your 20 char limit
-    }
-
-    // NEW: Helper method to resolve category name to SportCategoryID
-    private async Task<int?> ResolveSportCategoryId(string categoryName)
-    {
-        if (string.IsNullOrWhiteSpace(categoryName)) return null;
-
-        // You'll need to query your SportCategories table
-        // This is a placeholder - adjust based on your actual database structure
-        var category = await _db.SportCategories
-            .FirstOrDefaultAsync(sc =>
-                sc.Category.Trim().Equals(categoryName.Trim(), StringComparison.OrdinalIgnoreCase));
-
-        return category?.ID;
-    }
-
+    // -----------------------------
+    // School resolver (Name/Code + Level + Region)
+    // -----------------------------
     private async Task<int?> ResolveSchoolId(
-    ExcelWorksheet worksheet,
-    int row,
-    (int SchoolName, int SchoolCode, int SchoolLevel, int SchoolDivision, int SchoolRegion, int SchoolType, int SchoolAddress) cols,
-    Dictionary<string, Schools> schoolCacheByCode,
-    Dictionary<string, Schools> schoolCacheByNameAndLevel,
-    Dictionary<string, int> regionCache,
-    Dictionary<string, List<int>> divisionCache)
+        ExcelWorksheet worksheet,
+        int row,
+        (int SchoolName, int SchoolCode, int SchoolLevel, int SchoolDivision, int SchoolRegion, int SchoolType, int SchoolAddress) cols,
+        Dictionary<string, Schools> schoolCacheByCode,
+        Dictionary<string, Schools> schoolCacheByNameLevelRegion,
+        Dictionary<string, int> regionCache,
+        Dictionary<string, List<int>> divisionCache)
     {
         string schoolCode = GetCellValue(worksheet, row, cols.SchoolCode);
         string schoolName = GetCellValue(worksheet, row, cols.SchoolName);
 
-        // 🔒 NORMALIZE early (this is the key fix)
         schoolCode = (schoolCode ?? "").Trim();
         schoolName = (schoolName ?? "").Trim();
 
         string schoolLevel = GetCellValue(worksheet, row, cols.SchoolLevel);
         string schoolDivision = GetCellValue(worksheet, row, cols.SchoolDivision);
         string schoolRegion = GetCellValue(worksheet, row, cols.SchoolRegion);
-
         string schoolType = GetCellValue(worksheet, row, cols.SchoolType);
         string schoolAddress = GetCellValue(worksheet, row, cols.SchoolAddress);
 
         int? mappedSchoolLevelId = MapSchoolLevelToId(schoolLevel);
 
-        // Resolve IDs from caches
+        // Resolve RegionID from cache (accept region OR abbreviation)
         int? schoolRegionId = null;
-        if (!string.IsNullOrWhiteSpace(schoolRegion) && regionCache.TryGetValue(schoolRegion.Trim(), out var rid) && rid > 0)
+        if (!string.IsNullOrWhiteSpace(schoolRegion) &&
+            regionCache.TryGetValue(schoolRegion.Trim(), out var rid) && rid > 0)
+        {
             schoolRegionId = rid;
+        }
 
+        // Resolve DivisionID from cache (duplicates allowed; pick first deterministically)
         int? schoolDivisionId = null;
-
         if (!string.IsNullOrWhiteSpace(schoolDivision) &&
             divisionCache.TryGetValue(schoolDivision.Trim(), out var divIds) &&
             divIds != null && divIds.Count > 0)
         {
-            // If duplicates exist (e.g., San Fernando City appears twice), just pick one deterministically.
-            // NOTE: If your SchoolDivisions table has a RegionID, we should select the one matching schoolRegionId instead.
             schoolDivisionId = divIds[0];
-
-            if (divIds.Count > 1)
-                _logger.LogWarning("Multiple division IDs found for '{Division}'. Using ID {ID}.", schoolDivision, schoolDivisionId);
         }
 
-        // Composite keys (Level + Region)
         string codeCacheKey = $"{schoolCode}|{(mappedSchoolLevelId ?? 0)}|{(schoolRegionId ?? 0)}";
         string nameCacheKey = $"{schoolName}|{(mappedSchoolLevelId ?? 0)}|{(schoolRegionId ?? 0)}";
 
-        // Match by Code+Level+Region
         if (!string.IsNullOrWhiteSpace(schoolCode) && schoolCacheByCode.TryGetValue(codeCacheKey, out var byCode))
             return byCode.ID;
 
-        // Match by Name+Level+Region
-        if (!string.IsNullOrWhiteSpace(schoolName) && schoolCacheByNameAndLevel.TryGetValue(nameCacheKey, out var byName))
+        if (!string.IsNullOrWhiteSpace(schoolName) && schoolCacheByNameLevelRegion.TryGetValue(nameCacheKey, out var byName))
             return byName.ID;
 
-        // Create new if not found (allowed when Region or Level differs)
-        if (!string.IsNullOrWhiteSpace(schoolName))
+        if (string.IsNullOrWhiteSpace(schoolName))
+            return null;
+
+        var newSchool = new Schools
         {
-            var newSchool = new Schools
-            {
-                School = schoolName,
-                SchoolCode = schoolCode,
-                SchoolLevelsID = mappedSchoolLevelId,
-                SchoolDivisionID = schoolDivisionId,
-                SchoolRegionID = schoolRegionId,
-                SchoolType = schoolType,
-                SchoolAddress = schoolAddress
-            };
+            School = schoolName,
+            SchoolCode = string.IsNullOrWhiteSpace(schoolCode) ? null : schoolCode,
+            SchoolLevelsID = mappedSchoolLevelId,
+            SchoolDivisionID = schoolDivisionId,
+            SchoolRegionID = schoolRegionId,
+            SchoolType = schoolType,
+            SchoolAddress = schoolAddress
+        };
 
-            _db.Schools.Add(newSchool);
-            await _db.SaveChangesAsync();
+        _db.Schools.Add(newSchool);
+        await _db.SaveChangesAsync();
 
-            // Update caches with the same composite rule
-            if (!string.IsNullOrEmpty(newSchool.SchoolCode) && mappedSchoolLevelId.HasValue)
-            {
-                var k = $"{newSchool.SchoolCode}|{mappedSchoolLevelId.Value}|{(schoolRegionId ?? 0)}";
-                if (!schoolCacheByCode.ContainsKey(k)) schoolCacheByCode[k] = newSchool;
-            }
+        if (!string.IsNullOrWhiteSpace(schoolCode) && mappedSchoolLevelId.HasValue)
+            schoolCacheByCode.TryAdd(codeCacheKey, newSchool);
 
-            var nk = $"{newSchool.School}|{(mappedSchoolLevelId ?? 0)}|{(schoolRegionId ?? 0)}";
-            if (!schoolCacheByNameAndLevel.ContainsKey(nk)) schoolCacheByNameAndLevel[nk] = newSchool;
+        schoolCacheByNameLevelRegion.TryAdd(nameCacheKey, newSchool);
 
-            return newSchool.ID;
-        }
-
-        return null;
+        return newSchool.ID;
     }
 
-    // UPDATED: School level mapping method with exact requirements
     private int? MapSchoolLevelToId(string originalLevel)
     {
         if (string.IsNullOrWhiteSpace(originalLevel))
-        {
-            _logger.LogWarning("School level is empty, defaulting to Secondary Level (ID: 2)");
-            return 2; // Default to Secondary Level ID
-        }
+            return 2;
 
         string level = originalLevel.Trim().ToUpperInvariant();
 
-        // Handle PARAGAMES specifically - map to ID 3
-        if (level.Contains("PARAGAMES"))
-        {
-            _logger.LogInformation("Mapped school level from '{Original}' to ID: 3 (PARAGAMES)", originalLevel);
-            return 3;
-        }
+        if (level.Contains("PARAGAMES")) return 3;
+        if (level.Contains("DEMO SPORTS")) return 2;
+        if (level.Contains("ELEMENTARY")) return 1;
+        if (level.Contains("SECONDARY")) return 2;
 
-        // Handle DEMO SPORTS specifically - map to ID 2 (same as Secondary)
-        if (level.Contains("DEMO SPORTS"))
-        {
-            _logger.LogInformation("Mapped school level from '{Original}' to ID: 2 (Secondary/Demo Sports)", originalLevel);
-            return 2;
-        }
-
-        // Direct ID mapping based on your exact requirements
-        if (level.Contains("ELEMENTARY"))
-        {
-            _logger.LogInformation("Mapped school level from '{Original}' to ID: 1 (Elementary)", originalLevel);
-            return 1;
-        }
-        else if (level.Contains("SECONDARY"))
-        {
-            _logger.LogInformation("Mapped school level from '{Original}' to ID: 2 (Secondary)", originalLevel);
-            return 2;
-        }
-
-        // Default mapping for unrecognized levels
-        _logger.LogWarning("Unrecognized school level '{Original}', defaulting to ID: 2 (Secondary)", originalLevel);
         return 2;
     }
 
-    private async Task<int?> ResolveSchoolDivisionId(string divisionName)
+    // -----------------------------
+    // Exact-match dedupe helpers
+    // -----------------------------
+    private static string Norm(string? s) => (s ?? "").Trim().ToUpperInvariant();
+
+    private static string CreatePlayerFingerprint(ProfilePlayers p)
     {
-        if (string.IsNullOrWhiteSpace(divisionName))
-        {
-            _logger.LogWarning("School division is empty");
-            return null;
-        }
-
-        // FIXED: Use EF-compatible query
-        var divisions = await _db.SchoolDivisions
-            .AsNoTracking()
-            .ToListAsync(); // Bring to client first
-
-        var division = divisions.FirstOrDefault(sd =>
-            sd.Division != null &&
-            sd.Division.Trim().Equals(divisionName.Trim(), StringComparison.OrdinalIgnoreCase));
-
-        if (division == null)
-        {
-            _logger.LogWarning("School division not found in database: {DivisionName}", divisionName);
-        }
-
-        return division?.ID;
+        // Exact row match (ignore ID + UploadedBy)
+        // Include everything that represents the row’s identity
+        return string.Join("|",
+            Norm(p.LastName),
+            Norm(p.FirstName),
+            Norm(p.MiddleInitial),
+            Norm(p.Sex),
+            p.BirthDate?.Date.ToString("yyyy-MM-dd") ?? "",
+            Norm(p.LRN),
+            (p.SchoolID?.ToString() ?? ""),
+            (p.SportID?.ToString() ?? ""),
+            (p.SportCategoryID?.ToString() ?? "")
+        );
     }
 
-    private async Task<int?> ResolveSchoolRegionId(string regionName)
+    // Returns number of inserted rows
+    private async Task<int> PersistBatchAsync(List<ProfilePlayers> batch)
     {
-        if (string.IsNullOrWhiteSpace(regionName))
-        {
-            _logger.LogWarning("School region is empty");
-            return null;
-        }
+        if (!batch.Any()) return 0;
 
-        // FIXED: Use EF-compatible query
-        var regions = await _db.SchoolRegions
-            .AsNoTracking()
-            .ToListAsync(); // Bring to client first
-
-        var region = regions.FirstOrDefault(sr =>
-            sr.Region != null &&
-            sr.Region.Trim().Equals(regionName.Trim(), StringComparison.OrdinalIgnoreCase));
-
-        if (region == null)
-        {
-            _logger.LogWarning("School region not found in database: {RegionName}", regionName);
-        }
-
-        return region?.ID;
-    }
-
-    private async Task PersistBatchAsync(List<ProfilePlayers> batch)
-    {
-        if (!batch.Any()) return;
+        // De-duplicate inside batch
+        var distinctBatch = batch
+            .GroupBy(p => p.ID, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
 
         using var tx = await _db.Database.BeginTransactionAsync();
         try
         {
-            // CHECK FOR DUPLICATE IDs BEFORE INSERTING
-            var duplicateIds = batch
-                .GroupBy(p => p.ID)
-                .Where(g => g.Count() > 1)
-                .Select(g => g.Key)
-                .ToList();
-
-            if (duplicateIds.Any())
-            {
-                _logger.LogWarning("Found duplicate player IDs in batch: {DuplicateIds}",
-                    string.Join(", ", duplicateIds));
-
-                // Regenerate IDs for duplicates
-                foreach (var player in batch.Where(p => duplicateIds.Contains(p.ID)))
-                {
-                    player.ID = GeneratePlayerId(); // Use GUID fallback
-                }
-            }
+            var ids = distinctBatch.Select(p => p.ID).ToList();
 
             var existingIds = await _db.ProfilePlayers
-                .Where(p => batch.Select(b => b.ID).Contains(p.ID))
+                .AsNoTracking()
+                .Where(p => ids.Contains(p.ID))
                 .Select(p => p.ID)
                 .ToListAsync();
 
-            if (existingIds.Any())
-            {
-                _logger.LogWarning("Players already exist in database with IDs: {ExistingIds}",
-                    string.Join(", ", existingIds));
+            var toInsert = distinctBatch
+                .Where(p => !existingIds.Contains(p.ID))
+                .ToList();
 
-                // Remove duplicates or regenerate IDs
-                var playersToAdd = batch.Where(p => !existingIds.Contains(p.ID)).ToList();
-                var playersToUpdate = batch.Where(p => existingIds.Contains(p.ID)).ToList();
-
-                _logger.LogInformation("Adding {NewCount} new players, skipping {ExistingCount} existing players",
-                    playersToAdd.Count, playersToUpdate.Count);
-
-                _db.ProfilePlayers.AddRange(playersToAdd);
-            }
-            else
-            {
-                _db.ProfilePlayers.AddRange(batch);
-            }
+            if (toInsert.Any())
+                _db.ProfilePlayers.AddRange(toInsert);
 
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
 
-            _logger.LogInformation("Successfully inserted {Count} players", batch.Count);
+            _db.ChangeTracker.Clear();
+            return toInsert.Count;   // ✅ THIS is why the method returns int
         }
-        catch (DbUpdateException dbEx)
+        catch
         {
             await tx.RollbackAsync();
-            _logger.LogError(dbEx, "Database error inserting batch of {Count} players", batch.Count);
-
-            // More detailed error handling
-            if (dbEx.InnerException != null)
-            {
-                _logger.LogError("Inner exception: {InnerException}", dbEx.InnerException.Message);
-
-                if (dbEx.InnerException.Message.Contains("duplicate key"))
-                {
-                    // Log the problematic IDs for debugging
-                    var problematicIds = batch.Select(p => p.ID).ToList();
-                    _logger.LogError("Duplicate key violation with IDs: {ProblematicIds}",
-                        string.Join(", ", problematicIds));
-                }
-            }
-
-            throw;
-        }
-        catch (Exception ex)
-        {
-            await tx.RollbackAsync();
-            _logger.LogError(ex, "Error inserting batch of {Count} players", batch.Count);
+            _db.ChangeTracker.Clear();
             throw;
         }
     }

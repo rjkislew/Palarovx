@@ -72,61 +72,104 @@ namespace Server.Palaro2026.Controller
             try
             {
                 string sql = @"
-SELECT
+SELECT 
     sr.Region,
     sr.Abbreviation,
 
     /* GOLD */
-    SUM(CASE WHEN evt.Rank = 'Gold' AND evt.TeamID IS NULL THEN 1 ELSE 0 END)
-    + COUNT(DISTINCT CASE
-          WHEN evt.Rank = 'Gold' AND evt.TeamID IS NOT NULL
-          THEN CONCAT(
+    SUM(CASE 
+            WHEN evt.Rank = 'Gold'
+             AND evt.TeamID IS NULL
+             AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
+            THEN 1 
+            ELSE 0 
+        END)
+    +
+    COUNT(DISTINCT CASE
+        WHEN evt.Rank = 'Gold'
+         AND evt.TeamID IS NOT NULL
+         AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
+        THEN CONCAT(
                 ISNULL(CAST(sc.SchoolLevelID AS varchar(20)), '0'), '|',
                 ISNULL(CAST(e.SportSubcategoryID AS varchar(20)), '0'), '|',
                 CAST(evt.TeamID AS varchar(50))
-          )
-      END) AS Gold,
+             )
+    END) AS Gold,
 
     /* SILVER */
-    SUM(CASE WHEN evt.Rank = 'Silver' AND evt.TeamID IS NULL THEN 1 ELSE 0 END)
-    + COUNT(DISTINCT CASE
-          WHEN evt.Rank = 'Silver' AND evt.TeamID IS NOT NULL
-          THEN CONCAT(
+    SUM(CASE 
+            WHEN evt.Rank = 'Silver'
+             AND evt.TeamID IS NULL
+             AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
+            THEN 1 
+            ELSE 0 
+        END)
+    +
+    COUNT(DISTINCT CASE
+        WHEN evt.Rank = 'Silver'
+         AND evt.TeamID IS NOT NULL
+         AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
+        THEN CONCAT(
                 ISNULL(CAST(sc.SchoolLevelID AS varchar(20)), '0'), '|',
                 ISNULL(CAST(e.SportSubcategoryID AS varchar(20)), '0'), '|',
                 CAST(evt.TeamID AS varchar(50))
-          )
-      END) AS Silver,
+             )
+    END) AS Silver,
 
     /* BRONZE */
-    SUM(CASE WHEN evt.Rank = 'Bronze' AND evt.TeamID IS NULL THEN 1 ELSE 0 END)
-    + COUNT(DISTINCT CASE
-          WHEN evt.Rank = 'Bronze' AND evt.TeamID IS NOT NULL
-          THEN CONCAT(
+    SUM(CASE 
+            WHEN evt.Rank = 'Bronze'
+             AND evt.TeamID IS NULL
+             AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
+            THEN 1 
+            ELSE 0 
+        END)
+    +
+    COUNT(DISTINCT CASE
+        WHEN evt.Rank = 'Bronze'
+         AND evt.TeamID IS NOT NULL
+         AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
+        THEN CONCAT(
                 ISNULL(CAST(sc.SchoolLevelID AS varchar(20)), '0'), '|',
                 ISNULL(CAST(e.SportSubcategoryID AS varchar(20)), '0'), '|',
                 CAST(evt.TeamID AS varchar(50))
-          )
-      END) AS Bronze,
+             )
+    END) AS Bronze,
 
     /* TOTAL */
-    SUM(CASE WHEN evt.Rank IN ('Gold','Silver','Bronze') AND evt.TeamID IS NULL THEN 1 ELSE 0 END)
-    + COUNT(DISTINCT CASE
-          WHEN evt.Rank IN ('Gold','Silver','Bronze') AND evt.TeamID IS NOT NULL
-          THEN CONCAT(
+    SUM(CASE 
+            WHEN evt.Rank IN ('Gold','Silver','Bronze')
+             AND evt.TeamID IS NULL
+             AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
+            THEN 1 
+            ELSE 0 
+        END)
+    +
+    COUNT(DISTINCT CASE
+        WHEN evt.Rank IN ('Gold','Silver','Bronze')
+         AND evt.TeamID IS NOT NULL
+         AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
+        THEN CONCAT(
                 ISNULL(CAST(sc.SchoolLevelID AS varchar(20)), '0'), '|',
                 ISNULL(CAST(e.SportSubcategoryID AS varchar(20)), '0'), '|',
                 CAST(evt.TeamID AS varchar(50))
-          )
-      END) AS Total
+             )
+    END) AS Total
 
 FROM SchoolRegions sr
+
 LEFT JOIN EventVersusTeams evt
     ON sr.ID = evt.SchoolRegionID
    AND evt.Rank IN ('Gold', 'Silver', 'Bronze')
+
 LEFT JOIN Events e
     ON e.ID = evt.EventID
    AND e.IsFinished = 1
+
+LEFT JOIN PerformanceEvent p
+    ON p.ID = evt.PerformanceID
+   AND p.IsFinished = 1
+
 LEFT JOIN SportSubcategories sc
     ON sc.ID = e.SportSubcategoryID
 
@@ -135,8 +178,16 @@ WHERE
      OR sr.Region = @region
      OR sr.Abbreviation = @region)
 
-GROUP BY sr.Region, sr.Abbreviation
-ORDER BY Gold DESC, Total DESC, Silver DESC, Bronze DESC, sr.Region ASC;
+GROUP BY 
+    sr.Region,
+    sr.Abbreviation
+
+ORDER BY 
+    Gold DESC,
+    Total DESC,
+    Silver DESC,
+    Bronze DESC,
+    sr.Region ASC;
 ";
 
                 var result = await _db.QueryAsync<MedalTallyDTO.RegionalMedalTally, dynamic>(
