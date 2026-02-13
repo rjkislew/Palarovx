@@ -35,7 +35,6 @@ public class CoachImportService : ICoachImportService
             return result;
         }
 
-        // Header detection - adjusted for your Excel structure
         int headerRow = DetectHeaderRow(worksheet);
         if (headerRow == -1)
         {
@@ -45,7 +44,6 @@ public class CoachImportService : ICoachImportService
 
         var headerMap = BuildHeaderMap(worksheet, headerRow);
 
-        // Get column indexes - UPDATED for your Excel columns
         var colMapping = GetColumnMappings(headerMap);
         if (colMapping.LastName == -1 || colMapping.FirstName == -1)
         {
@@ -53,13 +51,7 @@ public class CoachImportService : ICoachImportService
             return result;
         }
 
-        var sportsList = await _db.Sports
-            .AsNoTracking()
-            .Where(s => !string.IsNullOrEmpty(s.Sport))
-            .Select(s => new { s.ID, s.Sport, s.SportCategoryID })
-            .ToListAsync();
-
-        // UPDATED: Pre-load lookup data with normalized sport names (same as player import)
+        // Sports cache (normalized sport + category)
         var sportsCache = await _db.Sports
             .AsNoTracking()
             .Where(s => !string.IsNullOrEmpty(s.Sport))
@@ -69,24 +61,44 @@ public class CoachImportService : ICoachImportService
                 StringComparer.OrdinalIgnoreCase
             );
 
-        // Pre-load regions for lookup
-        var regionsCache = await _db.SchoolRegions
-            .AsNoTracking()
-            .ToDictionaryAsync(
-                r => r.Region.Trim().ToLower(),
-                r => r.ID
-            );
+        // Regions cache: accept both Region + Abbreviation
+        var regionRows = await _db.SchoolRegions.AsNoTracking().ToListAsync();
+        var regionCache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var rr in regionRows)
+        {
+            if (!string.IsNullOrWhiteSpace(rr.Region))
+                regionCache[rr.Region.Trim()] = rr.ID;
 
-        var schoolsList = await _db.Schools.AsNoTracking().ToListAsync();
-        var schoolCacheByName = schoolsList
-            .GroupBy(s => s.School?.Trim().ToLower() ?? "")
+            if (!string.IsNullOrWhiteSpace(rr.Abbreviation))
+                regionCache[rr.Abbreviation.Trim()] = rr.ID;
+        }
+
+        // Divisions cache: allow duplicates by grouping
+        var divisionRows = await _db.SchoolDivisions
+            .AsNoTracking()
+            .Where(d => d.Division != null && d.Division.Trim() != "")
+            .ToListAsync();
+
+        var divisionCache = divisionRows
+            .GroupBy(d => d.Division!.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 g => g.Key,
-                g => g.First(), // Take the first school when duplicates exist
+                g => g.Select(x => x.ID).Distinct().ToList(),
                 StringComparer.OrdinalIgnoreCase
             );
 
+        // Schools cache: Name + Level + Region
+        var schoolsByNameList = await _db.Schools.AsNoTracking().ToListAsync();
+        var schoolCacheByNameLevelRegion = schoolsByNameList
+            .GroupBy(s => $"{(s.School ?? "").Trim()}|{(s.SchoolLevelsID ?? 0)}|{(s.SchoolRegionID ?? 0)}",
+                StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
         var coachesBatch = new List<ProfileCoaches>();
+
+        // Deduplicate within the uploaded file itself
+        var uploadFingerprints = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         int startRow = headerRow + 1;
         int endRow = worksheet.Dimension.End.Row;
         result.TotalRows = Math.Max(0, endRow - headerRow);
@@ -110,18 +122,38 @@ public class CoachImportService : ICoachImportService
                     continue;
                 }
 
-                // Process the row
-                var coach = await ProcessCoachRow(worksheet, r, colMapping, sportsCache, regionsCache,
-                    schoolCacheByName, uploadedBy);
-                if (coach != null)
+                var coach = await ProcessCoachRow(
+                    worksheet,
+                    r,
+                    colMapping,
+                    sportsCache,
+                    regionCache,
+                    divisionCache,
+                    schoolCacheByNameLevelRegion,
+                    uploadedBy
+                );
+
+                if (coach == null)
                 {
-                    coachesBatch.Add(coach);
+                    result.SkippedCount++;
+                    continue;
                 }
+
+                // Upload-file dedupe
+                var fp = CreateCoachFingerprint(coach);
+                if (!uploadFingerprints.Add(fp))
+                {
+                    result.SkippedCount++;
+                    continue;
+                }
+
+                coachesBatch.Add(coach);
 
                 if (coachesBatch.Count >= BatchSize)
                 {
-                    await PersistBatchAsync(coachesBatch);
+                    var inserted = await PersistBatchAsync(coachesBatch);
                     coachesBatch.Clear();
+                    result.ImportedCount += inserted;
                 }
             }
             catch (Exception ex)
@@ -132,17 +164,289 @@ public class CoachImportService : ICoachImportService
             }
         }
 
-        // Final batch
         if (coachesBatch.Any())
         {
-            await PersistBatchAsync(coachesBatch);
+            var inserted = await PersistBatchAsync(coachesBatch);
+            result.ImportedCount += inserted;
         }
 
-        result.ImportedCount = result.TotalRows - result.SkippedCount - result.Errors.Count;
         return result;
     }
 
-    // NEW: Method to normalize sport names from Excel (same as player import)
+    // -----------------------------
+    // Row -> entity
+    // -----------------------------
+    private async Task<ProfileCoaches?> ProcessCoachRow(
+        ExcelWorksheet worksheet,
+        int row,
+        (int LastName, int FirstName, int MI, int Sex, int BirthDate, int Designation, int Sport, int GenderCategory,
+            int SchoolName, int SchoolLevel, int SchoolDivision, int Region) cols,
+        Dictionary<string, int> sportsCache,
+        Dictionary<string, int> regionCache,
+        Dictionary<string, List<int>> divisionCache,
+        Dictionary<string, Schools> schoolCacheByNameLevelRegion,
+        string uploadedBy)
+    {
+        string lastName = GetCellValue(worksheet, row, cols.LastName);
+        string firstName = GetCellValue(worksheet, row, cols.FirstName);
+
+        DateTime? birthDate = null;
+        if (cols.BirthDate != -1)
+        {
+            var btext = GetCellValue(worksheet, row, cols.BirthDate);
+            if (!string.IsNullOrWhiteSpace(btext))
+            {
+                if (DateTime.TryParse(btext, out var dt))
+                    birthDate = dt;
+                else if (double.TryParse(btext, out var oa))
+                    birthDate = DateTime.FromOADate(oa);
+            }
+        }
+
+        string level = GetCellValue(worksheet, row, cols.SchoolLevel);
+        string sportName = GetCellValue(worksheet, row, cols.Sport);
+
+        string category = "Regular Sports";
+        int? sportCategoryId = 1;
+
+        // Override rule you had
+        if (!string.IsNullOrWhiteSpace(sportName))
+        {
+            string normalizedSport = sportName.Trim().ToUpperInvariant();
+            if (normalizedSport.Contains("PENCAK SILAT") || normalizedSport.Contains("WEIGHTLIFTING"))
+            {
+                level = "SECONDARY";
+                category = "Demo Sports";
+                sportCategoryId = 2;
+            }
+        }
+
+        if (sportCategoryId == 1 && !string.IsNullOrWhiteSpace(level))
+        {
+            if (level.Contains("PARAGAMES", StringComparison.OrdinalIgnoreCase))
+            {
+                category = "Paragames";
+                sportCategoryId = 3;
+            }
+            else if (level.Contains("DEMO SPORTS", StringComparison.OrdinalIgnoreCase))
+            {
+                category = "Demo Sports";
+                sportCategoryId = 2;
+            }
+        }
+
+        int? sportId = null;
+        if (cols.Sport != -1 && !string.IsNullOrWhiteSpace(sportName))
+        {
+            var normalizedSportName = NormalizeSportName(sportName);
+            var searchKeys = new List<string> { $"{normalizedSportName}|{category.Trim()}" };
+
+            if (category.Equals("Paragames", StringComparison.OrdinalIgnoreCase))
+                searchKeys.Add($"{normalizedSportName}|Regular Sports");
+
+            foreach (var k in searchKeys)
+            {
+                if (sportsCache.TryGetValue(k, out var sid))
+                {
+                    sportId = sid;
+                    break;
+                }
+            }
+        }
+
+        int? genderCategoryId = ResolveGenderCategoryId(worksheet, row, cols.GenderCategory);
+
+        // RegionID from cache
+        string regionText = GetCellValue(worksheet, row, cols.Region);
+        int? regionId = null;
+        if (!string.IsNullOrWhiteSpace(regionText) &&
+            regionCache.TryGetValue(regionText.Trim(), out var rid) && rid > 0)
+        {
+            regionId = rid;
+        }
+
+        // DivisionID from cache (duplicates allowed)
+        string divisionText = GetCellValue(worksheet, row, cols.SchoolDivision);
+        int? divisionId = null;
+        if (!string.IsNullOrWhiteSpace(divisionText) &&
+            divisionCache.TryGetValue(divisionText.Trim(), out var divIds) &&
+            divIds != null && divIds.Count > 0)
+        {
+            divisionId = divIds[0];
+        }
+
+        int? schoolId = await ResolveSchoolId(
+            worksheet,
+            row,
+            (cols.SchoolName, cols.SchoolLevel, cols.SchoolDivision, cols.Region),
+            schoolCacheByNameLevelRegion,
+            regionId,
+            divisionId,
+            level
+        );
+
+        string coachId = GenerateCoachId(firstName, lastName, sportId);
+
+        return new ProfileCoaches
+        {
+            ID = coachId,
+            FirstName = firstName,
+            LastName = lastName,
+            MiddleInitial = GetCellValue(worksheet, row, cols.MI),
+            Sex = GetCellValue(worksheet, row, cols.Sex),
+            BirthDate = birthDate,
+            Designation = GetCellValue(worksheet, row, cols.Designation),
+            SportID = sportId,
+            GenderCategoryID = genderCategoryId,
+            SchoolID = schoolId,
+            SchoolRegionID = regionId,
+            SchoolDivisionID = divisionId,
+            SportCategoryID = sportCategoryId,
+            UploadedBy = uploadedBy
+        };
+    }
+
+    private async Task<int?> ResolveSchoolId(
+        ExcelWorksheet worksheet,
+        int row,
+        (int SchoolName, int SchoolLevel, int SchoolDivision, int Region) cols,
+        Dictionary<string, Schools> schoolCacheByNameLevelRegion,
+        int? regionId,
+        int? schoolDivisionId,
+        string? overriddenLevel = null)
+    {
+        string schoolName = GetCellValue(worksheet, row, cols.SchoolName);
+        string schoolLevel = overriddenLevel ?? GetCellValue(worksheet, row, cols.SchoolLevel);
+
+        schoolName = (schoolName ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(schoolName))
+            return null;
+
+        int? mappedSchoolLevelId = MapSchoolLevelToId(schoolLevel);
+
+        string key = $"{schoolName}|{(mappedSchoolLevelId ?? 0)}|{(regionId ?? 0)}";
+
+        if (schoolCacheByNameLevelRegion.TryGetValue(key, out var existingSchool))
+            return existingSchool.ID;
+
+        var newSchool = new Schools
+        {
+            School = schoolName,
+            SchoolLevelsID = mappedSchoolLevelId,
+            SchoolDivisionID = schoolDivisionId,
+            SchoolRegionID = regionId,
+            SchoolType = "Public"
+        };
+
+        _db.Schools.Add(newSchool);
+        await _db.SaveChangesAsync();
+
+        schoolCacheByNameLevelRegion.TryAdd(key, newSchool);
+        return newSchool.ID;
+    }
+
+    // -----------------------------
+    // Deduping
+    // -----------------------------
+    private static string Norm(string? s) => (s ?? "").Trim().ToUpperInvariant();
+
+    private static string CreateCoachFingerprint(ProfileCoaches c)
+    {
+        // Ignore ID + UploadedBy, match the row’s actual data
+        return string.Join("|",
+            Norm(c.LastName),
+            Norm(c.FirstName),
+            Norm(c.MiddleInitial),
+            Norm(c.Sex),
+            c.BirthDate?.Date.ToString("yyyy-MM-dd") ?? "",
+            Norm(c.Designation),
+            (c.SportID?.ToString() ?? ""),
+            (c.GenderCategoryID?.ToString() ?? ""),
+            (c.SportCategoryID?.ToString() ?? ""),
+            (c.SchoolID?.ToString() ?? ""),
+            (c.SchoolRegionID?.ToString() ?? ""),
+            (c.SchoolDivisionID?.ToString() ?? "")
+        );
+    }
+
+    // Returns number of inserted rows
+    private async Task<int> PersistBatchAsync(List<ProfileCoaches> batch)
+    {
+        if (!batch.Any()) return 0;
+
+        var distinctBatch = batch
+            .GroupBy(CreateCoachFingerprint, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
+        // Candidate fetch (broad), exact compare in memory
+        var firstNames = distinctBatch.Select(b => b.FirstName?.Trim()).Where(v => !string.IsNullOrWhiteSpace(v)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var lastNames = distinctBatch.Select(b => b.LastName?.Trim()).Where(v => !string.IsNullOrWhiteSpace(v)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        var candidates = await _db.ProfileCoaches
+            .AsNoTracking()
+            .Where(c =>
+                c.FirstName != null && c.LastName != null &&
+                firstNames.Contains(c.FirstName) &&
+                lastNames.Contains(c.LastName))
+            .ToListAsync();
+
+        var existingFp = new HashSet<string>(candidates.Select(CreateCoachFingerprint), StringComparer.OrdinalIgnoreCase);
+
+        var toInsert = distinctBatch
+            .Where(c => !existingFp.Contains(CreateCoachFingerprint(c)))
+            .ToList();
+
+        if (!toInsert.Any())
+            return 0;
+
+        using var tx = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            _db.ProfileCoaches.AddRange(toInsert);
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            _logger.LogInformation("Inserted {Count} new coaches (duplicates skipped)", toInsert.Count);
+            return toInsert.Count;
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    }
+
+    // -----------------------------
+    // Helpers (sport / header / mapping)
+    // -----------------------------
+    private int? ResolveGenderCategoryId(ExcelWorksheet worksheet, int row, int genderCategoryCol)
+    {
+        if (genderCategoryCol == -1) return null;
+
+        var genderCategory = GetCellValue(worksheet, row, genderCategoryCol);
+        if (string.IsNullOrWhiteSpace(genderCategory)) return null;
+
+        return genderCategory.Trim().ToUpperInvariant() switch
+        {
+            "B" or "BOYS" or "M" or "MALE" => BOYS_GENDER_ID,
+            "G" or "GIRLS" or "F" or "FEMALE" => GIRLS_GENDER_ID,
+            "B/G" or "MIXED" or "COED" or "BOTH" => MIXED_GENDER_ID,
+            _ => null
+        };
+    }
+
+    private string GenerateCoachId(string firstName, string lastName, int? sportId)
+    {
+        if (!string.IsNullOrWhiteSpace(firstName) && !string.IsNullOrWhiteSpace(lastName) && sportId.HasValue)
+        {
+            var namePart = $"{firstName.Substring(0, Math.Min(3, firstName.Length))}{lastName.Substring(0, Math.Min(3, lastName.Length))}";
+            return $"C{namePart.ToUpperInvariant()}{sportId.Value}{DateTime.Now:HHmmss}";
+        }
+
+        return $"C{Guid.NewGuid().ToString("N")[..19]}";
+    }
+
     private string NormalizeSportName(string sportName)
     {
         if (string.IsNullOrWhiteSpace(sportName))
@@ -150,64 +454,25 @@ public class CoachImportService : ICoachImportService
 
         string normalized = sportName.Trim().ToUpperInvariant();
 
-        // Remove variations and keep only the base sport name
-        if (normalized.Contains("BASKETBALL"))
-        {
-            return "BASKETBALL"; // Always map to BASKETBALL regardless of variations
-        }
-        else if (normalized.Contains("DANCE SPORTS") || normalized.Contains("DANCESPORT") ||
-                 normalized.Contains("DANCE"))
-        {
-            return "DANCE SPORTS"; // Always map to DANCE SPORTS
-        }
-        else if (normalized.Contains("GYMNASTICS"))
-        {
-            return "GYMNASTICS"; // Always map to GYMNASTICS regardless of variations
-        }
-        else if (normalized.Contains("VOLLEYBALL"))
-        {
-            return "VOLLEYBALL"; // Always map to VOLLEYBALL
-        }
-        else if (normalized.Contains("FOOTBALL"))
-        {
-            return "FOOTBALL"; // Always map to FOOTBALL
-        }
-        else if (normalized.Contains("SWIMMING"))
-        {
-            return "SWIMMING"; // Always map to SWIMMING
-        }
-        else if (normalized.Contains("ATHLETICS") || normalized.Contains("TRACK AND FIELD"))
-        {
-            return "ATHLETICS"; // Always map to ATHLETICS
-        }
-        else if (normalized.Contains("TABLE TENNIS"))
-        {
-            return "TABLE TENNIS"; // Always map to TABLE TENNIS
-        }
-        else if (normalized.Contains("BADMINTON"))
-        {
-            return "BADMINTON"; // Always map to BADMINTON
-        }
-        else if (normalized.Contains("CHESS"))
-        {
-            return "CHESS"; // Always map to CHESS
-        }
-        else if (normalized.Contains("FUTZAL"))
-        {
-            return "FUTSAL"; // Always map to CHESS
-        }
+        if (normalized.Contains("BASKETBALL")) return "BASKETBALL";
+        if (normalized.Contains("DANCE SPORTS") || normalized.Contains("DANCESPORT") || normalized.Contains("DANCE")) return "DANCE SPORTS";
+        if (normalized.Contains("GYMNASTICS")) return "GYMNASTICS";
+        if (normalized.Contains("VOLLEYBALL")) return "VOLLEYBALL";
+        if (normalized.Contains("FOOTBALL")) return "FOOTBALL";
+        if (normalized.Contains("SWIMMING")) return "SWIMMING";
+        if (normalized.Contains("ATHLETICS") || normalized.Contains("TRACK AND FIELD")) return "ATHLETICS";
+        if (normalized.Contains("TABLE TENNIS")) return "TABLE TENNIS";
+        if (normalized.Contains("BADMINTON")) return "BADMINTON";
+        if (normalized.Contains("CHESS")) return "CHESS";
+        if (normalized.Contains("FUTZAL")) return "FUTSAL";
 
-        // For other sports, return as is but remove any parenthetical content
         var index = normalized.IndexOf('(');
         if (index > 0)
-        {
             normalized = normalized.Substring(0, index).Trim();
-        }
 
         return normalized;
     }
 
-    // NEW: Category name mapping (same as player import)
     private string GetCategoryName(int? sportCategoryId)
     {
         if (!sportCategoryId.HasValue) return "Regular Sports";
@@ -228,15 +493,12 @@ public class CoachImportService : ICoachImportService
         {
             var rowValues = new List<string>();
             for (int c = 1; c <= worksheet.Dimension.End.Column; c++)
-            {
                 rowValues.Add((worksheet.Cells[r, c].Text ?? "").Trim().ToLowerInvariant());
-            }
 
-            // Look for coach-specific headers based on your Excel structure
             if (rowValues.Any(v => v.Contains("lastname") || v.Contains("last name")) &&
                 rowValues.Any(v => v.Contains("firstname") || v.Contains("first name")) &&
                 rowValues.Any(v => v.Contains("designation")) &&
-                rowValues.Any(v => v.Contains("event") || v.Contains("sport")))
+                (rowValues.Any(v => v.Contains("event")) || rowValues.Any(v => v.Contains("sport"))))
             {
                 return r;
             }
@@ -252,17 +514,13 @@ public class CoachImportService : ICoachImportService
         {
             var headerText = (worksheet.Cells[headerRow, c].Text ?? "").Trim();
             if (!string.IsNullOrWhiteSpace(headerText))
-            {
                 headerMap[headerText] = c;
-            }
         }
 
         return headerMap;
     }
 
-    // UPDATED: Column mappings to match your Excel file structure
-    private (int LastName, int FirstName, int MI, int Sex, int BirthDate, int Designation, int Sport, int GenderCategory
-        ,
+    private (int LastName, int FirstName, int MI, int Sex, int BirthDate, int Designation, int Sport, int GenderCategory,
         int SchoolName, int SchoolLevel, int SchoolDivision, int Region)
         GetColumnMappings(Dictionary<string, int> headerMap)
     {
@@ -274,12 +532,9 @@ public class CoachImportService : ICoachImportService
                 if (match != null) return headerMap[match];
 
                 foreach (var key in headerMap.Keys)
-                {
                     if (key.IndexOf(n, StringComparison.OrdinalIgnoreCase) >= 0)
                         return headerMap[key];
-                }
             }
-
             return -1;
         }
 
@@ -290,445 +545,38 @@ public class CoachImportService : ICoachImportService
             GetCol("sex", "gender"),
             GetCol("bdate", "birthdate", "birth date", "birth"),
             GetCol("designation", "position", "role"),
-            GetCol("event", "sport", "sports"), // Your Excel uses "EVENT" column
-            GetCol("b_or_g", "gender category", "category", "gender"), // Your Excel uses "B_or_G" column
+            GetCol("event", "sport", "sports"),
+            GetCol("b_or_g", "gender category", "category", "gender"),
             GetCol("schoolname", "school", "schoolname"),
-            GetCol("level", "school level", "schoollevel"), // Your Excel uses "LEVEL" column
-            GetCol("school division", "division", "schooldivision"), // Your Excel uses "School Division" column
-            GetCol("region") // Added region column mapping
+            GetCol("level", "school level", "schoollevel"),
+            GetCol("school division", "division", "schooldivision"),
+            GetCol("region")
         );
     }
 
     private bool RowHasData(ExcelWorksheet worksheet, int row, int lastCol)
     {
         for (int c = 1; c <= lastCol; c++)
-        {
             if (!string.IsNullOrWhiteSpace(worksheet.Cells[row, c].Text))
                 return true;
-        }
-
         return false;
     }
 
     private string GetCellValue(ExcelWorksheet worksheet, int row, int col)
-    {
-        return col != -1 ? (worksheet.Cells[row, col].Text ?? "").Trim() : "";
-    }
+        => col != -1 ? (worksheet.Cells[row, col].Text ?? "").Trim() : "";
 
-    private async Task<ProfileCoaches?> ProcessCoachRow(ExcelWorksheet worksheet, int row,
-    (int LastName, int FirstName, int MI, int Sex, int BirthDate, int Designation, int Sport, int GenderCategory,
-        int SchoolName, int SchoolLevel, int SchoolDivision, int Region) cols,
-    Dictionary<string, int> sportsCache,
-    Dictionary<string, int> regionsCache,
-    Dictionary<string, Schools> schoolCacheByName,
-    string uploadedBy)
-{
-    string lastName = GetCellValue(worksheet, row, cols.LastName);
-    string firstName = GetCellValue(worksheet, row, cols.FirstName);
-
-    // Parse birthdate
-    DateTime? birthDate = null;
-    if (cols.BirthDate != -1)
-    {
-        var btext = GetCellValue(worksheet, row, cols.BirthDate);
-        if (!string.IsNullOrWhiteSpace(btext))
-        {
-            if (DateTime.TryParse(btext, out var dt))
-                birthDate = dt;
-            else if (double.TryParse(btext, out var oa))
-                birthDate = DateTime.FromOADate(oa);
-        }
-    }
-
-    string level = GetCellValue(worksheet, row, cols.SchoolLevel);
-    string sportName = GetCellValue(worksheet, row, cols.Sport);
-    string category = "Regular Sports"; 
-    int? sportCategoryId = 1;
-
-    // NEW: Check for specific sports that should override level and category
-    if (!string.IsNullOrWhiteSpace(sportName))
-    {
-        string normalizedSport = sportName.Trim().ToUpperInvariant();
-        
-        // If sport is PENCAK SILAT or WEIGHTLIFTING, override level and category
-        if (normalizedSport.Contains("PENCAK SILAT") || normalizedSport.Contains("WEIGHTLIFTING"))
-        {
-            _logger.LogInformation("Overriding level and category for sport: {Sport}. Setting Level=2 (Secondary), Category=2 (Demo Sports)", sportName);
-            level = "SECONDARY"; // Force level to Secondary
-            category = "Demo Sports";
-            sportCategoryId = 2; // Demo Sports ID
-        }
-    }
-
-    // Existing level-based category assignment (only if not overridden above)
-    if (sportCategoryId == 1 && !string.IsNullOrWhiteSpace(level))
-    {
-        if (level.Contains("PARAGAMES", StringComparison.OrdinalIgnoreCase))
-        {
-            category = "Paragames";
-            sportCategoryId = 3;
-        }
-        else if (level.Contains("DEMO SPORTS", StringComparison.OrdinalIgnoreCase))
-        {
-            category = "Demo Sports";
-            sportCategoryId = 2;
-        }
-    }
-
-    // Resolve SportID with normalized names and category-based search
-    int? sportId = null;
-    if (cols.Sport != -1)
-    {
-        if (!string.IsNullOrWhiteSpace(sportName))
-        {
-            var normalizedSportName = NormalizeSportName(sportName);
-            var searchKeys = new List<string>();
-
-            var exactKey = $"{normalizedSportName}|{category.Trim()}";
-            searchKeys.Add(exactKey);
-
-            if (category.Equals("Paragames", StringComparison.OrdinalIgnoreCase))
-            {
-                searchKeys.Add($"{normalizedSportName}|Regular Sports");
-            }
-
-            foreach (var searchKey in searchKeys)
-            {
-                if (sportsCache.TryGetValue(searchKey, out var sid))
-                {
-                    sportId = sid;
-                    break;
-                }
-            }
-        }
-    }
-
-    // Resolve GenderCategoryID
-    int? genderCategoryId = ResolveGenderCategoryId(worksheet, row, cols.GenderCategory);
-
-    // Get school division ID before resolving school
-    string schoolDivisionName = GetCellValue(worksheet, row, cols.SchoolDivision);
-    int? schoolDivisionId = await ResolveSchoolDivisionId(schoolDivisionName);
-
-    // Resolve SchoolID - pass the potentially overridden level
-    int? schoolId = await ResolveSchoolId(worksheet, row,
-        (cols.SchoolName, cols.SchoolLevel, cols.SchoolDivision, cols.Region),
-        regionsCache, schoolCacheByName, level); // Pass the level parameter
-
-    // Generate coach ID
-    string coachId = GenerateCoachId(firstName, lastName, sportId);
-
-    return new ProfileCoaches
-    {
-        ID = coachId,
-        FirstName = firstName,
-        LastName = lastName,
-        MiddleInitial = GetCellValue(worksheet, row, cols.MI),
-        Sex = GetCellValue(worksheet, row, cols.Sex),
-        BirthDate = birthDate,
-        Designation = GetCellValue(worksheet, row, cols.Designation),
-        SportID = sportId,
-        GenderCategoryID = genderCategoryId,
-        SchoolID = schoolId,
-        SchoolRegionID = await ResolveSchoolRegionId(GetCellValue(worksheet, row, cols.Region)),
-        SchoolDivisionID = schoolDivisionId,
-        SportCategoryID = sportCategoryId,
-        UploadedBy = uploadedBy
-    };
-}
-
-    private int? ResolveGenderCategoryId(ExcelWorksheet worksheet, int row, int genderCategoryCol)
-    {
-        if (genderCategoryCol == -1) return null;
-
-        var genderCategory = GetCellValue(worksheet, row, genderCategoryCol);
-        if (string.IsNullOrWhiteSpace(genderCategory)) return null;
-
-        return genderCategory.Trim().ToUpper() switch
-        {
-            "B" or "BOYS" or "M" or "MALE" => BOYS_GENDER_ID,
-            "G" or "GIRLS" or "F" or "FEMALE" => GIRLS_GENDER_ID,
-            "B/G" or "MIXED" or "COED" or "BOTH" => MIXED_GENDER_ID,
-            _ => null
-        };
-    }
-
-    private string GenerateCoachId(string firstName, string lastName, int? sportId)
-    {
-        // Use same approach as player import
-        if (!string.IsNullOrWhiteSpace(firstName) && !string.IsNullOrWhiteSpace(lastName) && sportId.HasValue)
-        {
-            var namePart =
-                $"{firstName.Substring(0, Math.Min(3, firstName.Length))}{lastName.Substring(0, Math.Min(3, lastName.Length))}";
-            return $"C{namePart.ToUpper()}{sportId.Value}{DateTime.Now:HHmmss}";
-        }
-
-        // Fallback to GUID-based approach
-        return $"C{Guid.NewGuid().ToString("N")[..19]}";
-    }
-
-    private async Task<int?> ResolveSchoolId(ExcelWorksheet worksheet, int row,
-        (int SchoolName, int SchoolLevel, int SchoolDivision, int Region) cols,
-        Dictionary<string, int> regionsCache,
-        Dictionary<string, Schools> schoolCacheByName,
-        string level = null) // Add optional level parameter
-    {
-        string schoolName = GetCellValue(worksheet, row, cols.SchoolName);
-        string schoolLevel = level ?? GetCellValue(worksheet, row, cols.SchoolLevel); // Use overridden level if provided
-        string schoolDivision = GetCellValue(worksheet, row, cols.SchoolDivision);
-        string regionName = GetCellValue(worksheet, row, cols.Region);
-
-        if (string.IsNullOrWhiteSpace(schoolName))
-            return null;
-
-        // Map school levels directly to IDs
-        int? mappedSchoolLevelId = MapSchoolLevelToId(schoolLevel);
-
-        // Resolve region ID
-        int? regionId = await ResolveSchoolRegionId(regionName);
-
-        // Resolve division ID
-        int? schoolDivisionId = await ResolveSchoolDivisionId(schoolDivision);
-
-        // Try to find existing school by name (case insensitive)
-        var normalizedSchoolName = schoolName.Trim().ToLower();
-        if (schoolCacheByName.TryGetValue(normalizedSchoolName, out var schoolByName))
-        {
-            // Check if the found school has the same level we need
-            if (schoolByName.SchoolLevelsID == mappedSchoolLevelId)
-            {
-                return schoolByName.ID;
-            }
-        }
-
-        // Create new school if needed
-        var newSchool = new Schools
-        {
-            School = schoolName.Trim(),
-            SchoolLevelsID = mappedSchoolLevelId,
-            SchoolDivisionID = schoolDivisionId,
-            SchoolRegionID = regionId,
-            SchoolType = "Public"
-        };
-
-        _db.Schools.Add(newSchool);
-        await _db.SaveChangesAsync();
-
-        // Update cache
-        schoolCacheByName[newSchool.School.ToLower()] = newSchool;
-
-        return newSchool.ID;
-    }
-
-// NEW: School level mapping method with exact requirements (same as player import)
     private int? MapSchoolLevelToId(string originalLevel)
     {
         if (string.IsNullOrWhiteSpace(originalLevel))
-        {
-            _logger.LogWarning("School level is empty, defaulting to Secondary Level (ID: 2)");
-            return 2; // Default to Secondary Level ID
-        }
+            return 2;
 
         string level = originalLevel.Trim().ToUpperInvariant();
 
-        // Handle PARAGAMES specifically - map to ID 3
-        if (level.Contains("PARAGAMES"))
-        {
-            _logger.LogInformation("Mapped school level from '{Original}' to ID: 3 (PARAGAMES)", originalLevel);
-            return 3;
-        }
+        if (level.Contains("PARAGAMES")) return 3;
+        if (level.Contains("DEMO SPORTS")) return 2;
+        if (level.Contains("ELEMENTARY")) return 1;
+        if (level.Contains("SECONDARY")) return 2;
 
-        // Handle DEMO SPORTS specifically - map to ID 2 (same as Secondary)
-        if (level.Contains("DEMO SPORTS"))
-        {
-            _logger.LogInformation("Mapped school level from '{Original}' to ID: 2 (Secondary/Demo Sports)",
-                originalLevel);
-            return 2;
-        }
-
-        // Direct ID mapping based on your exact requirements
-        if (level.Contains("ELEMENTARY"))
-        {
-            _logger.LogInformation("Mapped school level from '{Original}' to ID: 1 (Elementary)", originalLevel);
-            return 1;
-        }
-        else if (level.Contains("SECONDARY"))
-        {
-            _logger.LogInformation("Mapped school level from '{Original}' to ID: 2 (Secondary)", originalLevel);
-            return 2;
-        }
-
-        // Default mapping for unrecognized levels
-        _logger.LogWarning("Unrecognized school level '{Original}', defaulting to ID: 2 (Secondary)", originalLevel);
         return 2;
-    }
-
-    // NEW: Helper method to resolve SchoolRegionID
-    //private async Task<int?> ResolveSchoolRegionId(string regionName)
-    //{
-    //    if (string.IsNullOrWhiteSpace(regionName))
-    //    {
-    //        _logger.LogWarning("School region is empty");
-    //        return null;
-    //    }
-
-    //    var regions = await _db.SchoolRegions
-    //        .AsNoTracking()
-    //        .ToListAsync();
-
-    //    var region = regions.FirstOrDefault(sr =>
-    //        sr.Region != null &&
-    //        sr.Region.Trim().Equals(regionName.Trim(), StringComparison.OrdinalIgnoreCase));
-
-    //    if (region == null)
-    //    {
-    //        _logger.LogWarning("School region not found in database: {RegionName}", regionName);
-    //    }
-
-    //    return region?.ID;
-    //}
-
-    private static string NormalizeRegionKey(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
-
-        var s = value.Trim();
-
-        // Normalize whitespace
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ");
-
-        // Normalize common "Region" prefix formats:
-        // "Region XIII" -> "XIII"
-        // "REGION XIII" -> "XIII"
-        // "Region XIII, Caraga" -> "XIII CARAGA"
-        s = s.Replace(",", " "); // remove commas that break matching
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim();
-
-        // Keep a version without the word "Region"
-        var noRegionWord = System.Text.RegularExpressions.Regex
-            .Replace(s, @"\bREGION\b", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
-            .Trim();
-
-        // Return both possibilities joined? We'll just use this in comparisons.
-        // We'll compare against multiple normalized variants.
-        return noRegionWord.ToUpperInvariant();
-    }
-
-    private static IEnumerable<string> RegionMatchKeys(string? input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-            yield break;
-
-        var raw = input.Trim();
-        var rawUpper = raw.ToUpperInvariant();
-
-        // Key A: normalized without "REGION" word
-        var keyA = NormalizeRegionKey(raw);
-        if (!string.IsNullOrWhiteSpace(keyA)) yield return keyA;
-
-        // Key B: raw uppercase (for exact matches like "CAR")
-        yield return rawUpper;
-
-        // Key C: if input contains multiple tokens, try the first token (useful for "Region XIII")
-        var tokens = System.Text.RegularExpressions.Regex.Replace(raw, @"[,\s]+", " ")
-            .Trim()
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (tokens.Length > 0)
-            yield return tokens[0].ToUpperInvariant();
-
-        // Key D: if starts with "Region", try the next token (e.g., "Region XIII" -> "XIII")
-        if (tokens.Length >= 2 && tokens[0].Equals("REGION", StringComparison.OrdinalIgnoreCase))
-            yield return tokens[1].ToUpperInvariant();
-    }
-
-    private async Task<int?> ResolveSchoolRegionId(string regionOrAbbrev)
-    {
-        if (string.IsNullOrWhiteSpace(regionOrAbbrev)) return null;
-
-        var keys = RegionMatchKeys(regionOrAbbrev).Distinct().ToList();
-        if (keys.Count == 0) return null;
-
-        // Pull from DB once
-        var regions = await _db.SchoolRegions.AsNoTracking()
-            .Select(r => new { r.ID, r.Region, r.Abbreviation })
-            .ToListAsync();
-
-        foreach (var r in regions)
-        {
-            // Build candidate keys from DB values
-            var regionKeys = RegionMatchKeys(r.Region).ToList();
-            var abbrevKeys = RegionMatchKeys(r.Abbreviation).ToList();
-
-            // Match if ANY uploaded key matches ANY db key (region or abbreviation)
-            if (keys.Any(k => regionKeys.Contains(k)) || keys.Any(k => abbrevKeys.Contains(k)))
-                return r.ID;
-        }
-
-        return null;
-    }
-
-    private async Task<int?> ResolveSchoolDivisionId(string divisionName)
-    {
-        if (string.IsNullOrWhiteSpace(divisionName))
-        {
-            _logger.LogWarning("School division is empty");
-            return null;
-        }
-
-        try
-        {
-            var divisions = await _db.SchoolDivisions.AsNoTracking().ToListAsync();
-            var division = divisions.FirstOrDefault(sd =>
-                sd.Division != null &&
-                sd.Division.Trim().Equals(divisionName.Trim(), StringComparison.OrdinalIgnoreCase));
-
-            if (division == null)
-            {
-                _logger.LogWarning("School division not found in database: {DivisionName}", divisionName);
-                return null;
-            }
-
-            _logger.LogInformation("Resolved division '{DivisionName}' to ID: {DivisionId}", divisionName, division.ID);
-            return division.ID;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error resolving school division: {DivisionName}", divisionName);
-            return null;
-        }
-    }
-
-    private async Task PersistBatchAsync(List<ProfileCoaches> batch)
-    {
-        if (!batch.Any()) return;
-
-        using var tx = await _db.Database.BeginTransactionAsync();
-        try
-        {
-            _db.ProfileCoaches.AddRange(batch);
-            await _db.SaveChangesAsync();
-            await tx.CommitAsync();
-
-            _logger.LogInformation("Successfully inserted {Count} coaches", batch.Count);
-        }
-        catch (DbUpdateException dbEx)
-        {
-            await tx.RollbackAsync();
-            _logger.LogError(dbEx, "Database error inserting batch of {Count} coaches", batch.Count);
-
-            if (dbEx.InnerException?.Message.Contains("duplicate key") == true)
-            {
-                _logger.LogError("Duplicate coach ID detected in batch");
-            }
-
-            throw;
-        }
-        catch (Exception ex)
-        {
-            await tx.RollbackAsync();
-            _logger.LogError(ex, "Error inserting batch of {Count} coaches", batch.Count);
-            throw;
-        }
     }
 }
