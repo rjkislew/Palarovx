@@ -1,7 +1,9 @@
 ﻿@page "/score/martialarts"
 @inject ISnackbar Snackbar
 @inject APIService apiService
-@inject NavigationManager Navigation 
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+
 
 <PageTitle>Martial Arts Scoring | PALARO 2026</PageTitle>
 <MudText Typo="Typo.h6" Align="Align.Center">Martial Arts Match (Sets/Rounds per Match)</MudText>
@@ -193,7 +195,33 @@
                     </MudPaper>
 
                     <MudDivider Class="my-2" />
-                    <MudText Typo="Typo.h6" Align="Align.Center">Match Cards - Game @_selectedGameNo</MudText>
+                    <MudGrid Class="" Style="align-items:center"
+                             Spacing="4">
+
+                        <!-- Left spacer -->
+                        <MudItem xs="4" />
+
+                        <!-- Center title -->
+                        <MudItem xs="4">
+                            <MudText Typo="Typo.h6" Align="Align.Center">
+                                <MudText Typo="Typo.h6" Align="Align.Center">Match Cards - Game @_selectedGameNo</MudText>
+                            </MudText>
+                        </MudItem>
+
+                        <!-- Right button -->
+                        <MudItem xs="4">
+                            <MudStack Row="true" Justify="Justify.FlexEnd">
+                                <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                                               OnClick="@(() => OpenEditEventDialog(SelectedEvent?.ID))">
+                                </MudIconButton>
+                                <MudButton Color="Color.Tertiary" Variant="Variant.Filled"
+                                           StartIcon="@Icons.Material.Filled.ArrowCircleRight"
+                                           OnClick="ProceedToNextStage">
+                                    Proceed to next stage
+                                </MudButton>
+                            </MudStack>
+                        </MudItem>
+                    </MudGrid>
                     <MudDivider Class="my-2" />
 
                     <MudGrid Spacing="3" Class="my-2" Justify="Justify.Center">
@@ -553,6 +581,7 @@
         public string Name { get; set; } = "";
         public string AssignedMatch { get; set; } = "Unassigned";
         public string? PlayerName { get; set; }
+        public string? PlayerID { get; set; }
         public string MatchPosition { get; set; } = "";
         public int GameNo { get; set; } = 1;
     }
@@ -572,6 +601,7 @@
         public string RegionName { get; set; } = "";
         public int RegionId { get; set; }
         public string? PlayerName { get; set; }
+        public string? PlayerID { get; set; }
         public int MatchesWon { get; set; }
         public int MatchesLost { get; set; }
         public int SetsWon { get; set; }
@@ -655,17 +685,58 @@
 
         public class EventDetails
         {
-            public class Event
-            {
-                public string ID { get; set; } = null!;
-                public string? Sport { get; set; }
-                public string? Level { get; set; }
-                public string? Gender { get; set; }
-                public string? SportMainCat { get; set; }
-                public string? Subcategory { get; set; }
-                public string? EventStage { get; set; }
-                // Add other properties as needed
-            }
+            public string ID { get; set; } = null!;
+            public int? EventStageID { get; set; }
+            public string? EventStage { get; set; }
+            public List<EventVersusTeams>? EventVersusList { get; set; }
+            public string? SportMainCat { get; set; }
+            public string? Category { get; set; }
+            public string? Sport { get; set; }
+            public int? SubCategoryID { get; set; }
+            public string? Subcategory { get; set; }
+            public string? Gender { get; set; }
+            public string? Level { get; set; }
+            public int? EventVenuesID { get; set; }
+            public string? Venue { get; set; }
+            public decimal? Latitude { get; set; }
+            public decimal? Longitude { get; set; }
+            public bool? IsFinished { get; set; }
+            public int? BracketID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+
+        public class EventVersusTeams
+        {
+            public int ID { get; set; }
+            public string? EventID { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? Score { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+            public string? Rank { get; set; }
+            public DateTime? RecentUpdateAt { get; set; }
+        }
+
+        public class EventVersusTeamPlayers
+        {
+            public int ID { get; set; }
+            public int? EventVersusID { get; set; }
+            public string? ProfilePlayerID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? School { get; set; }
+        }
+    }
+
+    public class ProfilesDTO
+    {
+        public class ProfilePlayer
+        {
+            public string? ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
         }
     }
 
@@ -695,6 +766,44 @@
             public int ID { get; set; }
             public string? Level { get; set; }
         }
+    }
+
+    public class ProgressionDTO
+    {
+        public class ProgressionTeamSelection
+        {
+            public int? SelectedRegionID { get; set; }
+            public List<string> SelectedPlayerIDs { get; set; } = new();
+            public List<ProfilePlayerDTO> AvailablePlayers { get; set; } = new();
+            public int ExistingVersusTeamID { get; set; }
+            public string? Score { get; set; }
+            public string? Rank { get; set; }
+        }
+
+        public class ProfilePlayerDTO
+        {
+            public string? ID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+    }
+
+    public class WinnerResponse
+    {
+        public int ID { get; set; }
+        public int? SchoolRegionID { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? Score { get; set; }
+        public string? Rank { get; set; }
+        public List<PlayerResponse> Players { get; set; } = new();
+    }
+
+    public class PlayerResponse
+    {
+        public string? ProfilePlayerID { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
     }
 
     protected override async Task OnInitializedAsync()
@@ -742,6 +851,7 @@
                     Name = r.Name,
                     AssignedMatch = "Unassigned",
                     PlayerName = r.PlayerName,
+                    PlayerID = r.PlayerID, // Copy PlayerID
                     MatchPosition = "",
                     GameNo = gameNo
                 }).ToList();
@@ -810,7 +920,11 @@
         if (!_selectedGameNo.HasValue) return null;
 
         var regions = GetRegionsForCurrentGame();
-        return regions?.FirstOrDefault(r => r.AssignedMatch == $"Match{matchId}_{position}");
+
+        // Look for region assigned to this specific match position
+        return regions?.FirstOrDefault(r =>
+            r.AssignedMatch == $"Match{matchId}_{position}" &&
+            r.MatchPosition == position);
     }
 
     private List<string> GetSetResults(int matchId, string position)
@@ -1053,28 +1167,20 @@
 
             if (events != null && events.Any())
             {
-                _regionPlayerMap.Clear();
-
                 AllRegions = events
                     .Where(evt => !string.IsNullOrEmpty(evt.Abbreviation))
-                    .GroupBy(evt => evt.Abbreviation)
-                    .Select(group =>
+                    .Select(evt =>
                     {
-                        var firstEvent = group.First();
                         var regionItem = new RegionItem
                             {
-                                Id = firstEvent.RegionID,
-                                Name = group.Key!,
+                                Id = evt.RegionID,
+                                Name = evt.Abbreviation!,
                                 AssignedMatch = "Unassigned",
-                                PlayerName = firstEvent.PlayerName,
+                                PlayerName = evt.PlayerName,
+                                PlayerID = evt.PlayerID, // Make sure this is set
                                 MatchPosition = "",
                                 GameNo = 1
                             };
-
-                        if (!string.IsNullOrEmpty(firstEvent.PlayerID))
-                        {
-                            _regionPlayerMap[firstEvent.RegionID] = (firstEvent.PlayerID, firstEvent.PlayerName);
-                        }
 
                         return regionItem;
                     })
@@ -1109,7 +1215,7 @@
                     InitializeGame(1);
                 }
 
-                Snackbar.Add($"Found {events.Count} events with {AllRegions.Count} regions.", Severity.Success);
+                Snackbar.Add($"Found {events.Count} events with {AllRegions.Count} participants.", Severity.Success);
             }
             else
             {
@@ -1286,11 +1392,18 @@
 
         if (!matchesForGame.Any()) return;
 
-        var matchIds = matchesForGame.Select(a => a.MatchId).Distinct().ToList();
+        // Get unique matches based on RegionID + PlayerID + MatchId
+        var uniqueMatches = matchesForGame
+            .Select(a => new { a.RegionID, a.PlayerID, a.MatchId })
+            .Distinct()
+            .Select(x => x.MatchId)
+            .Distinct()
+            .ToList();
 
-        var highestMatchId = matchIds.Any() ? matchIds.Max() : 0;
+        var highestMatchId = uniqueMatches.Any() ? uniqueMatches.Max() : 0;
         _gameNextMatchId[gameNo] = highestMatchId + 1;
 
+        // Clear existing matches for this game
         var existingMatchCards = MatchCards.Where(m => m.GameNo == gameNo).ToList();
         foreach (var match in existingMatchCards)
         {
@@ -1298,7 +1411,8 @@
         }
         _gameMatches[gameNo].Clear();
 
-        foreach (var matchId in matchIds.OrderBy(id => id))
+        // Add matches
+        foreach (var matchId in uniqueMatches.OrderBy(id => id))
         {
             var matchCard = new MatchCard
                 {
@@ -1315,63 +1429,87 @@
 
     private async Task LoadGameDataFromDatabase(int gameNo, List<MartialArtsScoringDTO> assignmentsForGame)
     {
-        if (AllRegions != null && _gameRegions.ContainsKey(gameNo))
+        // Create a fresh region list for this game from AllRegions
+        if (AllRegions != null)
         {
-            _gameRegions[gameNo] = AllRegions.Select(r => new RegionItem
-                {
-                    Id = r.Id,
-                    Name = r.Name,
-                    AssignedMatch = "Unassigned",
-                    PlayerName = r.PlayerName,
-                    MatchPosition = "",
-                    GameNo = gameNo
-                }).ToList();
+            // Filter AllRegions to only include regions that have assignments in this game
+            var assignedRegionPlayerPairs = assignmentsForGame
+                .Select(a => new { a.RegionID, a.PlayerID })
+                .Distinct()
+                .ToList();
+
+            _gameRegions[gameNo] = AllRegions
+                .Where(r => assignedRegionPlayerPairs.Any(p =>
+                    p.RegionID == r.Id && p.PlayerID == r.PlayerID))
+                .Select(r => new RegionItem
+                    {
+                        Id = r.Id,
+                        Name = r.Name,
+                        AssignedMatch = "Unassigned", // Start as unassigned
+                        PlayerName = r.PlayerName,
+                        PlayerID = r.PlayerID,
+                        MatchPosition = "",
+                        GameNo = gameNo
+                    })
+                .ToList();
         }
 
-        if (_gameMatchSetResults.ContainsKey(gameNo))
-        {
-            _gameMatchSetResults[gameNo].Clear();
-        }
+        if (!_gameMatchSetResults.ContainsKey(gameNo))
+            _gameMatchSetResults[gameNo] = new Dictionary<string, Dictionary<int, string>>();
 
-        if (_gameMatchCurrentSets.ContainsKey(gameNo))
-        {
-            _gameMatchCurrentSets[gameNo].Clear();
-        }
+        if (!_gameMatchCurrentSets.ContainsKey(gameNo))
+            _gameMatchCurrentSets[gameNo] = new Dictionary<string, int>();
 
-        foreach (var assignment in assignmentsForGame)
+        // Group assignments by match
+        var matchesGrouped = assignmentsForGame
+            .GroupBy(a => a.MatchId)
+            .ToList();
+
+        foreach (var matchGroup in matchesGrouped)
         {
-            var matchId = assignment.MatchId;
+            var matchId = matchGroup.Key;
             var matchKey = $"Match{matchId}";
 
-            if (!_gameMatchSetResults[gameNo].ContainsKey(matchKey))
-            {
-                _gameMatchSetResults[gameNo][matchKey] = new Dictionary<int, string>();
-            }
+            // Group by position within the match
+            var positionsGrouped = matchGroup
+                .GroupBy(a => a.MatchPosition)
+                .ToList();
 
-            if (_gameRegions.ContainsKey(gameNo))
+            foreach (var positionGroup in positionsGrouped)
             {
-                var regions = _gameRegions[gameNo];
-                var region = regions.FirstOrDefault(r => r.Id == assignment.RegionID);
+                var position = positionGroup.Key;
+
+                // Get the specific assignment for this position
+                var assignment = positionGroup.FirstOrDefault();
+                if (assignment == null) continue;
+
+                // Find the region in this game using BOTH RegionID and PlayerID
+                var region = _gameRegions[gameNo].FirstOrDefault(r =>
+                    r.Id == assignment.RegionID &&
+                    r.PlayerID == assignment.PlayerID); // ADDED: Check PlayerID
+
                 if (region != null)
                 {
-                    region.AssignedMatch = $"Match{matchId}_{assignment.MatchPosition}";
-                    region.MatchPosition = assignment.MatchPosition;
+                    region.AssignedMatch = $"Match{matchId}_{position}";
+                    region.MatchPosition = position;
 
-                    if (!string.IsNullOrEmpty(assignment.PlayerName))
+                    // Update set results
+                    var winningSets = positionGroup.Where(a => a.Result == "W");
+                    foreach (var win in winningSets)
                     {
-                        region.PlayerName = assignment.PlayerName;
+                        if (!_gameMatchSetResults[gameNo].ContainsKey(matchKey))
+                            _gameMatchSetResults[gameNo][matchKey] = new Dictionary<int, string>();
+
+                        _gameMatchSetResults[gameNo][matchKey][win.SetNo] = position;
+                    }
+
+                    // Update current set
+                    var maxSet = positionGroup.Max(a => a.SetNo);
+                    if (maxSet > 0)
+                    {
+                        _gameMatchCurrentSets[gameNo][matchKey] = maxSet + 1;
                     }
                 }
-            }
-
-            if (!string.IsNullOrEmpty(assignment.Result) && assignment.Result == "W")
-            {
-                _gameMatchSetResults[gameNo][matchKey][assignment.SetNo] = assignment.MatchPosition;
-            }
-
-            if (!_gameMatchCurrentSets[gameNo].ContainsKey(matchKey) || assignment.SetNo >= _gameMatchCurrentSets[gameNo][matchKey])
-            {
-                _gameMatchCurrentSets[gameNo][matchKey] = assignment.SetNo + 1;
             }
         }
     }
@@ -1637,7 +1775,26 @@
                     if (parts.Length == 2)
                     {
                         var matchId = int.Parse(parts[0].Replace("Match", ""));
-                        await apiService.DeleteAsync($"/MartialArtsScoring/region/{region.Id}/match/{matchId}");
+                        var position = parts[1];
+
+                        // Get PlayerID from the region
+                        var playerId = region.PlayerID;
+
+                        // We need to find the specific record to delete using BOTH RegionID and PlayerID
+                        var existingRecords = await apiService.GetAsync<MartialArtsScoringDTO>($"/MartialArtsScoring/event/{SelectedEvent.ID}");
+                        var recordsToDelete = existingRecords?.Where(r =>
+                            r.RegionID == region.Id &&
+                            r.MatchId == matchId &&
+                            r.GameNo == _selectedGameNo.Value &&
+                            r.PlayerID == playerId).ToList(); // ADDED: Filter by PlayerID
+
+                        if (recordsToDelete != null)
+                        {
+                            foreach (var record in recordsToDelete)
+                            {
+                                await apiService.DeleteAsync($"/MartialArtsScoring/{record.ID}");
+                            }
+                        }
                     }
                 }
                 return;
@@ -1651,19 +1808,16 @@
                     var matchId = int.Parse(parts[0].Replace("Match", ""));
                     var position = parts[1];
                     var gameNo = _selectedGameNo.Value;
+                    var playerId = region.PlayerID; // Get PlayerID from region
 
-                    string? playerId = null;
-                    if (_regionPlayerMap.ContainsKey(region.Id))
-                    {
-                        playerId = _regionPlayerMap[region.Id].PlayerID;
-                    }
-
+                    // When checking for existing assignment, include PlayerID
                     var existingAssignments = await apiService.GetAsync<MartialArtsScoringDTO>($"/MartialArtsScoring/event/{SelectedEvent.ID}");
                     var existingAssignment = existingAssignments?.FirstOrDefault(a =>
                         a.RegionID == region.Id &&
                         a.MatchId == matchId &&
                         a.MatchPosition == position &&
-                        a.GameNo == gameNo);
+                        a.GameNo == gameNo &&
+                        a.PlayerID == playerId); // ADDED: Check PlayerID
 
                     if (existingAssignment == null)
                     {
@@ -1677,7 +1831,7 @@
                                 MatchPosition = position,
                                 SetNo = 1,
                                 Result = null,
-                                PlayerID = playerId
+                                PlayerID = playerId // Include PlayerID
                             };
 
                         await apiService.PostAsync<CreateMartialArtsScoringDTO, int>("/MartialArtsScoring", createDto);
@@ -1727,14 +1881,20 @@
 
             _gameMatchSetResults[gameNo][matchKey][currentSet] = winningPosition;
 
+            // Get the actual regions assigned to this match position
             var winningRegion = GetRegionAssignedToMatch(matchId, winningPosition);
             var losingPosition = winningPosition == "RegionA" ? "RegionB" : "RegionA";
             var losingRegion = GetRegionAssignedToMatch(matchId, losingPosition);
 
             if (winningRegion != null && losingRegion != null && SelectedEvent != null)
             {
-                await SaveSetResult(winningRegion.Id, matchId, winningPosition, currentSet, "W");
-                await SaveSetResult(losingRegion.Id, matchId, losingPosition, currentSet, "L");
+                // CRITICAL FIX: Get PlayerID from the actual region assigned to this match
+                var winningPlayerId = winningRegion.PlayerID; // Directly from the assigned region
+                var losingPlayerId = losingRegion.PlayerID;   // Directly from the assigned region
+
+                // Save results with the correct PlayerID
+                await SaveSetResult(winningRegion.Id, matchId, winningPosition, currentSet, "W", winningPlayerId);
+                await SaveSetResult(losingRegion.Id, matchId, losingPosition, currentSet, "L", losingPlayerId);
 
                 if (!_gameMatchCurrentSets.ContainsKey(gameNo))
                 {
@@ -1755,29 +1915,87 @@
         }
     }
 
+    private string? GetPlayerIdForRegion(int regionId, string regionName)
+    {
+        try
+        {
+            // First, check if this region is currently assigned to any match in this game
+            if (_selectedGameNo.HasValue && _gameRegions.ContainsKey(_selectedGameNo.Value))
+            {
+                var gameRegions = _gameRegions[_selectedGameNo.Value];
+
+                // Find the region that matches both ID and Name
+                var region = gameRegions.FirstOrDefault(r =>
+                    r.Id == regionId &&
+                    r.Name == regionName &&
+                    r.AssignedMatch != "Unassigned");
+
+                if (region != null)
+                {
+                    return region.PlayerID;
+                }
+            }
+
+            // Fallback: Get from AllRegions
+            var fallbackRegion = AllRegions?.FirstOrDefault(r =>
+                r.Id == regionId &&
+                r.Name == regionName);
+
+            return fallbackRegion?.PlayerID;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private async Task RecordSetResult(int matchId, string winningPosition)
     {
         await AddSetToMatch(matchId, winningPosition);
     }
 
-    private async Task SaveSetResult(int regionId, int matchId, string position, int setNo, string result)
+    private async Task SaveSetResult(int regionId, int matchId, string position, int setNo, string result, string? playerId = null)
     {
         try
         {
             if (SelectedEvent == null || !_selectedGameNo.HasValue) return;
 
-            string? playerId = null;
-            if (_regionPlayerMap.ContainsKey(regionId))
+            var existingRecords = await apiService.GetAsync<MartialArtsScoringDTO>($"/MartialArtsScoring/event/{SelectedEvent.ID}");
+
+            // FIX: First, try to find an existing record with NO result but matching all other criteria
+            var placeholderRecord = existingRecords?.FirstOrDefault(r =>
+                r.RegionID == regionId &&
+                r.MatchId == matchId &&
+                r.MatchPosition == position &&
+                r.GameNo == _selectedGameNo.Value &&
+                r.SetNo == setNo &&
+                string.IsNullOrEmpty(r.Result) &&
+                r.PlayerID == playerId);
+
+            if (placeholderRecord != null)
             {
-                playerId = _regionPlayerMap[regionId].PlayerID;
+                // Update the placeholder with the result
+                var updateDto = new UpdateMartialArtsScoringDTO
+                    {
+                        ID = placeholderRecord.ID,
+                        MatchId = matchId,
+                        MatchPosition = position,
+                        SetNo = setNo,
+                        Result = result,
+                        PlayerID = playerId
+                    };
+
+                await apiService.PutAsync($"/MartialArtsScoring/{placeholderRecord.ID}", updateDto);
+                return;
             }
 
-            var existingRecords = await apiService.GetAsync<MartialArtsScoringDTO>($"/MartialArtsScoring/event/{SelectedEvent.ID}");
+            // If no placeholder, look for existing record with result
             var existingRecord = existingRecords?.FirstOrDefault(r =>
                 r.RegionID == regionId &&
                 r.MatchId == matchId &&
                 r.SetNo == setNo &&
-                r.GameNo == _selectedGameNo.Value);
+                r.GameNo == _selectedGameNo.Value &&
+                r.PlayerID == playerId);
 
             if (existingRecord != null)
             {
@@ -1795,44 +2013,21 @@
             }
             else
             {
-                var placeholderRecord = existingRecords?.FirstOrDefault(r =>
-                    r.RegionID == regionId &&
-                    r.MatchId == matchId &&
-                    r.MatchPosition == position &&
-                    r.GameNo == _selectedGameNo.Value &&
-                    string.IsNullOrEmpty(r.Result));
+                // Create new record
+                var createDto = new CreateMartialArtsScoringDTO
+                    {
+                        EventID = SelectedEvent.ID,
+                        EventVersusID = null,
+                        RegionID = regionId,
+                        GameNo = _selectedGameNo.Value,
+                        MatchId = matchId,
+                        MatchPosition = position,
+                        SetNo = setNo,
+                        Result = result,
+                        PlayerID = playerId
+                    };
 
-                if (placeholderRecord != null)
-                {
-                    var updateDto = new UpdateMartialArtsScoringDTO
-                        {
-                            ID = placeholderRecord.ID,
-                            MatchId = matchId,
-                            MatchPosition = position,
-                            SetNo = setNo,
-                            Result = result,
-                            PlayerID = playerId
-                        };
-
-                    await apiService.PutAsync($"/MartialArtsScoring/{placeholderRecord.ID}", updateDto);
-                }
-                else
-                {
-                    var createDto = new CreateMartialArtsScoringDTO
-                        {
-                            EventID = SelectedEvent.ID,
-                            EventVersusID = null,
-                            RegionID = regionId,
-                            GameNo = _selectedGameNo.Value,
-                            MatchId = matchId,
-                            MatchPosition = position,
-                            SetNo = setNo,
-                            Result = result,
-                            PlayerID = playerId
-                        };
-
-                    await apiService.PostAsync<CreateMartialArtsScoringDTO, int>("/MartialArtsScoring", createDto);
-                }
+                await apiService.PostAsync<CreateMartialArtsScoringDTO, int>("/MartialArtsScoring", createDto);
             }
         }
         catch (Exception ex)
@@ -1890,13 +2085,29 @@
 
         try
         {
-            foreach (var region in AllRegions)
+            // Group by Region + Player to show individual standings
+            var playerGroups = AllRegions
+                .Where(r => !string.IsNullOrEmpty(r.PlayerID))
+                .GroupBy(r => new { r.Id, r.Name, r.PlayerID, r.PlayerName });
+
+            foreach (var playerGroup in playerGroups)
             {
+                var firstRegion = playerGroup.First();
+                var regionName = firstRegion.Name;
+
+                // Get the specific region from the group
+                var region = AllRegions.FirstOrDefault(r =>
+                    r.Id == firstRegion.Id &&
+                    r.PlayerID == firstRegion.PlayerID);
+
+                if (region == null) continue;
+
                 var standing = new RegionStanding
                     {
-                        RegionName = region.Name,
+                        RegionName = regionName,
                         RegionId = region.Id,
-                        PlayerName = region.PlayerName,
+                        PlayerName = region.PlayerName ?? "No Player",
+                        PlayerID = region.PlayerID
                     };
 
                 int matchesWon = 0;
@@ -1904,11 +2115,16 @@
                 int setsWon = 0;
                 int setsLost = 0;
 
+                // Check all games for this specific region-player combination
                 foreach (var gameNo in _availableGameNos)
                 {
                     if (_gameRegions.ContainsKey(gameNo))
                     {
-                        var gameRegion = _gameRegions[gameNo].FirstOrDefault(r => r.Id == region.Id);
+                        // Find the specific region in this game (by ID AND PlayerID)
+                        var gameRegion = _gameRegions[gameNo].FirstOrDefault(r =>
+                            r.Id == region.Id &&
+                            r.PlayerID == region.PlayerID);
+
                         if (gameRegion != null && gameRegion.AssignedMatch != "Unassigned")
                         {
                             var matchId = GetMatchIdFromAssignedMatch(gameRegion.AssignedMatch);
@@ -1920,8 +2136,10 @@
                                 var position = gameRegion.MatchPosition;
                                 var opponentPosition = position == "RegionA" ? "RegionB" : "RegionA";
 
-                                var regionWins = _gameMatchSetResults[gameNo][matchKey].Count(kvp => kvp.Value == position);
-                                var opponentWins = _gameMatchSetResults[gameNo][matchKey].Count(kvp => kvp.Value == opponentPosition);
+                                var regionWins = _gameMatchSetResults[gameNo][matchKey]
+                                    .Count(kvp => kvp.Value == position);
+                                var opponentWins = _gameMatchSetResults[gameNo][matchKey]
+                                    .Count(kvp => kvp.Value == opponentPosition);
 
                                 setsWon += regionWins;
                                 setsLost += opponentWins;
@@ -1982,6 +2200,467 @@
         catch (Exception ex)
         {
             Snackbar.Add($"Error refreshing standings: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenEditEventDialog(string? selectedEventID)
+    {
+        var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.SelectedEventID, selectedEventID },
+            { x => x.IsEditMode, true }
+        };
+
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseOnEscapeKey = true,
+                BackdropClick = false
+            };
+
+        var dialog = await DialogService.ShowAsync<AddEditDialog>("Edit Event", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            // 
+        }
+    }
+
+    private async Task ProceedToNextStage()
+    {
+        try
+        {
+            // 1. Validate current event
+            if (SelectedEvent == null)
+            {
+                Snackbar.Add("No event selected. Please apply filters first.", Severity.Warning);
+                return;
+            }
+
+            // 2. Check if all matches in current stage are completed
+            if (!AreAllMatchesCompleted())
+            {
+                Snackbar.Add("Please complete all matches in current stage before proceeding.", Severity.Warning);
+                return;
+            }
+
+            // 3. Get current stage ID and next stage ID
+            var currentStageId = await GetCurrentEventStageId();
+            if (!currentStageId.HasValue)
+            {
+                Snackbar.Add("Could not determine current event stage.", Severity.Error);
+                return;
+            }
+
+            var nextStageId = GetNextStageId(currentStageId.Value);
+            if (nextStageId == 0)
+            {
+                Snackbar.Add("No next stage available for progression.", Severity.Warning);
+                return;
+            }
+
+            // 4. Get the next stage name
+            var nextStage = _eventStages?.FirstOrDefault(s => s.ID == nextStageId);
+            if (nextStage == null)
+            {
+                Snackbar.Add($"Could not find stage with ID {nextStageId}", Severity.Error);
+                return;
+            }
+
+            // 5. Get winners from completed matches using GetMatchWinner
+            var progressionTeams = new List<Dictionary<string, object>>();
+
+            // Get all matches for current game
+            var matches = GetMatchesForCurrentGame();
+
+            // Track unique winners to avoid duplicates
+            var processedWinners = new HashSet<int>();
+
+            foreach (var match in matches)
+            {
+                // Only process completed matches
+                if (BothRegionsAssigned(match.Id))
+                {
+                    var matchWinnerName = GetMatchWinner(match.Id);
+
+                    if (!string.IsNullOrEmpty(matchWinnerName))
+                    {
+                        // Get the winner region object
+                        var regionA = GetRegionAssignedToMatch(match.Id, "RegionA");
+                        var regionB = GetRegionAssignedToMatch(match.Id, "RegionB");
+                        var winnerRegion = regionA?.Name == matchWinnerName ? regionA : regionB;
+
+                        if (winnerRegion != null && !processedWinners.Contains(winnerRegion.Id))
+                        {
+                            processedWinners.Add(winnerRegion.Id);
+
+                            // Get EventVersusTeams entry for this winner
+                            var versusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(
+                                $"/Events/VersusTeams?eventID={SelectedEvent.ID}");
+
+                            var winnerTeam = versusTeams?.FirstOrDefault(t =>
+                                t.SchoolRegionID == winnerRegion.Id);
+
+                            if (winnerTeam != null)
+                            {
+                                // Get players for this team - check EventVersusTeamPlayersList
+                                var teamPlayers = winnerTeam.EventVersusTeamPlayersList;
+                                var selectedPlayerIds = new List<string>();
+                                var playerNames = new List<string>();
+
+                                if (teamPlayers != null && teamPlayers.Any())
+                                {
+                                    foreach (var player in teamPlayers)
+                                    {
+                                        if (!string.IsNullOrEmpty(player.ProfilePlayerID))
+                                        {
+                                            selectedPlayerIds.Add(player.ProfilePlayerID);
+
+                                            // Build full name
+                                            var fullName = "";
+                                            if (!string.IsNullOrEmpty(player.FirstName) && !string.IsNullOrEmpty(player.LastName))
+                                                fullName = $"{player.FirstName} {player.LastName}";
+                                            else if (!string.IsNullOrEmpty(player.FirstName))
+                                                fullName = player.FirstName;
+                                            else if (!string.IsNullOrEmpty(player.LastName))
+                                                fullName = player.LastName;
+                                            else
+                                                fullName = player.ProfilePlayerID;
+
+                                            playerNames.Add(fullName);
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // If no team players found in the list, fetch them from API
+                                    teamPlayers = await apiService.GetAsync<EventsDTO.EventVersusTeamPlayers>(
+                                        $"/Events/VersusTeams/Players?eventVersusID={winnerTeam.ID}");
+
+                                    if (teamPlayers != null && teamPlayers.Any())
+                                    {
+                                        foreach (var player in teamPlayers)
+                                        {
+                                            if (!string.IsNullOrEmpty(player.ProfilePlayerID))
+                                            {
+                                                selectedPlayerIds.Add(player.ProfilePlayerID);
+
+                                                var fullName = "";
+                                                if (!string.IsNullOrEmpty(player.FirstName) && !string.IsNullOrEmpty(player.LastName))
+                                                    fullName = $"{player.FirstName} {player.LastName}";
+                                                else if (!string.IsNullOrEmpty(player.FirstName))
+                                                    fullName = player.FirstName;
+                                                else if (!string.IsNullOrEmpty(player.LastName))
+                                                    fullName = player.LastName;
+                                                else
+                                                    fullName = player.ProfilePlayerID;
+
+                                                playerNames.Add(fullName);
+                                            }
+                                        }
+                                    }
+                                    else if (!string.IsNullOrEmpty(winnerRegion.PlayerID))
+                                    {
+                                        // Use the player from the region if no team players found
+                                        selectedPlayerIds.Add(winnerRegion.PlayerID);
+                                        playerNames.Add(winnerRegion.PlayerName ?? "Unknown Player");
+                                    }
+                                }
+
+                                // Get match score for this winner
+                                var matchScore = GetMatchScoreForRegion(winnerRegion.Id);
+
+                                // Add to progression teams
+                                var teamData = new Dictionary<string, object>
+                                    {
+                                        ["SelectedRegionID"] = winnerRegion.Id,
+                                        ["ExistingVersusTeamID"] = winnerTeam.ID,
+                                        ["Score"] = matchScore,
+                                        ["Rank"] = "Winner",
+                                        ["SelectedPlayerIDs"] = selectedPlayerIds,
+                                        ["RegionName"] = winnerRegion.Name,
+                                        ["PlayerName"] = string.Join(", ", playerNames)
+                                    };
+
+                                progressionTeams.Add(teamData);
+                            }
+                            else
+                            {
+                                // If no EventVersusTeams entry found, create a basic entry
+                                var teamData = new Dictionary<string, object>
+                                    {
+                                        ["SelectedRegionID"] = winnerRegion.Id,
+                                        ["ExistingVersusTeamID"] = 0, // Will be created in next stage
+                                        ["Score"] = GetMatchScoreForRegion(winnerRegion.Id),
+                                        ["Rank"] = "Winner",
+                                        ["SelectedPlayerIDs"] = new List<string> { winnerRegion.PlayerID ?? "" },
+                                        ["RegionName"] = winnerRegion.Name,
+                                        ["PlayerName"] = winnerRegion.PlayerName ?? ""
+                                    };
+
+                                progressionTeams.Add(teamData);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!progressionTeams.Any())
+            {
+                Snackbar.Add("No winners found in completed matches. Please complete matches first.", Severity.Warning);
+                return;
+            }
+
+            // 6. Prepare dialog parameters for creating new event
+            var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.IsProgressionMode, true },
+            { x => x.PreviousEventID, SelectedEvent.ID },
+            { x => x.ProgressionTeams, progressionTeams }
+        };
+
+            // 7. Open the dialog
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true,
+                    CloseOnEscapeKey = true,
+                    BackdropClick = false
+                };
+
+            var dialog = await DialogService.ShowAsync<AddEditDialog>("Create Next Stage Event", parameters, options);
+            var result = await dialog.Result;
+
+            if (!result!.Canceled)
+            {
+                Snackbar.Add("Next stage event created successfully!", Severity.Success);
+
+                // Optionally update winners in EventVersusTeams
+                // await MarkWinnersInEventVersusTeams();
+
+                // Refresh the current view
+                await ApplyFilters();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error proceeding to next stage: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private bool AreAllMatchesCompleted()
+    {
+        if (!_selectedGameNo.HasValue) return false;
+
+        var matchesForGame = GetMatchesForCurrentGame();
+
+        // Check if we have any assigned matches
+        bool hasAssignedMatches = false;
+
+        foreach (var match in matchesForGame)
+        {
+            if (BothRegionsAssigned(match.Id))
+            {
+                hasAssignedMatches = true;
+                var matchWinner = GetMatchWinner(match.Id);
+                if (string.IsNullOrEmpty(matchWinner))
+                {
+                    return false; // Match not completed
+                }
+            }
+        }
+
+        return hasAssignedMatches; // Return true only if we have at least one assigned AND completed match
+    }
+
+    // private string GetMatchScoreForRegion(int regionId)
+    // {
+    //     if (!_selectedGameNo.HasValue) return "0-0";
+
+    //     // Find matches where this region participated
+    //     var matches = GetMatchesForCurrentGame();
+    //     foreach (var match in matches)
+    //     {
+    //         var regionA = GetRegionAssignedToMatch(match.Id, "RegionA");
+    //         var regionB = GetRegionAssignedToMatch(match.Id, "RegionB");
+
+    //         if (regionA?.Id == regionId || regionB?.Id == regionId)
+    //         {
+    //             var matchKey = $"Match{match.Id}";
+    //             if (_gameMatchSetResults.ContainsKey(_selectedGameNo.Value) &&
+    //                 _gameMatchSetResults[_selectedGameNo.Value].ContainsKey(matchKey))
+    //             {
+    //                 var wins = _gameMatchSetResults[_selectedGameNo.Value][matchKey].Count(kvp =>
+    //                     kvp.Value == (regionA?.Id == regionId ? "RegionA" : "RegionB"));
+    //                 var losses = _gameMatchSetResults[_selectedGameNo.Value][matchKey].Count - wins;
+
+    //                 return $"{wins}-{losses}";
+    //             }
+    //         }
+    //     }
+
+    //     return "0-0";
+    // }
+    private string GetMatchScoreForRegion(int? regionId)
+    {
+        if (!_selectedGameNo.HasValue || !regionId.HasValue) return "0-0";
+
+        // Find matches where this region participated
+        var matches = GetMatchesForCurrentGame();
+        foreach (var match in matches)
+        {
+            var regionA = GetRegionAssignedToMatch(match.Id, "RegionA");
+            var regionB = GetRegionAssignedToMatch(match.Id, "RegionB");
+
+            if (regionA?.Id == regionId.Value || regionB?.Id == regionId.Value)
+            {
+                var matchKey = $"Match{match.Id}";
+                if (_gameMatchSetResults.ContainsKey(_selectedGameNo.Value) &&
+                    _gameMatchSetResults[_selectedGameNo.Value].ContainsKey(matchKey))
+                {
+                    var wins = _gameMatchSetResults[_selectedGameNo.Value][matchKey].Count(kvp =>
+                        kvp.Value == (regionA?.Id == regionId.Value ? "RegionA" : "RegionB"));
+                    var losses = _gameMatchSetResults[_selectedGameNo.Value][matchKey].Count - wins;
+
+                    return $"{wins}-{losses}";
+                }
+            }
+        }
+
+        return "0-0";
+    }
+
+    private bool IsWinningRank(string rank)
+    {
+        if (string.IsNullOrEmpty(rank)) return false;
+
+        var winningRanks = new List<string>
+    {
+        "Winner",
+        "Gold",
+        "1st",
+        "First",
+        "Champion",
+        "1",
+        "Advance",
+        "Qualified",
+        "W",
+        "Win",
+        "Advancing"
+    };
+
+        return winningRanks.Any(r =>
+            rank.Equals(r, StringComparison.OrdinalIgnoreCase) ||
+            rank.Contains(r, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private int GetNextStageId(int currentStageId)
+    {
+        // Define your stage progression here
+        // Example: 1=Elimination, 2=Quarter-finals, 3=Semi-finals, 4=Finals
+        return currentStageId switch
+        {
+            1 => 2, // Elimination -> Quarter-finals
+            2 => 3, // Quarter-finals -> Semi-finals
+            3 => 4, // Semi-finals -> Finals
+            4 => 4, // Finals (no next stage)
+            _ => 0  // Unknown stage
+        };
+    }
+
+    private async Task<int?> GetCurrentEventStageId()
+    {
+        if (SelectedEvent?.ID == null) return null;
+
+        var eventUrl = $"/Events?id={SelectedEvent.ID}";
+        var events = await apiService.GetAsync<EventsDTO.EventDetails>(eventUrl);
+
+        if (events != null && events.Any())
+        {
+            return events.First().EventStageID;
+        }
+
+        return null;
+    }
+    private async Task MarkWinnersInEventVersusTeams()
+    {
+        try
+        {
+            if (SelectedEvent == null || !_selectedGameNo.HasValue) return;
+
+            var matches = GetMatchesForCurrentGame();
+            foreach (var match in matches)
+            {
+                if (BothRegionsAssigned(match.Id))
+                {
+                    var matchWinner = GetMatchWinner(match.Id);
+                    if (!string.IsNullOrEmpty(matchWinner))
+                    {
+                        var regionA = GetRegionAssignedToMatch(match.Id, "RegionA");
+                        var regionB = GetRegionAssignedToMatch(match.Id, "RegionB");
+
+                        // Determine winner and loser
+                        RegionItem winnerRegion, loserRegion;
+                        if (regionA?.Name == matchWinner)
+                        {
+                            winnerRegion = regionA;
+                            loserRegion = regionB;
+                        }
+                        else
+                        {
+                            winnerRegion = regionB;
+                            loserRegion = regionA;
+                        }
+
+                        // Get EventVersusTeams
+                        var versusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(
+                            $"/Events/VersusTeams?eventID={SelectedEvent.ID}");
+
+                        if (versusTeams != null)
+                        {
+                            // Update winner team - find by SchoolRegionID
+                            var winnerTeam = versusTeams.FirstOrDefault(t =>
+                                t.SchoolRegionID == winnerRegion.Id);
+                            if (winnerTeam != null)
+                            {
+                                // Create update object
+                                var updateWinner = new
+                                {
+                                    ID = winnerTeam.ID,
+                                    Rank = "Winner",
+                                    Score = GetMatchScoreForRegion(winnerRegion.Id)
+                                };
+                                await apiService.PutAsync($"/Events/VersusTeams/{winnerTeam.ID}", updateWinner);
+                            }
+
+                            // Update loser team
+                            if (loserRegion != null)
+                            {
+                                var loserTeam = versusTeams.FirstOrDefault(t =>
+                                    t.SchoolRegionID == loserRegion.Id);
+                                if (loserTeam != null)
+                                {
+                                    var updateLoser = new
+                                    {
+                                        ID = loserTeam.ID,
+                                        Rank = "Eliminated",
+                                        Score = GetMatchScoreForRegion(loserRegion.Id)
+                                    };
+                                    await apiService.PutAsync($"/Events/VersusTeams/{loserTeam.ID}", updateLoser);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error marking winners: {ex.Message}", Severity.Error);
         }
     }
 }

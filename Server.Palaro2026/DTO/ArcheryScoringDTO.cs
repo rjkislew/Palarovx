@@ -17,6 +17,7 @@
         public string? PlayerID { get; set; }
         public string? PlayerName { get; set; }
         public int EndNo { get; set; } = 1;
+        public string? Position { get; set; }
     }
 
     public class ArcheryScoringDTO
@@ -36,6 +37,7 @@
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public int EndNo { get; set; } = 1;
+        public string? Position { get; set; }
         public string? Region { get; set; }
         public string? Abbreviation { get; set; }
         public string? Sport { get; set; }
@@ -58,6 +60,7 @@
         public string? PlayerID { get; set; }
         public int Lane { get; set; }
         public int EndNo { get; set; } = 1;
+        public string? Position { get; set; }
     }
 
     public class UpdateArcheryScoringDTO
@@ -72,5 +75,6 @@
         public string? PlayerID { get; set; }
         public int? Lane { get; set; }
         public int? EndNo { get; set; }
+        public string? Position { get; set; }
     }
 }

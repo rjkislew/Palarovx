@@ -16,7 +16,7 @@
 
                 <!-- Input Fields: dialogs, checkbox, datetime pickers -->
                 <!-- Sport -->
-                @if (IsSuperuser || IsEventManager || IsRegionalFacilitator)
+                @if (IsSuperuser || IsSysAdmin || IsEventManager || IsRegionalFacilitator)
                 {
                     <MudItem xs="12" Class="mb-3">
                         <MudStack Spacing="1">
@@ -250,8 +250,9 @@
                                 var team = _teamSelections[i];
                                 <MudGrid Spacing="2">
                                     <MudItem xs="12">
-                                       
-                                            <MudStack Spacing="2">
+
+                                        <MudStack Spacing="2">
+                                            <!-- REMOVE TEAM HERE -->
                                                 <MudGrid Spacing="2">
                                                     <!-- Region Select -->
                                                     <MudItem xs="12">
@@ -290,17 +291,13 @@
                                                                    T="string"
                                                                    ToStringFunc="@(id => {
                                                                        if (string.IsNullOrEmpty(id)) return "No player selected";
-
-                                                                       // TEMPORARY: Show loading message while fetching
-                                                                       if (team.AvailablePlayers == null || !team.AvailablePlayers.Any())
-                                                                           return $"{id} (Loading...)";
-
+                   
                                                                        // Find the player in AvailablePlayers by ID
                                                                        var player = team.AvailablePlayers?.FirstOrDefault(p => p.ID == id);
-
+                   
                                                                        if (player != null)
                                                                        {
-                                                                           // Show name if available, otherwise show ID
+                                                                           // Show name if available
                                                                            if (!string.IsNullOrEmpty(player.FirstName) && !string.IsNullOrEmpty(player.LastName))
                                                                                return $"{player.FirstName} {player.LastName}";
                                                                            else if (!string.IsNullOrEmpty(player.FirstName))
@@ -308,12 +305,11 @@
                                                                            else if (!string.IsNullOrEmpty(player.LastName))
                                                                                return player.LastName;
                                                                        }
-
+                   
                                                                        // Fallback to showing the ID
                                                                        return id ?? "Unknown Player";
                                                                    })">
-
-                                                            <!-- Show all available players with their names -->
+        
                                                             @if (team.AvailablePlayers != null && team.AvailablePlayers.Any())
                                                             {
                                                                 <MudVirtualize Items="team.AvailablePlayers" Context="player">
@@ -324,16 +320,10 @@
                                                             }
                                                             else
                                                             {
-                                                                <!-- Show IDs while loading -->
-                                                                @if (team.SelectedPlayerIDs != null && team.SelectedPlayerIDs.Any())
-                                                                {
-                                                                    @foreach (var playerId in team.SelectedPlayerIDs)
-                                                                    {
-                                                                        <MudSelectItem T="string" Value="@playerId">
-                                                                            @playerId (Loading...)
-                                                                        </MudSelectItem>
-                                                                    }
-                                                                }
+                                                                <!-- Show loading indicator -->
+                                                                <MudSelectItem T="string"  Disabled="true">
+                                                                    Loading players...
+                                                                </MudSelectItem>
                                                             }
                                                         </MudSelect>
                                                     </MudItem>
@@ -368,19 +358,6 @@
                                                     </MudGrid>
                                                 }
 
-                                                <!-- Remove button for non-edit mode -->
-                                                @if (!IsEditMode && i > 0)
-                                                {
-                                                    <MudItem xs="12">
-                                                        <MudButton Size="Size.Small"
-                                                                   Variant="Variant.Text"
-                                                                   Color="Color.Error"
-                                                                   StartIcon="@Icons.Material.Filled.Delete"
-                                                                   OnClick="@(() => RemoveOpposingTeam(i))">
-                                                            Remove Team
-                                                        </MudButton>
-                                                    </MudItem>
-                                                }
                                             </MudStack>
                                         
                                     </MudItem>
@@ -396,7 +373,7 @@
                 }
 
                 <!-- Stream Section: Only for News Administrator -->
-                @if (UserRole == "News Administrator" || UserRole == "Superuser")
+                @if (UserRole == "News Administrator" || UserRole == "Superuser" || UserRole == "System Administrator")
                 {
                     <MudItem xs="12" Class="mb-3">
                         <MudStack Spacing="1">
@@ -450,7 +427,7 @@
 
 
                 <!-- Clerk Designate Section: Only for Event Manager -->
-                @if (UserRole == "Event Manager" || UserRole == "Superuser" || UserRole == "Tally Clerk")
+                @if (UserRole == "Event Manager" || UserRole == "Superuser" || UserRole == "System Administrator" || UserRole == "Tally Clerk")
                 {
                     <MudItem xs="12">
                         <MudStack Spacing="1">
@@ -584,13 +561,14 @@ else
     private string? UserRole;
     private bool IsNewsAdmin => UserRole == "News Administrator";
     private bool IsSuperuser => UserRole == "Superuser";
+    private bool IsSysAdmin => UserRole == "System Administrator";
     private bool IsEventManager => UserRole == "Event Manager";
     private bool IsRegionalFacilitator => UserRole == "Regional Facilitator";
     private bool IsTallyClerk => UserRole == "Tally Clerk";
 
-    private bool CanEditAllFields => IsSuperuser || IsEventManager || IsRegionalFacilitator;
-    private bool CanEditStreamSection => IsSuperuser || IsEventManager || IsNewsAdmin;
-    private bool CanAccessClerkSection => IsSuperuser || IsEventManager;
+    private bool CanEditAllFields => IsSuperuser || IsSysAdmin || IsEventManager || IsRegionalFacilitator;
+    private bool CanEditStreamSection => IsSuperuser || IsSysAdmin || IsEventManager || IsNewsAdmin;
+    private bool CanAccessClerkSection => IsSuperuser || IsSysAdmin || IsEventManager;
 
     private static readonly Random random = new();
 
@@ -1121,19 +1099,15 @@ else
             return;
         }
 
-        // For Archery events
-        var isArcherySport = await IsArcherySport();
-
-        if (isArcherySport && _selectedMainCategoryValue?.Equals("1440 Round", StringComparison.OrdinalIgnoreCase) == true)
+        // For edit mode, we need to ensure we have player details
+        if (IsEditMode && team.SelectedPlayerIDs != null && team.SelectedPlayerIDs.Any())
         {
-            // For Archery 1440 Round, fetch players by sport ID and region
-            string url = $"/Profiles/Player/Events?regionID={team.SelectedRegionID}&sportID={_selectedSportIDValue}";
-            var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
-            team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+            // For edit mode, fetch details for each player
+            await LoadPlayerDetailsForTeam(team);
         }
         else if (_selectedSportSubcategoryIDValue.HasValue)
         {
-            // For regular sports, use subcategory ID
+            // For regular sports (non-edit mode), use subcategory ID
             string url = $"/Profiles/Player/Events?regionID={team.SelectedRegionID}&subCategoryID={_selectedSportSubcategoryIDValue}";
             var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
             team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
@@ -1142,6 +1116,59 @@ else
         {
             team.AvailablePlayers = new();
         }
+    }
+    private async Task LoadPlayerDetailsForTeam(TeamSelection team)
+    {
+        if (team.SelectedPlayerIDs == null || !team.SelectedPlayerIDs.Any())
+        {
+            team.AvailablePlayers = new();
+            return;
+        }
+
+        var newAvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+
+        foreach (var playerId in team.SelectedPlayerIDs)
+        {
+            try
+            {
+                // Fetch player details
+                var playerUrl = $"/Profiles/Player?ID={playerId}";
+                var playerDetails = await apiService.GetAsync<ProfilesDTO.ProfilePlayer>(playerUrl);
+
+                if (playerDetails != null && playerDetails.Any())
+                {
+                    var player = playerDetails.First();
+                    newAvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+                        {
+                            ID = playerId,
+                            FirstName = player.FirstName,
+                            LastName = player.LastName
+                        });
+                }
+                else
+                {
+                    // Add with just ID if not found
+                    newAvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+                        {
+                            ID = playerId,
+                            FirstName = "",
+                            LastName = ""
+                        });
+                }
+            }
+            catch (Exception ex)
+            {
+                // Add with just ID if error
+                newAvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+                    {
+                        ID = playerId,
+                        FirstName = "",
+                        LastName = ""
+                    });
+            }
+        }
+
+        team.AvailablePlayers = newAvailablePlayers;
     }
 
     private async Task GetGenderCategoriesAsync()
@@ -1989,7 +2016,15 @@ else
                     .ToList();
             }
 
-            await GetPlayerAsync(teamSelection);
+            // Always load player details in edit mode
+            if (IsEditMode)
+            {
+                await LoadPlayerDetailsForTeam(teamSelection);
+            }
+            else
+            {
+                await GetPlayerAsync(teamSelection);
+            }
 
             _teamSelections.Add(teamSelection);
         }
@@ -2089,12 +2124,7 @@ else
         _teamSelections.Add(new TeamSelection());
     }
 
-    private void RemoveOpposingTeam(int index)
-    {
-        if (index >= 0 && index < _teamSelections.Count)
-            _teamSelections.RemoveAt(index);
-    }
-
+    
 
     private void ClearFields()
     {

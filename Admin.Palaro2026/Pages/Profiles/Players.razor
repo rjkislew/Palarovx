@@ -555,6 +555,31 @@
         await GetPlayersProfileAsync();
     }
 
+    // private async Task GetPlayersProfileAsync()
+    // {
+    //     string url = "/Profiles/Player/Details";
+
+    //     // Get all players first
+    //     var allPlayers = await apiService.GetAsync<ProfilesDTO.ProfilePlayersDetails.ProfilePlayers>(url);
+
+    //     // Get current user info to check role and region
+    //     await GetCurrentUserInfoAsync();
+
+    //     // Filter players if user has RoleID = 10 and affiliation
+    //     if (_currentUser != null && _currentUser.RoleID == 10 && _userRegionId.HasValue)
+    //     {
+    //         _profilePlayers = allPlayers?
+    //             .Where(player => player.RegionID == _userRegionId)
+    //             .ToList();
+    //     }
+    //     else
+    //     {
+    //         _profilePlayers = allPlayers;
+    //     }
+    // }
+    // Change from _userRegionId to _userRegionName
+    private string? _userRegionName = null;
+
     private async Task GetPlayersProfileAsync()
     {
         string url = "/Profiles/Player/Details";
@@ -566,10 +591,11 @@
         await GetCurrentUserInfoAsync();
 
         // Filter players if user has RoleID = 10 and affiliation
-        if (_currentUser != null && _currentUser.RoleID == 10 && _userRegionId.HasValue)
+        if (_currentUser != null && _currentUser.RoleID == 10 && !string.IsNullOrEmpty(_userRegionName))
         {
             _profilePlayers = allPlayers?
-                .Where(player => player.RegionID == _userRegionId)
+                .Where(player => player.Region != null &&
+                               player.Region.Equals(_userRegionName, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
         else
@@ -733,6 +759,28 @@
     private Users? _currentUser;
     private int? _userRegionId = null;
 
+    // private async Task GetCurrentUserInfoAsync()
+    // {
+    //     try
+    //     {
+    //         var userId = await GetCurrentUserIdAsync();
+    //         if (!string.IsNullOrEmpty(userId))
+    //         {
+    //             // Fetch user details including RoleID and Affiliation
+    //             string userUrl = $"/Users/{userId}";
+    //             _currentUser = await apiService.GetSingleAsync<Users>(userUrl);
+
+    //             if (_currentUser != null && _currentUser.RoleID == 10 && !string.IsNullOrEmpty(_currentUser.Affiliation))
+    //             {
+    //                 _userRegionId = MapAffiliationToRegionId(_currentUser.Affiliation);
+    //             }
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error getting user info: {ex.Message}", Severity.Error);
+    //     }
+    // }
     private async Task GetCurrentUserInfoAsync()
     {
         try
@@ -740,13 +788,13 @@
             var userId = await GetCurrentUserIdAsync();
             if (!string.IsNullOrEmpty(userId))
             {
-                // Fetch user details including RoleID and Affiliation
                 string userUrl = $"/Users/{userId}";
                 _currentUser = await apiService.GetSingleAsync<Users>(userUrl);
 
                 if (_currentUser != null && _currentUser.RoleID == 10 && !string.IsNullOrEmpty(_currentUser.Affiliation))
                 {
-                    _userRegionId = MapAffiliationToRegionId(_currentUser.Affiliation);
+                    // Simply remove "DepEd " from the affiliation to get the region name
+                    _userRegionName = _currentUser.Affiliation.Replace("DepEd ", "");
                 }
             }
         }
