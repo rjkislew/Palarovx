@@ -6,868 +6,679 @@
 @implements IDisposable
 @layout NoMainLayout
 
-<PageTitle>TV Broadcast | PALARO 2026</PageTitle>
+<PageTitle>@(_cleanSportName ?? "Live") | PALARO 2026</PageTitle>
 
 <style>
-    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@600;700;800&display=swap');
+    /* --- FONTS & VARS --- */
+    @@import url('https://fonts.cdnfonts.com/css/evil-empire');
+    @@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&family=Chakra+Petch:wght@600;700;800&display=swap');
 
     :root {
-        --bg-black: #000000;
-        --card-bg: #0a0a0a;
-        --border-color: #333333;
-        --accent-gold: #FFD700;
-        --accent-red: #FF0000;
-        --text-white: #ffffff;
-        --table-border: #444;
+        --pal-blue: #023E8A;
+        --pal-dark-blue: #001845;
+        --pal-gold: #FFB400;
+        --pal-red: #EA0000;
+        --bg-gradient-start: #f8f9fa;
+        --card-bg: rgba(255, 255, 255, 0.95);
+        --font-header: 'Evil Empire', sans-serif;
+        --font-body: 'Avenir Book', 'Avenir', 'Nunito', sans-serif;
     }
 
-    body {
-        background-color: var(--bg-black);
-        margin: 0;
-        overflow: hidden;
-        font-family: 'Rajdhani', sans-serif;
-    }
-
-    .tv-screen {
+    html, body {
         height: 100vh;
         width: 100vw;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        padding-top: 2vh;
-        color: var(--text-white);
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: var(--bg-gradient-start);
+        font-family: var(--font-body);
+    }
+
+    .scoreboard-container {
+        height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at 50% 30%, #ffffff 0%, #e0e7ff 100%);
+        position: relative;
+        padding: 4vh 8vw 10vh 8vw;
         box-sizing: border-box;
-        background: radial-gradient(circle at 50% 0%, #1a1a1a 0%, #000000 70%);
-        position: relative;
-    }
-
-    .palaro-main-logo {
-        position: absolute;
-        top: 30px;
-        left: 40px;
-        height: 14vh;
-        min-height: 120px;
-        width: auto;
-        z-index: 100;
-        filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.2));
-    }
-
-    .tournament-header {
-        text-align: center;
-        margin-bottom: 2vh;
-        z-index: 10;
-        width: 70%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
-
-    .main-event-title {
-        font-family: 'Orbitron', sans-serif;
-        color: var(--accent-gold);
-        font-size: clamp(1.5rem, 3vh, 2.5rem);
-        font-weight: 900;
-        letter-spacing: 6px;
-        margin: 0 0 5px 0;
-        text-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
-        border-bottom: 1px solid rgba(255, 215, 0, 0.3);
-        padding-bottom: 10px;
-        width: 100%;
-        text-align: center;
-    }
-
-    .sport-name {
-        font-family: 'Orbitron', sans-serif;
-        font-size: clamp(2rem, 5vh, 4rem);
-        font-weight: 800;
-        text-transform: uppercase;
-        color: white;
-        letter-spacing: 2px;
-        line-height: 1.2;
-        margin-top: 5px;
-    }
-
-    .match-details {
-        font-family: 'Chakra Petch', sans-serif;
-        font-size: clamp(1rem, 2vh, 1.4rem);
-        color: #aaa;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-        font-weight: 600;
-    }
-
-    /* --- FIX START: ADJUSTED GRID --- */
-    .scoreboard-card {
-        display: grid;
-        /*
-               UPDATED GRID COLUMNS:
-               Column 1 & 5 (Teams): minmax(15%, 1fr) ensures logo always has space.
-               Column 2 & 4 (Scores): Flexible but won't eat logo space.
-            */
-        grid-template-columns: minmax(18%, 1fr) 1.5fr auto 1.5fr minmax(18%, 1fr);
-        grid-template-rows: auto 1fr;
-        align-items: center;
-        width: 96vw;
-        flex-grow: 1;
-        max-height: 65vh;
-        position: relative;
-        background-color: var(--card-bg);
-        border: 2px solid var(--border-color);
-        border-radius: 30px;
-        padding: 0 1vw; /* Reduced padding slightly */
-        box-shadow: 0 0 60px rgba(0,0,0,0.9);
-        margin-top: 1vh;
-        overflow: hidden; /* Important: keeps content inside */
-    }
-    /* --- FIX END --- */
-
-    .team-panel {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
+    }
+
+    /* --- FOOTER --- */
+    .ticker-footer {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 7vh;
+        background: linear-gradient(to bottom, #ffffff, #f1f3f5);
+        border-top: 3px solid var(--pal-gold);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
+    }
+
+    .ticker-track {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4vw;
         width: 100%;
         height: 100%;
-        position: relative;
-        z-index: 2;
-        transition: transform 0.5s ease;
     }
 
-    .team-a {
-        grid-column: 1;
-        grid-row: 2;
+    .footer-logo {
+        height: 3vh;
+        width: auto;
+        object-fit: contain;
+        filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
     }
 
-    .team-b {
-        grid-column: 5;
-        grid-row: 2;
+    /* --- MATCH INFO --- */
+    .match-info-container {
+        text-align: center;
+        margin-bottom: 5vh;
+        padding: 40px 60px;
+        border-radius: 40px;
+        background: var(--pal-dark-blue);
+        border: 3px solid var(--pal-gold);
+        flex-shrink: 0;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
     }
 
-    .is-winner {
-        transform: scale(1.05);
-    }
-
-    .is-loser {
-        filter: grayscale(100%) opacity(0.5);
-    }
-
-    .winner-badge {
-        position: absolute;
-        top: -30px;
-        background-color: var(--accent-gold);
-        color: black;
-        font-family: 'Orbitron', sans-serif;
-        font-weight: 900;
-        font-size: 1.2rem;
-        padding: 5px 25px;
-        border-radius: 4px;
-        box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
-        z-index: 100;
+    .sport-title {
+        font-family: var(--font-header);
+        font-size: clamp(30px, 6vh, 70px);
+        font-weight: 400;
+        color: white;
+        text-transform: uppercase;
         letter-spacing: 2px;
-        animation: pop-in 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        line-height: 1;
+        text-shadow: 2px 2px 0px #000000;
+    }
+
+    .match-meta {
+        font-family: 'Chakra Petch', sans-serif;
+        font-size: clamp(14px, 2.5vh, 25px);
+        color: var(--pal-gold);
+        letter-spacing: 2px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    /* --- MATCH CARD --- */
+    .match-card {
+        display: grid;
+        grid-template-columns: 1fr 1fr 0.4fr 1fr 1fr;
+        grid-template-rows: 1fr auto;
+        grid-template-areas:
+            "teamA scoreA center scoreB teamB"
+            "history history history history history";
+        align-items: center;
+        width: 100%;
+        height: auto;
+        min-height: 55vh;
+        background: var(--card-bg);
+        border: 1px solid #d1d9e6;
+        border-top: 5px solid var(--pal-gold);
+        border-bottom: 5px solid var(--pal-blue);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        border-radius: 30px;
+        padding: 2vh 1vw;
+        position: relative;
+    }
+
+    .area-team-a {
+        grid-area: teamA;
+    }
+
+    .area-score-a {
+        grid-area: scoreA;
+    }
+
+    .area-center {
+        grid-area: center;
+    }
+
+    .area-score-b {
+        grid-area: scoreB;
+    }
+
+    .area-team-b {
+        grid-area: teamB;
+    }
+
+    .area-history {
+        grid-area: history;
+    }
+
+    .team-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .logo-circle {
+        width: clamp(90px, 16vh, 200px);
+        height: clamp(90px, 16vh, 200px);
+        background: white;
+        border-radius: 50%;
+        border: 5px solid #e0e0e0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .winner-glow {
+        border-color: var(--pal-gold);
+        box-shadow: 0 0 25px rgba(255, 180, 0, 0.4);
+    }
+
+    .team-name {
+        font-family: var(--font-header);
+        font-size: clamp(20px, 4.5vh, 50px);
+        font-weight: 400;
+        color: var(--pal-dark-blue);
+        line-height: 1.2;
+        letter-spacing: 2px;
+        margin-top: 2vh;
+        margin-bottom: 1vh;
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    @@keyframes pop-in {
-        0% {
-            transform: scale(0) translateY(20px);
-            opacity: 0;
-        }
-
-        100% {
-            transform: scale(1) translateY(0);
-            opacity: 1;
-        }
+    .team-region {
+        font-family: var(--font-body);
+        font-size: clamp(12px, 2vh, 40px);
+        color: var(--pal-blue);
+        text-transform: uppercase;
+        font-weight: 700;
     }
 
-    .logo-container {
-        height: clamp(80px, 14vh, 180px); /* Slightly adjusted for better fit */
-        width: clamp(80px, 14vh, 180px);
-        margin-bottom: 1vh;
+    .score-col {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        height: 100%;
+    }
+
+    .main-score {
+        font-family: 'Corbel', sans-serif;
+        font-size: clamp(100px, 14vw, 400px);
+        font-weight: 700;
+        color: #455a64;
+        line-height: 0.8;
+        letter-spacing: -4px;
+        z-index: 10;
         position: relative;
     }
 
-    .logo-box {
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        background: #151515;
-        border: 1px solid #333;
-        padding: 15px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    .score-winner {
+        color: var(--pal-dark-blue);
+        text-shadow: 5px 5px 0px rgba(255, 180, 0, 0.2);
     }
 
-    .is-winner .logo-box {
-        border-color: var(--accent-gold);
-        box-shadow: 0 0 30px rgba(255, 215, 0, 0.2);
-    }
-
-    .team-abbr {
-        font-family: 'Chakra Petch', sans-serif;
-        font-size: clamp(1.5rem, 3.5vw, 3rem); /* Dynamic sizing */
-        font-weight: 800;
-        margin-top: 1vh;
-        line-height: 1;
-        color: white;
-        text-align: center;
-    }
-
-    .is-winner .team-abbr {
-        color: var(--accent-gold);
-        text-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
-    }
-
-    .team-sub {
-        font-size: clamp(0.6rem, 0.9vw, 1rem);
-        color: #666;
-        letter-spacing: 2px;
-        font-weight: 600;
-        text-transform: uppercase;
-        margin-top: 5px;
-        text-align: center;
-    }
-
-    .center-info-column {
+    .center-col {
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: flex-start;
-        grid-column: 1 / -1;
-        grid-row: 1;
-        z-index: 20;
-        padding-top: 1vh;
+        justify-content: center;
+        gap: 1vh;
+        z-index: 5;
     }
 
     .status-badge {
+        padding: 5px 25px;
+        border-radius: 50px;
         font-family: 'Chakra Petch', sans-serif;
-        font-weight: 800;
-        font-size: clamp(1.2rem, 2.5vh, 2rem);
-        padding: 5px 30px;
-        background: #000;
-        border: 2px solid #333;
-        border-radius: 12px;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-        color: white;
-        margin-bottom: 1vh;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-    }
-
-    .live {
-        border-color: var(--accent-red);
-        background: linear-gradient(180deg, #1a0000 0%, #000000 100%);
-        color: var(--accent-red);
-        text-shadow: 0 0 10px rgba(255,0,0,0.4);
-    }
-
-    .live-dot {
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        background: var(--accent-red);
-        border-radius: 50%;
-        margin-right: 10px;
-        animation: blink 1.5s infinite;
-    }
-
-    .final {
-        border-color: #00ff00;
-        background: #001a00;
-        color: #00ff00;
-    }
-
-    .sets-display {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        background: rgba(255, 255, 255, 0.05);
-        padding: 5px 20px;
-        border-radius: 8px;
-        border: 1px solid #333;
-        margin-bottom: 0.5vh;
-    }
-
-    .sets-label {
-        font-size: 0.8rem;
-        color: #888;
-        letter-spacing: 2px;
         font-weight: 700;
-        margin-bottom: -5px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        font-size: clamp(14px, 2.2vh, 28px);
+        background: var(--pal-red);
+        border: 2px solid white;
+        color: white;
+        white-space: nowrap;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.2);
     }
 
     .sets-score {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 2.5rem;
-        font-weight: 900;
-        color: white;
-    }
-
-    /* Scores */
-    .score-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        z-index: 5;
-        position: relative;
-    }
-
-    .score-a {
-        grid-column: 2;
-        grid-row: 2;
-    }
-
-    .score-b {
-        grid-column: 4;
-        grid-row: 2;
-    }
-
-    /* --- FIX START: DYNAMIC FONT SIZES --- */
-    .score-text {
-        font-family: 'Orbitron', sans-serif;
-        font-weight: 900;
-        /* Standard size for 2 digits (0-99) */
-        font-size: clamp(6rem, 16vw, 30vh);
-        line-height: 1;
-        color: white;
-        text-align: center;
-        width: 100%;
-        transition: font-size 0.3s ease; /* Smooth transition when resizing */
-    }
-
-        /* New class for 3 digits (100+) */
-        .score-text.long-score {
-            /* Smaller size so it fits! */
-            font-size: clamp(4rem, 11vw, 20vh);
-        }
-        /* --- FIX END --- */
-
-        .score-text.winner-score {
-            color: var(--accent-gold);
-        }
-
-    /* ---- BASKETBALL ANIMATION ---- */
-    .basket-ball-anim {
-        position: absolute;
-        top: -50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: clamp(5rem, 15vw, 20vh);
-        z-index: 200;
-        pointer-events: none;
-        animation: shoot-ball 0.8s ease-in forwards;
-        opacity: 0;
-    }
-
-    @@keyframes shoot-ball {
-        0% {
-            top: -100px;
-            transform: translate(-50%, -50%) scale(0.5);
-            opacity: 0;
-        }
-
-        50% {
-            top: 40%;
-            transform: translate(-50%, -50%) scale(1.2);
-            opacity: 1;
-        }
-
-        70% {
-            top: 55%;
-            transform: translate(-50%, -50%) scale(0.9);
-            opacity: 1;
-        }
-
-        100% {
-            top: 150%;
-            transform: translate(-50%, -50%) scale(0.5);
-            opacity: 0;
-        }
-    }
-    /* ----------------------------- */
-
-    .vs-container {
-        grid-column: 3;
-        grid-row: 2;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 50;
-        pointer-events: none;
-        padding: 0 12px;
-    }
-
-    .vs-bg {
-        width: 60px;
-        height: 60px;
-        background: #0f0f0f;
-        border: 2px solid rgba(255, 215, 0, 0.35);
-        transform: rotate(45deg);
-        box-shadow: 0 0 26px rgba(255, 215, 0, 0.12);
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        font-family: var(--font-body);
+        font-size: clamp(35px, 6vh, 80px);
+        color: var(--pal-dark-blue);
+        font-weight: 800;
+        white-space: nowrap;
+        letter-spacing: -1px;
     }
 
     .vs-text {
-        font-family: 'Chakra Petch';
-        font-size: 1.8rem;
-        font-weight: 900;
-        color: rgba(255,255,255,0.55);
+        font-family: var(--font-subheader);
+        font-size: 3vh;
+        color: #90a4ae;
         font-style: italic;
-        transform: rotate(-45deg);
+        font-weight: 900;
     }
 
-    /* --- TABLE (HISTORY) --- */
+    /* HISTORY */
     .history-strip {
-        width: 96vw;
-        margin-top: 15px;
+        grid-area: history;
+        width: 100%;
         display: flex;
         justify-content: center;
-        z-index: 1;
+        align-items: flex-start;
+        margin-top: 2vh;
+        border-top: 1px solid rgba(0, 24, 69, 0.1);
+        padding-top: 2vh;
     }
 
-    .history-card {
-        background: #0f0f0f;
-        border: 2px solid #333;
-        border-radius: 15px;
-        padding: 5px;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.8);
-        overflow: hidden;
+    .box-score-container {
+        overflow-x: auto;
+        max-width: 100%;
+        display: flex;
+        justify-content: center;
     }
 
     .history-table {
         border-collapse: collapse;
-        width: 100%;
-        min-width: 600px;
+        text-align: center;
     }
 
         .history-table th {
-            background: #1a1a1a;
-            color: #888;
-            font-family: 'Chakra Petch';
-            font-size: 1rem;
-            padding: 10px 15px;
-            border: 1px solid var(--table-border);
+            padding: 0 1.5vw 1vh 1.5vw;
+            color: #90a4ae;
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: clamp(12px, 1.8vh, 18px);
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            border-bottom: 2px solid var(--pal-gold);
         }
 
         .history-table td {
-            font-family: 'Orbitron';
-            font-size: 1.5rem;
-            color: #eee;
-            text-align: center;
-            padding: 10px 20px;
-            border: 1px solid var(--table-border);
+            padding: 1.5vh 1.5vw 0 1.5vw;
+            color: var(--pal-dark-blue);
+            font-family: 'Nunito', sans-serif;
+            font-size: clamp(16px, 2.5vh, 28px);
+            font-weight: 800;
         }
 
-            .history-table td.team-name-cell {
-                text-align: left;
-                font-weight: 800;
-                background: #111;
-                width: 150px;
-                color: white;
-                border-right: 2px solid #555;
-            }
-
-                .history-table td.team-name-cell.winner-row {
-                    color: var(--accent-gold);
-                }
-
-            .history-table td.phase-score {
-                background: #0a0a0a;
-            }
-
-            .history-table td.active-phase {
-                background: #222;
-                color: var(--accent-gold);
-                border: 1px solid var(--accent-gold);
-            }
-
-        .history-table th.total-header {
-            background: #222;
-            color: white;
-            border-left: 2px solid #555;
-        }
-
-        .history-table td.total-cell {
-            background: #151515;
-            color: var(--accent-gold);
-            font-weight: 900;
-            font-size: 1.8rem;
-            border-left: 2px solid #555;
-        }
-
-    /* MOBILE ADJUSTMENTS */
-    @@media screen and (max-aspect-ratio: 1/1) {
-        body {
-            overflow-y: auto;
-        }
-
-        .tv-screen {
-            height: auto;
-            min-height: 100vh;
-            padding: 10px 0 50px 0;
-            background: black;
-            justify-content: flex-start;
-        }
-
-        .palaro-main-logo {
-            position: relative;
-            top: auto;
-            left: auto;
-            height: 100px;
-            margin: 0 auto 10px auto;
-        }
-
-        .tournament-header {
-            width: 95%;
-            margin-bottom: 10px;
-        }
-
-        .main-event-title {
-            font-size: 1.5rem;
-            letter-spacing: 2px;
-        }
-
-        .sport-name {
-            font-size: 2rem;
-        }
-
-        .scoreboard-card {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            grid-template-rows: auto auto auto auto;
-            gap: 10px;
-            width: 95%;
-            height: auto;
-            max-height: none;
-            padding: 10px;
-            background: transparent;
-            border: none;
-            box-shadow: none;
-            margin-top: 0;
-            overflow: visible;
-        }
-
-        .winner-badge {
-            top: -10px;
-            right: 10px;
-            left: auto;
-            font-size: 0.9rem;
-            padding: 2px 10px;
-        }
-
-        .center-info-column {
-            position: relative;
-            grid-column: 1 / -1;
-            grid-row: 1;
-            padding-top: 0;
-        }
-
-        .status-badge {
-            font-size: 1rem;
-            padding: 6px 18px;
-        }
-
-        .sets-display {
-            margin-top: 8px;
-            background: #111;
-            padding: 8px 10px;
-            width: 100%;
-        }
-
-        .sets-score {
-            font-size: 1.5rem;
-        }
-
-        .team-a, .team-b {
-            grid-column: 1;
-            width: 100%;
-            flex-direction: row;
-            justify-content: flex-start;
-            padding: 10px;
-            background: #111;
-            border: 1px solid #222;
-            border-radius: 10px;
-        }
-
-        .team-a {
-            grid-row: 2;
-        }
-
-        .team-b {
-            grid-row: 4;
-        }
-
-        .score-a, .score-b {
-            grid-column: 2;
-            width: 100%;
-            background: #000;
-            border: 1px solid #222;
-            border-radius: 10px;
-        }
-
-        .score-a {
-            grid-row: 2;
-        }
-
-        .score-b {
-            grid-row: 4;
-        }
-
-        .vs-container {
-            grid-column: 1 / -1;
-            grid-row: 3;
-            margin: -6px 0;
-            padding: 0;
-        }
-
-        .vs-bg {
-            width: 36px;
-            height: 36px;
-            background: #222;
-        }
-
-        .vs-text {
-            font-size: 1rem;
-        }
-
-        .logo-container {
-            height: 46px;
-            width: 46px;
-            margin: 0 10px 0 0;
-        }
-
-        .logo-box {
-            padding: 2px;
-            border: none;
-            background: transparent;
-        }
-
-        .team-abbr {
-            font-size: 1.8rem;
-            margin: 0;
-            text-align: left;
-        }
-
-        .team-sub {
-            display: none;
-        }
-
-        .score-text {
-            font-size: 3.5rem;
-        }
-
-            .score-text.long-score {
-                font-size: 2.8rem;
-            }
-        /* Mobile fix */
-        .basket-ball-anim {
-            font-size: 5rem;
-        }
-
-        .history-strip {
-            width: 95%;
-            overflow-x: auto;
-            display: block;
-        }
-
-        .history-card {
-            border: none;
-            background: transparent;
-            padding: 0;
-            box-shadow: none;
-        }
-
-        .history-table {
-            min-width: 400px;
-            border: 1px solid #333;
-        }
-
-            .history-table th {
-                font-size: 0.8rem;
-                padding: 5px;
-            }
-
-            .history-table td {
-                font-size: 1.2rem;
-                padding: 5px;
-            }
-
-                .history-table td.team-name-cell {
-                    width: auto;
-                    font-size: 1rem;
-                }
+    .team-head {
+        text-align: right;
+        padding-right: 2vw;
     }
 
-    @@keyframes blink {
-        0%, 100% {
+    .team-abbr {
+        text-align: right;
+        padding-right: 2vw;
+        font-weight: 700;
+        color: var(--pal-blue);
+    }
+
+    .set-win {
+        color: var(--pal-red) !important;
+    }
+
+    /* ========================================= */
+    /*          ANIMATION STYLES                 */
+    /* ========================================= */
+
+    .anim-object {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 20;
+        font-size: clamp(4rem, 10vw, 15rem);
+        opacity: 0;
+    }
+
+    /* 1. BASKETBALL (Swoosh up and in) */
+    .anim-active-basketball {
+        animation: basket-swoosh 1s ease-in-out forwards;
+    }
+
+    @@keyframes basket-swoosh {
+        0% {
+            transform: translate(-50%, 150%) scale(0.5);
+            opacity: 0;
+        }
+
+        40% {
+            transform: translate(-50%, -80%) scale(1.2);
             opacity: 1;
         }
 
+        60% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        100% {
+            transform: translate(-50%, 50%) scale(0.8);
+            opacity: 0;
+        }
+    }
+
+    /* 2. VOLLEYBALL (Spike Down) */
+    .anim-active-volleyball {
+        animation: volley-spike 0.7s ease-in forwards;
+    }
+
+    @@keyframes volley-spike {
+        0% {
+            transform: translate(-50%, -200%) scale(0.5);
+            opacity: 0;
+        }
+
+        40% {
+            transform: translate(-50%, -100%) scale(1.5);
+            opacity: 1;
+        }
+
+        60% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+        /* HIT */
+        80% {
+            transform: translate(-50%, -20%) scale(0.9);
+            opacity: 1;
+        }
+        /* Bounce Up */
+        100% {
+            transform: translate(-50%, 100%) scale(0.5);
+            opacity: 0;
+        }
+    }
+
+    /* 3. BADMINTON (Diagonal Smash) */
+    .anim-active-badminton {
+        animation: badminton-smash 0.6s linear forwards;
+    }
+
+    @@keyframes badminton-smash {
+        0% {
+            transform: translate(150%, -150%) rotate(45deg) scale(0.5);
+            opacity: 0;
+        }
+
         50% {
-            opacity: 0.3;
+            transform: translate(-50%, -50%) rotate(0deg) scale(1.3);
+            opacity: 1;
+        }
+        /* HIT */
+        100% {
+            transform: translate(-200%, 200%) rotate(-45deg) scale(0.5);
+            opacity: 0;
+        }
+    }
+
+    /* 4. TABLE TENNIS (Fast Zip/Bounce) */
+    .anim-active-tabletennis {
+        animation: pingpong-zip 0.5s cubic-bezier(0,1.27,.43,.84) forwards;
+    }
+
+    @@keyframes pingpong-zip {
+        0% {
+            transform: translate(-150%, -50%) scale(0.5);
+            opacity: 0;
+        }
+
+        50% {
+            transform: translate(0%, -50%) scale(1.2);
+            opacity: 1;
+        }
+
+        100% {
+            transform: translate(150%, -50%) scale(0.8);
+            opacity: 0;
+        }
+    }
+
+    /* 5. GENERIC POP (Flash) */
+    .anim-active-pop .main-score {
+        animation: score-pop 0.5s ease-out;
+    }
+
+    .anim-text-plus {
+        position: absolute;
+        top: 20%;
+        right: 10%;
+        font-family: 'Chakra Petch';
+        font-weight: 900;
+        color: var(--pal-gold);
+        font-size: clamp(2rem, 5vw, 4rem);
+        text-shadow: 0 0 10px rgba(0,0,0,0.5);
+        opacity: 0;
+        z-index: 25;
+    }
+
+    .anim-active-pop .anim-text-plus {
+        animation: float-up 0.8s ease-out forwards;
+    }
+
+    @@keyframes score-pop {
+        0% {
+            transform: scale(1);
+            color: var(--pal-gold);
+        }
+
+        50% {
+            transform: scale(1.2);
+        }
+
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    @@keyframes float-up {
+        0% {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+
+        50% {
+            opacity: 1;
+        }
+
+        100% {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+    }
+
+    /* RESPONSIVE */
+    @@media (max-width: 1024px) {
+        .scoreboard-container {
+            padding: 2vh 3vw 12vh 3vw;
+            height: 100vh;
+        }
+
+        .ticker-footer {
+            height: 6vh;
+        }
+
+        .footer-logo {
+            height: 2.5vh;
+        }
+
+        .match-card {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto auto auto auto;
+            grid-template-areas: "center center" "teamA teamB" "scoreA scoreB" "history history";
+            gap: 1vh 2vw;
+            padding: 2vh 3vw;
+            min-height: auto;
+            transform: scale(0.95);
+        }
+
+        .main-score {
+            font-size: 140px;
+        }
+
+        .history-strip {
+            margin-top: 1vh;
+            padding-top: 1vh;
         }
     }
 </style>
 
-<div class="tv-screen">
-    <img src="~/media/images/palaro2026.png" class="palaro-main-logo" alt="Palaro Logo" onerror="this.style.display='none'" />
+<div class="scoreboard-container">
 
     @if (_isLoading)
     {
-        <MudProgressCircular Indeterminate="true" Color="Color.Info" Size="Size.Large" Style="margin-top:40vh;" />
+        <MudProgressCircular Indeterminate="true" Style="color: #023E8A;" Size="Size.Large" />
     }
     else if (_event == null)
     {
-        <MudText Typo="Typo.h3" Color="Color.Error" Style="margin-top:40vh; font-family:'Orbitron'">NO SIGNAL</MudText>
+        <MudStack AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.TvOff" Style="color: #b0bec5; width: 10vh; height: 10vh;" />
+            <MudText Typo="Typo.h4" Style="color:#001845; font-family:'Evil Empire'">NO SIGNAL</MudText>
+        </MudStack>
     }
     else
     {
-        bool showSets = IsSetBasedSport(_event.Sport);
-
-        <div class="tournament-header">
-            <div class="main-event-title">PALARONG PAMBANSA 2026</div>
-            <div class="sport-name">@_event.Sport</div>
-            <div class="match-details">
-                @_event.Gender / @_event.Subcategory / @_event.EventStage
+        <div class="match-info-container">
+            <div class="sport-title">@_cleanSportName</div>
+            <div class="match-meta">
+                @_schoolLevel • @_event.Gender • @_event.EventStage
             </div>
         </div>
 
-        <div class="scoreboard-card">
-            <div class="center-info-column">
-                @if (IsGameFinished())
+        <div class="match-card">
+            <!-- Center -->
+            <div class="center-col area-center">
+                @if (!string.IsNullOrEmpty(_phaseText))
                 {
-                    <div class="status-badge final">FINISHED</div>
+                    <div class="status-badge">@_phaseText</div>
                 }
-                else
+                <div class="vs-text">VS</div>
+                @if (_isSetGame)
                 {
-                    <div class="status-badge live"><span class="live-dot"></span>LIVE</div>
-                }
-
-                @if (showSets)
-                {
-                    <div class="sets-display">
-                        <span class="sets-label">SETS</span>
-                        <div class="sets-score">
-                            <span style="@(IsTeamAWinner() ? "color:var(--accent-gold)" : "")">@_scoreSetsA</span>
-                            <span style="opacity:0.3; margin:0 5px;">-</span>
-                            <span style="@(IsTeamBWinner() ? "color:var(--accent-gold)" : "")">@_scoreSetsB</span>
-                        </div>
+                    <div class="sets-container">
+                        <div class="sets-score">@_setsA - @_setsB</div>
                     </div>
                 }
             </div>
 
-            <!-- TEAM A -->
-            <div class="team-panel team-a @(IsTeamAWinner() ? "is-winner" : (IsGameFinished() ? "is-loser" : ""))">
-                @if (IsGameFinished() && IsTeamAWinner())
+            <!-- Team A -->
+            <div class="team-col area-team-a">
+                <div class="logo-circle @(_isWinnerA ? "winner-glow" : "")">
+                    <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_teamA?.Region}.webp")" ObjectFit="ObjectFit.Contain" Style="width:250%; height:250%;" />
+                </div>
+                <div class="team-name">@_teamA?.Abbreviation</div>
+                <div class="team-region">@_teamA?.Region</div>
+            </div>
+
+            <!-- Score A -->
+            <div class="score-col area-score-a @(_showAnimA && string.IsNullOrEmpty(_sportIcon) ? "anim-active-pop" : "")">
+
+                @if (_showAnimA && !string.IsNullOrEmpty(_sportIcon))
                 {
-                    <div class="winner-badge">WINNER</div>
+                    <div class="anim-object @GetAnimClass(_event.Sport)">@_sportIcon</div>
                 }
-                <div class="logo-container">
-                    <div class="logo-box">
-                        <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_teamA?.Region}.webp")" ObjectFit="ObjectFit.Contain" Style="width:90%; height:90%;" />
+                else if (_showAnimA)
+                {
+                    <div class="anim-text-plus">+POINT</div>
+                }
+
+                <div class="main-score @(_isWinnerA ? "score-winner" : "")">@_displayScoreA</div>
+            </div>
+
+            <!-- Score B -->
+            <div class="score-col area-score-b @(_showAnimB && string.IsNullOrEmpty(_sportIcon) ? "anim-active-pop" : "")">
+
+                @if (_showAnimB && !string.IsNullOrEmpty(_sportIcon))
+                {
+                    <div class="anim-object @GetAnimClass(_event.Sport)">@_sportIcon</div>
+                }
+                else if (_showAnimB)
+                {
+                    <div class="anim-text-plus">+POINT</div>
+                }
+
+                <div class="main-score @(_isWinnerB ? "score-winner" : "")">@_displayScoreB</div>
+            </div>
+
+            <!-- Team B -->
+            <div class="team-col area-team-b">
+                <div class="logo-circle @(_isWinnerB ? "winner-glow" : "")">
+                    <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_teamB?.Region}.webp")" ObjectFit="ObjectFit.Contain" Style="width:250%; height:250%;" />
+                </div>
+                <div class="team-name">@_teamB?.Abbreviation</div>
+                <div class="team-region">@_teamB?.Region</div>
+            </div>
+
+            <!-- HISTORY -->
+            <div class="history-strip area-history">
+                @if (_matchHistory != null && _matchHistory.Any())
+                {
+                    <div class="box-score-container">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th class="team-head">TEAM</th>
+                                    @foreach (var set in _matchHistory)
+                                    {
+                                        <th>@GetTableColumnHeader(_event.Sport, set.PhaseNumber)</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="team-abbr">@_teamA?.Abbreviation</td>
+                                    @foreach (var set in _matchHistory)
+                                    {
+                                        <td class="@(set.ScoreA > set.ScoreB ? "set-win" : "")">@set.ScoreA</td>
+                                    }
+                                </tr>
+                                <tr>
+                                    <td class="team-abbr">@_teamB?.Abbreviation</td>
+                                    @foreach (var set in _matchHistory)
+                                    {
+                                        <td class="@(set.ScoreB > set.ScoreA ? "set-win" : "")">@set.ScoreB</td>
+                                    }
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-                <div class="team-abbr">@_teamA?.Abbreviation</div>
-                <div class="team-sub">@_teamA?.Region</div>
-            </div>
-
-            <!-- SCORE A (FIXED: Uses GetScoreCssClass) -->
-            <div class="score-container score-a">
-                @if (_showAnimA)
-                {
-                    <div class="basket-ball-anim">🏀</div>
                 }
-                <div class="@GetScoreCssClass(_displayPointsA, IsTeamAWinner())">
-                    @_displayPointsA
-                </div>
-            </div>
-
-            <!-- VS -->
-            <div class="vs-container">
-                <div class="vs-bg"><div class="vs-text">VS</div></div>
-            </div>
-
-            <!-- SCORE B (FIXED: Uses GetScoreCssClass) -->
-            <div class="score-container score-b">
-                @if (_showAnimB)
-                {
-                    <div class="basket-ball-anim">🏀</div>
-                }
-                <div class="@GetScoreCssClass(_displayPointsB, IsTeamBWinner())">
-                    @_displayPointsB
-                </div>
-            </div>
-
-            <!-- TEAM B -->
-            <div class="team-panel team-b @(IsTeamBWinner() ? "is-winner" : (IsGameFinished() ? "is-loser" : ""))">
-                @if (IsGameFinished() && IsTeamBWinner())
-                {
-                    <div class="winner-badge">WINNER</div>
-                }
-                <div class="logo-container">
-                    <div class="logo-box">
-                        <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_teamB?.Region}.webp")" ObjectFit="ObjectFit.Contain" Style="width:90%; height:90%;" />
-                    </div>
-                </div>
-                <div class="team-abbr">@_teamB?.Abbreviation</div>
-                <div class="team-sub">@_teamB?.Region</div>
             </div>
         </div>
-
-        @if (_maxPhase > 0)
-        {
-            <div class="history-strip">
-                <div class="history-card">
-                    <table class="history-table">
-                        <thead>
-                            <tr>
-                                <th style="text-align:left; border-right:2px solid #555;">TEAM</th>
-                                @for (int i = 1; i <= _maxPhase; i++)
-                                {
-                                    <th>@GetPhaseHeader(_event.Sport, i)</th>
-                                }
-                                <th class="total-header">@(IsSetBasedSport(_event.Sport) ? "SETS" : "TOTAL")</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="team-name-cell @(IsTeamAWinner() ? "winner-row" : "")">@_teamA?.Abbreviation</td>
-                                @for (int i = 1; i <= _maxPhase; i++)
-                                {
-                                    <td class="phase-score @(IsCurrentPhase(i) ? "active-phase" : "")">
-                                        @GetPhaseScore(_teamA?.Region, i)
-                                    </td>
-                                }
-                                <td class="total-cell">@(IsSetBasedSport(_event.Sport) ? _scoreSetsA : _displayPointsA)</td>
-                            </tr>
-                            <tr>
-                                <td class="team-name-cell @(IsTeamBWinner() ? "winner-row" : "")">@_teamB?.Abbreviation</td>
-                                @for (int i = 1; i <= _maxPhase; i++)
-                                {
-                                    <td class="phase-score @(IsCurrentPhase(i) ? "active-phase" : "")">
-                                        @GetPhaseScore(_teamB?.Region, i)
-                                    </td>
-                                }
-                                <td class="total-cell">@(IsSetBasedSport(_event.Sport) ? _scoreSetsB : _displayPointsB)</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        }
     }
+
+    <div class="ticker-footer">
+        <div class="ticker-track">
+            <img src="/media/images/2031.png" class="footer-logo" alt="Palaro Logo" />
+            <img src="/media/images/deped.png" class="footer-logo" alt="DepEd" />
+            <img src="/media/images/bagongpilipinas.png" class="footer-logo" alt="Bagong Pilipinas" />
+            <img src="/media/logo/Palarong Pambansa Logo.webp" onerror="this.src='/media/images/2031.png'" class="footer-logo" alt="Runner Logo" />
+            <img src="/media/images/pgas.png" class="footer-logo" alt="LGU Agusan" />
+        </div>
+    </div>
 </div>
 
 @code {
     [Parameter] public string EventID { get; set; } = "";
 
+    // MODELS
     public class EventModel
     {
         public string ID { get; set; } = "";
@@ -893,35 +704,48 @@
         public int Score { get; set; }
     }
 
+    public class PhaseScoreModel
+    {
+        public int PhaseNumber { get; set; }
+        public int ScoreA { get; set; }
+        public int ScoreB { get; set; }
+    }
+
+    // STATE
     private EventModel? _event;
     private List<ClientTeamMatchDTO> _matches = new();
     private EventVersusTeams? _teamA;
     private EventVersusTeams? _teamB;
 
-    private int _displayPointsA;
-    private int _displayPointsB;
+    private string _cleanSportName = "";
+    private string _schoolLevel = "";
+    private bool _isSetGame = false;
+    private string _phaseText = "";
 
-    // Previous Scores for Animation
-    private int _prevPointsA = -1;
-    private int _prevPointsB = -1;
-
-    // Animation Triggers
+    // Animation Tracking
+    private string _sportIcon = ""; // 🏀, 🏐, etc.
+    private int _prevScoreA = -1;
+    private int _prevScoreB = -1;
     private bool _showAnimA = false;
     private bool _showAnimB = false;
 
-    private int _scoreSetsA;
-    private int _scoreSetsB;
-    private int _maxPhase = 1;
+    private int _displayScoreA;
+    private int _displayScoreB;
+    private int _setsA;
+    private int _setsB;
+    private bool _isWinnerA;
+    private bool _isWinnerB;
+
+    private List<PhaseScoreModel> _matchHistory = new();
 
     private bool _isLoading = true;
     private bool _isRefreshing = false;
-    private bool _firstLoad = true;
     private Timer? _timer;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
-        _timer = new Timer(_ => _ = InvokeAsync(LoadDataSafe), null, 1500, 1500);
+        _timer = new Timer(_ => _ = InvokeAsync(LoadDataSafe), null, 2000, 2000);
     }
 
     private async Task LoadDataSafe()
@@ -943,19 +767,16 @@
             {
                 _teamA = _event.EventVersusList[0];
                 _teamB = _event.EventVersusList[1];
-            }
 
-            var allMatches = await apiService.GetAsync<ClientTeamMatchDTO>($"score/TeamMatch?eventId={EventID}");
-            _matches = allMatches?.ToList() ?? new();
+                _cleanSportName = GetCleanSportName(_event.Sport);
+                _schoolLevel = GetSchoolLevel(_event.Sport);
+                _isSetGame = IsSetBasedSport(_event.Sport);
+                _sportIcon = GetSportIcon(_event.Sport);
 
-            if (_matches.Any())
-            {
-                _maxPhase = _matches.Max(m => m.Phase);
+                var allMatches = await apiService.GetAsync<ClientTeamMatchDTO>($"score/TeamMatch?eventId={EventID}");
+                _matches = allMatches?.ToList() ?? new();
+
                 CalculateScores();
-            }
-            else
-            {
-                _maxPhase = 1; _displayPointsA = 0; _displayPointsB = 0; _scoreSetsA = 0; _scoreSetsB = 0;
             }
         }
         catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
@@ -963,7 +784,6 @@
         {
             _isLoading = false;
             _isRefreshing = false;
-            _firstLoad = false;
             StateHasChanged();
         }
     }
@@ -971,74 +791,75 @@
     private void CalculateScores()
     {
         if (_event == null || _teamA == null || _teamB == null) return;
-        if (IsSetBasedSport(_event.Sport))
+
+        _matchHistory.Clear();
+        _setsA = 0; _setsB = 0;
+        _isWinnerA = false; _isWinnerB = false;
+
+        int maxPhase = _matches.Any() ? _matches.Max(m => m.Phase) : 1;
+        _phaseText = GetPhaseText(_event.Sport, maxPhase);
+
+        if (_event.IsFinished == true) _phaseText = "FINAL";
+
+        // Build History
+        for (int i = 1; i <= maxPhase; i++)
         {
-            _scoreSetsA = 0; _scoreSetsB = 0;
-            for (int i = 1; i <= _maxPhase; i++)
+            var sA = GetScore(_matches, _teamA.Region, i);
+            var sB = GetScore(_matches, _teamB.Region, i);
+            if (sA > 0 || sB > 0 || i == maxPhase)
+                _matchHistory.Add(new PhaseScoreModel { PhaseNumber = i, ScoreA = sA, ScoreB = sB });
+        }
+
+        int currentScoreA = 0;
+        int currentScoreB = 0;
+
+        if (_isSetGame)
+        {
+            for (int i = 1; i <= maxPhase; i++)
             {
-                if (i < _maxPhase || _event.IsFinished == true)
+                var sA = GetScore(_matches, _teamA.Region, i);
+                var sB = GetScore(_matches, _teamB.Region, i);
+                if (i < maxPhase || _event.IsFinished == true)
                 {
-                    int sA = GetPhaseScore(_teamA.Region, i);
-                    int sB = GetPhaseScore(_teamB.Region, i);
-                    if (sA > sB) _scoreSetsA++; else if (sB > sA) _scoreSetsB++;
+                    if (sA > sB) _setsA++;
+                    else if (sB > sA) _setsB++;
                 }
             }
-            _displayPointsA = GetPhaseScore(_teamA.Region, _maxPhase);
-            _displayPointsB = GetPhaseScore(_teamB.Region, _maxPhase);
+            if (_setsA > _setsB) _isWinnerA = true;
+            if (_setsB > _setsA) _isWinnerB = true;
+
+            currentScoreA = GetScore(_matches, _teamA.Region, maxPhase);
+            currentScoreB = GetScore(_matches, _teamB.Region, maxPhase);
         }
         else
         {
-            // Total Score Calculation (Basketball etc.)
-            int currentTotalA = _matches.Where(m => m.Region == _teamA.Region).Sum(m => m.Score);
-            int currentTotalB = _matches.Where(m => m.Region == _teamB.Region).Sum(m => m.Score);
+            currentScoreA = _matches.Where(m => m.Region == _teamA.Region).Sum(m => m.Score);
+            currentScoreB = _matches.Where(m => m.Region == _teamB.Region).Sum(m => m.Score);
 
-            // ANIMATION LOGIC FOR BASKETBALL
-            if (!_firstLoad && (_event.Sport?.ToLower().Contains("basket") == true))
-            {
-                if (_prevPointsA != -1 && currentTotalA > _prevPointsA)
-                {
-                    TriggerAnimationA();
-                }
-                if (_prevPointsB != -1 && currentTotalB > _prevPointsB)
-                {
-                    TriggerAnimationB();
-                }
-            }
-
-            // Update display and memory
-            _displayPointsA = currentTotalA;
-            _displayPointsB = currentTotalB;
-            _prevPointsA = currentTotalA;
-            _prevPointsB = currentTotalB;
+            if (currentScoreA > currentScoreB) _isWinnerA = true;
+            if (currentScoreB > currentScoreA) _isWinnerB = true;
         }
+
+        // ANIMATION TRIGGERS
+        if (_prevScoreA != -1 && currentScoreA > _prevScoreA) TriggerAnimA();
+        if (_prevScoreB != -1 && currentScoreB > _prevScoreB) TriggerAnimB();
+
+        _displayScoreA = currentScoreA;
+        _displayScoreB = currentScoreB;
+        _prevScoreA = currentScoreA;
+        _prevScoreB = currentScoreB;
     }
 
-    // --- FIX START: Helper to change class based on score value ---
-    private string GetScoreCssClass(int score, bool isWinner)
-    {
-        // Default class
-        var css = "score-text";
-
-        // If score is 100 or higher (3 digits), add class to shrink font
-        if (score >= 100) css += " long-score";
-
-        // Winner styling
-        if (isWinner) css += " winner-score";
-
-        return css;
-    }
-    // --- FIX END ---
-
-    private async void TriggerAnimationA()
+    private async void TriggerAnimA()
     {
         _showAnimA = true;
         StateHasChanged();
-        await Task.Delay(1000); // Matches CSS duration
+        await Task.Delay(1000);
         _showAnimA = false;
         StateHasChanged();
     }
 
-    private async void TriggerAnimationB()
+    private async void TriggerAnimB()
     {
         _showAnimB = true;
         StateHasChanged();
@@ -1047,37 +868,46 @@
         StateHasChanged();
     }
 
+    // --- SPORT ICONS & ANIMATION CLASSES ---
+    private string GetSportIcon(string? sport)
+    {
+        var s = sport?.ToLower() ?? "";
+        if (s.Contains("basket")) return "🏀";
+        if (s.Contains("volley")) return "🏐";
+        if (s.Contains("badminton")) return "🏸";
+        if (s.Contains("table")) return "🏓";
+        if (s.Contains("soccer") || s.Contains("foot")) return "⚽";
+        if (s.Contains("sepak")) return "🧶";
+        if (s.Contains("base") || s.Contains("soft")) return "⚾";
+        return ""; // Fallback to text
+    }
+
+    private string GetAnimClass(string? sport)
+    {
+        var s = sport?.ToLower() ?? "";
+        if (s.Contains("basket")) return "anim-active-basketball";
+        if (s.Contains("volley")) return "anim-active-volleyball";
+        if (s.Contains("badminton")) return "anim-active-badminton";
+        if (s.Contains("table")) return "anim-active-tabletennis";
+        return "anim-active-pop";
+    }
+
+    // --- HELPERS ---
+    private int GetScore(List<ClientTeamMatchDTO> scores, string? region, int phase) => scores.FirstOrDefault(s => s.Region == region && s.Phase == phase)?.Score ?? 0;
+
     private bool IsSetBasedSport(string? sport)
     {
         if (string.IsNullOrEmpty(sport)) return false;
         var s = sport.ToLower();
-        return s.Contains("volley") || s.Contains("badminton") || s.Contains("tennis") || s.Contains("sepak") || s.Contains("table") || s.Contains("billiard");
+        return s.Contains("volley") || s.Contains("tennis") || s.Contains("badminton") || s.Contains("sepak") || s.Contains("table");
     }
 
-    private bool IsGameFinished() => _event?.IsFinished == true;
-
-    private bool IsTeamAWinner()
-    {
-        if (!IsGameFinished() || _event == null) return false;
-        if (IsSetBasedSport(_event.Sport)) return _scoreSetsA > _scoreSetsB;
-        return _displayPointsA > _displayPointsB;
-    }
-
-    private bool IsTeamBWinner()
-    {
-        if (!IsGameFinished() || _event == null) return false;
-        if (IsSetBasedSport(_event.Sport)) return _scoreSetsB > _scoreSetsA;
-        return _displayPointsB > _displayPointsA;
-    }
-
-    private int GetPhaseScore(string? region, int phase) => _matches.FirstOrDefault(m => m.Region == region && m.Phase == phase)?.Score ?? 0;
-
-    private string GetPhaseHeader(string? sport, int phase)
+    private string GetPhaseText(string? sport, int phase)
     {
         var s = sport?.ToLower() ?? "";
         if (s.Contains("basket"))
         {
-            if (phase <= 4) return $"Q{phase}";
+            if (phase <= 4) return $"{phase}{GetOrdinal(phase)} QTR";
             if (phase == 5) return "OT";
             return $"{phase - 4}OT";
         }
@@ -1085,7 +915,36 @@
         return $"SET {phase}";
     }
 
-    private bool IsCurrentPhase(int phase) => phase == _maxPhase && !IsGameFinished();
+    private string GetOrdinal(int num)
+    {
+        if (num == 1) return "ST";
+        if (num == 2) return "ND";
+        if (num == 3) return "RD";
+        return "TH";
+    }
+
+    private string GetTableColumnHeader(string? sport, int phase)
+    {
+        var s = sport?.ToLower() ?? "";
+        if (s.Contains("basket")) return phase <= 4 ? $"Q{phase}" : (phase == 5 ? "OT" : $"{phase - 4}OT");
+        return $"{phase}";
+    }
+
+    private string GetSchoolLevel(string? sport)
+    {
+        if (string.IsNullOrEmpty(sport)) return "SECONDARY";
+        return sport.ToUpper().Contains("ELEM") ? "ELEMENTARY" : "SECONDARY";
+    }
+
+    private string GetCleanSportName(string? sport)
+    {
+        if (string.IsNullOrEmpty(sport)) return "";
+        return sport.Replace("(Elementary)", "", StringComparison.OrdinalIgnoreCase)
+                    .Replace("(Secondary)", "", StringComparison.OrdinalIgnoreCase)
+                    .Replace("Elementary", "", StringComparison.OrdinalIgnoreCase)
+                    .Replace("Secondary", "", StringComparison.OrdinalIgnoreCase)
+                    .Trim();
+    }
 
     public void Dispose() => _timer?.Dispose();
 }
