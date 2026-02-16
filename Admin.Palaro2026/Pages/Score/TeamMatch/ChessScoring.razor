@@ -2,6 +2,7 @@
 @inject ISnackbar Snackbar
 @inject APIService apiService
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
 
 <PageTitle>Chess Scoring | PALARO 2026</PageTitle>
 <MudText Typo="Typo.h6" Align="Align.Center">Chess Match (Sets / Games)</MudText>
@@ -169,7 +170,33 @@
                     </MudPaper>
 
                     <MudDivider Class="my-2" />
-                    <MudText Typo="Typo.h6" Align="Align.Center">Match Tables</MudText>
+                    <MudGrid Class="" Style="align-items:center"
+                             Spacing="4">
+
+                        <!-- Left spacer -->
+                        <MudItem xs="4" />
+
+                        <!-- Center title -->
+                        <MudItem xs="4">
+                            <MudText Typo="Typo.h6" Align="Align.Center">
+                                Matches
+                            </MudText>
+                        </MudItem>
+
+                        <!-- Right button -->
+                        <MudItem xs="4">
+                            <MudStack Row="true" Justify="Justify.FlexEnd">
+                                <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                                               OnClick="@(() => OpenEditEventDialog(SelectedEvent?.ID))">
+                                </MudIconButton>
+                                <MudButton Color="Color.Tertiary" Variant="Variant.Filled"
+                                           StartIcon="@Icons.Material.Filled.ArrowCircleRight"
+                                           OnClick="ProceedToNextStage">
+                                    Proceed to next stage
+                                </MudButton>
+                            </MudStack>
+                        </MudItem>
+                    </MudGrid>
                     <MudDivider Class="my-2" />
 
                     <MudGrid Spacing="3" Class="my-2" Justify="Justify.Center">
@@ -442,6 +469,7 @@
         public string Name { get; set; } = "";
         public string AssignedTable { get; set; } = "Unassigned";
         public string? PlayerName { get; set; }
+        public string? PlayerID { get; set; }
         public int SetNumber { get; set; } = 1;
     }
 
@@ -540,6 +568,29 @@
             public string? Subcategory { get; set; }
             public string? Gender { get; set; }
             public string? Level { get; set; }
+        }
+
+        public class EventVersusTeams
+        {
+            public int ID { get; set; }
+            public string? EventID { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? Score { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+            public string? Rank { get; set; }
+            public DateTime? RecentUpdateAt { get; set; }
+        }
+
+        public class EventVersusTeamPlayers
+        {
+            public int ID { get; set; }
+            public int? EventVersusID { get; set; }
+            public string? ProfilePlayerID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? School { get; set; }
         }
     }
 
@@ -1062,7 +1113,6 @@
         }
     }
 
-    // ADDED: Helper method to set up regions for an event
     private async Task SetupRegionsForEvent(ChessEventDTO eventItem)
     {
         _regionPlayerMap.Clear();
@@ -1087,24 +1137,25 @@
 
         if (allEvents != null && allEvents.Any())
         {
+            // Process each event individually - NO GROUPING
             BaseRegions = allEvents
                 .Where(evt => !string.IsNullOrEmpty(evt.Abbreviation))
-                .GroupBy(evt => evt.Abbreviation)
-                .Select(group =>
+                .Select(evt =>
                 {
-                    var firstEvent = group.First();
                     var regionItem = new RegionItem
                         {
-                            Id = firstEvent.RegionID,
-                            Name = group.Key!,
+                            Id = evt.RegionID, // Keep original RegionID
+                            Name = evt.Abbreviation!,
                             AssignedTable = "Unassigned",
                             SetNumber = 1,
-                            PlayerName = firstEvent.PlayerName
+                            PlayerName = evt.PlayerName,
+                            PlayerID = evt.PlayerID // Store PlayerID here
                         };
 
-                    if (!string.IsNullOrEmpty(firstEvent.PlayerID))
+                    // Keep the map for backward compatibility
+                    if (!string.IsNullOrEmpty(evt.PlayerID))
                     {
-                        _regionPlayerMap[firstEvent.RegionID] = (firstEvent.PlayerID, firstEvent.PlayerName);
+                        _regionPlayerMap[evt.RegionID] = (evt.PlayerID, evt.PlayerName);
                     }
 
                     return regionItem;
@@ -1118,7 +1169,8 @@
                     Name = r.Name,
                     AssignedTable = "Unassigned",
                     SetNumber = 1,
-                    PlayerName = r.PlayerName
+                    PlayerName = r.PlayerName,
+                    PlayerID = r.PlayerID // Copy PlayerID to set
                 }).ToList();
             AllSets.Add(firstSet);
 
@@ -1136,7 +1188,7 @@
                 Regions = AllSets[SelectedSet - 1];
             }
 
-            Snackbar.Add($"Loaded {Regions.Count} regions for the selected event.", Severity.Success);
+            Snackbar.Add($"Loaded {Regions.Count} items for the selected event.", Severity.Success);
         }
         else
         {
@@ -1144,7 +1196,7 @@
             BaseRegions = new List<RegionItem>();
             SelectedEvent = null;
             _tableResults.Clear();
-            Snackbar.Add("No regions found for the selected event", Severity.Warning);
+            Snackbar.Add("No items found for the selected event", Severity.Warning);
         }
     }
 
@@ -1191,7 +1243,8 @@
                             Name = baseRegion.Name,
                             AssignedTable = "Unassigned",
                             SetNumber = newSetNumber,
-                            PlayerName = baseRegion.PlayerName
+                            PlayerName = baseRegion.PlayerName,
+                            PlayerID = baseRegion.PlayerID // Copy PlayerID
                         }).ToList();
                     AllSets.Add(newSet);
                 }
@@ -1218,6 +1271,12 @@
                                 {
                                     regionInSet.PlayerName = baseRegion.PlayerName;
                                 }
+                            }
+
+                            // Also update PlayerID from assignment
+                            if (!string.IsNullOrEmpty(assignment.PlayerID))
+                            {
+                                regionInSet.PlayerID = assignment.PlayerID;
                             }
 
                             if (assignment.Score.HasValue)
@@ -1268,7 +1327,8 @@
                 Name = baseRegion.Name,
                 AssignedTable = "Unassigned",
                 SetNumber = CurrentSet,
-                PlayerName = baseRegion.PlayerName
+                PlayerName = baseRegion.PlayerName,
+                PlayerID = baseRegion.PlayerID // Copy PlayerID
             }).ToList();
 
         AllSets.Add(newSet);
@@ -1291,9 +1351,16 @@
             foreach (var region in Regions)
             {
                 var baseRegion = BaseRegions.FirstOrDefault(br => br.Id == region.Id);
-                if (baseRegion != null && string.IsNullOrEmpty(region.PlayerName))
+                if (baseRegion != null)
                 {
-                    region.PlayerName = baseRegion.PlayerName;
+                    if (string.IsNullOrEmpty(region.PlayerName))
+                    {
+                        region.PlayerName = baseRegion.PlayerName;
+                    }
+                    if (string.IsNullOrEmpty(region.PlayerID))
+                    {
+                        region.PlayerID = baseRegion.PlayerID; // Copy PlayerID too
+                    }
                 }
             }
 
@@ -1328,11 +1395,8 @@
 
             if (tableNo > 0 && colorGroup != "Unassigned" && SelectedEvent != null)
             {
-                string? playerId = null;
-                if (_regionPlayerMap.ContainsKey(region.Id))
-                {
-                    playerId = _regionPlayerMap[region.Id].PlayerID;
-                }
+                // Use the PlayerID stored in the region item itself
+                var playerId = region.PlayerID;
 
                 var createDto = new CreateChessScoringDTO
                     {
@@ -1344,7 +1408,7 @@
                         TableNo = tableNo,
                         ColorGroup = colorGroup,
                         Score = 0,
-                        PlayerID = playerId
+                        PlayerID = playerId // Use the player ID from the region
                     };
 
                 var result = await apiService.PostAsync<CreateChessScoringDTO, int>("/ChessScoring", createDto);
@@ -1456,11 +1520,9 @@
             var recordId = await GetOrCreateChessScoringId(regionId, setNo, tableNo, colorGroup);
             if (recordId > 0)
             {
-                string? playerId = null;
-                if (_regionPlayerMap.ContainsKey(regionId))
-                {
-                    playerId = _regionPlayerMap[regionId].PlayerID;
-                }
+                // Get the region to find the player ID
+                var region = Regions?.FirstOrDefault(r => r.Id == regionId);
+                var playerId = region?.PlayerID;
 
                 var updateDto = new UpdateChessScoringDTO
                     {
@@ -1469,7 +1531,7 @@
                         ColorGroup = colorGroup,
                         Score = score,
                         SetNo = setNo,
-                        PlayerID = playerId
+                        PlayerID = playerId // Use the player ID from the region
                     };
                 await apiService.PutAsync($"/ChessScoring/{recordId}", updateDto);
             }
@@ -1489,11 +1551,9 @@
 
             if (record != null) return record.ID;
 
-            string? playerId = null;
-            if (_regionPlayerMap.ContainsKey(regionId))
-            {
-                playerId = _regionPlayerMap[regionId].PlayerID;
-            }
+            // Get the region to find the player ID
+            var region = Regions?.FirstOrDefault(r => r.Id == regionId);
+            var playerId = region?.PlayerID;
 
             var createDto = new CreateChessScoringDTO
                 {
@@ -1504,7 +1564,7 @@
                     TableNo = tableNo,
                     ColorGroup = colorGroup,
                     Score = 0,
-                    PlayerID = playerId
+                    PlayerID = playerId // Use the player ID from the region
                 };
 
             var newId = await apiService.PostAsync<CreateChessScoringDTO, int>("/ChessScoring", createDto);
@@ -1516,7 +1576,6 @@
             return 0;
         }
     }
-
     private (int tableNo, string colorGroup) ParseAssignedTable(string assignedTable)
     {
         if (assignedTable == "Unassigned") return (0, "Unassigned");
@@ -1628,4 +1687,259 @@
             return new List<RegionStanding>();
         }
     }
+
+    private async Task OpenEditEventDialog(string? selectedEventID)
+    {
+        var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.SelectedEventID, selectedEventID },
+            { x => x.IsEditMode, true }
+        };
+
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseOnEscapeKey = true,
+                BackdropClick = false
+            };
+
+        var dialog = await DialogService.ShowAsync<AddEditDialog>("Edit Event", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+
+        }
+    }
+
+    private async Task ProceedToNextStage()
+    {
+        try
+        {
+            // 1. Validate current event
+            if (SelectedEvent == null)
+            {
+                Snackbar.Add("No event selected. Please apply filters first.", Severity.Warning);
+                return;
+            }
+
+            // 2. Check if all matches in current set have results
+            var tablesWithPlayers = Tables.Where(table =>
+            {
+                var whiteId = $"{SelectedSet}_{table}_White";
+                var blackId = $"{SelectedSet}_{table}_Black";
+                return Regions.Any(r => r.AssignedTable == whiteId) &&
+                       Regions.Any(r => r.AssignedTable == blackId);
+            }).ToList();
+
+            var tablesWithoutResults = tablesWithPlayers.Where(table =>
+            {
+                var whiteId = $"{SelectedSet}_{table}_White";
+                var blackId = $"{SelectedSet}_{table}_Black";
+                var whiteResult = GetResultIndicator(table, "White");
+                var blackResult = GetResultIndicator(table, "Black");
+                return whiteResult == null || blackResult == null;
+            }).ToList();
+
+            if (tablesWithoutResults.Any())
+            {
+                Snackbar.Add($"Please record results for all matches before proceeding to next stage.", Severity.Warning);
+                return;
+            }
+
+            // 3. Get current stage ID and next stage ID
+            var currentStageId = await GetCurrentEventStageId();
+            if (!currentStageId.HasValue)
+            {
+                Snackbar.Add("Could not determine current event stage.", Severity.Error);
+                return;
+            }
+
+            var nextStageId = GetNextStageId(currentStageId.Value);
+            if (nextStageId == 0)
+            {
+                Snackbar.Add("No next stage available for progression.", Severity.Warning);
+                return;
+            }
+
+            // 4. Get the next stage name
+            var nextStage = _eventStages?.FirstOrDefault(s => s.ID == nextStageId);
+            if (nextStage == null)
+            {
+                Snackbar.Add($"Could not find stage with ID {nextStageId}", Severity.Error);
+                return;
+            }
+
+            // 5. Fetch ALL EventVersusTeams (not just winners)
+            var progressionTeams = new List<Dictionary<string, object>>();
+
+            // Get ALL EventVersusTeams for the current event (not filtered by rank)
+            var versusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(
+                $"/Events/VersusTeams?eventID={SelectedEvent.ID}");
+
+            if (versusTeams != null && versusTeams.Any())
+            {
+                // Get overall standings to determine ranks
+                var standings = GetOverallStandings();
+
+                foreach (var team in versusTeams)
+                {
+                    // Get players for this team
+                    var teamPlayers = await apiService.GetAsync<EventsDTO.EventVersusTeamPlayers>(
+                        $"/Events/VersusTeams/Players?eventVersusID={team.ID}");
+
+                    var selectedPlayerIds = new List<string>();
+                    var playerNames = new List<string>();
+
+                    if (teamPlayers != null && teamPlayers.Any())
+                    {
+                        foreach (var player in teamPlayers)
+                        {
+                            if (!string.IsNullOrEmpty(player.ProfilePlayerID))
+                            {
+                                selectedPlayerIds.Add(player.ProfilePlayerID);
+
+                                // Build full name
+                                var fullName = "";
+                                if (!string.IsNullOrEmpty(player.FirstName) && !string.IsNullOrEmpty(player.LastName))
+                                    fullName = $"{player.FirstName} {player.LastName}";
+                                else if (!string.IsNullOrEmpty(player.FirstName))
+                                    fullName = player.FirstName;
+                                else if (!string.IsNullOrEmpty(player.LastName))
+                                    fullName = player.LastName;
+                                else
+                                    fullName = player.ProfilePlayerID;
+
+                                playerNames.Add(fullName);
+                            }
+                        }
+                    }
+
+                    // Calculate total points for this region from standings
+                    var regionStanding = standings.FirstOrDefault(s => s.RegionId == team.SchoolRegionID);
+                    var totalPoints = regionStanding?.TotalPoints ?? 0;
+
+                    // Determine rank from standings position
+                    var rank = "";
+                    var position = standings.FindIndex(s => s.RegionId == team.SchoolRegionID) + 1;
+                    if (position > 0)
+                    {
+@*                         rank = GetRankForPosition(position); *@                    
+                    }
+
+                    // Add to progression teams (ALL teams, not just winners)
+                    var teamData = new Dictionary<string, object>
+                        {
+                            ["SelectedRegionID"] = team.SchoolRegionID,
+                            ["ExistingVersusTeamID"] = team.ID,
+                            ["Score"] = totalPoints.ToString("F1"), // Use actual points from standings
+                            ["Rank"] = rank,
+                            ["SelectedPlayerIDs"] = selectedPlayerIds,
+                            ["PlayerNames"] = playerNames,
+                            ["RegionName"] = team.Region ?? team.Abbreviation ?? "Unknown",
+@*                             ["IsWinner"] = position <= GetNumberOfQualifiersForNextStage() // Mark if they qualify *@                        
+                        };
+
+                    progressionTeams.Add(teamData);
+                }
+            }
+            else
+            {
+                Snackbar.Add("No teams found in EventVersusTeams for this event.", Severity.Warning);
+                return;
+            }
+
+            if (!progressionTeams.Any())
+            {
+                Snackbar.Add("No teams found to proceed to next stage.", Severity.Warning);
+                return;
+            }
+
+            // 6. Prepare dialog parameters for creating new event
+            var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.IsProgressionMode, true },
+            { x => x.PreviousEventID, SelectedEvent.ID },
+            { x => x.ProgressionTeams, progressionTeams }
+    @* { x => x.QualificationThreshold, GetNumberOfQualifiersForNextStage() } // Number of teams that qualify *@
+        };
+
+            // 7. Open the dialog
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true,
+                    CloseOnEscapeKey = true,
+                    BackdropClick = false
+                };
+
+            var dialog = await DialogService.ShowAsync<AddEditDialog>("Create Next Stage Event", parameters, options);
+            var result = await dialog.Result;
+
+            if (!result!.Canceled)
+            {
+                Snackbar.Add("Next stage event created successfully!", Severity.Success);
+
+                // Refresh the page with new event
+                await ApplyFilters();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error proceeding to next stage: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // Add these helper methods to your @code section:
+
+    private async Task<int?> GetCurrentEventStageId()
+    {
+        if (SelectedEvent?.ID == null) return null;
+
+        try
+        {
+            var eventUrl = $"/Events?id={SelectedEvent.ID}";
+            var events = await apiService.GetAsync<EventsDTO.EventStages>(eventUrl);
+
+            if (events != null && events.Any())
+            {
+                return events.First().ID;
+            }
+
+            // Fallback: Try to get from stage name
+            if (!string.IsNullOrEmpty(SelectedEvent.EventStage) && _eventStages != null)
+            {
+                var stage = _eventStages.FirstOrDefault(s =>
+                    s.Stage != null && s.Stage.Equals(SelectedEvent.EventStage, StringComparison.OrdinalIgnoreCase));
+                return stage?.ID;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting current event stage ID: {ex.Message}", Severity.Warning);
+        }
+
+        return null;
+    }
+
+    private int GetNextStageId(int currentStageId)
+    {
+        // Map chess tournament progression stages
+        // Common chess tournament stages: 1=Preliminary, 2=Swiss, 3=Quarter-finals, 4=Semi-finals, 5=Finals
+
+        var stageProgression = new Dictionary<int, int>
+    {
+        {1, 2},  // Preliminary -> Swiss
+        {2, 3},  // Swiss -> Quarter-finals
+        {3, 4},  // Quarter-finals -> Semi-finals
+        {4, 5},  // Semi-finals -> Finals
+        {5, 0}   // Finals -> No next stage
+    };
+
+        return stageProgression.ContainsKey(currentStageId) ? stageProgression[currentStageId] : 0;
+    }
+
 }

@@ -2,6 +2,8 @@
 @inject APIService apiService
 @inject ISnackbar Snackbar
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
+
 
 <PageTitle>Team Match Scores | PALARO 2026</PageTitle>
 <MudText Typo="Typo.h6" Align="Align.Center">Team Match Scores</MudText>
@@ -130,9 +132,34 @@
 
 <!-- MATCH CARDS -->
 <MudItem xs="12">
-    <MudDivider Class="my-2" />
-    <MudText Typo="Typo.h6" Align="Align.Center" GutterBottom="true" Class="mt-4">Team Match Results</MudText>
-    <MudDivider Class="my-2" />
+     <MudDivider Class="my-2" />
+        <MudGrid Class="" Style="align-items:center"
+                 Spacing="4">
+
+            <!-- Left spacer -->
+            <MudItem xs="4" />
+
+            <!-- Center title -->
+            <MudItem xs="4">
+                <MudText Typo="Typo.h6" Align="Align.Center">
+                    Team Matches
+                </MudText>
+            </MudItem>
+
+            <!-- Right button -->
+            <MudItem xs="4">
+                <MudStack Row="true" Justify="Justify.FlexEnd">
+                    <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                                   OnClick="@(() => OpenEditEventDialog(SelectedEvent?.ID))">
+                    </MudIconButton>
+                    <MudButton Color="Color.Tertiary" Variant="Variant.Filled"
+                               StartIcon="@Icons.Material.Filled.ArrowCircleRight">
+                        Proceed to next stage
+                    </MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+        <MudDivider Class="my-2" />
 
     @if (_combinedMatches.Any())
     {
@@ -791,6 +818,14 @@
     {
         try
         {
+            // If we have an eventId from query parameters (coming from Events page),
+            // use that specific event instead of filtering
+            if (!string.IsNullOrEmpty(_selectedEventId))
+            {
+                await CheckAndGenerateMatchesForEvent(_selectedEventId);
+                return;
+            }
+
             var queryParams = new List<string>();
 
             if (_selectedSportSubcategoryIDValue.HasValue)
@@ -823,21 +858,13 @@
 
             if (events != null && events.Any())
             {
+                // When filtering manually, show all matching events
+                // But don't auto-generate matches for all of them
                 SelectedEvent = events.First();
                 _eventId = SelectedEvent.ID;
 
-                var existingMatches = await apiService.GetAsync<TeamMatchDTO>($"score/TeamMatch?eventId={_eventId}");
-
-                if (existingMatches == null || !existingMatches.Any(m => m.Phase == 1))
-                {
-                    await GeneratePhaseForEvent(_eventId);
-                    Snackbar.Add($"Found event. Generated Phase 1 matches for {SelectedEvent.Subcategory}", Severity.Success);
-                }
-                else
-                {
-                    await LoadMatches();
-                    Snackbar.Add($"Found event. Loaded existing matches for {SelectedEvent.Subcategory}", Severity.Success);
-                }
+                await LoadMatches();
+                Snackbar.Add($"Found {events.Count()} events with selected filters", Severity.Info);
             }
             else
             {
@@ -895,25 +922,38 @@
 
                 if (eventDetail != null)
                 {
-                    // Auto-fill sport based on event
+                    // Store the event details in SelectedEvent
+                    SelectedEvent = new TeamEventDTO
+                        {
+                            ID = eventDetail.ID,
+                            Sport = eventDetail.Sport,
+                            Subcategory = eventDetail.Subcategory,
+                            Gender = eventDetail.Gender,
+                            Level = eventDetail.Level,
+                            EventStage = eventDetail.EventStage
+                        };
+
+                    _eventId = eventDetail.ID;
+
+                    // Auto-fill sport based on event (for display purposes only)
                     _selectedSportIDValue = GetSportIdFromName(eventDetail.Sport);
 
-                    // Auto-fill school level and gender
+                    // Auto-fill school level and gender (for display purposes only)
                     if (!string.IsNullOrEmpty(eventDetail.Level) && !string.IsNullOrEmpty(eventDetail.Gender))
                     {
                         _selectedSchoolLevelAndGenderID = $"{eventDetail.Level} - {eventDetail.Gender}";
 
-                        // Load subcategories for this combination
+                        // Load subcategories for this combination (for display purposes only)
                         await GetSportSubCategoriesSLGAsync();
                         LoadMainCategories();
 
-                        // Auto-fill main category
+                        // Auto-fill main category (for display purposes only)
                         if (!string.IsNullOrEmpty(eventDetail.SportMainCat))
                         {
                             _selectedMainCategoryValue = eventDetail.SportMainCat;
                         }
 
-                        // Auto-fill subcategory
+                        // Auto-fill subcategory (for display purposes only)
                         if (!string.IsNullOrEmpty(eventDetail.Subcategory) && _sportSubcategories != null)
                         {
                             var subcat = _sportSubcategories.FirstOrDefault(s =>
@@ -927,19 +967,9 @@
                             {
                                 _selectedSportSubcategoryIDValue = subcat.ID;
                             }
-                            else
-                            {
-                                // Try to find by main category
-                                subcat = _sportSubcategories.FirstOrDefault(s =>
-                                    s.MainCategory == eventDetail.SportMainCat);
-                                if (subcat != null)
-                                {
-                                    _selectedSportSubcategoryIDValue = subcat.ID;
-                                }
-                            }
                         }
 
-                        // Auto-fill stage
+                        // Auto-fill stage (for display purposes only)
                         if (!string.IsNullOrEmpty(eventDetail.EventStage) && _eventStages != null)
                         {
                             var stage = _eventStages.FirstOrDefault(e =>
@@ -949,23 +979,13 @@
                                 _selectedEventStagesIDValue = stage.ID;
                             }
                         }
-
-                        // Apply filters automatically
-                        await ApplyFilters();
-
-                        // Start auto-save timer
-                        _autoSaveTimer = new Timer(async _ => await ProcessAutoSaveQueue(), null, _autoSaveDelay, _autoSaveDelay);
                     }
-                    else
-                    {
-                        Snackbar.Add("Event details are incomplete", Severity.Warning);
-                        await FilterSchoolLevelAndGenderAsync();
-                    }
-                }
-                else
-                {
-                    Snackbar.Add("Event not found in the list", Severity.Error);
-                    await FilterSchoolLevelAndGenderAsync();
+
+                    // DIRECTLY CHECK AND GENERATE MATCHES FOR THIS SPECIFIC EVENT ID
+                    await CheckAndGenerateMatchesForEvent(_eventId);
+
+                    // Start auto-save timer
+                    _autoSaveTimer = new Timer(async _ => await ProcessAutoSaveQueue(), null, _autoSaveDelay, _autoSaveDelay);
                 }
             }
             else
@@ -982,6 +1002,33 @@
         }
     }
 
+    private async Task CheckAndGenerateMatchesForEvent(string eventId)
+    {
+        try
+        {
+            // Check if matches already exist for this specific event
+            var existingMatches = await apiService.GetAsync<TeamMatchDTO>($"score/TeamMatch?eventId={eventId}");
+
+            if (existingMatches == null || !existingMatches.Any(m => m.Phase == 1))
+            {
+                // No matches exist, generate Phase 1
+                await GeneratePhaseForEvent(eventId);
+                Snackbar.Add($"Generated Phase 1 matches for event {eventId}", Severity.Success);
+            }
+            else
+            {
+                // Load existing matches
+                await LoadMatches();
+                Snackbar.Add($"Loaded existing matches for event {eventId}", Severity.Success);
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error checking/generating matches for event {eventId}: {ex.Message}", Severity.Error);
+        }
+    }
     private int? GetSportIdFromName(string? sportName)
     {
         if (string.IsNullOrEmpty(sportName)) return null;
@@ -1310,7 +1357,9 @@
 
             SetEditingPhase(eventId, nextPhase);
 
-            Snackbar.Add($"Generated {GetSportConfig(SelectedEvent?.Sport ?? "").PhaseLabel.ToLower()} {nextPhase} matches successfully.", Severity.Success);
+            // Get event name for better feedback
+            var eventName = SelectedEvent?.Subcategory ?? "event";
+            Snackbar.Add($"Generated {GetSportConfig(SelectedEvent?.Sport ?? "").PhaseLabel.ToLower()} {nextPhase} for {eventName} (Event ID: {eventId})", Severity.Success);
         }
         catch (Exception ex)
         {
@@ -1367,6 +1416,32 @@
         {
             _isLoading = false;
             StateHasChanged();
+        }
+    }
+
+    private async Task OpenEditEventDialog(string? selectedEventID)
+    {
+        var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.SelectedEventID, selectedEventID },
+            { x => x.IsEditMode, true }
+        };
+
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseOnEscapeKey = true,
+                BackdropClick = false
+            };
+
+        var dialog = await DialogService.ShowAsync<AddEditDialog>("Edit Event", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            // await LoadExistingBilliardsAssignments();
         }
     }
 }

@@ -2,6 +2,8 @@
 @inject ISnackbar Snackbar
 @inject APIService apiService
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
+
 
 <PageTitle>Time-Based and Distance-Based Scoring | PALARO 2026</PageTitle>
 <MudText Typo="Typo.h6" Align="Align.Center">Athletics & Swimming Scoring</MudText>
@@ -134,19 +136,6 @@ else
                       ItemDropped="OnItemDropped">
 
         <ChildContent>
-            <!-- Unassigned Regions -->
-            <MudPaper Class="pa-2 mb-4"
-                      Elevation="3"
-                      Style="position:sticky; top:0; z-index:1000; background-color:white;">
-                <MudText Typo="Typo.subtitle1" Align="Align.Center">
-                    Regions (@Regions.Count total)
-                </MudText>
-                <MudDropZone T="RegionItem"
-                             Identifier="Unassigned"
-                             Class="d-flex flex-wrap justify-center pa-2"
-                             Style="min-height:100px; gap:6px; border:1px dashed gray;" />
-            </MudPaper>
-
             <!-- Heat Management -->
             <MudGrid Class="my-2" Justify="Justify.Center" Spacing="4">
                 <MudItem xs="12" sm="3">
@@ -161,8 +150,50 @@ else
                     </MudButton>
                 </MudItem>
             </MudGrid>
+            <!-- Unassigned Regions -->
+            <MudPaper Class="pa-2 mb-4"
+                      Elevation="3"
+                      Style="position:sticky; top:0; z-index:1000; background-color:white;">
+                <MudText Typo="Typo.subtitle1" Align="Align.Center">
+                    Regions (@Regions.Count total)
+                </MudText>
+                <MudDropZone T="RegionItem"
+                             Identifier="Unassigned"
+                             Class="d-flex flex-wrap justify-center pa-2"
+                             Style="min-height:100px; gap:6px; border:1px dashed gray;" />
+            </MudPaper>
 
-            <MudText Typo="Typo.h6" Align="Align.Center">For Time and Distance Based Scoring</MudText>
+            
+            <MudDivider Class="my-2" />
+            <MudGrid Class="" Style="align-items:center"
+                     Spacing="4">
+
+                <!-- Left spacer -->
+                <MudItem sm="4" />
+
+                <!-- Center title -->
+                <MudItem sm="4">
+                    <MudText Typo="Typo.h6" Align="Align.Center">
+                        Matches
+                    </MudText>
+                </MudItem>
+
+                <!-- Right button -->
+                <MudItem sm="4">
+                    <MudStack Row="true" Justify="Justify.FlexEnd">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                                       OnClick="@(() => OpenEditEventDialog(SelectedEvent?.ID))">
+                        </MudIconButton>
+                        <MudButton Color="Color.Tertiary" Variant="Variant.Filled"
+                                   StartIcon="@Icons.Material.Filled.ArrowCircleRight"
+                                   OnClick="ProceedToNextStage">
+                            Proceed to next stage
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+            <MudDivider Class="my-2" />
+
 
             <!-- Heats Display -->
             <MudGrid Spacing="3" Class="mt-2" Justify="Justify.Center">
@@ -171,7 +202,7 @@ else
                     bool isLastHeat = heat == Heats.Last();
                     bool isHeatSaved = SavedHeats.Contains(heat);
 
-                    <MudItem xs="12" sm="6" md="4">
+                    <MudItem sm="12" md="6">
                         <MudPaper Elevation="2" Class="pa-3" Style="position:relative;">
 
                             @if (isLastHeat && Heats.Count > 1 && !isHeatSaved)
@@ -351,6 +382,21 @@ else
             }
         </ChildContent>
 
+        @* <ItemRenderer Context="item">
+            @{
+                var isItemSaved = IsRegionInSavedHeat(item);
+                var displayText = !string.IsNullOrEmpty(item.PlayerName)
+                ? $"{item.Name} - {item.PlayerName}"
+                : item.Name;
+            }
+            <MudChip T="string" Color="@(isItemSaved ? Color.Secondary : Color.Primary)"
+                     Variant="Variant.Filled"
+                     Class="ma-1"
+                     OnClick="() => { }"
+                     Style="@(isItemSaved ? "cursor: not-allowed; opacity: 0.7;" : "cursor: move;")">
+                @displayText
+            </MudChip>
+        </ItemRenderer> *@
         <ItemRenderer Context="item">
             @{
                 var isItemSaved = IsRegionInSavedHeat(item);
@@ -444,6 +490,7 @@ else
         public string Name { get; set; } = "";
         public string AssignedTable { get; set; } = "Unassigned";
         public string? PlayerName { get; set; }
+        public string? PlayerID { get; set; }
     }
 
     public class EventInfo
@@ -489,6 +536,29 @@ else
                 public string? Subcategory { get; set; }
                 public string? EventStage { get; set; }
             }
+        }
+
+        public class EventVersusTeams
+        {
+            public int ID { get; set; }
+            public string? EventID { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? Score { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+            public string? Rank { get; set; }
+            public DateTime? RecentUpdateAt { get; set; }
+        }
+
+        public class EventVersusTeamPlayers
+        {
+            public int ID { get; set; }
+            public int? EventVersusID { get; set; }
+            public string? ProfilePlayerID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? School { get; set; }
         }
     }
 
@@ -712,45 +782,122 @@ else
                 var uniqueRegions = new List<RegionItem>();
                 _regionPlayerMap.Clear();
 
-                foreach (var evt in events)
-                {
-                    if (!string.IsNullOrEmpty(evt.Abbreviation) && evt.RegionID.HasValue)
-                    {
-                        var matchingRegion = _allRegions?.FirstOrDefault(r =>
-                            r.ID == evt.RegionID.Value ||
-                            r.Abbreviation == evt.Abbreviation);
+                // Get the current subcategory name
+                var currentSubcategory = _sportSubcategories?.FirstOrDefault(s => s.ID == _selectedSportSubcategoryIDValue.Value)?.Subcategory;
+                bool isRelayEvent = !string.IsNullOrEmpty(currentSubcategory) &&
+                                   currentSubcategory.ToLower().Contains("relay");
 
-                        if (matchingRegion != null && !uniqueRegions.Any(r => r.Id == matchingRegion.ID))
+                if (isRelayEvent)
+                {
+                    // FOR RELAY EVENTS: Group by region only
+                    var regionGroups = events
+                        .Where(evt => !string.IsNullOrEmpty(evt.Abbreviation) && evt.RegionID.HasValue)
+                        .GroupBy(evt => evt.Abbreviation)
+                        .ToList();
+
+                    foreach (var regionGroup in regionGroups)
+                    {
+                        var firstEvent = regionGroup.First();
+                        var matchingRegion = _allRegions?.FirstOrDefault(r =>
+                            r.Abbreviation == regionGroup.Key);
+
+                        if (matchingRegion != null)
                         {
+                            // Combine all player names from this region
+                            var playerNames = regionGroup
+                                .Where(e => !string.IsNullOrEmpty(e.PlayerName))
+                                .Select(e => e.PlayerName)
+                                .Distinct()
+                                .ToList();
+
+                            var combinedPlayerName = playerNames.Any()
+                                ? string.Join(" / ", playerNames)
+                                : null;
+
                             var regionItem = new RegionItem
                                 {
                                     Id = matchingRegion.ID,
                                     Name = matchingRegion.Abbreviation ?? matchingRegion.Region ?? "Unknown",
-                                    AssignedTable = "Unassigned"
+                                    AssignedTable = "Unassigned",
+                                    PlayerName = combinedPlayerName,
+                                    PlayerID = null // Relay events have no specific player
                                 };
 
-                            if (!string.IsNullOrEmpty(evt.PlayerID) && !string.IsNullOrEmpty(evt.PlayerName))
+                            // Combine all player IDs from this region
+                            var playerIDs = regionGroup
+                                .Where(e => !string.IsNullOrEmpty(e.PlayerID))
+                                .Select(e => e.PlayerID)
+                                .Distinct()
+                                .ToList();
+
+                            if (playerIDs.Any())
                             {
-                                _regionPlayerMap[matchingRegion.ID] = (evt.PlayerID, evt.PlayerName);
-                                regionItem.PlayerName = evt.PlayerName;
+                                _regionPlayerMap[matchingRegion.ID] = (string.Join(",", playerIDs), combinedPlayerName);
                             }
 
                             uniqueRegions.Add(regionItem);
                         }
                     }
                 }
+                else
+                {
+                    // FOR INDIVIDUAL EVENTS: Create separate entries for each player
+                    foreach (var evt in events)
+                    {
+                        if (!string.IsNullOrEmpty(evt.Abbreviation) && evt.RegionID.HasValue)
+                        {
+                            var matchingRegion = _allRegions?.FirstOrDefault(r =>
+                                r.ID == evt.RegionID.Value ||
+                                r.Abbreviation == evt.Abbreviation);
 
+                            if (matchingRegion != null)
+                            {
+                                var regionItem = new RegionItem
+                                    {
+                                        Id = matchingRegion.ID, // RegionID
+                                        Name = matchingRegion.Abbreviation ?? matchingRegion.Region ?? "Unknown",
+                                        AssignedTable = "Unassigned",
+                                        PlayerName = evt.PlayerName,
+                                        PlayerID = evt.PlayerID // Store PlayerID
+                                    };
+
+                                if (!string.IsNullOrEmpty(evt.PlayerID))
+                                {
+                                    _regionPlayerMap[matchingRegion.ID] = (evt.PlayerID, evt.PlayerName);
+                                }
+
+                                uniqueRegions.Add(regionItem);
+                            }
+                        }
+                    }
+                }
+
+                // SET THE NEW REGIONS (this clears old data)
                 Regions = uniqueRegions;
                 SelectedEvent = events.First();
 
+                // Also clear heats and start fresh
+                Heats.Clear();
+                HeatLanes.Clear();
+                LaneResults.Clear();
+                SavedHeats.Clear();
+
+                // Now load saved data for this event
                 await LoadSavedScoringData();
 
-                Snackbar.Add($"Found {events.Count} events with {Regions.Count} regions", Severity.Success);
+                Snackbar.Add($"Found {events.Count} entries with {Regions.Count} participants", Severity.Success);
             }
             else
             {
+                // Clear everything if no events found
                 Regions = new List<RegionItem>();
                 SelectedEvent = null;
+                Heats.Clear();
+                HeatLanes.Clear();
+                LaneResults.Clear();
+                SavedHeats.Clear();
+                InitializeDefaultHeat();
+
                 Snackbar.Add("No events found with the selected filters", Severity.Warning);
             }
 
@@ -760,6 +907,11 @@ else
         {
             Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
             Regions = new List<RegionItem>();
+            Heats.Clear();
+            HeatLanes.Clear();
+            LaneResults.Clear();
+            SavedHeats.Clear();
+            InitializeDefaultHeat();
         }
     }
 
@@ -1027,24 +1179,89 @@ else
     private bool SelectItemsForZone(RegionItem item, string dropzone)
         => item.AssignedTable == dropzone;
 
+    // private async Task OnItemDropped(MudItemDropInfo<RegionItem> info)
+    // {
+    //     if (IsDropzoneInSavedHeat(info.DropzoneIdentifier))
+    //     {
+    //         Snackbar.Add("Cannot move regions to saved heats", Severity.Warning);
+    //         return;
+    //     }
+
+    //     if (IsRegionInSavedHeat(info.Item))
+    //     {
+    //         Snackbar.Add("Cannot move regions from saved heats", Severity.Warning);
+    //         return;
+    //     }
+
+    //     info.Item.AssignedTable = info.DropzoneIdentifier;
+    //     Snackbar.Add($"{info.Item.Name} moved to {info.Item.AssignedTable}", Severity.Success);
+    //     StateHasChanged();
+    // }
     private async Task OnItemDropped(MudItemDropInfo<RegionItem> info)
     {
-        if (IsDropzoneInSavedHeat(info.DropzoneIdentifier))
-        {
-            Snackbar.Add("Cannot move regions to saved heats", Severity.Warning);
-            return;
-        }
-
-        if (IsRegionInSavedHeat(info.Item))
-        {
-            Snackbar.Add("Cannot move regions from saved heats", Severity.Warning);
-            return;
-        }
-
+        // ALWAYS allow dropping - remove the saved heat checks
         info.Item.AssignedTable = info.DropzoneIdentifier;
-        Snackbar.Add($"{info.Item.Name} moved to {info.Item.AssignedTable}", Severity.Success);
+
+        // Only show success message if not dropping to Unassigned
+        if (info.DropzoneIdentifier != "Unassigned")
+        {
+            Snackbar.Add($"{info.Item.Name} moved to {info.Item.AssignedTable}", Severity.Success);
+        }
         StateHasChanged();
     }
+
+    // private async Task SaveHeatData(string heatName)
+    // {
+    //     if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
+    //     {
+    //         Snackbar.Add("No event selected. Please apply filters first.", Severity.Warning);
+    //         return;
+    //     }
+
+    //     _isSaving = true;
+    //     _currentSavingHeat = heatName;
+    //     StateHasChanged();
+
+    //     try
+    //     {
+    //         var existingData = await LoadExistingScoringData();
+
+    //         existingData.Heats = existingData.Heats
+    //             .Where(h => h.HeatName != heatName)
+    //             .ToList();
+
+    //         existingData.Assignments = existingData.Assignments
+    //             .Where(a => !a.AssignedTable.StartsWith(heatName + "-"))
+    //             .ToList();
+
+    //         var newHeatData = BuildHeatData(heatName);
+    //         existingData.Heats.AddRange(newHeatData);
+    //         existingData.Assignments.AddRange(BuildAssignmentsForHeat(heatName));
+
+    //         var saveRequest = new
+    //         {
+    //             EventID = SelectedEvent.ID,
+    //             Heats = existingData.Heats,
+    //             Assignments = existingData.Assignments
+    //         };
+
+    //         await apiService.PostAsync("TimeDistanceEvents/Sports/AthleticsSwimming", saveRequest);
+
+    //         SavedHeats.Add(heatName);
+    //         _hasLoadedSavedData = true;
+    //         Snackbar.Add($"{heatName} data saved successfully!", Severity.Success);
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error saving {heatName} data: {ex.Message}", Severity.Error);
+    //     }
+    //     finally
+    //     {
+    //         _isSaving = false;
+    //         _currentSavingHeat = null;
+    //         StateHasChanged();
+    //     }
+    // }
 
     private async Task SaveHeatData(string heatName)
     {
@@ -1062,6 +1279,7 @@ else
         {
             var existingData = await LoadExistingScoringData();
 
+            // Remove existing data for this heat
             existingData.Heats = existingData.Heats
                 .Where(h => h.HeatName != heatName)
                 .ToList();
@@ -1084,7 +1302,6 @@ else
             await apiService.PostAsync("TimeDistanceEvents/Sports/AthleticsSwimming", saveRequest);
 
             SavedHeats.Add(heatName);
-            _hasLoadedSavedData = true;
             Snackbar.Add($"{heatName} data saved successfully!", Severity.Success);
         }
         catch (Exception ex)
@@ -1110,23 +1327,14 @@ else
             var laneKey = $"{heatName}-{lane}";
             var regionInLane = Regions?.FirstOrDefault(r => r.AssignedTable == laneKey);
 
-            string? playerId = null;
-            string? playerName = null;
-
-            if (regionInLane != null && _regionPlayerMap.ContainsKey(regionInLane.Id))
-            {
-                playerId = _regionPlayerMap[regionInLane.Id].PlayerID;
-                playerName = _regionPlayerMap[regionInLane.Id].PlayerName;
-            }
-
             laneData.Add(new SavedLane
                 {
                     LaneName = lane,
                     LaneOrder = laneOrder++,
                     Result = LaneResults.ContainsKey(laneKey) ? LaneResults[laneKey] : null,
                     RegionID = regionInLane?.Id,
-                    PlayerID = playerId,
-                    PlayerName = playerName,
+                    PlayerID = regionInLane?.PlayerID, // Directly use PlayerID from RegionItem
+                    PlayerName = regionInLane?.PlayerName,
                     RegionAbbreviation = regionInLane?.Name
                 });
         }
@@ -1142,6 +1350,51 @@ else
     };
     }
 
+    // private List<SavedAssignment> BuildAssignmentsForHeat(string heatName)
+    // {
+    //     var assignments = new List<SavedAssignment>();
+    //     var lanes = GetLanesForHeat(heatName);
+
+    //     if (Regions != null)
+    //     {
+    //         foreach (var lane in lanes)
+    //         {
+    //             var laneKey = $"{heatName}-{lane}";
+    //             var regionInLane = Regions.FirstOrDefault(r => r.AssignedTable == laneKey);
+
+    //             if (regionInLane != null)
+    //             {
+    //                 string? playerId = null;
+    //                 if (_regionPlayerMap.ContainsKey(regionInLane.Id))
+    //                 {
+    //                     playerId = _regionPlayerMap[regionInLane.Id].PlayerID;
+
+    //                     // Check if this is a relay event
+    //                     var currentSubcategory = _sportSubcategories?.FirstOrDefault(s => s.ID == _selectedSportSubcategoryIDValue.Value)?.Subcategory;
+    //                     bool isRelayEvent = !string.IsNullOrEmpty(currentSubcategory) &&
+    //                                        currentSubcategory.ToLower().Contains("relay");
+
+    //                     // For relay events, set PlayerID to null
+    //                     if (isRelayEvent)
+    //                     {
+    //                         playerId = null;
+    //                     }
+    //                 }
+
+    //                 assignments.Add(new SavedAssignment
+    //                     {
+    //                         RegionID = regionInLane.Id,
+    //                         PlayerID = playerId, // Will be null for relay events
+    //                         RegionAbbreviation = regionInLane.Name,
+    //                         AssignedTable = regionInLane.AssignedTable
+    //                     });
+    //             }
+    //         }
+    //     }
+
+    //     return assignments;
+    // }
+
     private List<SavedAssignment> BuildAssignmentsForHeat(string heatName)
     {
         var assignments = new List<SavedAssignment>();
@@ -1156,16 +1409,10 @@ else
 
                 if (regionInLane != null)
                 {
-                    string? playerId = null;
-                    if (_regionPlayerMap.ContainsKey(regionInLane.Id))
-                    {
-                        playerId = _regionPlayerMap[regionInLane.Id].PlayerID;
-                    }
-
                     assignments.Add(new SavedAssignment
                         {
                             RegionID = regionInLane.Id,
-                            PlayerID = playerId,
+                            PlayerID = regionInLane.PlayerID, // Use PlayerID directly
                             RegionAbbreviation = regionInLane.Name,
                             AssignedTable = regionInLane.AssignedTable
                         });
@@ -1193,6 +1440,20 @@ else
         }
     }
 
+    // private bool IsRegionInSavedHeat(RegionItem region)
+    // {
+    //     if (string.IsNullOrEmpty(region.AssignedTable) || region.AssignedTable == "Unassigned")
+    //         return false;
+
+    //     var parts = region.AssignedTable.Split('-');
+    //     if (parts.Length >= 1)
+    //     {
+    //         var heatName = parts[0].Trim();
+    //         return SavedHeats.Contains(heatName);
+    //     }
+
+    //     return false;
+    // }
     private bool IsRegionInSavedHeat(RegionItem region)
     {
         if (string.IsNullOrEmpty(region.AssignedTable) || region.AssignedTable == "Unassigned")
@@ -1202,7 +1463,15 @@ else
         if (parts.Length >= 1)
         {
             var heatName = parts[0].Trim();
-            return SavedHeats.Contains(heatName);
+            // Check if ANY region with same RegionID is in a saved heat
+            // This is needed because multiple players share the same RegionID
+            var anyRegionInSavedHeat = Regions?.Any(r =>
+                r.Id == region.Id &&
+                !string.IsNullOrEmpty(r.AssignedTable) &&
+                r.AssignedTable != "Unassigned" &&
+                r.AssignedTable.StartsWith(heatName + "-")) == true;
+
+            return anyRegionInSavedHeat && SavedHeats.Contains(heatName);
         }
 
         return false;
@@ -1210,15 +1479,15 @@ else
 
     private bool IsDropzoneInSavedHeat(string dropzoneIdentifier)
     {
-        if (string.IsNullOrEmpty(dropzoneIdentifier) || dropzoneIdentifier == "Unassigned")
-            return false;
+        // if (string.IsNullOrEmpty(dropzoneIdentifier) || dropzoneIdentifier == "Unassigned")
+        //     return false;
 
-        var parts = dropzoneIdentifier.Split('-');
-        if (parts.Length >= 1)
-        {
-            var heatName = parts[0].Trim();
-            return SavedHeats.Contains(heatName);
-        }
+        // var parts = dropzoneIdentifier.Split('-');
+        // if (parts.Length >= 1)
+        // {
+        //     var heatName = parts[0].Trim();
+        //     return SavedHeats.Contains(heatName);
+        // }
 
         return false;
     }
@@ -1226,13 +1495,119 @@ else
     private string GetDropZoneStyle(bool isLaneSaved)
     {
         var baseStyle = "min-height:50px; border:1px dashed gray; border-radius:6px;";
-        if (isLaneSaved)
-        {
-            return baseStyle + " background-color: #f5f5f5; cursor: not-allowed;";
-        }
+        // if (isLaneSaved)
+        // {
+        //     return baseStyle + " background-color: #f5f5f5; cursor: not-allowed;";
+        // }
         return baseStyle;
     }
 
+    // private async Task LoadSavedScoringData()
+    // {
+    //     if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
+    //         return;
+
+    //     try
+    //     {
+    //         var savedData = await apiService.GetSingleAsync<SavedScoringData>($"TimeDistanceEvents/Sports/AthleticsSwimming/{SelectedEvent.ID}");
+
+    //         if (savedData != null && (savedData.Heats.Any() || savedData.Assignments.Any()))
+    //         {
+    //             Heats.Clear();
+    //             HeatLanes.Clear();
+    //             LaneResults.Clear();
+    //             SavedHeats.Clear();
+
+    //             if (Regions != null)
+    //             {
+    //                 foreach (var region in Regions)
+    //                 {
+    //                     region.AssignedTable = "Unassigned";
+    //                 }
+    //             }
+
+    //             foreach (var savedHeat in savedData.Heats.OrderBy(h => h.HeatOrder))
+    //             {
+    //                 if (!string.IsNullOrEmpty(savedHeat.HeatName))
+    //                 {
+    //                     Heats.Add(savedHeat.HeatName);
+    //                     var lanes = new List<string>();
+
+    //                     foreach (var savedLane in savedHeat.Lanes.OrderBy(l => l.LaneOrder))
+    //                     {
+    //                         if (!string.IsNullOrEmpty(savedLane.LaneName))
+    //                         {
+    //                             lanes.Add(savedLane.LaneName);
+
+    //                             var laneKey = $"{savedHeat.HeatName}-{savedLane.LaneName}";
+
+    //                             LaneResults[laneKey] = savedLane.Result ?? "";
+
+    //                             if (savedLane.RegionID.HasValue)
+    //                             {
+    //                                 var region = Regions?.FirstOrDefault(r => r.Id == savedLane.RegionID.Value);
+
+    //                                 // if (region != null)
+    //                                 // {
+    //                                 //     region.AssignedTable = laneKey;
+    //                                 //     if (!string.IsNullOrEmpty(savedLane.PlayerName))
+    //                                 //     {
+    //                                 //         region.PlayerName = savedLane.PlayerName;
+    //                                 //     }
+    //                                 // }
+    //                                 if (region != null)
+    //                                 {
+    //                                     region.AssignedTable = laneKey;
+    //                                     if (!string.IsNullOrEmpty(savedLane.PlayerName))
+    //                                     {
+    //                                         region.PlayerName = savedLane.PlayerName;
+    //                                     }
+    //                                     // Also set PlayerID if available
+    //                                     if (!string.IsNullOrEmpty(savedLane.PlayerID))
+    //                                     {
+    //                                         region.PlayerID = savedLane.PlayerID;
+    //                                     }
+    //                                 }
+    //                             }
+    //                         }
+    //                     }
+
+    //                     HeatLanes[savedHeat.HeatName] = lanes;
+    //                     SavedHeats.Add(savedHeat.HeatName);
+    //                 }
+    //             }
+
+    //             foreach (var assignment in savedData.Assignments)
+    //             {
+    //                 var region = Regions?.FirstOrDefault(r => r.Id == assignment.RegionID);
+
+    //                 if (region != null && !string.IsNullOrEmpty(assignment.AssignedTable))
+    //                 {
+    //                     region.AssignedTable = assignment.AssignedTable;
+
+    //                     var heatName = assignment.AssignedTable.Split('-')[0].Trim();
+    //                     if (!SavedHeats.Contains(heatName))
+    //                     {
+    //                         SavedHeats.Add(heatName);
+    //                     }
+    //                 }
+    //             }
+
+    //             _hasLoadedSavedData = true;
+    //             Snackbar.Add($"Loaded {savedData.Heats.Count} heats with {savedData.Heats.Sum(h => h.Lanes.Count)} lanes from saved data", Severity.Success);
+    //         }
+    //         else
+    //         {
+    //             InitializeDefaultHeat();
+    //             Snackbar.Add("No saved data found. Initialized with default heat.", Severity.Info);
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error loading saved data: {ex.Message}", Severity.Warning);
+    //         InitializeDefaultHeat();
+    //     }
+    // }
     private async Task LoadSavedScoringData()
     {
         if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
@@ -1244,11 +1619,13 @@ else
 
             if (savedData != null && (savedData.Heats.Any() || savedData.Assignments.Any()))
             {
+                // PROPERLY CLEAR ALL EXISTING DATA FIRST
                 Heats.Clear();
                 HeatLanes.Clear();
                 LaneResults.Clear();
                 SavedHeats.Clear();
 
+                // Reset all regions to Unassigned
                 if (Regions != null)
                 {
                     foreach (var region in Regions)
@@ -1261,6 +1638,7 @@ else
                 {
                     if (!string.IsNullOrEmpty(savedHeat.HeatName))
                     {
+                        // Add heat
                         Heats.Add(savedHeat.HeatName);
                         var lanes = new List<string>();
 
@@ -1272,60 +1650,49 @@ else
 
                                 var laneKey = $"{savedHeat.HeatName}-{savedLane.LaneName}";
 
+                                // Set lane result
                                 LaneResults[laneKey] = savedLane.Result ?? "";
 
                                 if (savedLane.RegionID.HasValue)
                                 {
-                                    var region = Regions?.FirstOrDefault(r => r.Id == savedLane.RegionID.Value);
+                                    // Find region by RegionID AND PlayerID
+                                    var region = Regions?.FirstOrDefault(r =>
+                                        r.Id == savedLane.RegionID.Value &&
+                                        r.PlayerID == savedLane.PlayerID);
 
                                     if (region != null)
                                     {
                                         region.AssignedTable = laneKey;
-                                        if (!string.IsNullOrEmpty(savedLane.PlayerName))
-                                        {
-                                            region.PlayerName = savedLane.PlayerName;
-                                        }
+                                        region.PlayerName = savedLane.PlayerName;
                                     }
                                 }
                             }
                         }
 
+                        // Set lanes for this heat
                         HeatLanes[savedHeat.HeatName] = lanes;
+
+                        // Mark heat as saved
                         SavedHeats.Add(savedHeat.HeatName);
                     }
                 }
 
-                foreach (var assignment in savedData.Assignments)
-                {
-                    var region = Regions?.FirstOrDefault(r => r.Id == assignment.RegionID);
-
-                    if (region != null && !string.IsNullOrEmpty(assignment.AssignedTable))
-                    {
-                        region.AssignedTable = assignment.AssignedTable;
-
-                        var heatName = assignment.AssignedTable.Split('-')[0].Trim();
-                        if (!SavedHeats.Contains(heatName))
-                        {
-                            SavedHeats.Add(heatName);
-                        }
-                    }
-                }
-
-                _hasLoadedSavedData = true;
-                Snackbar.Add($"Loaded {savedData.Heats.Count} heats with {savedData.Heats.Sum(h => h.Lanes.Count)} lanes from saved data", Severity.Success);
+                Snackbar.Add($"Loaded {savedData.Heats.Count} saved heats", Severity.Success);
             }
             else
             {
+                // Initialize default heat ONLY if no saved data
                 InitializeDefaultHeat();
-                Snackbar.Add("No saved data found. Initialized with default heat.", Severity.Info);
+                Snackbar.Add("No saved data found", Severity.Info);
             }
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Error loading saved data: {ex.Message}", Severity.Warning);
-            InitializeDefaultHeat();
+            // Don't initialize default here - let ApplyFilters handle it
         }
     }
+
 
     private void InitializeDefaultHeat()
     {
@@ -1395,5 +1762,625 @@ else
         }
 
         return double.TryParse(result, out numericResult);
+    }
+
+    private async Task OpenEditEventDialog(string? selectedEventID)
+    {
+        var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.SelectedEventID, selectedEventID },
+            { x => x.IsEditMode, true }
+        };
+
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseOnEscapeKey = true,
+                BackdropClick = false
+            };
+
+        var dialog = await DialogService.ShowAsync<AddEditDialog>("Edit Event", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            // 
+        }
+    }
+
+    // private async Task ProceedToNextStage()
+    // {
+    //     try
+    //     {
+    //         // 1. Validate current event
+    //         if (SelectedEvent == null)
+    //         {
+    //             Snackbar.Add("No event selected. Please apply filters first.", Severity.Warning);
+    //             return;
+    //         }
+
+    //         // 2. Check if all heats have results
+    //         var heatsWithoutResults = Heats.Where(heat =>
+    //             GetLanesForHeat(heat).Any(lane =>
+    //                 string.IsNullOrEmpty(LaneResults[$"{heat}-{lane}"]) &&
+    //                 Regions.Any(r => r.AssignedTable == $"{heat}-{lane}")
+    //             )
+    //         ).ToList();
+
+    //         if (heatsWithoutResults.Any())
+    //         {
+    //             Snackbar.Add($"Please record results for all lanes before proceeding to next stage.", Severity.Warning);
+    //             return;
+    //         }
+
+    //         // 3. Get current stage ID and next stage ID
+    //         var currentStageId = await GetCurrentEventStageId();
+    //         if (!currentStageId.HasValue)
+    //         {
+    //             Snackbar.Add("Could not determine current event stage.", Severity.Error);
+    //             return;
+    //         }
+
+    //         var nextStageId = GetNextStageId(currentStageId.Value);
+    //         if (nextStageId == 0)
+    //         {
+    //             Snackbar.Add("No next stage available for progression.", Severity.Warning);
+    //             return;
+    //         }
+
+    //         // 4. Get the next stage name
+    //         var nextStage = _eventStages?.FirstOrDefault(s => s.ID == nextStageId);
+    //         if (nextStage == null)
+    //         {
+    //             Snackbar.Add($"Could not find stage with ID {nextStageId}", Severity.Error);
+    //             return;
+    //         }
+
+    //         // 5. Calculate rankings to determine qualifiers
+    //         var rankings = CalculateRankings();
+
+    //         // Determine number of qualifiers based on event type
+    //         int numberOfQualifiers = GetNumberOfQualifiersForNextStage(rankings.Count);
+
+    //         // Get top qualifiers
+    //         var qualifiers = rankings.Take(numberOfQualifiers).ToList();
+
+    //         // 6. Fetch EventVersusTeams for qualifiers
+    //         var progressionTeams = new List<Dictionary<string, object>>();
+
+    //         // Get EventVersusTeams for the current event
+    //         var versusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(
+    //             $"/Events/VersusTeams?eventID={SelectedEvent.ID}");
+
+    //         if (versusTeams != null && versusTeams.Any())
+    //         {
+    //             foreach (var qualifier in qualifiers)
+    //             {
+    //                 // Find the matching region
+    //                 var matchingRegions = Regions.Where(r =>
+    //                     r.Name == qualifier.RegionName &&
+    //                     r.PlayerName == qualifier.PlayerName).ToList();
+
+    //                 foreach (var region in matchingRegions)
+    //                 {
+    //                     // Find the EventVersusTeam for this region
+    //                     var team = versusTeams.FirstOrDefault(t =>
+    //                         t.SchoolRegionID == region.Id);
+
+    //                     if (team != null)
+    //                     {
+    //                         // Get players for this team
+    //                         var teamPlayers = await apiService.GetAsync<EventsDTO.EventVersusTeamPlayers>(
+    //                             $"/Events/VersusTeams/Players?eventVersusID={team.ID}");
+
+    //                         var selectedPlayerIds = new List<string>();
+    //                         var playerNames = new List<string>();
+
+    //                         if (teamPlayers != null && teamPlayers.Any())
+    //                         {
+    //                             foreach (var player in teamPlayers)
+    //                             {
+    //                                 if (!string.IsNullOrEmpty(player.ProfilePlayerID))
+    //                                 {
+    //                                     selectedPlayerIds.Add(player.ProfilePlayerID);
+
+    //                                     // Build full name
+    //                                     var fullName = "";
+    //                                     if (!string.IsNullOrEmpty(player.FirstName) && !string.IsNullOrEmpty(player.LastName))
+    //                                         fullName = $"{player.FirstName} {player.LastName}";
+    //                                     else if (!string.IsNullOrEmpty(player.FirstName))
+    //                                         fullName = player.FirstName;
+    //                                     else if (!string.IsNullOrEmpty(player.LastName))
+    //                                         fullName = player.LastName;
+    //                                     else
+    //                                         fullName = player.ProfilePlayerID;
+
+    //                                     playerNames.Add(fullName);
+    //                                 }
+    //                             }
+    //                         }
+
+    //                         // Add to progression teams
+    //                         var teamData = new Dictionary<string, object>
+    //                             {
+    //                                 ["SelectedRegionID"] = team.SchoolRegionID,
+    //                                 ["ExistingVersusTeamID"] = team.ID,
+    //                                 ["Score"] = qualifier.Result,
+    //                                 ["Rank"] = qualifier.Rank.ToString(),
+    //                                 ["SelectedPlayerIDs"] = selectedPlayerIds,
+    //                                 ["PlayerNames"] = playerNames,
+    //                                 ["RegionName"] = team.Region ?? team.Abbreviation ?? "Unknown",
+    //                                 ["IsWinner"] = true,
+    //                                 ["PlayerSpecificInfo"] = new
+    //                                 {
+    //                                     PlayerID = region.PlayerID,
+    //                                     PlayerName = region.PlayerName
+    //                                 }
+    //                             };
+
+    //                         progressionTeams.Add(teamData);
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+    //         if (!progressionTeams.Any())
+    //         {
+    //             Snackbar.Add("No qualified participants found to proceed to next stage.", Severity.Warning);
+    //             return;
+    //         }
+
+    //         // 7. Prepare dialog parameters for creating new event
+    //         var parameters = new DialogParameters<AddEditDialog>
+    //     {
+    //         { x => x.IsProgressionMode, true },
+    //         { x => x.PreviousEventID, SelectedEvent.ID },
+    //         { x => x.ProgressionTeams, progressionTeams }
+    //     };
+
+    //         // 8. Open the dialog
+    //         var options = new DialogOptions
+    //             {
+    //                 CloseButton = true,
+    //                 MaxWidth = MaxWidth.Large,
+    //                 FullWidth = true,
+    //                 CloseOnEscapeKey = true,
+    //                 BackdropClick = false
+    //             };
+
+    //         var dialog = await DialogService.ShowAsync<AddEditDialog>("Create Next Stage Event", parameters, options);
+    //         var result = await dialog.Result;
+
+    //         if (!result!.Canceled)
+    //         {
+    //             Snackbar.Add("Next stage event created successfully!", Severity.Success);
+
+    //             // Optionally refresh the page with new event
+    //             // You could navigate to the new event automatically
+    //             var newEventId = result.Data?.ToString();
+    //             if (!string.IsNullOrEmpty(newEventId))
+    //             {
+    //                 // Store the new event ID and reload
+    //                 _selectedEventId = newEventId;
+    //                 await LoadEventAndAutoFillFilters();
+    //             }
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error proceeding to next stage: {ex.Message}", Severity.Error);
+    //     }
+    // }
+    private async Task ProceedToNextStage()
+    {
+        try
+        {
+            // 1. Validate current event
+            if (SelectedEvent == null)
+            {
+                Snackbar.Add("No event selected. Please apply filters first.", Severity.Warning);
+                return;
+            }
+
+            // 2. Check if all heats have results
+            var heatsWithoutResults = Heats.Where(heat =>
+                GetLanesForHeat(heat).Any(lane =>
+                    string.IsNullOrEmpty(LaneResults[$"{heat}-{lane}"]) &&
+                    Regions.Any(r => r.AssignedTable == $"{heat}-{lane}")
+                )
+            ).ToList();
+
+            if (heatsWithoutResults.Any())
+            {
+                Snackbar.Add($"Please record results for all lanes before proceeding to next stage.", Severity.Warning);
+                return;
+            }
+
+            // 3. Get current stage ID and next stage ID
+            var currentStageId = await GetCurrentEventStageId();
+            if (!currentStageId.HasValue)
+            {
+                Snackbar.Add("Could not determine current event stage.", Severity.Error);
+                return;
+            }
+
+            var nextStageId = GetNextStageId(currentStageId.Value);
+            if (nextStageId == 0)
+            {
+                Snackbar.Add("No next stage available for progression.", Severity.Warning);
+                return;
+            }
+
+            // 4. Get the next stage name
+            var nextStage = _eventStages?.FirstOrDefault(s => s.ID == nextStageId);
+            if (nextStage == null)
+            {
+                Snackbar.Add($"Could not find stage with ID {nextStageId}", Severity.Error);
+                return;
+            }
+
+            // 5. Get EventVersusTeams for the current event (ALL REGIONS AND PLAYERS)
+            var progressionTeams = new List<Dictionary<string, object>>();
+
+            // Get ALL EventVersusTeams for the current event
+            var versusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(
+                $"/Events/VersusTeams?eventID={SelectedEvent.ID}");
+
+            if (versusTeams != null && versusTeams.Any())
+            {
+                // Get ALL EventVersusTeamPlayers for each team
+                foreach (var team in versusTeams)
+                {
+                    // Get players for this team
+                    var teamPlayers = await apiService.GetAsync<EventsDTO.EventVersusTeamPlayers>(
+                        $"/Events/VersusTeams/Players?eventVersusID={team.ID}");
+
+                    var selectedPlayerIds = new List<string>();
+                    var playerNames = new List<string>();
+
+                    if (teamPlayers != null && teamPlayers.Any())
+                    {
+                        foreach (var player in teamPlayers)
+                        {
+                            if (!string.IsNullOrEmpty(player.ProfilePlayerID))
+                            {
+                                selectedPlayerIds.Add(player.ProfilePlayerID);
+
+                                // Build full name
+                                var fullName = "";
+                                if (!string.IsNullOrEmpty(player.FirstName) && !string.IsNullOrEmpty(player.LastName))
+                                    fullName = $"{player.FirstName} {player.LastName}";
+                                else if (!string.IsNullOrEmpty(player.FirstName))
+                                    fullName = player.FirstName;
+                                else if (!string.IsNullOrEmpty(player.LastName))
+                                    fullName = player.LastName;
+                                else
+                                    fullName = player.ProfilePlayerID;
+
+                                playerNames.Add(fullName);
+                            }
+                        }
+                    }
+
+                    // Find matching region item to get PlayerID if available
+                    string? specificPlayerId = null;
+                    string? specificPlayerName = null;
+
+                    if (Regions != null)
+                    {
+                        // Find region with matching RegionID
+                        var matchingRegion = Regions.FirstOrDefault(r => r.Id == team.SchoolRegionID);
+                        if (matchingRegion != null)
+                        {
+                            specificPlayerId = matchingRegion.PlayerID;
+                            specificPlayerName = matchingRegion.PlayerName;
+                        }
+                    }
+
+                    // If no specific player found from regions, use the first player from team
+                    if (string.IsNullOrEmpty(specificPlayerId) && selectedPlayerIds.Any())
+                    {
+                        specificPlayerId = selectedPlayerIds.First();
+                        specificPlayerName = playerNames.FirstOrDefault();
+                    }
+
+                    // Get result/score for this region from current lanes
+                    string laneResult = ""; // Renamed from 'result' to avoid conflict
+                    if (Regions != null)
+                    {
+                        var regionInLane = Regions.FirstOrDefault(r =>
+                            r.Id == team.SchoolRegionID &&
+                            !string.IsNullOrEmpty(r.AssignedTable) &&
+                            r.AssignedTable != "Unassigned");
+
+                        if (regionInLane != null && LaneResults.ContainsKey(regionInLane.AssignedTable))
+                        {
+                            laneResult = LaneResults[regionInLane.AssignedTable];
+                        }
+                    }
+
+                    // Calculate rank based on result comparison
+                    int rank = 0;
+                    if (Regions != null && !string.IsNullOrEmpty(laneResult))
+                    {
+                        var allResults = Regions
+                            .Where(r => !string.IsNullOrEmpty(r.AssignedTable) &&
+                                       r.AssignedTable != "Unassigned" &&
+                                       LaneResults.ContainsKey(r.AssignedTable))
+                            .Select(r => new
+                            {
+                                RegionId = r.Id,
+                                Result = LaneResults[r.AssignedTable],
+                                NumericResult = TryParseResult(LaneResults[r.AssignedTable], out double num) ? num : 0
+                            })
+                            .Where(r => !string.IsNullOrEmpty(r.Result))
+                            .ToList();
+
+                        bool isTimeBased = SelectedEvent?.Sport?.ToLower() == "swimming" ||
+                                         (SelectedEvent?.Subcategory?.ToLower().Contains("meter") == true &&
+                                          SelectedEvent?.Subcategory?.ToLower().Contains("run") == true);
+
+                        var sortedResults = isTimeBased
+                            ? allResults.OrderBy(r => r.NumericResult).ToList()
+                            : allResults.OrderByDescending(r => r.NumericResult).ToList();
+
+                        var position = sortedResults.FindIndex(r => r.RegionId == team.SchoolRegionID);
+                        if (position >= 0)
+                        {
+                            rank = position + 1;
+                        }
+                    }
+
+                    // Add to progression teams (INCLUDING ALL REGIONS AND PLAYERS)
+                    var teamData = new Dictionary<string, object>
+                        {
+                            ["SelectedRegionID"] = team.SchoolRegionID,
+                            ["ExistingVersusTeamID"] = team.ID,
+                            ["Score"] = laneResult, // Use renamed variable
+                            ["Rank"] = rank > 0 ? rank.ToString() : "",
+                            ["SelectedPlayerIDs"] = selectedPlayerIds,
+                            ["PlayerNames"] = playerNames,
+                            ["RegionName"] = team.Region ?? team.Abbreviation ?? "Unknown",
+                            ["IsWinner"] = rank > 0, // All participants are considered for next stage
+                            ["PlayerSpecificInfo"] = new
+                            {
+                                PlayerID = specificPlayerId,
+                                PlayerName = specificPlayerName
+                            }
+                        };
+
+                    progressionTeams.Add(teamData);
+                }
+            }
+            else
+            {
+                // Fallback: If no EventVersusTeams found, use Regions data
+                if (Regions != null && Regions.Any())
+                {
+                    foreach (var region in Regions)
+                    {
+                        // Get result for this region
+                        string laneResult = ""; // Renamed from 'result' to avoid conflict
+                        if (!string.IsNullOrEmpty(region.AssignedTable) &&
+                            region.AssignedTable != "Unassigned" &&
+                            LaneResults.ContainsKey(region.AssignedTable))
+                        {
+                            laneResult = LaneResults[region.AssignedTable];
+                        }
+
+                        // Calculate rank
+                        int rank = 0;
+                        if (!string.IsNullOrEmpty(laneResult))
+                        {
+                            var allResults = Regions
+                                .Where(r => !string.IsNullOrEmpty(r.AssignedTable) &&
+                                           r.AssignedTable != "Unassigned" &&
+                                           LaneResults.ContainsKey(r.AssignedTable))
+                                .Select(r => new
+                                {
+                                    RegionId = r.Id,
+                                    Result = LaneResults[r.AssignedTable],
+                                    NumericResult = TryParseResult(LaneResults[r.AssignedTable], out double num) ? num : 0
+                                })
+                                .Where(r => !string.IsNullOrEmpty(r.Result))
+                                .ToList();
+
+                            bool isTimeBased = SelectedEvent?.Sport?.ToLower() == "swimming" ||
+                                             (SelectedEvent?.Subcategory?.ToLower().Contains("meter") == true &&
+                                              SelectedEvent?.Subcategory?.ToLower().Contains("run") == true);
+
+                            var sortedResults = isTimeBased
+                                ? allResults.OrderBy(r => r.NumericResult).ToList()
+                                : allResults.OrderByDescending(r => r.NumericResult).ToList();
+
+                            var position = sortedResults.FindIndex(r => r.RegionId == region.Id);
+                            if (position >= 0)
+                            {
+                                rank = position + 1;
+                            }
+                        }
+
+                        var teamData = new Dictionary<string, object>
+                            {
+                                ["SelectedRegionID"] = region.Id,
+                                ["ExistingVersusTeamID"] = null,
+                                ["Score"] = laneResult, // Use renamed variable
+                                ["Rank"] = rank > 0 ? rank.ToString() : "",
+                                ["SelectedPlayerIDs"] = !string.IsNullOrEmpty(region.PlayerID) ?
+                                    new List<string> { region.PlayerID } : new List<string>(),
+                                ["PlayerNames"] = !string.IsNullOrEmpty(region.PlayerName) ?
+                                    new List<string> { region.PlayerName } : new List<string>(),
+                                ["RegionName"] = region.Name,
+                                ["IsWinner"] = rank > 0,
+                                ["PlayerSpecificInfo"] = new
+                                {
+                                    PlayerID = region.PlayerID,
+                                    PlayerName = region.PlayerName
+                                }
+                            };
+
+                        progressionTeams.Add(teamData);
+                    }
+                }
+            }
+
+            if (!progressionTeams.Any())
+            {
+                Snackbar.Add("No participants found to proceed to next stage.", Severity.Warning);
+                return;
+            }
+
+            // 6. Prepare dialog parameters for creating new event
+            var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.IsProgressionMode, true },
+            { x => x.PreviousEventID, SelectedEvent.ID },
+            { x => x.ProgressionTeams, progressionTeams }
+        };
+
+            // 7. Open the dialog
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true,
+                    CloseOnEscapeKey = true,
+                    BackdropClick = false
+                };
+
+            var dialog = await DialogService.ShowAsync<AddEditDialog>("Create Next Stage Event", parameters, options);
+            var dialogResult = await dialog.Result; // Renamed from 'result' to avoid conflict
+
+            if (!dialogResult!.Canceled)
+            {
+                Snackbar.Add("Next stage event created successfully!", Severity.Success);
+
+                // Optionally refresh the page with new event
+                var newEventId = dialogResult.Data?.ToString();
+                if (!string.IsNullOrEmpty(newEventId))
+                {
+                    // Store the new event ID and reload
+                    _selectedEventId = newEventId;
+                    await LoadEventAndAutoFillFilters();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error proceeding to next stage: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // private async Task<int?> GetCurrentEventStageId()
+    // {
+    //     if (SelectedEvent?.ID == null) return null;
+
+    //     try
+    //     {
+    //         if (!string.IsNullOrEmpty(SelectedEvent.EventStage) && _eventStages != null)
+    //         {
+    //             var stage = _eventStages.FirstOrDefault(s =>
+    //                 s.Stage != null && s.Stage.Equals(SelectedEvent.EventStage, StringComparison.OrdinalIgnoreCase));
+    //             return stage?.ID;
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error getting current event stage ID: {ex.Message}", Severity.Warning);
+    //     }
+
+    //     return null;
+    // }
+    private async Task<int?> GetCurrentEventStageId()
+    {
+        if (SelectedEvent?.ID == null) return null;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(SelectedEvent.EventStage) && _eventStages != null)
+            {
+                var stage = _eventStages.FirstOrDefault(s =>
+                    s.Stage != null && s.Stage.Equals(SelectedEvent.EventStage, StringComparison.OrdinalIgnoreCase));
+                return stage?.ID;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting current event stage ID: {ex.Message}", Severity.Warning);
+        }
+
+        return null;
+    }
+
+    private int GetNextStageId(int currentStageId)
+    {
+        if (_eventStages != null)
+        {
+            // Get all stage IDs in order
+            var stagesOrdered = _eventStages.OrderBy(s => s.ID).ToList();
+            var currentIndex = stagesOrdered.FindIndex(s => s.ID == currentStageId);
+
+            if (currentIndex >= 0 && currentIndex < stagesOrdered.Count - 1)
+            {
+                return stagesOrdered[currentIndex + 1].ID;
+            }
+        }
+
+        return 0;
+    }
+
+    // private int GetNextStageId(int currentStageId)
+    // {
+    //     // Map time-distance events progression stages
+    //     // Common stages: 1=Heats, 2=Semi-finals, 3=Finals
+
+    //     var stageProgression = new Dictionary<int, int>
+    // {
+    //     {1, 2},  // Heats -> Semi-finals
+    //     {2, 3},  // Semi-finals -> Finals
+    //     {3, 0}   // Finals -> No next stage
+    // };
+
+    //     // Try to get from predefined progression, otherwise increment
+    //     if (stageProgression.ContainsKey(currentStageId))
+    //     {
+    //         return stageProgression[currentStageId];
+    //     }
+
+    //     // If not in predefined list, try to get next stage by order
+    //     if (_eventStages != null)
+    //     {
+    //         var stagesOrdered = _eventStages.OrderBy(s => s.ID).ToList();
+    //         var currentIndex = stagesOrdered.FindIndex(s => s.ID == currentStageId);
+
+    //         if (currentIndex >= 0 && currentIndex < stagesOrdered.Count - 1)
+    //         {
+    //             return stagesOrdered[currentIndex + 1].ID;
+    //         }
+    //     }
+
+    //     return 0;
+    // }
+
+    private int GetNumberOfQualifiersForNextStage(int totalParticipants)
+    {
+        // Determine how many qualifiers advance to next stage
+        // Common progression: top 8 from heats to semi-finals, top 4 from semi-finals to finals
+        // You can adjust these numbers based on your requirements
+
+        if (totalParticipants <= 4)
+        {
+            return Math.Min(2, totalParticipants); // For small events
+        }
+        else if (totalParticipants <= 8)
+        {
+            return Math.Min(4, totalParticipants); // For medium events
+        }
+        else
+        {
+            return 8; // For larger events
+        }
     }
 }

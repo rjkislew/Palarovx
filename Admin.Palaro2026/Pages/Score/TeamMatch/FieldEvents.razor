@@ -2,6 +2,8 @@
 @inject ISnackbar Snackbar
 @inject APIService apiService
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
+
 
 <PageTitle>Field Events Scoring | PALARO 2026</PageTitle>
 <MudText Typo="Typo.h6" Align="Align.Center">Athletics - Field Events Scoring</MudText>
@@ -120,18 +122,52 @@
         <MudText Typo="Typo.h6" Class="mb-4">Field Event Scoring - @SelectedEvent.Subcategory</MudText>
         <MudText Typo="Typo.body2" Class="mb-3">Enter results for each attempt (in meters):</MudText>
 
+        <MudDivider Class="my-2" />
+        <MudGrid Class="" Style="align-items:center"
+                 Spacing="4">
+
+            <!-- Left spacer -->
+            <MudItem xs="4" />
+
+            <!-- Center title -->
+            <MudItem xs="4">
+                <MudText Typo="Typo.h6" Align="Align.Center">
+                    Matches
+                </MudText>
+            </MudItem>
+
+            <!-- Right button -->
+            <MudItem xs="4">
+                <MudStack Row="true" Justify="Justify.FlexEnd">
+                    <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                                   OnClick="@(() => OpenEditEventDialog(SelectedEvent?.ID))">
+                    </MudIconButton>
+                    <MudButton Color="Color.Tertiary" Variant="Variant.Filled"
+                               StartIcon="@Icons.Material.Filled.ArrowCircleRight"
+                               OnClick="ProceedToNextStage">
+                        Proceed to next stage
+                    </MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+        <MudDivider Class="my-2" />
+
         <MudTable Items="@ScoringRows" Dense="true" Hover="true" Breakpoint="Breakpoint.None">
             <HeaderContent>
                 <MudTh>Region</MudTh>
                 <MudTh>Player</MudTh>
+
                 @for (int i = 1; i <= 3; i++)
                 {
-                    <MudTh>Attempt @i</MudTh>
+                    var attempt = i;
+                    <MudTh>Attempt @attempt</MudTh>
                 }
+
                 <MudTh>Best Result</MudTh>
                 <MudTh>Rank</MudTh>
                 <MudTh>Actions</MudTh>
             </HeaderContent>
+
             <RowTemplate>
                 @{
                     var row = context;
@@ -614,38 +650,44 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
                 var uniqueRegions = new List<RegionItem>();
                 var scoringRows = new List<ScoringRow>();
 
-                foreach (var evt in events)
+                // Group events by RegionID and PlayerID to handle multiple players per region
+                var groupedEvents = events
+                    .Where(e => e.RegionID.HasValue && !string.IsNullOrEmpty(e.Abbreviation))
+                    .GroupBy(e => new { RegionID = e.RegionID.Value, e.PlayerID })
+                    .ToList();
+
+                foreach (var group in groupedEvents)
                 {
-                    if (!string.IsNullOrEmpty(evt.Abbreviation) && evt.RegionID.HasValue)
+                    var evt = group.First(); // Get first event from the group
+                    var matchingRegion = _allRegions?.FirstOrDefault(r =>
+                        r.ID == evt.RegionID.Value ||
+                        r.Abbreviation == evt.Abbreviation);
+
+                    if (matchingRegion != null)
                     {
-                        var matchingRegion = _allRegions?.FirstOrDefault(r =>
-                            r.ID == evt.RegionID.Value ||
-                            r.Abbreviation == evt.Abbreviation);
+                        // Create a unique ID that includes both RegionID and PlayerID
+                        var playerIdHash = !string.IsNullOrEmpty(evt.PlayerID) ?
+                            evt.PlayerID.GetHashCode() :
+                            0;
+                        int uniqueId = unchecked(matchingRegion.ID * 397 + playerIdHash);
 
-                        if (matchingRegion != null && !uniqueRegions.Any(r => r.Id == matchingRegion.ID))
-                        {
-                            var regionItem = new RegionItem
-                                {
-                                    Id = matchingRegion.ID,
-                                    Name = matchingRegion.Abbreviation ?? matchingRegion.Region ?? "Unknown"
-                                };
-
-                            if (!string.IsNullOrEmpty(evt.PlayerID) && !string.IsNullOrEmpty(evt.PlayerName))
+                        var regionItem = new RegionItem
                             {
-                                regionItem.PlayerID = evt.PlayerID;
-                                regionItem.PlayerName = evt.PlayerName;
-                            }
+                                Id = uniqueId,
+                                Name = matchingRegion.Abbreviation ?? matchingRegion.Region ?? "Unknown",
+                                PlayerID = evt.PlayerID,
+                                PlayerName = evt.PlayerName ?? "Player"
+                            };
 
-                            uniqueRegions.Add(regionItem);
+                        uniqueRegions.Add(regionItem);
 
-                            scoringRows.Add(new ScoringRow
-                                {
-                                    RegionID = matchingRegion.ID,
-                                    RegionName = regionItem.Name,
-                                    PlayerID = regionItem.PlayerID,
-                                    PlayerName = regionItem.PlayerName
-                                });
-                        }
+                        scoringRows.Add(new ScoringRow
+                            {
+                                RegionID = matchingRegion.ID,
+                                RegionName = regionItem.Name,
+                                PlayerID = regionItem.PlayerID,
+                                PlayerName = regionItem.PlayerName
+                            });
                     }
                 }
 
@@ -656,7 +698,7 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
                 // Load any saved data
                 await LoadSavedResults();
 
-                Snackbar.Add($"Loaded {events.Count} events with {Regions.Count} participants", Severity.Success);
+                Snackbar.Add($"Loaded {groupedEvents.Count} participants from {events.Count} event entries", Severity.Success);
             }
             else
             {
@@ -823,6 +865,9 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
                 var uniqueRegions = new List<RegionItem>();
                 var scoringRows = new List<ScoringRow>();
 
+                // Create a counter to give each item a unique identifier
+                int itemCounter = 0;
+
                 foreach (var evt in events)
                 {
                     if (!string.IsNullOrEmpty(evt.Abbreviation) && evt.RegionID.HasValue)
@@ -831,28 +876,27 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
                             r.ID == evt.RegionID.Value ||
                             r.Abbreviation == evt.Abbreviation);
 
-                        if (matchingRegion != null && !uniqueRegions.Any(r => r.Id == matchingRegion.ID))
+                        if (matchingRegion != null)
                         {
+                            // Create a unique ID by combining RegionID with a counter
+                            int uniqueId = unchecked(matchingRegion.ID * 397 + itemCounter++);
+
                             var regionItem = new RegionItem
                                 {
-                                    Id = matchingRegion.ID,
-                                    Name = matchingRegion.Abbreviation ?? matchingRegion.Region ?? "Unknown"
+                                    Id = uniqueId, // Use unique ID instead of just RegionID
+                                    Name = matchingRegion.Abbreviation ?? matchingRegion.Region ?? "Unknown",
+                                    PlayerID = evt.PlayerID,
+                                    PlayerName = evt.PlayerName
                                 };
-
-                            if (!string.IsNullOrEmpty(evt.PlayerID) && !string.IsNullOrEmpty(evt.PlayerName))
-                            {
-                                regionItem.PlayerID = evt.PlayerID;
-                                regionItem.PlayerName = evt.PlayerName;
-                            }
 
                             uniqueRegions.Add(regionItem);
 
                             scoringRows.Add(new ScoringRow
                                 {
-                                    RegionID = matchingRegion.ID,
+                                    RegionID = matchingRegion.ID, // Keep original RegionID for API calls
                                     RegionName = regionItem.Name,
                                     PlayerID = regionItem.PlayerID,
-                                    PlayerName = regionItem.PlayerName
+                                    PlayerName = regionItem.PlayerName ?? ""
                                 });
                         }
                     }
@@ -1033,6 +1077,7 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
 
             if (savedData != null && savedData.Any())
             {
+                // Clear existing results
                 foreach (var row in ScoringRows)
                 {
                     if (row.AttemptResults != null)
@@ -1046,9 +1091,13 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
                     row.Rank = 0;
                 }
 
+                // Load saved results, matching by both RegionID and PlayerID
                 foreach (var result in savedData)
                 {
-                    var row = ScoringRows.FirstOrDefault(r => r.RegionID == result.RegionID);
+                    var row = ScoringRows.FirstOrDefault(r =>
+                        r.RegionID == result.RegionID &&
+                        r.PlayerID == result.PlayerID);
+
                     if (row != null && result.AttemptNo >= 1 && result.AttemptNo <= 3)
                     {
                         row.SetAttemptResult(result.AttemptNo, result.Result);
@@ -1059,6 +1108,7 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
                     }
                 }
 
+                // Calculate best results
                 foreach (var row in ScoringRows)
                 {
                     CalculateBestResult(row);
@@ -1078,4 +1128,36 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
             Snackbar.Add($"Error loading saved data: {ex.Message}", Severity.Warning);
         }
     }
+
+    private async Task OpenEditEventDialog(string? selectedEventID)
+    {
+        var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.SelectedEventID, selectedEventID },
+            { x => x.IsEditMode, true }
+        };
+
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseOnEscapeKey = true,
+                BackdropClick = false
+            };
+
+        var dialog = await DialogService.ShowAsync<AddEditDialog>("Edit Event", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled)
+        {
+            // 
+        }
+    }
+
+    private async Task ProceedToNextStage()
+    {
+       
+    }
+
 }

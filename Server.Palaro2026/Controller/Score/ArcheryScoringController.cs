@@ -45,31 +45,32 @@ namespace Server.Palaro2026.Controller.Score
                     return NotFound($"Event with ID '{eventId}' not found.");
 
                 string sql = @"
-            SELECT 
-                a.ID,
-                a.EventID,
-                a.EventVersusID,
-                a.RoundNo,
-                a.ShotNo,
-                a.ShotScore,
-                a.IsBullseye,
-                a.IsWinner,
-                a.RegionID,
-                a.PlayerID,
-                a.Lane,
-                a.EndNo,
-                a.CreatedAt,
-                a.UpdatedAt,
-                sr.Region,
-                sr.Abbreviation,
-                pp.FirstName + ' ' + pp.LastName as PlayerName
-            FROM ArcheryScoring a
-            LEFT JOIN SchoolRegions sr ON a.RegionID = sr.ID
-            LEFT JOIN ProfilePlayers pp ON a.PlayerID = pp.ID
-            WHERE a.EventID = @EventID
-            AND (@RoundNo IS NULL OR a.RoundNo = @RoundNo)
-            AND (@EndNo IS NULL OR a.EndNo = @EndNo)
-            ORDER BY a.RoundNo, a.Lane, a.EndNo, a.ShotNo";
+                                SELECT 
+                                    a.ID,
+                                    a.EventID,
+                                    a.EventVersusID,
+                                    a.RoundNo,
+                                    a.ShotNo,
+                                    a.ShotScore,
+                                    a.IsBullseye,
+                                    a.IsWinner,
+                                    a.RegionID,
+                                    a.PlayerID,
+                                    a.Lane,
+                                    a.EndNo,
+                                    a.Position,
+                                    a.CreatedAt,
+                                    a.UpdatedAt,
+                                    sr.Region,
+                                    sr.Abbreviation,
+                                    pp.FirstName + ' ' + pp.LastName as PlayerName
+                                FROM ArcheryScoring a
+                                LEFT JOIN SchoolRegions sr ON a.RegionID = sr.ID
+                                LEFT JOIN ProfilePlayers pp ON a.PlayerID = pp.ID
+                                WHERE a.EventID = @EventID
+                                AND (@RoundNo IS NULL OR a.RoundNo = @RoundNo)
+                                AND (@EndNo IS NULL OR a.EndNo = @EndNo)
+                                ORDER BY a.RoundNo, a.Lane, a.EndNo, a.ShotNo";
 
                 var data = await _db.QueryAsync<ArcheryScoringDTO, dynamic>(sql, new { EventID = eventId, RoundNo = roundNo, EndNo = endNo });
 
@@ -85,38 +86,49 @@ namespace Server.Palaro2026.Controller.Score
             }
         }
 
-        // GET by End, Lane and Round
         [HttpGet("lane/{lane}/round/{roundNo}/end/{endNo}")]
-        public async Task<ActionResult<IEnumerable<ArcheryScoringDTO>>> GetByLaneRoundAndEnd(int lane, int roundNo, int endNo, [FromQuery] string? eventId = null)
+        public async Task<ActionResult<IEnumerable<ArcheryScoringDTO>>> GetByLaneRoundAndEnd(int lane, int roundNo, int endNo, [FromQuery] string? eventId = null, [FromQuery] string? playerId = null)
         {
             try
             {
                 string sql = @"
-                    SELECT 
-                        a.ID,
-                        a.EventID,
-                        a.EventVersusID,
-                        a.RoundNo,
-                        a.ShotNo,
-                        a.ShotScore,
-                        a.IsBullseye,
-                        a.IsWinner,
-                        a.RegionID,
-                        a.Lane,
-                        a.EndNo,
-                        a.CreatedAt,
-                        a.UpdatedAt,
-                        sr.Region,
-                        sr.Abbreviation
-                    FROM ArcheryScoring a
-                    LEFT JOIN SchoolRegions sr ON a.RegionID = sr.ID
-                    WHERE a.Lane = @Lane 
-                    AND a.RoundNo = @RoundNo
-                    AND a.EndNo = @EndNo
-                    AND (@EventID IS NULL OR a.EventID = @EventID)
-                    ORDER BY a.ShotNo";
+            SELECT 
+                a.ID,
+                a.EventID,
+                a.EventVersusID,
+                a.RoundNo,
+                a.ShotNo,
+                a.ShotScore,
+                a.IsBullseye,
+                a.IsWinner,
+                a.RegionID,
+                a.PlayerID,
+                a.Lane,
+                a.EndNo,
+                a.Position,
+                a.CreatedAt,
+                a.UpdatedAt,
+                sr.Region,
+                sr.Abbreviation,
+                pp.FirstName + ' ' + pp.LastName as PlayerName
+            FROM ArcheryScoring a
+            LEFT JOIN SchoolRegions sr ON a.RegionID = sr.ID
+            LEFT JOIN ProfilePlayers pp ON a.PlayerID = pp.ID
+            WHERE a.Lane = @Lane 
+            AND a.RoundNo = @RoundNo
+            AND a.EndNo = @EndNo
+            AND (@EventID IS NULL OR a.EventID = @EventID)
+            AND (@PlayerID IS NULL OR a.PlayerID = @PlayerID)
+            ORDER BY a.ShotNo";
 
-                var data = await _db.QueryAsync<ArcheryScoringDTO, dynamic>(sql, new { Lane = lane, RoundNo = roundNo, EndNo = endNo, EventID = eventId });
+                var data = await _db.QueryAsync<ArcheryScoringDTO, dynamic>(sql, new
+                {
+                    Lane = lane,
+                    RoundNo = roundNo,
+                    EndNo = endNo,
+                    EventID = eventId,
+                    PlayerID = playerId
+                });
                 return Ok(data);
             }
             catch (Exception ex)
@@ -157,7 +169,14 @@ namespace Server.Palaro2026.Controller.Score
                 sr.Abbreviation,
                 sr.ID as RegionID,
                 evtp.ProfilePlayerID as PlayerID,
-                pp.FirstName + ' ' + pp.LastName as PlayerName
+                pp.FirstName + ' ' + pp.LastName as PlayerName,
+                -- Determine if this is an individual event
+                CASE 
+                    WHEN ssc.Subcategory LIKE '%individual%' OR 
+                         (ssc.Subcategory NOT LIKE '%team%' AND ssc.Subcategory NOT LIKE '%mixed%') 
+                    THEN 1 
+                    ELSE 0 
+                END as IsIndividual
             FROM Events e
             INNER JOIN SportSubcategories ssc ON e.SportSubcategoryID = ssc.ID
             INNER JOIN Sports s ON ssc.SportID = s.ID
@@ -173,7 +192,6 @@ namespace Server.Palaro2026.Controller.Score
                 var conditions = new List<string>();
                 var parameters = new DynamicParameters();
 
-                // If eventId is provided, use it as primary filter
                 if (!string.IsNullOrEmpty(eventId))
                 {
                     conditions.Add("e.ID = @EventId");
@@ -181,7 +199,6 @@ namespace Server.Palaro2026.Controller.Score
                 }
                 else
                 {
-                    // Use other filters only if eventId is not provided
                     if (!string.IsNullOrEmpty(subcategory))
                     {
                         conditions.Add("ssc.Subcategory = @Subcategory");
@@ -237,14 +254,15 @@ namespace Server.Palaro2026.Controller.Score
                     return NotFound($"Event with ID '{data.EventID}' not found.");
 
                 string checkSql = @"
-            SELECT COUNT(1) 
-            FROM ArcheryScoring 
-            WHERE EventID = @EventID 
-            AND RegionID = @RegionID 
-            AND RoundNo = @RoundNo 
-            AND ShotNo = @ShotNo
-            AND Lane = @Lane
-            AND EndNo = @EndNo";
+        SELECT COUNT(1) 
+        FROM ArcheryScoring 
+        WHERE EventID = @EventID 
+        AND RegionID = @RegionID 
+        AND RoundNo = @RoundNo 
+        AND ShotNo = @ShotNo
+        AND Lane = @Lane
+        AND EndNo = @EndNo
+        AND PlayerID = @PlayerID";
 
                 var existingCount = await _db.ExecuteScalarAsync<int, dynamic>(checkSql, new
                 {
@@ -253,7 +271,8 @@ namespace Server.Palaro2026.Controller.Score
                     data.RoundNo,
                     data.ShotNo,
                     data.Lane,
-                    data.EndNo
+                    data.EndNo,
+                    data.PlayerID
                 });
 
                 if (existingCount > 0)
@@ -262,15 +281,15 @@ namespace Server.Palaro2026.Controller.Score
                 }
 
                 string sql = @"
-            INSERT INTO ArcheryScoring (
-                EventID, EventVersusID, RoundNo, ShotNo, ShotScore, 
-                IsBullseye, IsWinner, RegionID, PlayerID, Lane, EndNo, CreatedAt, UpdatedAt
-            )
-            OUTPUT INSERTED.ID
-            VALUES (
-                @EventID, @EventVersusID, @RoundNo, @ShotNo, @ShotScore,
-                @IsBullseye, @IsWinner, @RegionID, @PlayerID, @Lane, @EndNo, GETDATE(), GETDATE()
-            )";
+        INSERT INTO ArcheryScoring (
+            EventID, EventVersusID, RoundNo, ShotNo, ShotScore, 
+            IsBullseye, IsWinner, RegionID, PlayerID, Lane, EndNo, CreatedAt, UpdatedAt
+        )
+        OUTPUT INSERTED.ID
+        VALUES (
+            @EventID, @EventVersusID, @RoundNo, @ShotNo, @ShotScore,
+            @IsBullseye, @IsWinner, @RegionID, @PlayerID, @Lane, @EndNo, GETDATE(), GETDATE()
+        )";
 
                 int newId = await _db.ExecuteScalarAsync<int, dynamic>(sql, new
                 {
@@ -311,6 +330,31 @@ namespace Server.Palaro2026.Controller.Score
                 if (!string.IsNullOrEmpty(data.EventID) && !await EventExists(data.EventID))
                     return NotFound($"Event with ID '{data.EventID}' not found.");
 
+                if (!string.IsNullOrEmpty(data.PlayerID))
+                {
+                    string verifyPlayerSql = @"
+                SELECT COUNT(1) 
+                FROM EventVersusTeamPlayers evtp
+                INNER JOIN EventVersusTeams evt ON evtp.EventVersusID = evt.ID
+                WHERE evt.EventID = @EventID
+                AND evt.SchoolRegionID = @RegionID
+                AND evtp.ProfilePlayerID = @PlayerID";
+
+                    var playerExists = await _db.ExecuteScalarAsync<int, dynamic>(verifyPlayerSql, new
+                    {
+                        data.EventID,
+                        data.RegionID,
+                        data.PlayerID
+                    });
+
+                    if (playerExists == 0)
+                    {
+                        _logger.LogWarning("Player {PlayerID} does not belong to Region {RegionID} in Event {EventID}",
+                            data.PlayerID, data.RegionID, data.EventID);
+                        return BadRequest($"Player {data.PlayerID} is not part of this team/region in this event.");
+                    }
+                }
+
                 string checkSql = @"
             SELECT COUNT(1) 
             FROM ArcheryScoring 
@@ -319,7 +363,9 @@ namespace Server.Palaro2026.Controller.Score
             AND RoundNo = @RoundNo 
             AND ShotNo = @ShotNo
             AND Lane = @Lane
-            AND EndNo = @EndNo";
+            AND EndNo = @EndNo
+            AND PlayerID = @PlayerID
+            AND Position = @Position";
 
                 var existingCount = await _db.ExecuteScalarAsync<int, dynamic>(checkSql, new
                 {
@@ -328,25 +374,27 @@ namespace Server.Palaro2026.Controller.Score
                     data.RoundNo,
                     data.ShotNo,
                     data.Lane,
-                    data.EndNo
+                    data.EndNo,
+                    data.PlayerID,
+                    data.Position
                 });
 
                 if (existingCount > 0)
                 {
-                    _logger.LogWarning("Shot already exists for EventID: {EventID}, RegionID: {RegionID}, RoundNo: {RoundNo}, ShotNo: {ShotNo}, Lane: {Lane}, EndNo: {EndNo}",
-                        data.EventID, data.RegionID, data.RoundNo, data.ShotNo, data.Lane, data.EndNo);
                     return Conflict("Shot already recorded for this combination.");
                 }
 
                 string sql = @"
             INSERT INTO ArcheryScoring (
                 EventID, EventVersusID, RoundNo, ShotNo, ShotScore, 
-                IsBullseye, IsWinner, RegionID, PlayerID, Lane, EndNo, CreatedAt, UpdatedAt
+                IsBullseye, IsWinner, RegionID, PlayerID, Lane, EndNo, 
+                Position, CreatedAt, UpdatedAt
             )
             OUTPUT INSERTED.ID
             VALUES (
                 @EventID, @EventVersusID, @RoundNo, @ShotNo, @ShotScore,
-                @IsBullseye, @IsWinner, @RegionID, @PlayerID, @Lane, @EndNo, GETDATE(), GETDATE()
+                @IsBullseye, @IsWinner, @RegionID, @PlayerID, @Lane, @EndNo,
+                @Position, GETDATE(), GETDATE()
             )";
 
                 int newId = await _db.ExecuteScalarAsync<int, dynamic>(sql, new
@@ -361,7 +409,8 @@ namespace Server.Palaro2026.Controller.Score
                     data.RegionID,
                     data.PlayerID,
                     data.Lane,
-                    data.EndNo
+                    data.EndNo,
+                    data.Position
                 });
 
                 if (newId > 0)
@@ -376,7 +425,6 @@ namespace Server.Palaro2026.Controller.Score
             }
         }
 
-        // PUT update archery scoring record
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateArcheryScoringDTO data)
         {
@@ -392,18 +440,19 @@ namespace Server.Palaro2026.Controller.Score
                     return NotFound($"Archery scoring record with ID {id} not found");
 
                 string sql = @"
-                    UPDATE ArcheryScoring
-                    SET 
-                        RoundNo = ISNULL(@RoundNo, RoundNo),
-                        ShotNo = ISNULL(@ShotNo, ShotNo),
-                        ShotScore = ISNULL(@ShotScore, ShotScore),
-                        IsBullseye = ISNULL(@IsBullseye, IsBullseye),
-                        IsWinner = ISNULL(@IsWinner, IsWinner),
-                        RegionID = ISNULL(@RegionID, RegionID),
-                        Lane = ISNULL(@Lane, Lane),
-                        EndNo = ISNULL(@EndNo, EndNo),
-                        UpdatedAt = GETDATE()
-                    WHERE ID = @ID";
+            UPDATE ArcheryScoring
+            SET 
+                RoundNo = ISNULL(@RoundNo, RoundNo),
+                ShotNo = ISNULL(@ShotNo, ShotNo),
+                ShotScore = ISNULL(@ShotScore, ShotScore),
+                IsBullseye = ISNULL(@IsBullseye, IsBullseye),
+                IsWinner = ISNULL(@IsWinner, IsWinner),
+                RegionID = ISNULL(@RegionID, RegionID),
+                Lane = ISNULL(@Lane, Lane),
+                EndNo = ISNULL(@EndNo, EndNo),
+                Position = ISNULL(@Position, Position),
+                UpdatedAt = GETDATE()
+            WHERE ID = @ID";
 
                 await _db.ExecuteAsync<dynamic>(sql, new
                 {
@@ -415,7 +464,8 @@ namespace Server.Palaro2026.Controller.Score
                     data.IsWinner,
                     data.RegionID,
                     data.Lane,
-                    data.EndNo
+                    data.EndNo,
+                    data.Position 
                 });
 
                 return Ok("Archery scoring record updated successfully.");
@@ -447,23 +497,25 @@ namespace Server.Palaro2026.Controller.Score
 
         // DELETE all shots for a region in a specific round, lane and end
         [HttpDelete("region/{regionId}/round/{roundNo}/lane/{lane}/end/{endNo}")]
-        public async Task<IActionResult> DeleteByRegionRoundLaneAndEnd(int regionId, int roundNo, int lane, int endNo)
+        public async Task<IActionResult> DeleteByRegionRoundLaneAndEnd(int regionId, int roundNo, int lane, int endNo, [FromQuery] string? position = null)
         {
             try
             {
                 string sql = @"
-                    DELETE FROM ArcheryScoring 
-                    WHERE RegionID = @RegionID 
-                    AND RoundNo = @RoundNo 
-                    AND Lane = @Lane
-                    AND EndNo = @EndNo";
+            DELETE FROM ArcheryScoring 
+            WHERE RegionID = @RegionID 
+            AND RoundNo = @RoundNo 
+            AND Lane = @Lane
+            AND EndNo = @EndNo
+            AND (@Position IS NULL OR Position = @Position)";
 
                 await _db.ExecuteAsync<dynamic>(sql, new
                 {
                     RegionID = regionId,
                     RoundNo = roundNo,
                     Lane = lane,
-                    EndNo = endNo
+                    EndNo = endNo,
+                    Position = position
                 });
 
                 return Ok("Archery scoring records deleted successfully.");
@@ -513,8 +565,7 @@ namespace Server.Palaro2026.Controller.Score
             DELETE FROM ArcheryScoring 
             WHERE Lane = @Lane 
             AND RoundNo = @RoundNo 
-            AND EndNo = 1  -- Only delete shots from end 1
-            AND (@EventID IS NULL OR EventID = @EventID)";
+            AND (@EventID IS NULL OR EventID = @EventID)"; 
 
                 await _db.ExecuteAsync<dynamic>(sql, new
                 {
