@@ -211,55 +211,60 @@ ORDER BY
             {
                 // 1) All school levels
                 string sqlLevels = @"
-            SELECT DISTINCT [Level]
-            FROM SchoolLevels
-            ORDER BY [Level];";
+                    SELECT DISTINCT [Level]
+                    FROM SchoolLevels
+                    ORDER BY [Level];";
 
                 var allSchoolLevels = (await _db.QueryAsync<string, dynamic>(sqlLevels, new { }))
                     .ToList();
 
                 // 2) All regions (optional filter)
                 string sqlRegions = @"
-            SELECT Region, Abbreviation
-            FROM SchoolRegions
-            WHERE (@region IS NULL OR @region = '' OR Region = @region)
-            ORDER BY Region;";
+                    SELECT Region, Abbreviation
+                    FROM SchoolRegions
+                    WHERE (@region IS NULL OR @region = '' OR Region = @region)
+                    ORDER BY Region;";
 
                 var allRegions = (await _db.QueryAsync<RegionRow, dynamic>(sqlRegions, new { region }))
                     .ToList();
 
                 // 3) Medal tally grouped by Level + Region (✅ TeamID dedupe only when TeamID exists)
                 string sqlMedals = @"
-            SELECT
-                sl.[Level] AS [Level],
-                sr.Region AS Region,
-                sr.Abbreviation AS Abbreviation,
+                            SELECT
+                                isnull (sl.[Level],sl2.Level) AS [Level],
+                                sr.Region AS Region,
+                                sr.Abbreviation AS Abbreviation,
 
-                /* Gold */
-                SUM(CASE WHEN evt.Rank = 'Gold' AND evt.TeamID IS NULL THEN 1 ELSE 0 END)
-                + COUNT(DISTINCT CASE WHEN evt.Rank = 'Gold' AND evt.TeamID IS NOT NULL THEN evt.TeamID END) AS Gold,
+                                /* Gold */
+                                SUM(CASE WHEN evt.Rank = 'Gold' AND evt.TeamID IS NULL THEN 1 ELSE 0 END)
+                                + COUNT(DISTINCT CASE WHEN evt.Rank = 'Gold' AND evt.TeamID IS NOT NULL THEN evt.TeamID END) AS Gold,
 
-                /* Silver */
-                SUM(CASE WHEN evt.Rank = 'Silver' AND evt.TeamID IS NULL THEN 1 ELSE 0 END)
-                + COUNT(DISTINCT CASE WHEN evt.Rank = 'Silver' AND evt.TeamID IS NOT NULL THEN evt.TeamID END) AS Silver,
+                                /* Silver */
+                                SUM(CASE WHEN evt.Rank = 'Silver' AND evt.TeamID IS NULL THEN 1 ELSE 0 END)
+                                + COUNT(DISTINCT CASE WHEN evt.Rank = 'Silver' AND evt.TeamID IS NOT NULL THEN evt.TeamID END) AS Silver,
 
-                /* Bronze */
-                SUM(CASE WHEN evt.Rank = 'Bronze' AND evt.TeamID IS NULL THEN 1 ELSE 0 END)
-                + COUNT(DISTINCT CASE WHEN evt.Rank = 'Bronze' AND evt.TeamID IS NOT NULL THEN evt.TeamID END) AS Bronze
+                                /* Bronze */
+                                SUM(CASE WHEN evt.Rank = 'Bronze' AND evt.TeamID IS NULL THEN 1 ELSE 0 END)
+                                + COUNT(DISTINCT CASE WHEN evt.Rank = 'Bronze' AND evt.TeamID IS NOT NULL THEN evt.TeamID END) AS Bronze
 
-            FROM EventVersusTeams evt
-            INNER JOIN SchoolRegions sr ON sr.ID = evt.SchoolRegionID
-            INNER JOIN Events e ON e.ID = evt.EventID AND e.IsFinished = 1
-            LEFT JOIN SportSubcategories sc ON sc.ID = e.SportSubcategoryID
-            LEFT JOIN SchoolLevels sl ON sl.ID = sc.SchoolLevelID
+                            FROM EventVersusTeams evt
+                            left JOIN SchoolRegions sr ON sr.ID = evt.SchoolRegionID
+                            left JOIN Events e ON e.ID = evt.EventID AND e.IsFinished = 1
+                            LEFT JOIN PerformanceEvent p
+                                ON p.ID = evt.PerformanceID
+                               AND p.IsFinished = 1
+                            LEFT JOIN SportSubcategories sc ON sc.ID = e.SportSubcategoryID
+                            LEFT JOIN SchoolLevels sl ON sl.ID = sc.SchoolLevelID
+                           left join SchoolLevels as sl2 on sl2.ID = p.LevelID
 
-            WHERE evt.Rank IN ('Gold','Silver','Bronze')
-              AND (@region IS NULL OR @region = '' OR sr.Region = @region)
+                            WHERE evt.Rank IN ('Gold','Silver','Bronze')
+                             AND (@region IS NULL OR @region = '' OR sr.Region = @region)
 
-            GROUP BY
-                sl.[Level],
-                sr.Region,
-                sr.Abbreviation;";
+                            GROUP BY
+                                isnull (sl.[Level], sl2.Level),
+                                sr.Region,
+                                sr.Abbreviation;";
+
 
                 var medalTally = (await _db.QueryAsync<MedalLevelRegionRow, dynamic>(sqlMedals, new { region }))
                     .ToList();
@@ -323,6 +328,7 @@ ORDER BY
             public int Silver { get; set; }
             public int Bronze { get; set; }
         }
+
     }
 }
 
