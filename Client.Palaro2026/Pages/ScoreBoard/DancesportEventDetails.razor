@@ -1,0 +1,575 @@
+@page "/scoreboard/dancesport/{EventID:int}"
+@layout NoMainLayout
+@using System.Threading
+@using System.Linq
+@using Client.Palaro2026.Services
+@inject APIService apiService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>Dancesport Event Details | PALARO 2026</PageTitle>
+
+<style>
+    /* --- FONTS & VARS --- */
+    @@import url('https://fonts.cdnfonts.com/css/evil-empire');
+    @@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&family=Chakra+Petch:wght@600;700;800&display=swap');
+
+    :root {
+        --pal-blue: #023E8A;
+        --pal-dark-blue: #001845;
+        --pal-gold: #FFB400;
+        --pal-red: #EA0000;
+        --bg-gradient-start: #f8f9fa;
+        --card-bg: #ffffff;
+        --font-header: 'Evil Empire', sans-serif;
+        --font-score: 'Chakra Petch', sans-serif;
+        --font-body: 'Nunito', sans-serif;
+    }
+
+    html, body {
+        height: 100vh;
+        width: 100vw;
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-gradient-start);
+        font-family: var(--font-body);
+        overflow-x: hidden;
+    }
+
+    .tv-screen {
+        min-height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at 50% 30%, #ffffff 0%, #e0e7ff 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-bottom: 10vh;
+    }
+
+    /* --- HEADER --- */
+    .event-header {
+        text-align: center;
+        margin-top: 4vh;
+        margin-bottom: 3vh;
+        padding: 25px 60px;
+        border-radius: 50px;
+        background: var(--pal-dark-blue);
+        border: 3px solid var(--pal-gold);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+        min-width: 40%;
+        position: relative;
+    }
+
+    .back-button {
+        position: absolute;
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: var(--pal-gold);
+        color: var(--pal-dark-blue);
+        border: none;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-family: var(--font-score);
+        font-weight: 700;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+        .back-button:hover {
+            background: white;
+            transform: translateY(-50%) scale(1.05);
+        }
+
+    .sport-title {
+        font-family: var(--font-header);
+        font-size: clamp(2.5rem, 5vw, 4rem);
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        line-height: 1;
+        text-shadow: 3px 3px 0px #000000;
+    }
+
+    .event-meta {
+        font-family: var(--font-score);
+        font-size: clamp(1rem, 1.5vw, 1.2rem);
+        color: var(--pal-gold);
+        letter-spacing: 2px;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-top: 5px;
+    }
+
+    .status-badge {
+        margin-top: 8px;
+        padding: 6px 20px;
+        border-radius: 20px;
+        font-family: var(--font-score);
+        font-weight: 700;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+    }
+
+    .badge-live {
+        background: var(--pal-red);
+        color: white;
+        animation: pulse 2s infinite;
+    }
+
+    .badge-final {
+        background: var(--pal-gold);
+        color: var(--pal-dark-blue);
+    }
+
+    @@keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    /* --- RESULTS TABLE --- */
+    .results-container {
+        width: 90%;
+        max-width: 1400px;
+        background: var(--card-bg);
+        border-radius: 30px;
+        padding: 40px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+        border-top: 6px solid var(--pal-gold);
+        border-bottom: 6px solid var(--pal-blue);
+    }
+
+    .results-title {
+        font-family: var(--font-header);
+        font-size: 2rem;
+        color: var(--pal-dark-blue);
+        margin-bottom: 30px;
+        text-align: center;
+        text-transform: uppercase;
+    }
+
+    .results-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 12px;
+    }
+
+        .results-table thead th {
+            font-family: var(--font-score);
+            color: #777;
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 15px 20px;
+            text-align: left;
+        }
+
+        .results-table tbody tr {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+        }
+
+            .results-table tbody tr:hover {
+                transform: translateX(5px);
+                box-shadow: 0 4px 15px rgba(2, 62, 138, 0.15);
+            }
+
+        .results-table tbody td {
+            padding: 20px;
+            font-family: var(--font-body);
+            font-weight: 600;
+            color: var(--pal-dark-blue);
+            border-top: 1px solid #f0f0f0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+            .results-table tbody td:first-child {
+                border-left: 1px solid #f0f0f0;
+                border-radius: 15px 0 0 15px;
+            }
+
+            .results-table tbody td:last-child {
+                border-right: 1px solid #f0f0f0;
+                border-radius: 0 15px 15px 0;
+            }
+
+    .rank-circle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        font-family: var(--font-header);
+        font-size: 1.8rem;
+        font-weight: 900;
+        background: #e9ecef;
+        color: #555;
+    }
+
+    .rank-1-circle {
+        background: var(--pal-gold);
+        color: white;
+        box-shadow: 0 5px 15px rgba(255, 180, 0, 0.4);
+        transform: scale(1.1);
+    }
+
+    .rank-2-circle {
+        background: #C0C0C0;
+        color: white;
+        box-shadow: 0 3px 10px rgba(192, 192, 192, 0.4);
+    }
+
+    .rank-3-circle {
+        background: #CD7F32;
+        color: white;
+        box-shadow: 0 3px 10px rgba(205, 127, 50, 0.4);
+    }
+
+    .region-cell {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .region-logo {
+        width: 50px;
+        height: 50px;
+        object-fit: contain;
+        border-radius: 50%;
+        border: 2px solid #e9ecef;
+        padding: 5px;
+        background: white;
+    }
+
+    .region-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .region-name {
+        font-family: var(--font-score);
+        font-size: 1.3rem;
+        font-weight: 800;
+        color: var(--pal-blue);
+        line-height: 1.2;
+    }
+
+    .dancers-names {
+        font-size: 0.85rem;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .score-cell {
+        font-family: var(--font-score);
+        font-size: 2rem;
+        font-weight: 900;
+        color: var(--pal-blue);
+        text-align: center;
+    }
+
+    .judge-scores {
+        font-size: 0.8rem;
+        color: #888;
+        margin-top: 5px;
+    }
+
+    /* --- FOOTER --- */
+    .ticker-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 8vh;
+        background: white;
+        border-top: 4px solid var(--pal-gold);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+        box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
+    }
+
+    .footer-logo {
+        height: 4vh;
+        margin: 0 15px;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+
+        .no-data-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .no-data-text {
+            font-family: var(--font-header);
+            font-size: 1.5rem;
+        }
+</style>
+
+<div class="tv-screen">
+
+    <!-- HEADER -->
+    <div class="event-header">
+        <button class="back-button" @onclick="GoBack">? BACK</button>
+
+        @if (_isLoading)
+        {
+            <div class="sport-title" style="font-size:2rem;">LOADING...</div>
+        }
+        else if (_event == null)
+        {
+            <div class="sport-title" style="font-size:2rem; color:var(--pal-red);">EVENT NOT FOUND</div>
+        }
+        else
+        {
+            <div class="sport-title">@GetCategoryShort(_event.MainCategory)</div>
+            <div class="event-meta">
+                @GetSchoolLevelName(_event.LevelID) • @GetGenderName(_event.GenderID) • @GetEventStageName(_event.StageID)
+            </div>
+            <div class="status-badge @(_event.IsFinished ? "badge-final" : "badge-live")">
+                @(_event.IsFinished ? "FINAL RESULTS" : "? LIVE")
+            </div>
+        }
+    </div>
+
+    @if (!_isLoading && _event != null)
+    {
+        <div class="results-container">
+            <div class="results-title">OFFICIAL LEADERBOARD</div>
+
+            @if (!_coupleResults.Any())
+            {
+                <div class="no-data">
+                    <div class="no-data-icon">?</div>
+                    <div class="no-data-text">WAITING FOR SCORES...</div>
+                </div>
+            }
+            else
+            {
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px; text-align: center;">RANK</th>
+                            <th>REGION / DANCERS</th>
+                            <th style="text-align: center;">TOTAL SCORE</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var couple in _coupleResults)
+                        {
+                            <tr>
+                                <td style="text-align: center;">
+                                    <span class="rank-circle @(couple.Rank == 1 ? "rank-1-circle" : couple.Rank == 2 ? "rank-2-circle" : couple.Rank == 3 ? "rank-3-circle" : "")">
+                                        @couple.Rank
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="region-cell">
+                                        <img src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{Uri.EscapeDataString(couple.RegionFull)}.webp")" 
+                                             class="region-logo" 
+                                             onerror="this.style.display='none'" />
+                                        <div class="region-info">
+                                            <div class="region-name">@couple.Region</div>
+                                            <div class="dancers-names">@string.Join(" & ", couple.Dancers)</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="score-cell">
+                                    @couple.TotalScore
+                                    @if (couple.ScoreDetails.Any())
+                                    {
+                                        <div class="judge-scores">
+                                            @string.Join(" | ", couple.ScoreDetails.Select(s => $"{s}"))
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+
+    <!-- FOOTER -->
+    <div class="ticker-footer">
+        <div class="ticker-track">
+            <img src="/media/images/2031.png" class="footer-logo" />
+            <img src="/media/images/deped.png" class="footer-logo" />
+            <img src="/media/images/bagongpilipinas.png" class="footer-logo" />
+            <img src="/media/logo/Palarong Pambansa Logo.webp" onerror="this.src='/media/images/2031.png'" class="footer-logo" />
+            <img src="/media/images/pgas.png" class="footer-logo" />
+        </div>
+    </div>
+
+</div>
+
+@code {
+    [Parameter] public int EventID { get; set; }
+
+    // --- MODELS ---
+    public class PerformanceEvent { public int ID { get; set; } public string MainCategory { get; set; } = ""; public int? LevelID { get; set; } public int? GenderID { get; set; } public int? StageID { get; set; } public bool IsFinished { get; set; } }
+    public class PerformanceTeam { public int PerformanceID { get; set; } public int? TeamID { get; set; } public int RegionID { get; set; } public string PlayerID { get; set; } = ""; }
+    public class PerformanceScores { public int PerformanceID { get; set; } public int? TeamID { get; set; } public decimal Score { get; set; } public int Rank { get; set; } public int SportSubcategoryID { get; set; } }
+    public class SchoolRegion { public int ID { get; set; } public string Region { get; set; } = ""; public string Abbreviation { get; set; } = ""; }
+    public class Player { public string ID { get; set; } = ""; public string FirstName { get; set; } = ""; public string LastName { get; set; } = ""; }
+    
+    public class CoupleResult 
+    { 
+        public string Region { get; set; } = ""; 
+        public string RegionFull { get; set; } = "";
+        public List<string> Dancers { get; set; } = new(); 
+        public int Rank { get; set; } 
+        public int TotalScore { get; set; }
+        public List<decimal> ScoreDetails { get; set; } = new();
+    }
+
+    // --- STATE ---
+    private PerformanceEvent? _event;
+    private List<CoupleResult> _coupleResults = new();
+    private List<PerformanceTeam> _allOpposingTeams = new();
+    private List<PerformanceScores> _allDancesportScores = new();
+    private List<SchoolRegion> _schoolRegions = new();
+    private List<Player> _allPlayers = new();
+    private bool _isLoading = true;
+    private bool _staticDataLoaded = false;
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInitialData();
+        // Refresh only scores every 8 seconds (reduced from 5)
+        _timer = new Timer(async _ => await InvokeAsync(RefreshScores), null, 8000, 8000);
+    }
+
+    private async Task LoadInitialData()
+    {
+        _isLoading = true;
+        try
+        {
+            // Load event details first
+            var events = await apiService.GetAsync<PerformanceEvent>("/PerformanceBased/PerformanceEvents?sportID=10");
+            _event = events?.FirstOrDefault(e => e.ID == EventID);
+
+            if (_event == null)
+            {
+                _isLoading = false;
+                return;
+            }
+
+            // Load static data in parallel (only once)
+            var regionsTask = apiService.GetAsync<SchoolRegion>("/Schools/Regions");
+            var playersTask = apiService.GetAsync<Player>("/Profiles/Player");
+            var teamsTask = apiService.GetAsync<PerformanceTeam>("/PerformanceBased/OpposingTeams");
+
+            await Task.WhenAll(regionsTask, playersTask, teamsTask);
+
+            _schoolRegions = (await regionsTask) ?? new();
+            _allPlayers = (await playersTask) ?? new();
+            
+            var teams = await teamsTask;
+            if (teams != null) _allOpposingTeams = teams.Where(t => t.PerformanceID == EventID).ToList();
+
+            _staticDataLoaded = true;
+
+            // Load scores
+            await RefreshScores();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading data: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshScores()
+    {
+        if (!_staticDataLoaded) return;
+
+        try
+        {
+            // Only refresh scores (the data that changes)
+            var scores = await apiService.GetAsync<PerformanceScores>("/PerformanceScore/Scores");
+            if (scores != null)
+            {
+                _allDancesportScores = scores.Where(s => s.PerformanceID == EventID).ToList();
+                BuildCoupleResults();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing scores: {ex.Message}");
+        }
+    }
+
+    private void BuildCoupleResults()
+    {
+        _coupleResults.Clear();
+
+        var couples = _allOpposingTeams.GroupBy(t => new { t.RegionID, t.TeamID });
+
+        foreach (var couple in couples)
+        {
+            var region = _schoolRegions.FirstOrDefault(r => r.ID == couple.Key.RegionID);
+            var playerIds = couple.Select(x => x.PlayerID).ToList();
+            var dancerNames = _allPlayers
+                .Where(p => playerIds.Contains(p.ID))
+                .Select(p => $"{p.FirstName?[0]}. {p.LastName}")
+                .ToList();
+
+            var teamScores = _allDancesportScores.Where(s => s.TeamID == couple.Key.TeamID).ToList();
+            
+            if (teamScores.Any())
+            {
+                int rank = teamScores.Min(s => s.Rank);
+                int totalScore = (int)teamScores.Sum(s => s.Score);
+                var scoreDetails = teamScores.Select(s => s.Score).ToList();
+
+                _coupleResults.Add(new CoupleResult
+                {
+                    Region = region?.Abbreviation ?? "REGION",
+                    RegionFull = region?.Region ?? "Default",
+                    Dancers = dancerNames,
+                    Rank = rank,
+                    TotalScore = totalScore,
+                    ScoreDetails = scoreDetails
+                });
+            }
+        }
+
+        _coupleResults = _coupleResults.OrderBy(c => c.Rank).ToList();
+    }
+
+    public void Dispose() => _timer?.Dispose();
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/scoreboard/dancesport");
+    }
+
+    // --- HELPERS ---
+    private string GetCategoryShort(string cat) => cat.Contains("Latin") ? "LATIN DANCE" : (cat.Contains("Standard") ? "STANDARD DANCE" : "DANCESPORT");
+    private string GetSchoolLevelName(int? id) => id switch { 1 => "ELEMENTARY", 2 => "SECONDARY", _ => "OPEN" };
+    private string GetGenderName(int? id) => id switch { 1 => "MALE", 2 => "FEMALE", 3 => "MIXED", _ => "" };
+    private string GetEventStageName(int? id) => id switch { 4 => "FINALS", 3 => "SEMI-FINALS", _ => "QUALIFIERS" };
+}

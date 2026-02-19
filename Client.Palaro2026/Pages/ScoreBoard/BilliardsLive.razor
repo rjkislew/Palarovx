@@ -3,921 +3,500 @@
 @using System.Linq
 @using Client.Palaro2026.Services
 @inject APIService apiService
-@inject NavigationManager Navigation
 @implements IDisposable
 @layout NoMainLayout
 
-<PageTitle>Billiards Scoreboard | PALARO 2026</PageTitle>
+<PageTitle>Billiards Live | PALARO 2026</PageTitle>
 
 <style>
-    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
+    /* --- FONTS & VARS --- */
+    @@import url('https://fonts.cdnfonts.com/css/evil-empire');
+    @@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&family=Chakra+Petch:wght@600;700;800&display=swap');
 
     :root {
-        --bg-dark: #121212;
-        --panel-bg: rgba(20, 20, 25, 0.9);
-        --accent-gold: #FFD700;
-        --accent-blue: #00B0FF;
-        --accent-red: #FF1744;
-        --text-white: #ffffff;
-        --accent-green: #4CAF50;
-        --accent-purple: #9C27B0;
+        --pal-blue: #023E8A;
+        --pal-dark-blue: #001845;
+        --pal-gold: #FFB400;
+        --pal-red: #EA0000;
+        --bg-gradient-start: #f8f9fa;
+        --card-bg: rgba(255, 255, 255, 0.95);
+        --font-header: 'Evil Empire', sans-serif;
+        --font-score: 'Chakra Petch', sans-serif;
+        --font-body: 'Nunito', sans-serif;
     }
 
-    body {
-        background-color: black;
-        overflow: hidden;
-    }
-
-    .tv-screen {
-        min-height: 100vh;
+    html, body {
+        height: 100vh;
         width: 100vw;
-        background: radial-gradient(circle at center, #1e1e24 0%, #000000 100%);
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: var(--bg-gradient-start);
+        font-family: var(--font-body);
+    }
+
+    .tv-container {
+        height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at 50% 30%, #ffffff 0%, #e0e7ff 100%);
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        font-family: 'Rajdhani', sans-serif;
-        color: white;
-        padding: 20px;
+        padding-top: 3vh;
     }
 
-    .tournament-header {
+    /* --- HEADER --- */
+    .header-pill {
+        background: var(--pal-dark-blue);
+        border: 3px solid var(--pal-gold);
+        padding: 1vh 4vw;
+        border-radius: 50px;
         text-align: center;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         margin-bottom: 2vh;
+        z-index: 10;
+        min-width: 40vw;
     }
 
-    .palaro-branding {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 2.5rem;
-        color: var(--accent-gold);
-        letter-spacing: 5px;
-        font-weight: bold;
-    }
-
-    .sport-name {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 3rem;
-        font-weight: 900;
-    }
-
-    .match-details {
-        font-size: 1.3rem;
-        color: #aaa;
-        margin-top: 5px;
-        font-family: 'Orbitron', sans-serif;
-        font-weight: 500;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 15px;
-        flex-wrap: wrap;
-    }
-
-    .event-details-card {
-        width: 95%;
-        max-width: 1400px;
-        background: rgba(255,255,255,0.05);
-        border-radius: 12px;
-        padding: 15px 25px;
-        margin-bottom: 2vh;
-        font-size: 1.4rem;
-        font-family: 'Rajdhani', sans-serif;
+    .event-title {
+        font-family: var(--font-header);
         color: white;
+        font-size: clamp(40px, 6vh, 80px);
+
+
+        line-height: 1;
+        letter-spacing: 2px;
+        text-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+    }
+
+    .event-sub {
+        font-family: var(--font-score);
+        color: var(--pal-gold);
+        font-size: clamp(16px, 2.5vh, 30px);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* --- CONTENT AREA --- */
+    .content-area {
+        flex: 1;
+        width: 100%;
         display: flex;
-        align-items: center;
         justify-content: center;
-        gap: 10px;
-        flex-wrap: wrap;
-        border: 1px solid rgba(255,255,255,0.1);
+        align-items: flex-start;
+        padding: 0 3vw;
+        box-sizing: border-box;
+    }
+
+    .matches-grid {
+        display: grid;
+        width: 100%;
+        grid-template-columns: repeat(2, 1fr);
+        grid-auto-rows: minmax(20vh, auto);
+        gap: 3vh 3vw;
+        justify-content: center;
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    .grid-single {
+        grid-template-columns: 1fr;
+        max-width: 70vw;
+        margin: auto;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* --- MATCH CARD --- */
+    .billiards-card {
+        background: var(--card-bg);
+        border-radius: 20px;
+        border: 1px solid #d1d9e6;
+        border-top: 6px solid var(--pal-gold);
+        border-bottom: 6px solid var(--pal-blue);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        display: flex;
+        flex-direction: column;
+        padding: 1.5vh 1vw;
+        height: 100%;
+        min-height: 28vh;
+    }
+
+    .card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1vh;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 0.5vh;
+    }
+
+    .table-badge {
+        background: var(--pal-dark-blue);
+        color: var(--pal-gold);
+        padding: 0.5vh 1.5vw;
+        border-radius: 8px;
+        font-family: var(--font-score);
+        font-weight: 800;
+        font-size: clamp(14px, 2vh, 24px);
     }
 
     .status-badge {
-        font-family: 'Orbitron', sans-serif;
-        padding: 8px 30px;
-        border-radius: 50px;
-        font-size: 1.5rem;
-        font-weight: bold;
-    }
-
-    .live {
-        background: var(--accent-red);
-        animation: pulse 1.5s infinite;
-    }
-
-    .finish {
-        background: #00C853;
-    }
-
-    .category-badge {
-        display: inline-block;
-        padding: 6px 15px;
-        border-radius: 15px;
-        font-family: 'Orbitron', sans-serif;
-        font-size: 1.1rem;
-        font-weight: bold;
+        color: var(--pal-red);
+        font-weight: 900;
+        font-size: clamp(12px, 1.8vh, 20px);
         text-transform: uppercase;
-        letter-spacing: 1px;
+        animation: blink 2s infinite;
     }
 
-    .category-team {
-        background: var(--accent-blue);
-        color: white;
-    }
-
-    .category-mixed {
-        background: var(--accent-purple);
-        color: white;
-    }
-
-    .category-individual {
-        background: var(--accent-green);
-        color: white;
-    }
-
-    .round-section {
-        width: 95%;
-        max-width: 1400px;
-        background: rgba(255,255,255,0.03);
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 25px;
-        border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .round-header {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 1.8rem;
-        color: var(--accent-gold);
-        margin-bottom: 20px;
-        text-align: center;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid rgba(255,215,0,0.3);
-    }
-
-    .results-table {
-        width: 100%;
-        background: rgba(0,0,0,0.3);
-        border-radius: 10px;
-        overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    @@keyframes pulse {
-        0%, 100% {
-            opacity: 1
-        }
-
+    @@keyframes blink {
         50% {
-            opacity: 0.7
+            opacity: 0.5;
         }
     }
 
-    .back-button {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        background: rgba(255,255,255,0.1);
-        color: white;
-        border: 1px solid #333;
-        padding: 8px 16px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 1rem;
-        transition: all 0.3s ease;
-        font-family: 'Rajdhani', sans-serif;
-        z-index: 100;
-    }
-
-        .back-button:hover {
-            background: var(--accent-blue);
-            border-color: var(--accent-blue);
-        }
-
-    .table-badge {
-        background: rgba(255,215,0,0.1);
-        border: 2px solid var(--accent-gold);
-        border-radius: 8px;
-        padding: 4px 12px;
-        font-family: 'Orbitron', sans-serif;
-        font-size: 1.1rem;
-        font-weight: bold;
-        display: inline-block;
-        color: var(--accent-gold);
-    }
-
-    .region-flag {
-        width: 35px;
-        height: 35px;
-        margin-right: 10px;
-        border-radius: 50%;
-        overflow: hidden;
-        background: rgba(255,255,255,0.05);
-        display: inline-flex;
+    .players-row {
+        display: flex;
         align-items: center;
-        justify-content: center;
-        border: 1px solid rgba(255,255,255,0.2);
+        justify-content: space-between;
+        flex: 1;
     }
 
-        .region-flag img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            padding: 2px;
-        }
-
-    .separator-dot {
-        color: var(--accent-gold);
-        font-size: 1.5rem;
-        font-weight: bold;
-        opacity: 0.7;
-    }
-
-    .match-status {
-        font-family: 'Orbitron', sans-serif;
-        padding: 5px 15px;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: bold;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .status-winner {
-        background: var(--accent-green);
-        color: white;
-    }
-
-    .status-eliminated {
-        background: var(--accent-red);
-        color: white;
-    }
-
-    .status-ongoing {
-        background: var(--accent-blue);
-        color: white;
-        animation: pulse 1.5s infinite;
-    }
-
-    .score-cell {
-        font-family: 'Orbitron', sans-serif;
-        font-weight: 700;
+    .player-side {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         text-align: center;
-        font-size: 1.8rem;
-        color: white;
     }
 
-    .winning-score {
-        color: var(--accent-green) !important;
-        text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
-    }
-
-    .advancing-section {
-        width: 95%;
-        max-width: 1400px;
-        background: rgba(255,255,255,0.03);
-        border-radius: 12px;
-        padding: 20px;
-        margin-top: 20px;
-        border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .advancing-header {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 1.8rem;
-        color: var(--accent-gold);
-        margin-bottom: 20px;
-        text-align: center;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid rgba(255,215,0,0.3);
-    }
-
-    .loader-container {
+    .p-img-box {
+        width: clamp(60px, 10vh, 120px);
+        height: clamp(60px, 10vh, 120px);
+        background: white;
+        border-radius: 50%;
+        border: 4px solid #e0e0e0;
+        padding: 5px;
+        margin-bottom: 1vh;
         display: flex;
         justify-content: center;
         align-items: center;
-        height: 70vh;
     }
 
-    .region-name {
-        font-weight: bold;
-        font-size: 1.3rem;
-        font-family: 'Rajdhani', sans-serif;
+    .winner-glow {
+        border-color: var(--pal-gold);
+        box-shadow: 0 0 20px rgba(255, 180, 0, 0.5);
     }
 
-    .player-name {
-        color: #aaa;
-        font-size: 0.95rem;
-        margin-top: 2px;
-        font-family: 'Rajdhani', sans-serif;
+    .p-name {
+        font-family: var(--font-header);
+        font-size: clamp(20px, 4vh, 45px);
+        color: var(--pal-dark-blue);
+        line-height: 1;
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    .table-header-cell {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 1.2rem;
-        color: var(--accent-gold) !important;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+    .p-region {
+        font-family: var(--font-body);
+        font-size: clamp(12px, 2vh, 24px);
+        color: var(--pal-blue);
+        font-weight: 700;
     }
 
-    @@media (max-width: 768px) {
-        .tv-screen {
-            padding: 10px;
-        }
-
-        .palaro-branding {
-            font-size: 1.5rem;
-        }
-
-        .sport-name {
-            font-size: 2.5rem;
-        }
-
-        .round-header, .advancing-header {
-            font-size: 1.5rem;
-        }
-
-        .event-details-card {
-            font-size: 1.1rem;
-            padding: 12px 15px;
-        }
+    .score-box {
+        display: flex;
+        align-items: center;
+        gap: 1vw;
+        padding: 0 1vw;
     }
+
+    .score-val {
+        font-family: var(--font-score);
+        font-size: clamp(50px, 10vh, 110px);
+        font-weight: 700;
+        color: #37474f;
+        line-height: 0.8;
+    }
+
+    .score-win {
+        color: var(--pal-dark-blue);
+        text-shadow: 3px 3px 0 rgba(255,180,0,0.3);
+    }
+
+    /* --- FOOTER --- */
+    .ticker-footer {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 8vh;
+        background: linear-gradient(to bottom, #ffffff, #f1f3f5);
+        border-top: 4px solid var(--pal-gold);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+    }
+
+    .ticker-track {
+        display: flex;
+        gap: 5vw;
+        height: 100%;
+        align-items: center;
+    }
+
+    .footer-logo {
+        height: 5vh;
+        width: auto;
+    }
+
+    /* DOTS */
+    .page-indicator {
+        position: absolute;
+        bottom: 9vh;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ccc;
+    }
+
+        .dot.active {
+            background: var(--pal-blue);
+            width: 25px;
+            border-radius: 10px;
+        }
+
 </style>
 
-<div class="tv-screen">
-    <button class="back-button" onclick="history.back()">← Back</button>
+<div class="tv-container">
 
-    @if (_isLoading)
+    @if (_event != null)
     {
-        <MudProgressCircular Indeterminate Color="Color.Warning" Size="Size.Large" />
-    }
-    else if (_event == null)
-    {
-        <MudText Typo="Typo.h4" Color="Color.Error">EVENT NOT FOUND</MudText>
-    }
-    else
-    {
-        <div class="tournament-header">
-            <div class="palaro-branding">PALARONG PAMBANSA 2026</div>
-            <div class="sport-name">BILLIARDS</div>
-            <div class="match-details">
-                @if (_event.IsFinished == true)
-                {
-                    <div class="status-badge finish">FINISH</div>
-                }
-                else
-                {
-                    <div class="status-badge live">LIVE</div>
-                }
-            </div>
+        <!-- HEADER -->
+        <div class="header-pill">
+            <div class="event-title">BILLIARDS</div>
+            <div class="event-sub">@_event.Level • @_event.Gender @_event.Subcategory</div>
         </div>
 
-        <div class="event-details-card">
-            @_event.Sport
-            <span class="separator-dot">•</span>
-            @_event.Level
-            <span class="separator-dot">•</span>
-            @_event.Gender
-            <span class="separator-dot">•</span>
-            @_event.Subcategory
-            @if (!string.IsNullOrEmpty(_event.Subcategory))
+        <div class="content-area">
+            <!-- MATCHES VIEW -->
+            @if (_currentBatch.Any())
             {
-                var categoryType = GetCategoryType(_event.Subcategory);
-                <span class="category-badge @GetCategoryClass(categoryType)">
-                    @categoryType
-                </span>
+                <div class="matches-grid @(_currentBatch.Count == 1 ? "grid-single" : "")">
+                    @foreach (var match in _currentBatch)
+                    {
+                        bool isFin = match.IsCompleted;
+                        bool p1Win = match.Player1IsWinner == true;
+                        bool p2Win = match.Player2IsWinner == true;
+
+                        <div class="billiards-card">
+                            <div class="card-top">
+                                <div class="table-badge">TABLE @match.TableNo</div>
+                                <!-- MODIFIED: ALWAYS SHOWS LIVE SCORE -->
+                                <div class="status-badge">
+                                    ● LIVE SCORE
+                                </div>
+                            </div>
+
+                            <div class="players-row">
+                                <!-- P1 -->
+                                <div class="player-side">
+                                    <div class="p-img-box @(p1Win ? "winner-glow" : "")">
+                                        <MudImage Src="@GetRegionLogo(match.Player1Region)" ObjectFit="ObjectFit.Contain" Style="width:100%; height:100%;" />
+                                    </div>
+                                    <div class="p-name">@GetShortName(match.Player1Name, match.Player1Region)</div>
+                                    <div class="p-region">@match.Player1Region</div>
+                                </div>
+
+                                <!-- SCORES -->
+                                <div class="score-box">
+                                    <div class="score-val @(p1Win ? "score-win" : "")">@match.Player1Score</div>
+                                    <div style="font-size: 3vh; color:#ccc;">-</div>
+                                    <div class="score-val @(p2Win ? "score-win" : "")">@match.Player2Score</div>
+                                </div>
+
+                                <!-- P2 -->
+                                <div class="player-side">
+                                    <div class="p-img-box @(p2Win ? "winner-glow" : "")">
+                                        <MudImage Src="@GetRegionLogo(match.Player2Region)" ObjectFit="ObjectFit.Contain" Style="width:100%; height:100%;" />
+                                    </div>
+                                    <div class="p-name">@GetShortName(match.Player2Name, match.Player2Region)</div>
+                                    <div class="p-region">@match.Player2Region</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <MudText Typo="Typo.h3" Align="Align.Center" Style="color:#999; font-family:var(--font-header);">WAITING FOR MATCHES...</MudText>
             }
         </div>
 
-        @foreach (var roundGroup in _matches.GroupBy(m => m.SetNo).OrderBy(g => g.Key))
+        <!-- PAGINATION DOTS (Only shows if there are more than 4 active tables) -->
+        @if (_totalPages > 1)
         {
-            <div class="round-section">
-                <div class="round-header">
-                    @GetRoundName(roundGroup.Key) - ROUND @roundGroup.Key
-                </div>
-
-                <div class="results-table">
-                    <MudTable Items="roundGroup.OrderBy(m => m.TableNo).ToList()" Dense Hover Striped>
-                        <HeaderContent>
-                            <MudTh Class="table-header-cell">Table</MudTh>
-                            <MudTh Class="table-header-cell">Player 1</MudTh>
-                            <MudTh Class="table-header-cell" Style="text-align:center;">Score</MudTh>
-                            <MudTh Class="table-header-cell">Player 2</MudTh>
-                            <MudTh Class="table-header-cell" Style="text-align:center;">Score</MudTh>
-                            <MudTh Class="table-header-cell" Style="text-align:center;">Status</MudTh>
-                        </HeaderContent>
-
-                        <RowTemplate>
-                            <MudTd>
-                                <div class="table-badge">
-                                    Table @context.TableNo
-                                </div>
-                            </MudTd>
-
-                            <!-- Player 1 -->
-                            <MudTd>
-                                <div style="display:flex; align-items:center;">
-                                    <div class="region-flag">
-                                        <MudImage Src="@GetRegionLogo(context.Player1Region)"
-                                                  ObjectFit="ObjectFit.Contain"
-                                                  Alt="@context.Player1Region"
-                                                  Style="width:100%; height:100%;" />
-                                    </div>
-                                    <div>
-                                        <div class="region-name">
-                                            @context.Player1Region
-                                        </div>
-                                        @if (!string.IsNullOrEmpty(context.Player1Name))
-                                        {
-                                            <div class="player-name">
-                                                @context.Player1Name
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
-                            </MudTd>
-
-                            <!-- Player 1 Score -->
-                            <MudTd Class="@(context.IsCompleted && context.Player1IsWinner == true ? "winning-score" : "")">
-                                <div class="score-cell">
-                                    @context.Player1Score
-                                </div>
-                            </MudTd>
-
-                            <!-- Player 2 -->
-                            <MudTd>
-                                <div style="display:flex; align-items:center;">
-                                    <div class="region-flag">
-                                        <MudImage Src="@GetRegionLogo(context.Player2Region)"
-                                                  ObjectFit="ObjectFit.Contain"
-                                                  Alt="@context.Player2Region"
-                                                  Style="width:100%; height:100%;" />
-                                    </div>
-                                    <div>
-                                        <div class="region-name">
-                                            @context.Player2Region
-                                        </div>
-                                        @if (!string.IsNullOrEmpty(context.Player2Name))
-                                        {
-                                            <div class="player-name">
-                                                @context.Player2Name
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
-                            </MudTd>
-
-                            <!-- Player 2 Score -->
-                            <MudTd Class="@(context.IsCompleted && context.Player2IsWinner == true ? "winning-score" : "")">
-                                <div class="score-cell">
-                                    @context.Player2Score
-                                </div>
-                            </MudTd>
-
-                            <!-- Status -->
-                            <MudTd>
-                                @if (context.IsCompleted)
-                                {
-                                    if (context.Player1IsWinner == true)
-                                    {
-                                        <div class="match-status status-winner"
-                                             style="display:flex; align-items:center; justify-content:center; text-align:center;">
-                                            @context.Player1Region WINS
-                                        </div>
-                                    }
-                                    else if (context.Player2IsWinner == true)
-                                    {
-                                        <div class="match-status status-winner"
-                                             style="display:flex; align-items:center; justify-content:center; text-align:center;">
-                                            @context.Player2Region WINS
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <div class="match-status status-ongoing"
-                                             style="display:flex; align-items:center; justify-content:center; text-align:center;">
-                                            ON GOING
-                                        </div>
-                                    }
-                                }
-                                else
-                                {
-                                    <div class="match-status status-ongoing"
-                                         style="display:flex; align-items:center; justify-content:center; text-align:center;">
-                                        ON GOING
-                                    </div>
-                                }
-                            </MudTd>
-                        </RowTemplate>
-                    </MudTable>
-                </div>
-            </div>
-        }
-
-        <!-- Advancing Players -->
-        @if (_advancingPlayers.Any())
-        {
-            <div class="advancing-section">
-                <div class="advancing-header">ADVANCING TO NEXT ROUND</div>
-                <div class="results-table">
-                    <MudTable Items="_advancingPlayers.OrderBy(a => a.NextRoundSetNo).ThenBy(a => a.RegionName).ToList()" Dense Hover Striped>
-                        <HeaderContent>
-                            <MudTh Class="table-header-cell">Round</MudTh>
-                            <MudTh Class="table-header-cell">Region</MudTh>
-                            <MudTh Class="table-header-cell">Player</MudTh>
-                            <MudTh Class="table-header-cell" Style="text-align:center;">Record</MudTh>
-                        </HeaderContent>
-
-                        <RowTemplate>
-                            <MudTd Style="font-family: 'Orbitron'; font-weight:bold; font-size:1.2rem;">
-                                Round @context.NextRoundSetNo
-                            </MudTd>
-                            <MudTd>
-                                <div style="display:flex; align-items:center;">
-                                    <div class="region-flag">
-                                        <MudImage Src="@GetRegionLogo(context.RegionName)"
-                                                  ObjectFit="ObjectFit.Contain"
-                                                  Alt="@context.RegionName"
-                                                  Style="width:100%; height:100%;" />
-                                    </div>
-                                    <div class="region-name">
-                                        @context.RegionName
-                                    </div>
-                                </div>
-                            </MudTd>
-                            <MudTd Style="font-family: 'Rajdhani'; font-size:1.2rem; font-weight:600;">
-                                @context.PlayerName
-                            </MudTd>
-                            <MudTd Style="font-family: 'Orbitron'; font-weight:bold; color:var(--accent-gold); font-size:1.3rem; text-align:center;">
-                                @context.Wins - @context.Losses
-                            </MudTd>
-                        </RowTemplate>
-                    </MudTable>
-                </div>
+            <div class="page-indicator">
+                @for (int i = 0; i < _totalPages; i++)
+                {
+                    <div class="dot @(i == _pageIndex ? "active" : "")"></div>
+                }
             </div>
         }
     }
+    else
+    {
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" Color="Color.Primary" />
+    }
+
+    <!-- FOOTER -->
+    <div class="ticker-footer">
+        <div class="ticker-track">
+            <img src="/media/images/2031.png" class="footer-logo" />
+            <img src="/media/images/deped.png" class="footer-logo" />
+            <img src="/media/images/bagongpilipinas.png" class="footer-logo" />
+            <img src="/media/logo/Palarong Pambansa Logo.webp" onerror="this.src='/media/images/2031.png'" class="footer-logo" />
+            <img src="/media/images/pgas.png" class="footer-logo" />
+        </div>
+    </div>
 </div>
 
 @code {
     [Parameter] public string EventID { get; set; } = "";
 
-    /* ===================== MODELS ===================== */
-
-    public class EventDetails
-    {
-        public class Event
-        {
-            public string ID { get; set; } = null!;
-            public string? EventStage { get; set; }
-            public List<EventVersus>? EventVersusList { get; set; }
-            public string? SportMainCat { get; set; }
-            public string? Category { get; set; }
-            public string? Sport { get; set; }
-            public string? GamePhase { get; set; }
-            public int? SubCategoryID { get; set; }
-            public string? Subcategory { get; set; }
-            public string? Gender { get; set; }
-            public string? Level { get; set; }
-            public string? Venue { get; set; }
-            public decimal? Latitude { get; set; }
-            public decimal? Longitude { get; set; }
-            public DateTime? Date { get; set; }
-            public TimeSpan? Time { get; set; }
-            public bool? OnStream { get; set; }
-            public string? StreamService { get; set; }
-            public string? StreamURL { get; set; }
-            public bool? IsFinished { get; set; }
-            public bool? Archived { get; set; }
-            public bool? Deleted { get; set; }
-            public string? FirstName { get; set; }
-            public string? LastName { get; set; }
-        }
-
-        public class EventVersus
-        {
-            public int ID { get; set; }
-            public string? Score { get; set; }
-            public string? Region { get; set; }
-            public string? Abbreviation { get; set; }
-            public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
-            public string? Rank { get; set; }
-            public DateTime? RecentUpdateAt { get; set; }
-        }
-
-        public class EventVersusTeamPlayers
-        {
-            public int ID { get; set; }
-            public int? EventVersusID { get; set; }
-            public string? FirstName { get; set; }
-            public string? LastName { get; set; }
-            public string? School { get; set; }
-        }
-    }
-
-    public class EventInfo
-    {
-        public string ID { get; set; } = "";
-        public string? Sport { get; set; }
-        public string? Subcategory { get; set; }
-        public string? Level { get; set; }
-        public string? Gender { get; set; }
-        public string? EventStage { get; set; }
-        public bool? IsFinished { get; set; }
-    }
-
+    // MODELS
+    public class EventInfo { public string ID { get; set; } public string Subcategory { get; set; } public string Level { get; set; } public string Gender { get; set; } public string Sport { get; set; } }
     public class MatchInfo
     {
-        public int SetNo { get; set; }
         public int TableNo { get; set; }
-        public string? Player1Region { get; set; }
-        public string? Player1Name { get; set; }
+        public int SetNo { get; set; }
+        public string Player1Name { get; set; }
+        public string Player1Region { get; set; }
         public int Player1Score { get; set; }
         public bool? Player1IsWinner { get; set; }
-        public string? Player2Region { get; set; }
-        public string? Player2Name { get; set; }
+        public string Player2Name { get; set; }
+        public string Player2Region { get; set; }
         public int Player2Score { get; set; }
         public bool? Player2IsWinner { get; set; }
         public bool IsCompleted { get; set; }
     }
-
-    public class AdvancingPlayer
-    {
-        public int RegionID { get; set; }
-        public string RegionName { get; set; } = "";
-        public string PlayerName { get; set; } = "";
-        public int Wins { get; set; }
-        public int Losses { get; set; }
-        public int NextRoundSetNo { get; set; }
-    }
-
-    public class SchoolRegions
-    {
-        public int ID { get; set; }
-        public string? Region { get; set; }
-        public string? Abbreviation { get; set; }
-    }
-
-    public class BilliardsResult
-    {
-        public int SetNo { get; set; }
-        public int TableNo { get; set; }
-        public int RegionID { get; set; }
-        public string? PlayerPosition { get; set; }
-        public int? Score { get; set; }
-        public bool? IsWinner { get; set; }
-        public string? Region { get; set; }
-        public string? Abbreviation { get; set; }
-        public string? PlayerID { get; set; }
-        public string? PlayerName { get; set; }
-    }
-
-    /* ===================== STATE ===================== */
+    public class SchoolRegions { public string Region { get; set; } public string Abbreviation { get; set; } }
+    public class BilliardsResult { public int SetNo { get; set; } public int TableNo { get; set; } public string PlayerPosition { get; set; } public int? Score { get; set; } public bool? IsWinner { get; set; } public string Region { get; set; } public string Abbreviation { get; set; } public string PlayerName { get; set; } }
 
     private EventInfo? _event;
-    private List<MatchInfo> _matches = new();
-    private List<AdvancingPlayer> _advancingPlayers = new();
-    private List<SchoolRegions>? _allRegions;
-    private bool _isLoading = true;
-    private Timer? _refreshTimer;
+    private List<MatchInfo> _allMatches = new();
+    private List<MatchInfo> _currentBatch = new();
+    private List<SchoolRegions>? _regions;
 
-    /* ===================== INIT ===================== */
+    // ROTATION LOGIC (Carousel for matches only)
+    private int _pageIndex = 0;
+    private int _totalPages = 1;
+    private int _itemsPerPage = 4; // Max tables per screen
+
+    private Timer? _dataTimer;
+    private Timer? _pageTimer;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
-        // Auto-refresh every 2 seconds for live updates
-        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 2000, 2000);
+        _dataTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 5000, 5000);
+        _pageTimer = new Timer(async _ => await InvokeAsync(NextPage), null, 12000, 12000); // 12 seconds per slide
     }
 
-    /* ===================== GET DATA ===================== */
+    private void NextPage()
+    {
+        if (_totalPages <= 1) return;
+        _pageIndex++;
+        if (_pageIndex >= _totalPages) _pageIndex = 0;
+        UpdateView();
+        StateHasChanged();
+    }
+
+    private void UpdateView()
+    {
+        _currentBatch = _allMatches
+            .Skip(_pageIndex * _itemsPerPage)
+            .Take(_itemsPerPage)
+            .ToList();
+    }
 
     private async Task LoadData()
     {
         try
         {
-            // Load regions
-            _allRegions = await apiService.GetAsync<SchoolRegions>("/Schools/Regions");
-
-            // LOAD EVENT DETAILS FROM /Events/Details ENDPOINT
-            var allEvents = await apiService.GetAsync<EventDetails.Event>("/Events/Details");
-
-            if (allEvents != null)
-            {
-                // Find the Billiards event by ID
-                var eventDetails = allEvents.FirstOrDefault(e =>
-                    e.ID == EventID &&
-                    e.Sport?.Equals("Billiards", StringComparison.OrdinalIgnoreCase) == true);
-
-                if (eventDetails != null)
-                {
-                    // Map to EventInfo
-                    _event = new EventInfo
-                    {
-                        ID = eventDetails.ID,
-                        Sport = eventDetails.Sport,
-                        Subcategory = eventDetails.Subcategory,
-                        Level = eventDetails.Level,
-                        Gender = eventDetails.Gender,
-                        EventStage = eventDetails.EventStage,
-                        // THIS IS THE IMPORTANT PART - Get IsFinished from /Events/Details
-                        IsFinished = eventDetails.IsFinished
-                    };
-
-                    Console.WriteLine($"[BILLIARDS DEBUG] Event {EventID} IsFinished = {_event.IsFinished}");
-                }
-                else
-                {
-                    Console.WriteLine($"[BILLIARDS ERROR] Event {EventID} not found in /Events/Details");
-                    // Fallback to old API if needed
-                    await LoadEventFromFallback();
-                }
-            }
-            else
-            {
-                await LoadEventFromFallback();
-            }
+            if (_regions == null) _regions = await apiService.GetAsync<SchoolRegions>("/Schools/Regions");
+            var evts = await apiService.GetAsync<EventInfo>("/Events/Details");
+            _event = evts?.FirstOrDefault(e => e.ID == EventID && e.Sport.Contains("Billiard"));
 
             if (_event != null)
             {
-                await LoadBilliardsResults();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading event: {ex.Message}");
-        }
-        finally
-        {
-            _isLoading = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task LoadEventFromFallback()
-    {
-        // Fallback to old API if /Events/Details fails
-        var events = await apiService.GetAsync<EventInfo>($"/BilliardsScoring/events?eventId={EventID}");
-        if (events != null && events.Any())
-        {
-            _event = events.First();
-        }
-    }
-
-    private async Task LoadBilliardsResults()
-    {
-        if (_event == null) return;
-
-        try
-        {
-            var results = await apiService.GetAsync<BilliardsResult>(
-                $"/BilliardsScoring/event/{_event.ID}");
-
-            if (results == null) return;
-
-            // Group by Set and Table to create match pairs
-            var matchDict = new Dictionary<(int SetNo, int TableNo), MatchInfo>();
-            var advancingDict = new Dictionary<int, AdvancingPlayer>();
-
-            foreach (var result in results)
-            {
-                var key = (result.SetNo, result.TableNo);
-                if (!matchDict.ContainsKey(key))
+                var results = await apiService.GetAsync<BilliardsResult>($"/BilliardsScoring/event/{EventID}");
+                if (results != null)
                 {
-                    matchDict[key] = new MatchInfo
+                    var matchDict = new Dictionary<(int, int), MatchInfo>();
+
+                    foreach (var r in results)
                     {
-                        SetNo = result.SetNo,
-                        TableNo = result.TableNo,
-                        IsCompleted = false
-                    };
-                }
+                        var key = (r.SetNo, r.TableNo);
+                        if (!matchDict.ContainsKey(key)) matchDict[key] = new MatchInfo { SetNo = r.SetNo, TableNo = r.TableNo };
+                        var m = matchDict[key];
 
-                var match = matchDict[key];
-                if (result.PlayerPosition == "Player1")
-                {
-                    match.Player1Region = result.Abbreviation ?? result.Region ?? "Unknown";
-                    match.Player1Name = result.PlayerName ?? "";
-                    match.Player1Score = result.Score ?? 0;
-                    match.Player1IsWinner = result.IsWinner;
-                }
-                else if (result.PlayerPosition == "Player2")
-                {
-                    match.Player2Region = result.Abbreviation ?? result.Region ?? "Unknown";
-                    match.Player2Name = result.PlayerName ?? "";
-                    match.Player2Score = result.Score ?? 0;
-                    match.Player2IsWinner = result.IsWinner;
-                }
-
-                // Check if match is completed
-                if (result.IsWinner.HasValue)
-                {
-                    match.IsCompleted = true;
-                }
-
-                // Track advancing players
-                if (result.IsWinner == true && result.RegionID > 0)
-                {
-                    var regionName = result.Abbreviation ?? result.Region ?? "Unknown";
-
-                    if (!advancingDict.ContainsKey(result.RegionID))
-                    {
-                        advancingDict[result.RegionID] = new AdvancingPlayer
-                        {
-                            RegionID = result.RegionID,
-                            RegionName = regionName,
-                            PlayerName = result.PlayerName ?? "",
-                            NextRoundSetNo = result.SetNo + 1,
-                            Wins = 0,
-                            Losses = 0
-                        };
+                        string reg = r.Abbreviation ?? r.Region ?? "";
+                        if (r.PlayerPosition == "Player1") { m.Player1Name = r.PlayerName; m.Player1Region = reg; m.Player1Score = r.Score ?? 0; m.Player1IsWinner = r.IsWinner; }
+                        else { m.Player2Name = r.PlayerName; m.Player2Region = reg; m.Player2Score = r.Score ?? 0; m.Player2IsWinner = r.IsWinner; }
+                        if (r.IsWinner.HasValue) m.IsCompleted = true;
                     }
 
-                    var player = advancingDict[result.RegionID];
-                    player.Wins++;
-                }
-                else if (result.IsWinner == false && result.RegionID > 0)
-                {
-                    if (advancingDict.ContainsKey(result.RegionID))
-                    {
-                        advancingDict[result.RegionID].Losses++;
-                    }
+                    // Logic: Show Matches from Latest Round
+                    int maxSet = matchDict.Values.Any() ? matchDict.Values.Max(x => x.SetNo) : 0;
+
+                    _allMatches = matchDict.Values
+                        .Where(m => m.SetNo == maxSet)
+                        .Where(m => !string.IsNullOrEmpty(m.Player1Region) && !string.IsNullOrEmpty(m.Player2Region))
+                        .OrderBy(m => m.TableNo)
+                        .ToList();
+
+                    // Calculate Pages (Just matches, no winners)
+                    _totalPages = (int)Math.Ceiling((double)_allMatches.Count / _itemsPerPage);
+                    if (_totalPages == 0) _totalPages = 1;
+                    if (_pageIndex >= _totalPages) _pageIndex = 0;
+
+                    UpdateView();
+                    StateHasChanged();
                 }
             }
-
-            _matches = matchDict.Values.Where(m =>
-                !string.IsNullOrEmpty(m.Player1Region) &&
-                !string.IsNullOrEmpty(m.Player2Region)).ToList();
-
-            _advancingPlayers = advancingDict.Values.ToList();
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading billiards results: {ex.Message}");
-        }
+        catch { }
     }
 
-    private string GetRegionLogo(string regionName)
+    public void Dispose() { _dataTimer?.Dispose(); _pageTimer?.Dispose(); }
+    private string GetRegionLogo(string reg)
     {
-        if (string.IsNullOrWhiteSpace(regionName))
-            return "/images/region-placeholder.png";
-
-        var region = _allRegions?.FirstOrDefault(r =>
-            r.Abbreviation?.Equals(regionName, StringComparison.OrdinalIgnoreCase) == true ||
-            r.Region?.Equals(regionName, StringComparison.OrdinalIgnoreCase) == true);
-
-        var actualRegionName = region?.Region ?? regionName;
-        var cleanRegionName = Uri.EscapeDataString(actualRegionName);
-
-        return $"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{cleanRegionName}.webp";
+        var r = _regions?.FirstOrDefault(x => x.Abbreviation == reg || x.Region == reg);
+        string name = r?.Region ?? reg ?? "";
+        return $"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{Uri.EscapeDataString(name)}.webp";
     }
-
-    // Helper method to determine category type
-    private string GetCategoryType(string? subcategory)
-    {
-        if (string.IsNullOrEmpty(subcategory))
-            return "Individual";
-
-        var subcategoryLower = subcategory.ToLower();
-
-        if (subcategoryLower.Contains("mixed"))
-            return "Mixed";
-        else if (subcategoryLower.Contains("team"))
-            return "Team";
-        else
-            return "Individual";
-    }
-
-    // Helper method to get CSS class for category badge
-    private string GetCategoryClass(string categoryType)
-    {
-        return categoryType.ToLower() switch
-        {
-            "team" => "category-team",
-            "mixed" => "category-mixed",
-            "individual" => "category-individual",
-            _ => "category-individual"
-        };
-    }
-
-    private string GetRoundName(int roundNumber)
-    {
-        return roundNumber switch
-        {
-            1 => "ELIMINATION",
-            2 => "QUARTER-FINALS",
-            3 => "SEMI-FINALS",
-            4 => "FINALS",
-            _ => $"ROUND {roundNumber}"
-        };
-    }
-
-    /* ===================== CLEANUP ===================== */
-
-    public void Dispose()
-    {
-        _refreshTimer?.Dispose();
-    }
+    private string GetShortName(string name, string reg) => string.IsNullOrEmpty(name) ? (reg ?? "PLAYER") : name;
 }
