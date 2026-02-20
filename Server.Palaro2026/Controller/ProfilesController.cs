@@ -112,28 +112,100 @@ namespace Server.Palaro2026.Controller
             }
         }
 
+        //    [HttpGet("Player/FilteredPlayer")]
+        //    public async Task<ActionResult<List<ProfilesDTO.ProfilePlayerEvent>>> GetProfilePlayerEvent(
+        //[FromQuery] int? regionID,
+        //[FromQuery] int? sportID,
+        //[FromQuery] int? schoolLevelID,
+        //[FromQuery] int? genderID)
+        //    {
+        //        try
+        //        {
+        //            var query =
+        //                from p in _context.ProfilePlayers
+        //                from ppsc in p.ProfilePlayerSports
+        //                let sc = ppsc.SportSubcategory
+        //                where sc != null
+        //                select new { p, sc };
+
+        //            // Region filter
+        //            if (regionID.HasValue)
+        //            {
+        //                query = query.Where(x =>
+        //                    x.p.School != null &&
+        //                    x.p.School.SchoolDivision != null &&
+        //                    x.p.School.SchoolDivision.SchoolRegion != null &&
+        //                    x.p.School.SchoolDivision.SchoolRegion.ID == regionID.Value
+        //                );
+        //            }
+
+        //            // Sport filter
+        //            if (sportID.HasValue)
+        //            {
+        //                query = query.Where(x => x.p.SportID == sportID.Value);
+        //            }
+
+        //            // School level filter
+        //            if (schoolLevelID.HasValue)
+        //            {
+        //                query = query.Where(x => x.sc.SchoolLevelID == schoolLevelID.Value);
+        //            }
+
+        //            // Gender filter (✅ if genderID is null = Mix, no gender restriction)
+        //            if (genderID.HasValue)
+        //            {
+        //                query = query.Where(x => x.sc.SportGenderCategoryID == genderID.Value);
+        //            }
+
+        //            var result = await query
+        //                .Select(x => new ProfilesDTO.ProfilePlayerEvent
+        //                {
+        //                    ID = x.p.ID,
+        //                    FirstName = x.p.FirstName,
+        //                    LastName = x.p.LastName,
+        //                    RegionID = x.p.School!.SchoolDivision!.SchoolRegion!.ID,
+        //                    SubCategoryID = x.sc.ID
+        //                })
+        //                .Distinct()
+        //                .ToListAsync();
+
+        //            return Ok(result);
+        //        }
+        //        catch
+        //        {
+        //            return StatusCode(500, "Internal server error. Please try again later.");
+        //        }
+        //    }
+
+
         [HttpGet("Player/FilteredPlayer")]
         public async Task<ActionResult<List<ProfilesDTO.ProfilePlayerEvent>>> GetProfilePlayerEvent(
-            [FromQuery] int? regionID,
-            [FromQuery] int? sportID,
-            [FromQuery] int? schoolLevelID,
-            [FromQuery] int? genderID,
-            [FromQuery] int? subCategoryID)
+    [FromQuery] int? regionID,
+    [FromQuery] int? sportID,
+    [FromQuery] int? schoolLevelID,
+    [FromQuery] int? genderID,
+    [FromQuery] int? subCategoryID)
         {
             try
             {
                 var query = _context.ProfilePlayers
                     .Include(p => p.School)
-                    .ThenInclude(sd => sd!.SchoolDivision)
-                    .ThenInclude(sr => sr!.SchoolRegion)
+                        .ThenInclude(s => s!.SchoolDivision)
+                            .ThenInclude(sd => sd!.SchoolRegion)
                     .Include(p => p.ProfilePlayerSports)
-                    .ThenInclude(ppsc => ppsc.SportSubcategory)
+                        .ThenInclude(ppsc => ppsc.SportSubcategory)
                     .AsQueryable();
 
-                // Apply filters if provided
+                // ----------------------------
+                // Base filters
+                // ----------------------------
                 if (regionID.HasValue)
                 {
-                    query = query.Where(p => p.School!.SchoolDivision!.SchoolRegion!.ID == regionID.Value);
+                    query = query.Where(p =>
+                        p.School != null &&
+                        p.School.SchoolDivision != null &&
+                        p.School.SchoolDivision.SchoolRegion != null &&
+                        p.School.SchoolDivision.SchoolRegion.ID == regionID.Value);
                 }
 
                 if (sportID.HasValue)
@@ -141,46 +213,50 @@ namespace Server.Palaro2026.Controller
                     query = query.Where(p => p.SportID == sportID.Value);
                 }
 
+                // Optional: strict subcategory filter (ONLY if caller sends it)
                 if (subCategoryID.HasValue)
                 {
-                    query = query.Where(p => p.ProfilePlayerSports
-                        .Any(ppsc => ppsc.SportSubcategory!.ID == subCategoryID.Value));
+                    query = query.Where(p => p.ProfilePlayerSports.Any(ppsc =>
+                        ppsc.SportSubcategory != null &&
+                        ppsc.SportSubcategory.ID == subCategoryID.Value));
                 }
 
-                // Additional filters for school level and gender
+                // ----------------------------
+                // SchoolLevel / Gender filters
+                // FIX: include players even if they have NO SportSubcategory rows
+                // ----------------------------
                 if (schoolLevelID.HasValue || genderID.HasValue)
                 {
-                    query = query.Where(p => p.ProfilePlayerSports.Any(ppsc =>
-                        (!schoolLevelID.HasValue || ppsc.SportSubcategory!.SchoolLevelID == schoolLevelID.Value) &&
-                        (!genderID.HasValue || ppsc.SportSubcategory!.SportGenderCategoryID == genderID.Value)
-                    ));
+                    query = query.Where(p =>
+                        // ✅ include players that have NO subcategory records at all
+                        !p.ProfilePlayerSports.Any(ppsc => ppsc.SportSubcategory != null)
+
+                        // ✅ OR include players that have at least one matching subcategory
+                        || p.ProfilePlayerSports.Any(ppsc =>
+                            ppsc.SportSubcategory != null
+                            && (!schoolLevelID.HasValue || ppsc.SportSubcategory.SchoolLevelID == schoolLevelID.Value)
+                            && (!genderID.HasValue || ppsc.SportSubcategory.SportGenderCategoryID == genderID.Value)
+                        )
+                    );
                 }
 
                 var profilePlayers = await query.ToListAsync();
 
-                var mappedProfilePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
-
-                foreach (var player in profilePlayers)
-                {
-                    foreach (var playerSport in player.ProfilePlayerSports)
+                // ✅ ONE row per player (subcategory no longer affects output)
+                var mappedProfilePlayers = profilePlayers
+                    .Select(player => new ProfilesDTO.ProfilePlayerEvent
                     {
-                        if (playerSport.SportSubcategory != null)
-                        {
-                            mappedProfilePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
-                            {
-                                ID = player.ID,
-                                FirstName = player.FirstName,
-                                LastName = player.LastName,
-                                RegionID = player.School?.SchoolDivision?.SchoolRegion?.ID,
-                                SubCategoryID = playerSport.SportSubcategory.ID 
-                            });
-                        }
-                    }
-                }
+                        ID = player.ID,
+                        FirstName = player.FirstName,
+                        LastName = player.LastName,
+                        RegionID = player.School?.SchoolDivision?.SchoolRegion?.ID,
+                        SubCategoryID = null
+                    })
+                    .ToList();
 
                 return Ok(mappedProfilePlayers);
             }
-            catch (Exception ex)
+            catch
             {
                 return StatusCode(500, "Internal server error. Please try again later.");
             }
