@@ -286,6 +286,7 @@ namespace Server.Palaro2026.Controller
                         ID = player.ID,
                         FirstName = player.FirstName,
                         LastName = player.LastName,
+                        Sex = player.Sex,  //k
                         RegionID = player.School?.SchoolDivision?.SchoolRegion?.ID,
                         SubCategoryID = null
                     })
