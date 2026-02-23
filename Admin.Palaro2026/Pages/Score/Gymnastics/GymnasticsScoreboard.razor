@@ -364,20 +364,20 @@
                                             <MudTh>Rank</MudTh>
                                             <MudTh>Region</MudTh>
                                             <MudTh Style="text-align: center">Total Score</MudTh>
-                                            <MudTh Style="text-align: center">Action</MudTh>
+                                            @* <MudTh Style="text-align: center">Action</MudTh> *@
                                         </HeaderContent>
                                         <RowTemplate>
                                             <MudTd>@context.Rank</MudTd>
                                             <MudTd>@context.RegionName</MudTd>
                                             <MudTd Style="text-align: center">@context.TeamTotal.ToString("0.000")</MudTd>
-                                            <MudTd Style="text-align: center"> 
+                                            @* <MudTd Style="text-align: center"> 
                                                 <MudButton Variant="Variant.Text"
                                                                Color="Color.Primary"
                                                                Size="Size.Small"
                                                                OnClick="@(async () => await AddTeamChampionshipScore(evt.ID, context.RegionID))">
                                                         Set Score
                                                 </MudButton>
-                                            </MudTd>
+                                            </MudTd> *@
                                         </RowTemplate>
                                     </MudTable>
                                 </MudItem>
@@ -884,20 +884,20 @@
                                             <MudTh>Rank</MudTh>
                                             <MudTh>Region</MudTh>
                                             <MudTh Style="text-align: center">Total Score</MudTh>
-                                            <MudTh Style="text-align: center">Action</MudTh>
+                                            @* <MudTh Style="text-align: center">Action</MudTh> *@
                                         </HeaderContent>
                                         <RowTemplate>
                                             <MudTd>@context.Rank</MudTd>
                                             <MudTd>@context.RegionName</MudTd>
                                             <MudTd Style="text-align: center">@context.TeamTotal.ToString("0.000")</MudTd>
-                                            <MudTd Style="text-align: center">
+                                            @* <MudTd Style="text-align: center">
                                                 <MudButton Variant="Variant.Text"
                                                            Color="Color.Primary"
                                                            Size="Size.Small"
                                                            OnClick="@(async () => await AddTeamChampionshipScore(evt.ID, context.RegionID))">
                                                     Set Score
                                                 </MudButton>
-                                            </MudTd>
+                                            </MudTd> *@
                                         </RowTemplate>
                                     </MudTable>
                                 </MudItem>
@@ -3436,6 +3436,63 @@
 
     // Team Ranking
 
+//     private List<TeamRank> GetTeamRanking(int eventId)
+//     {
+//         var currentEvent = _gymnasticsEvents?.FirstOrDefault(e => e.ID == eventId);
+//         if (currentEvent == null) return new();
+
+//         var currentStageId = currentEvent.StageID;
+//         var schoolLevelName = GetSchoolLevelName(currentEvent.LevelID);
+//         bool isElementary = schoolLevelName?.Contains("Elementary", StringComparison.OrdinalIgnoreCase) == true;
+
+//         var eventIds = (currentStageId == 1 && isElementary)
+//             ? GetCombinedEventIds(eventId, true, currentStageId)
+//             : new List<int> { eventId };
+
+//         var excludedSubcategoryIds = GetIndividualAllAroundSubcategoryIds();
+
+//         var teamTotals = new Dictionary<int, decimal>();
+
+//         foreach (var evtId in eventIds)
+//         {
+//             var eventTeams = _allOpposingTeams
+//                 .Where(t => t.PerformanceID == evtId && !t.TeamID.HasValue)
+//                 .ToList();
+
+//             foreach (var team in eventTeams)
+//             {
+//                 var teamScores = _allScores
+//                     .Where(s => s.PerformanceTeamID == team.ID &&
+//                                !excludedSubcategoryIds.Contains(s.SportSubcategoryID))
+//                     .ToList();
+
+//                 if (teamScores.Any())
+//                 {
+//                     var regionId = team.RegionID;
+//                     if (!teamTotals.ContainsKey(regionId))
+//                     {
+//                         teamTotals[regionId] = 0;
+//                     }
+//                     teamTotals[regionId] += teamScores.Sum(s => s.Score);
+//                 }
+//             }
+//         }
+
+//         var result = teamTotals.Select(kvp =>
+// {
+//     var region = _schoolRegions.FirstOrDefault(r => r.ID == kvp.Key);
+
+//     return new TeamRank
+//     {
+//         RegionID = kvp.Key,
+//         RegionName = region?.Abbreviation ?? region?.Region ?? "Unknown",
+//         TeamTotal = kvp.Value
+//     };
+// }).ToList();
+
+//         return CalculateRanks(result, t => t.TeamTotal);
+//     }
+
     private List<TeamRank> GetTeamRanking(int eventId)
     {
         var currentEvent = _gymnasticsEvents?.FirstOrDefault(e => e.ID == eventId);
@@ -3451,6 +3508,7 @@
 
         var excludedSubcategoryIds = GetIndividualAllAroundSubcategoryIds();
 
+        // Region totals (include regions even with 0)
         var teamTotals = new Dictionary<int, decimal>();
 
         foreach (var evtId in eventIds)
@@ -3461,37 +3519,37 @@
 
             foreach (var team in eventTeams)
             {
+                var regionId = team.RegionID;
+
+                // ✅ ensure region exists even if there are no scores yet
+                if (!teamTotals.ContainsKey(regionId))
+                    teamTotals[regionId] = 0m;
+
                 var teamScores = _allScores
                     .Where(s => s.PerformanceTeamID == team.ID &&
-                               !excludedSubcategoryIds.Contains(s.SportSubcategoryID))
+                                !excludedSubcategoryIds.Contains(s.SportSubcategoryID))
                     .ToList();
 
-                if (teamScores.Any())
-                {
-                    var regionId = team.RegionID;
-                    if (!teamTotals.ContainsKey(regionId))
-                    {
-                        teamTotals[regionId] = 0;
-                    }
+                // ✅ add scores if any, otherwise keep 0
+                if (teamScores.Count > 0)
                     teamTotals[regionId] += teamScores.Sum(s => s.Score);
-                }
             }
         }
 
         var result = teamTotals.Select(kvp =>
-{
-    var region = _schoolRegions.FirstOrDefault(r => r.ID == kvp.Key);
-
-    return new TeamRank
-    {
-        RegionID = kvp.Key,
-        RegionName = region?.Abbreviation ?? region?.Region ?? "Unknown",
-        TeamTotal = kvp.Value
-    };
-}).ToList();
+        {
+            var region = _schoolRegions.FirstOrDefault(r => r.ID == kvp.Key);
+            return new TeamRank
+            {
+                RegionID = kvp.Key,
+                RegionName = region?.Abbreviation ?? region?.Region ?? "Unknown",
+                TeamTotal = kvp.Value
+            };
+        }).ToList();
 
         return CalculateRanks(result, t => t.TeamTotal);
     }
+
 
     private List<int> GetCombinedEventIds(int currentEventId, bool isTeamRanking, int currentStageId)
     {

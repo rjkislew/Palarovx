@@ -49,6 +49,7 @@ public class ProfilesDTO
         public string? ID { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
+        public string? Sex { get; set; } //k
         public int? SchoolLevelID { get; set; }
         public string? Level { get; set; }
         public int? RegionID { get; set; }

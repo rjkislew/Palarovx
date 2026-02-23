@@ -80,29 +80,23 @@ SELECT
     COUNT(DISTINCT CASE
         WHEN evt.Rank = 'Gold'
          AND evt.TeamID IS NULL
-         AND (
-              (e.ID IS NOT NULL) 
-              OR (pe.ID IS NOT NULL)
-         )
+         AND (e.ID IS NOT NULL OR pe.ID IS NOT NULL)
         THEN CONCAT(
-                /* Main Category: Event.SportMainCat OR PerformanceEvent.MainCategory */
-                ISNULL(CAST(COALESCE(e.SportMainCat, pe.MainCategory) AS varchar(50)), '0'), '|',
-                /* Subcategory: Event.SportSubcategoryID OR PerformanceScore.SportSubcategoryID */
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0')
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '|',
+                'Gold'
              )
     END)
     +
     COUNT(DISTINCT CASE
         WHEN evt.Rank = 'Gold'
          AND evt.TeamID IS NOT NULL
-         AND (
-              (e.ID IS NOT NULL) 
-              OR (pe.ID IS NOT NULL)
-         )
+         AND (e.ID IS NOT NULL OR pe.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, pe.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0'), '|',
-                CAST(evt.TeamID AS varchar(50))
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '|',
+                CAST(evt.TeamID AS varchar(50)), '|',
+                'Gold'
              )
     END) AS Gold,
 
@@ -110,27 +104,23 @@ SELECT
     COUNT(DISTINCT CASE
         WHEN evt.Rank = 'Silver'
          AND evt.TeamID IS NULL
-         AND (
-              (e.ID IS NOT NULL) 
-              OR (pe.ID IS NOT NULL)
-         )
+         AND (e.ID IS NOT NULL OR pe.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, pe.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0')
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '|',
+                'Silver'
              )
     END)
     +
     COUNT(DISTINCT CASE
         WHEN evt.Rank = 'Silver'
          AND evt.TeamID IS NOT NULL
-         AND (
-              (e.ID IS NOT NULL) 
-              OR (pe.ID IS NOT NULL)
-         )
+         AND (e.ID IS NOT NULL OR pe.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, pe.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0'), '|',
-                CAST(evt.TeamID AS varchar(50))
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '|',
+                CAST(evt.TeamID AS varchar(50)), '|',
+                'Silver'
              )
     END) AS Silver,
 
@@ -138,27 +128,23 @@ SELECT
     COUNT(DISTINCT CASE
         WHEN evt.Rank = 'Bronze'
          AND evt.TeamID IS NULL
-         AND (
-              (e.ID IS NOT NULL) 
-              OR (pe.ID IS NOT NULL)
-         )
+         AND (e.ID IS NOT NULL OR pe.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, pe.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0')
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '|',
+                'Bronze'
              )
     END)
     +
     COUNT(DISTINCT CASE
         WHEN evt.Rank = 'Bronze'
          AND evt.TeamID IS NOT NULL
-         AND (
-              (e.ID IS NOT NULL) 
-              OR (pe.ID IS NOT NULL)
-         )
+         AND (e.ID IS NOT NULL OR pe.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, pe.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0'), '|',
-                CAST(evt.TeamID AS varchar(50))
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '|',
+                CAST(evt.TeamID AS varchar(50)), '|',
+                'Bronze'
              )
     END) AS Bronze,
 
@@ -166,13 +152,10 @@ SELECT
     COUNT(DISTINCT CASE
         WHEN evt.Rank IN ('Gold','Silver','Bronze')
          AND evt.TeamID IS NULL
-         AND (
-              (e.ID IS NOT NULL) 
-              OR (pe.ID IS NOT NULL)
-         )
+         AND (e.ID IS NOT NULL OR pe.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, pe.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0'), '|',
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '|',
                 CAST(evt.Rank AS varchar(20))
              )
     END)
@@ -180,13 +163,10 @@ SELECT
     COUNT(DISTINCT CASE
         WHEN evt.Rank IN ('Gold','Silver','Bronze')
          AND evt.TeamID IS NOT NULL
-         AND (
-              (e.ID IS NOT NULL) 
-              OR (pe.ID IS NOT NULL)
-         )
+         AND (e.ID IS NOT NULL OR pe.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, pe.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0'), '|',
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '|',
                 CAST(evt.TeamID AS varchar(50)), '|',
                 CAST(evt.Rank AS varchar(20))
              )
@@ -203,10 +183,7 @@ LEFT JOIN Events e
     ON e.ID = evt.EventID
    AND e.IsFinished = 1
 
-/* Performance path:
-   - PerformanceScore gives SportSubcategoryID
-   - PerformanceEvent gives MainCategory + finished
-*/
+/* Performance path */
 LEFT JOIN PerformanceScore ps
     ON ps.ID = evt.PerformanceScoreID
 
@@ -221,7 +198,8 @@ WHERE
 
 GROUP BY 
     sr.Region,
-    sr.Abbreviation
+    sr.Abbreviation,
+    sr.ID
 
 ORDER BY 
     Gold DESC,
@@ -276,14 +254,16 @@ ORDER BY
     sr.Region AS Region,
     sr.Abbreviation AS Abbreviation,
 
-    /* GOLD: individual per (Category + Subcategory), team per (Category + Subcategory + TeamID) */
+    /* GOLD */
     COUNT(DISTINCT CASE
         WHEN evt.Rank = 'Gold'
          AND evt.TeamID IS NULL
          AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, p.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0')
+                ISNULL(ISNULL(sl.[Level], sl2.[Level]), 'Unknown'), '|',
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(ISNULL(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID), 0) AS varchar(20)), '|',
+                'Gold'
              )
     END)
     +
@@ -292,9 +272,11 @@ ORDER BY
          AND evt.TeamID IS NOT NULL
          AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, p.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0'), '|',
-                CAST(evt.TeamID AS varchar(50))
+                ISNULL(ISNULL(sl.[Level], sl2.[Level]), 'Unknown'), '|',
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(ISNULL(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID), 0) AS varchar(20)), '|',
+                CAST(evt.TeamID AS varchar(50)), '|',
+                'Gold'
              )
     END) AS Gold,
 
@@ -304,8 +286,10 @@ ORDER BY
          AND evt.TeamID IS NULL
          AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, p.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0')
+                ISNULL(ISNULL(sl.[Level], sl2.[Level]), 'Unknown'), '|',
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(ISNULL(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID), 0) AS varchar(20)), '|',
+                'Silver'
              )
     END)
     +
@@ -314,9 +298,11 @@ ORDER BY
          AND evt.TeamID IS NOT NULL
          AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, p.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0'), '|',
-                CAST(evt.TeamID AS varchar(50))
+                ISNULL(ISNULL(sl.[Level], sl2.[Level]), 'Unknown'), '|',
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(ISNULL(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID), 0) AS varchar(20)), '|',
+                CAST(evt.TeamID AS varchar(50)), '|',
+                'Silver'
              )
     END) AS Silver,
 
@@ -326,8 +312,10 @@ ORDER BY
          AND evt.TeamID IS NULL
          AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, p.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0')
+                ISNULL(ISNULL(sl.[Level], sl2.[Level]), 'Unknown'), '|',
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(ISNULL(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID), 0) AS varchar(20)), '|',
+                'Bronze'
              )
     END)
     +
@@ -336,9 +324,11 @@ ORDER BY
          AND evt.TeamID IS NOT NULL
          AND (e.ID IS NOT NULL OR p.ID IS NOT NULL)
         THEN CONCAT(
-                ISNULL(CAST(COALESCE(e.SportMainCat, p.MainCategory) AS varchar(50)), '0'), '|',
-                ISNULL(CAST(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID) AS varchar(20)), '0'), '|',
-                CAST(evt.TeamID AS varchar(50))
+                ISNULL(ISNULL(sl.[Level], sl2.[Level]), 'Unknown'), '|',
+                CAST(sr.ID AS varchar(20)), '|',
+                CAST(ISNULL(COALESCE(e.SportSubcategoryID, ps.SportSubcategoryID), 0) AS varchar(20)), '|',
+                CAST(evt.TeamID AS varchar(50)), '|',
+                'Bronze'
              )
     END) AS Bronze
 
@@ -375,7 +365,14 @@ WHERE evt.Rank IN ('Gold','Silver','Bronze')
 GROUP BY
     ISNULL(sl.[Level], sl2.[Level]),
     sr.Region,
-    sr.Abbreviation;";
+    sr.Abbreviation,
+    sr.ID
+
+ORDER BY
+    Gold DESC,
+    Silver DESC,
+    Bronze DESC,
+    sr.Region ASC;";
 
 
                 var medalTally = (await _db.QueryAsync<MedalLevelRegionRow, dynamic>(sqlMedals, new { region }))

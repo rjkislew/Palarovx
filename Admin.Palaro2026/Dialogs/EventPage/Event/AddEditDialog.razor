@@ -257,7 +257,7 @@
 
                                                     <!-- Players Select -->
                                                     <MudItem xs="12">
-                                                        <MudSelect @bind-SelectedValues="team.SelectedPlayerIDs"
+                                                    @*<MudSelect @bind-SelectedValues="team.SelectedPlayerIDs"
                                                                    MultiSelection="true"
                                                                    SelectAll="true"
                                                                    Clearable
@@ -303,8 +303,61 @@
                                                                     Loading players...
                                                                 </MudSelectItem>
                                                             }
-                                                        </MudSelect>
-                                                    </MudItem>
+                                                        </MudSelect> *@
+                                                <MudSelect @bind-SelectedValues="team.SelectedPlayerIDs"
+                                                           MultiSelection="true"
+                                                           SelectAll="true"
+                                                           Clearable
+                                                           Margin="Margin.Dense"
+                                                           Label="Players"
+                                                           ShrinkLabel
+                                                           Variant="Variant.Outlined"
+                                                           
+                                                           Disabled="!team.SelectedRegionID.HasValue ||
+                    !_selectedSportIDValue.HasValue ||
+                    string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID) ||
+                    IsEditMode"
+                                                           T="string"
+                                                           ToStringFunc="@(id => {
+               if (string.IsNullOrEmpty(id)) return "No player selected";
+               var player = team.AvailablePlayers?.FirstOrDefault(p => p.ID == id);
+               if (player != null)
+               {
+                   if (!string.IsNullOrEmpty(player.FirstName) && !string.IsNullOrEmpty(player.LastName))
+                       return $"{player.FirstName} {player.LastName}";
+                   else if (!string.IsNullOrEmpty(player.FirstName))
+                       return player.FirstName;
+                   else if (!string.IsNullOrEmpty(player.LastName))
+                       return player.LastName;
+               }
+               return id ?? "Unknown Player";
+           })">
+
+                                                    @if (team.AvailablePlayers != null && team.AvailablePlayers.Any())
+                                                    {
+                                                        <MudVirtualize Items="team.AvailablePlayers" Context="player">
+                                                            <MudSelectItem T="string" Value="@player.ID">
+                                                                @player.FirstName @player.LastName
+                                                            </MudSelectItem>
+                                                        </MudVirtualize>
+                                                    }
+                                                    else if (team.SelectedRegionID.HasValue && _selectedSportIDValue.HasValue && !string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+                                                    {
+                                                        <!-- Show loading indicator when we have all params but no players yet -->
+                                                        <MudSelectItem T="string" Disabled="true">
+                                                            Loading players...
+                                                        </MudSelectItem>
+                                                    }
+                                                    else
+                                                    {
+                                                        <!-- Show message when prerequisites not met -->
+                                                        <MudSelectItem T="string" Disabled="true">
+                                                            Select region, sport, and school level/gender first
+                                                        </MudSelectItem>
+                                                    }
+                                                </MudSelect>
+                                                    </MudItem> 
+                                                
                                                 </MudGrid>
 
                                                 <!-- Score and Placement - visible when event is finished in edit mode -->
@@ -669,6 +722,60 @@ else
         StateHasChanged();
     }
 
+    // private async Task LoadProgressionTeamsAsync()
+    // {
+    //     _teamSelections = new List<TeamSelection>();
+
+    //     foreach (var teamDict in ProgressionTeams)
+    //     {
+    //         var teamSelection = new TeamSelection();
+
+    //         // Get basic team info
+    //         if (teamDict.TryGetValue("SelectedRegionID", out var regionIdValue))
+    //         {
+    //             if (regionIdValue != null)
+    //             {
+    //                 teamSelection.SelectedRegionID = Convert.ToInt32(regionIdValue);
+    //             }
+    //         }
+
+    //         if (teamDict.TryGetValue("ExistingVersusTeamID", out var versusTeamIdValue))
+    //         {
+    //             if (versusTeamIdValue != null)
+    //             {
+    //                 teamSelection.ExistingVersusTeamID = Convert.ToInt32(versusTeamIdValue);
+    //             }
+    //         }
+
+    //         teamSelection.Score = teamDict.TryGetValue("Score", out var scoreValue) ? scoreValue?.ToString() : "";
+    //         teamSelection.Rank = teamDict.TryGetValue("Rank", out var rankValue) ? rankValue?.ToString() : "Winner";
+
+    //         // Get player IDs
+    //         teamSelection.SelectedPlayerIDs = new List<string>();
+    //         teamSelection.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+
+    //         if (teamDict.TryGetValue("SelectedPlayerIDs", out var playerIdsValue))
+    //         {
+    //             if (playerIdsValue is List<object> playerIdObjects)
+    //             {
+    //                 teamSelection.SelectedPlayerIDs = playerIdObjects
+    //                     .Where(x => x != null)
+    //                     .Select(x => x.ToString() ?? "")
+    //                     .Where(x => !string.IsNullOrEmpty(x))
+    //                     .ToList();
+    //             }
+    //             else if (playerIdsValue is List<string> stringList)
+    //             {
+    //                 teamSelection.SelectedPlayerIDs = stringList;
+    //             }
+    //         }
+
+    //         _teamSelections.Add(teamSelection);
+
+    //         _ = Task.Run(async () => await FetchPlayerNamesForTeam(teamSelection));
+    //     }
+
+    // }
     private async Task LoadProgressionTeamsAsync()
     {
         _teamSelections = new List<TeamSelection>();
@@ -719,9 +826,9 @@ else
 
             _teamSelections.Add(teamSelection);
 
-            _ = Task.Run(async () => await FetchPlayerNamesForTeam(teamSelection));
+            // Load player details using the same logic as GetPlayerAsync
+            _ = Task.Run(async () => await LoadPlayerDetailsForTeam(teamSelection));
         }
-
     }
 
     private async Task FetchPlayerNamesForTeam(TeamSelection team)
@@ -1069,7 +1176,95 @@ else
         _sports = await apiService.GetAsync<SportsDTO.Sports>(url);
     }
 
-    private async Task GetPlayerAsync(TeamSelection team)
+    // private async Task GetPlayerAsync(TeamSelection team)
+    // {
+    //     if (!team.SelectedRegionID.HasValue)
+    //     {
+    //         team.AvailablePlayers = new();
+    //         return;
+    //     }
+
+    //     // For edit mode, we need to ensure we have player details
+    //     if (IsEditMode && team.SelectedPlayerIDs != null && team.SelectedPlayerIDs.Any())
+    //     {
+    //         // For edit mode, fetch details for each player
+    //         await LoadPlayerDetailsForTeam(team);
+    //     }
+    //     else if (_selectedSportSubcategoryIDValue.HasValue)
+    //     {
+    //         // For regular sports (non-edit mode), use subcategory ID
+    //         string url = $"/Profiles/Player/Events?regionID={team.SelectedRegionID}&subCategoryID={_selectedSportSubcategoryIDValue}";
+    //         var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
+    //         team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+    //     }
+    //     else
+    //     {
+    //         team.AvailablePlayers = new();
+    //     }
+    // }
+    // private async Task GetPlayerAsync(TeamSelection team) //without gender filtering
+    // {
+    //     if (!team.SelectedRegionID.HasValue)
+    //     {
+    //         team.AvailablePlayers = new();
+    //         return;
+    //     }
+
+    //     // For edit mode, we need to ensure we have player details
+    //     if (IsEditMode && team.SelectedPlayerIDs != null && team.SelectedPlayerIDs.Any())
+    //     {
+    //         // For edit mode, fetch details for each player
+    //         await LoadPlayerDetailsForTeam(team);
+    //     }
+    //     else if (_selectedSportIDValue.HasValue && !string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
+    //     {
+    //         try
+    //         {
+    //             // Parse school level and gender from the combined string
+    //             var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+    //             if (parts.Length == 2)
+    //             {
+    //                 var schoolLevelName = parts[0];
+    //                 var genderName = parts[1];
+
+    //                 // Get the corresponding IDs
+    //                 var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+    //                 var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
+
+    //                 if (schoolLevelID.HasValue && genderID.HasValue)
+    //                 {
+    //                     // Build the URL with all filter parameters
+    //                     string url = $"/Profiles/Player/FilteredPlayer?" +
+    //                                 $"regionID={team.SelectedRegionID}" +
+    //                                 $"&sportID={_selectedSportIDValue}" +
+    //                                 $"&schoolLevelID={schoolLevelID}" +
+    //                                 $"&genderID={genderID}";
+
+    //                     var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
+    //                     team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+    //                 }
+    //                 else
+    //                 {
+    //                     team.AvailablePlayers = new();
+    //                 }
+    //             }
+    //             else
+    //             {
+    //                 team.AvailablePlayers = new();
+    //             }
+    //         }
+    //         catch (Exception ex)
+    //         {
+    //             Console.WriteLine($"Error loading players: {ex.Message}");
+    //             team.AvailablePlayers = new();
+    //         }
+    //     }
+    //     else
+    //     {
+    //         team.AvailablePlayers = new();
+    //     }
+    // }
+    private async Task GetPlayerAsync(TeamSelection team) // with gender filtering
     {
         if (!team.SelectedRegionID.HasValue)
         {
@@ -1080,15 +1275,76 @@ else
         // For edit mode, we need to ensure we have player details
         if (IsEditMode && team.SelectedPlayerIDs != null && team.SelectedPlayerIDs.Any())
         {
-            // For edit mode, fetch details for each player
             await LoadPlayerDetailsForTeam(team);
         }
-        else if (_selectedSportSubcategoryIDValue.HasValue)
+        else if (_selectedSportIDValue.HasValue && !string.IsNullOrEmpty(_selectedSchoolLevelAndGenderID))
         {
-            // For regular sports (non-edit mode), use subcategory ID
-            string url = $"/Profiles/Player/Events?regionID={team.SelectedRegionID}&subCategoryID={_selectedSportSubcategoryIDValue}";
-            var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
-            team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+            try
+            {
+                // Parse school level and gender from the combined string
+                var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+                if (parts.Length == 2)
+                {
+                    var schoolLevelName = parts[0];
+                    var genderName = parts[1].Trim().ToLower();
+
+                    // Get the corresponding school level ID
+                    var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+
+                    if (schoolLevelID.HasValue)
+                    {
+                        // Build the URL with region, sport, and school level only
+                        string url = $"/Profiles/Player/FilteredPlayer?" +
+                                    $"regionID={team.SelectedRegionID}" +
+                                    $"&sportID={_selectedSportIDValue}" +
+                                    $"&schoolLevelID={schoolLevelID}";
+
+                        var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
+
+                        if (result != null && result.Any())
+                        {
+                            // Filter by gender on the client side using the Sex property
+                            if (genderName == "mix")
+                            {
+                                // Mix: include all players regardless of sex
+                                team.AvailablePlayers = result;
+                            }
+                            else
+                            {
+                                // Filter based on gender
+                                team.AvailablePlayers = result.Where(p =>
+                                {
+                                    var playerSex = p.Sex?.Trim().ToLower() ?? "";
+
+                                    if (genderName is "boys" or "male")
+                                        return playerSex is "m" or "male";
+                                    else if (genderName is "girls" or "female")
+                                        return playerSex is "f" or "female";
+
+                                    return false;
+                                }).ToList();
+                            }
+                        }
+                        else
+                        {
+                            team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+                        }
+                    }
+                    else
+                    {
+                        team.AvailablePlayers = new();
+                    }
+                }
+                else
+                {
+                    team.AvailablePlayers = new();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading players: {ex.Message}");
+                team.AvailablePlayers = new();
+            }
         }
         else
         {
@@ -1096,6 +1352,59 @@ else
         }
     }
 
+    // private async Task LoadPlayerDetailsForTeam(TeamSelection team)
+    // {
+    //     if (team.SelectedPlayerIDs == null || !team.SelectedPlayerIDs.Any())
+    //     {
+    //         team.AvailablePlayers = new();
+    //         return;
+    //     }
+
+    //     var newAvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+
+    //     foreach (var playerId in team.SelectedPlayerIDs)
+    //     {
+    //         try
+    //         {
+    //             // Fetch player details
+    //             var playerUrl = $"/Profiles/Player?ID={playerId}";
+    //             var playerDetails = await apiService.GetAsync<ProfilesDTO.ProfilePlayer>(playerUrl);
+
+    //             if (playerDetails != null && playerDetails.Any())
+    //             {
+    //                 var player = playerDetails.First();
+    //                 newAvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+    //                     {
+    //                         ID = playerId,
+    //                         FirstName = player.FirstName,
+    //                         LastName = player.LastName
+    //                     });
+    //             }
+    //             else
+    //             {
+    //                 // Add with just ID if not found
+    //                 newAvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+    //                     {
+    //                         ID = playerId,
+    //                         FirstName = "",
+    //                         LastName = ""
+    //                     });
+    //             }
+    //         }
+    //         catch (Exception ex)
+    //         {
+    //             // Add with just ID if error
+    //             newAvailablePlayers.Add(new ProfilesDTO.ProfilePlayerEvent
+    //                 {
+    //                     ID = playerId,
+    //                     FirstName = "",
+    //                     LastName = ""
+    //                 });
+    //         }
+    //     }
+
+    //     team.AvailablePlayers = newAvailablePlayers;
+    // }
     private async Task LoadPlayerDetailsForTeam(TeamSelection team)
     {
         if (team.SelectedPlayerIDs == null || !team.SelectedPlayerIDs.Any())
@@ -2228,6 +2537,7 @@ else
             public string? ID { get; set; }
             public string? FirstName { get; set; }
             public string? LastName { get; set; }
+            public string? Sex { get; set; }
         }
     }
 
