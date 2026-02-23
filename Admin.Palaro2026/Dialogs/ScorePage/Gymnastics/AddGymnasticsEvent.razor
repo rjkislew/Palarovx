@@ -153,8 +153,10 @@
                                                Label="Players"
                                                ShrinkLabel
                                                Variant="Variant.Outlined"
-                                               Disabled="!team.SelectedRegionID.HasValue || !_selectedSportIDValue.HasValue || string.IsNullOrEmpty(_selectedMainCategoryValue)"
-                                               T="string"
+                                               Disabled="!team.SelectedRegionID.HasValue
+                                                         || !_selectedSportIDValue.HasValue
+                                                         || string.IsNullOrWhiteSpace(_selectedSchoolLevelAndGenderID)
+                                                         || IsEditMode" T="string"
                                                ToStringFunc="@(id => team.AvailablePlayers?.FirstOrDefault(p => p.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)">
                                 @if (team.AvailablePlayers?.Any() == true)
                                         {
@@ -419,7 +421,7 @@ else
             return;
         }
 
-        if (!team.SelectedRegionID.HasValue || !_selectedSportIDValue.HasValue || string.IsNullOrEmpty(_selectedMainCategoryValue))
+        if (!team.SelectedRegionID.HasValue || !_selectedSportIDValue.HasValue || string.IsNullOrWhiteSpace(_selectedSchoolLevelAndGenderID))
         {
             team.AvailablePlayers = new();
             return;
@@ -476,45 +478,79 @@ else
     }
 
 
+    // private async Task GetPlayersWithFilters(TeamSelection team)
+    // {
+    //     // Extract school level and gender from the selected combined value
+    //     var parts = _selectedSchoolLevelAndGenderID?.Split(" - ");
+    //     var schoolLevelName = parts?.Length > 0 ? parts[0] : null;
+    //     var genderName = parts?.Length > 1 ? parts[1] : null;
+
+    //     // Get the corresponding IDs
+    //     var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
+    //     var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
+
+    //     // Build URL with filters
+    //     string url = $"/Profiles/Player/FilteredPlayer?regionID={team.SelectedRegionID}&sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&genderID={genderID}";
+
+    //     var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
+
+    //     // Filter players by main category through subcategories
+    //     if (result != null && _sportSubcategories != null)
+    //     {
+    //         var validSubcategoryIDs = _sportSubcategories
+    //             .Where(sc => !string.IsNullOrEmpty(sc.MainCategory) &&
+    //                          sc.MainCategory.Equals(_selectedMainCategoryValue, StringComparison.OrdinalIgnoreCase))
+    //             .Select(sc => sc.ID)
+    //             .ToList();
+
+    //         if (validSubcategoryIDs.Any())
+    //         {
+    //             result = result.Where(player =>
+    //                 player.SubCategoryID.HasValue &&
+    //                 validSubcategoryIDs.Contains(player.SubCategoryID.Value)
+    //             ).ToList();
+    //         }
+    //         else
+    //         {
+    //             result = new List<ProfilesDTO.ProfilePlayerEvent>();
+    //         }
+    //     }
+
+    //     team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+    // }
+
     private async Task GetPlayersWithFilters(TeamSelection team)
     {
-        // Extract school level and gender from the selected combined value
-        var parts = _selectedSchoolLevelAndGenderID?.Split(" - ");
-        var schoolLevelName = parts?.Length > 0 ? parts[0] : null;
-        var genderName = parts?.Length > 1 ? parts[1] : null;
+        if (!team.SelectedRegionID.HasValue || !_selectedSportIDValue.HasValue || string.IsNullOrWhiteSpace(_selectedSchoolLevelAndGenderID))
+        {
+            team.AvailablePlayers = new();
+            return;
+        }
 
-        // Get the corresponding IDs
+        var parts = _selectedSchoolLevelAndGenderID.Split(" - ");
+        if (parts.Length < 2)
+        {
+            team.AvailablePlayers = new();
+            return;
+        }
+
+        var schoolLevelName = parts[0].Trim();
+        var genderName = parts[1].Trim();
+
         var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
         var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
 
-        // Build URL with filters
         string url = $"/Profiles/Player/FilteredPlayer?regionID={team.SelectedRegionID}&sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&genderID={genderID}";
 
         var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
 
-        // Filter players by main category through subcategories
-        if (result != null && _sportSubcategories != null)
-        {
-            var validSubcategoryIDs = _sportSubcategories
-                .Where(sc => !string.IsNullOrEmpty(sc.MainCategory) &&
-                             sc.MainCategory.Equals(_selectedMainCategoryValue, StringComparison.OrdinalIgnoreCase))
-                .Select(sc => sc.ID)
-                .ToList();
-
-            if (validSubcategoryIDs.Any())
-            {
-                result = result.Where(player =>
-                    player.SubCategoryID.HasValue &&
-                    validSubcategoryIDs.Contains(player.SubCategoryID.Value)
-                ).ToList();
-            }
-            else
-            {
-                result = new List<ProfilesDTO.ProfilePlayerEvent>();
-            }
-        }
-
-        team.AvailablePlayers = result ?? new List<ProfilesDTO.ProfilePlayerEvent>();
+        team.AvailablePlayers = (result ?? new List<ProfilesDTO.ProfilePlayerEvent>())
+            .Where(p => !string.IsNullOrWhiteSpace(p.ID))
+            .GroupBy(p => p.ID!)
+            .Select(g => g.First())
+            .OrderBy(p => p.LastName)
+            .ThenBy(p => p.FirstName)
+            .ToList();
     }
 
     private async Task OnAerobicDanceSwitchChanged(bool newValue)
@@ -629,9 +665,8 @@ else
 
         foreach (var team in _teamSelections)
         {
-            team.SelectedRegionID = null;
-            team.SelectedPlayerIDs = new List<string>();
-            team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+            team.SelectedPlayerIDs = new HashSet<string>();
+            await GetPlayerAsync(team); 
         }
     }
 
@@ -1444,6 +1479,7 @@ else
             public string? LastName { get; set; }
             public int? RegionID { get; set; }
             public int? SubCategoryID { get; set; }
+            public string? Sex { get; set; }
         }
     }
 

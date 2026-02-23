@@ -213,7 +213,8 @@ namespace Server.Palaro2026.Controller
                     query = query.Where(p => p.SportID == sportID.Value);
                 }
 
-                // Optional: strict subcategory filter (ONLY if caller sends it)
+                // Optional strict subcategory filter (ONLY if caller sends it)
+                // ✅ Your UI should NOT send this anymore if you want "all players"
                 if (subCategoryID.HasValue)
                 {
                     query = query.Where(p => p.ProfilePlayerSports.Any(ppsc =>
@@ -222,16 +223,15 @@ namespace Server.Palaro2026.Controller
                 }
 
                 // ----------------------------
-                // SchoolLevel / Gender filters
-                // FIX: include players even if they have NO SportSubcategory rows
+                // SchoolLevel / Gender filters (subcategory-based eligibility)
                 // ----------------------------
                 if (schoolLevelID.HasValue || genderID.HasValue)
                 {
                     query = query.Where(p =>
-                        // ✅ include players that have NO subcategory records at all
+                        // include players with NO subcategory records
                         !p.ProfilePlayerSports.Any(ppsc => ppsc.SportSubcategory != null)
 
-                        // ✅ OR include players that have at least one matching subcategory
+                        // or include players that have at least one matching subcategory
                         || p.ProfilePlayerSports.Any(ppsc =>
                             ppsc.SportSubcategory != null
                             && (!schoolLevelID.HasValue || ppsc.SportSubcategory.SchoolLevelID == schoolLevelID.Value)
@@ -240,9 +240,46 @@ namespace Server.Palaro2026.Controller
                     );
                 }
 
+                // ----------------------------
+                // ✅ NEW: Sex filter based on genderID meaning (Boys/Girls/Mix)
+                // ----------------------------
+                if (genderID.HasValue)
+                {
+                    // lookup gender label (e.g., "Boys", "Girls", "Mix", "Male", "Female")
+                    var genderLabel = await _context.SportGenderCategories
+                        .Where(g => g.ID == genderID.Value)
+                        .Select(g => g.Gender)
+                        .FirstOrDefaultAsync();
+
+                    var gl = (genderLabel ?? "").Trim().ToUpper();
+
+                    // Mix = allow both sexes (no filtering)
+                    var isMix = gl == "MIX" || gl == "MIXED";
+
+                    if (!isMix)
+                    {
+                        var isBoys = gl == "BOYS" || gl == "MALE" || gl == "M";
+                        var isGirls = gl == "GIRLS" || gl == "FEMALE" || gl == "F";
+
+                        if (isBoys)
+                        {
+                            query = query.Where(p =>
+                                p.Sex != null &&
+                                (p.Sex.Trim().ToUpper() == "M" || p.Sex.Trim().ToUpper() == "MALE"));
+                        }
+                        else if (isGirls)
+                        {
+                            query = query.Where(p =>
+                                p.Sex != null &&
+                                (p.Sex.Trim().ToUpper() == "F" || p.Sex.Trim().ToUpper() == "FEMALE"));
+                        }
+                        // else: unknown label -> don't apply sex filter
+                    }
+                }
+
                 var profilePlayers = await query.ToListAsync();
 
-                // ✅ ONE row per player (subcategory no longer affects output)
+                // one row per player
                 var mappedProfilePlayers = profilePlayers
                     .Select(player => new ProfilesDTO.ProfilePlayerEvent
                     {
