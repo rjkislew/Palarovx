@@ -1,7 +1,8 @@
 ﻿@page "/scoreboard/swimming/{EventID}"
+@layout ClientLayout
 @using System.Linq
+@using System.Threading
 @using Client.Palaro2026.Services
-@layout NoMainLayout
 @inject APIService apiService
 @inject NavigationManager Navigation
 @implements IDisposable
@@ -327,7 +328,9 @@
         {
             <MudStack AlignItems="AlignItems.Center" Class="mt-16">
                 <MudProgressCircular Indeterminate="true" Class="loading-spinner" Size="Size.Large" />
-                <MudText Typo="Typo.h6" Class="mt-4" Style="font-family:var(--font-header); color:var(--pal-blue);">LOADING EVENT...</MudText>
+                <MudText Typo="Typo.h6" Class="mt-4" Style="font-family:var(--font-header); color:var(--pal-blue);">
+                    LOADING EVENT...
+                </MudText>
             </MudStack>
         }
         else if (_eventInfo == null)
@@ -337,8 +340,13 @@
                     <h1 class="main-event-title">EVENT NOT FOUND</h1>
                 </div>
             </div>
+
             <MudStack AlignItems="AlignItems.Center" Class="mt-8">
-                <MudButton Href="/scoreboard/swimming" Variant="Variant.Filled" Color="Color.Primary" Class="header-pill back-btn" Style="min-width:auto; border-radius:10px;">
+                <MudButton Href="/scoreboard/swimming"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Class="header-pill back-btn"
+                           Style="min-width:auto; border-radius:10px;">
                     RETURN TO SCOREBOARD
                 </MudButton>
             </MudStack>
@@ -349,31 +357,33 @@
             <div class="dashboard-header">
                 <div class="header-pill">
                     <h1 class="main-event-title">@_eventInfo.Subcategory</h1>
+
                     <div class="sub-header-text">
                         SWIMMING • @_eventInfo.Gender • @_eventInfo.Level
+                    </div>
+
+                    <div class="status-badge-container">
+                        @if (_eventInfo.EventStage?.ToLower() != "completed")
+                        {
+                            <div class="status-pill">LIVE • @_eventInfo.EventStage</div>
+                        }
+                        else
+                        {
+                            <div class="status-pill completed">OFFICIAL RESULT</div>
+                        }
                     </div>
                 </div>
             </div>
 
-            <!-- STATUS PILL -->
-            <div class="status-badge-container">
-                @if (_eventInfo.EventStage?.ToLower() != "completed")
-                {
-                    <div class="status-pill">LIVE • @_eventInfo.EventStage</div>
-                }
-                else
-                {
-                    <div class="status-pill completed">OFFICIAL RESULT</div>
-                }
-            </div>
-
             <MudGrid Spacing="3">
 
-                <!-- MEDAL WINNERS (TOP 3) -->
+                <!-- PODIUM FINISHERS -->
                 @if (_medalWinners.Any())
                 {
                     <MudItem xs="12">
-                        <div class="section-title text-center" style="border:none; margin-bottom:10px;">PODIUM FINISHERS</div>
+                        <div class="section-title text-center" style="border:none; margin-bottom:10px;">
+                            PODIUM FINISHERS
+                        </div>
                     </MudItem>
 
                     <!-- GOLD -->
@@ -419,11 +429,11 @@
                     }
                 }
 
-                <!-- LEFT COLUMN: HEATS / STATS -->
+                <!-- LEFT COLUMN -->
                 <MudItem xs="12" lg="4">
                     <MudStack Spacing="3">
 
-                        <!-- STATISTICS -->
+                        <!-- EVENT STATS -->
                         <div class="tv-card" style="min-height:auto;">
                             <div class="section-title">EVENT STATS</div>
                             <MudGrid>
@@ -442,20 +452,23 @@
                             </MudGrid>
                         </div>
 
-                        <!-- HEATS LIST -->
+                        <!-- LANE ASSIGNMENTS -->
                         @if (_hasHeats)
                         {
                             <div class="tv-card">
                                 <div class="section-title">LANE ASSIGNMENTS</div>
+
                                 <div style="max-height: 500px; overflow-y: auto;">
                                     @foreach (var lane in _eventHeats)
                                     {
                                         <div class="lane-row">
                                             <div class="lane-num-box">@lane.LaneOrder</div>
+
                                             <div class="swimmer-info">
                                                 <div class="swimmer-name">@lane.PlayerName</div>
                                                 <div class="swimmer-region">@lane.RegionAbbreviation • H@(lane.HeatOrder)</div>
                                             </div>
+
                                             <div class="swimmer-time">
                                                 @(string.IsNullOrEmpty(lane.Result) ? "--:--" : FormatTimeDisplay(lane.Result))
                                             </div>
@@ -468,7 +481,7 @@
                     </MudStack>
                 </MudItem>
 
-                <!-- RIGHT COLUMN: FULL RANKING -->
+                <!-- RIGHT COLUMN -->
                 <MudItem xs="12" lg="8">
                     <div class="tv-card">
                         <div class="section-title">OFFICIAL RESULTS</div>
@@ -504,19 +517,18 @@
                         else
                         {
                             <MudStack AlignItems="AlignItems.Center" Class="py-12">
-                                <MudIcon Icon="@Icons.Material.Filled.Timer" Size="Size.Large" Style="color:#dee2e6; font-size:4rem;" />
-                                <MudText Class="mt-2" Style="font-family:var(--font-subheader); color:#adb5bd;">AWAITING RESULTS</MudText>
+                                <MudIcon Icon="@Icons.Material.Filled.Timer"
+                                         Size="Size.Large"
+                                         Style="color:#dee2e6; font-size:4rem;" />
+                                <MudText Class="mt-2" Style="font-family:var(--font-subheader); color:#adb5bd;">
+                                    AWAITING RESULTS
+                                </MudText>
                             </MudStack>
                         }
                     </div>
                 </MudItem>
-            </MudGrid>
 
-            <div class="py-8 text-center">
-                <MudButton Href="/scoreboard/swimming" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Style="color:#6c757d; font-family:var(--font-subheader);">
-                    BACK TO ALL EVENTS
-                </MudButton>
-            </div>
+            </MudGrid>
         }
 
     </MudContainer>
@@ -525,7 +537,7 @@
 @code {
     [Parameter] public string EventID { get; set; } = "";
 
-    // --- VARIABLES ---
+    // --- STATE ---
     private EventInfo? _eventInfo;
     private List<HeatLaneDisplay> _eventHeats = new();
     private List<RankingResult> _allRankings = new();
@@ -533,13 +545,13 @@
     private int _participantCount = 0;
     private bool _isLoading = true;
     private bool _hasHeats = false;
-    private System.Threading.Timer? _timer;
+    private Timer? _timer;
 
     // --- LIFECYCLE ---
     protected override async Task OnInitializedAsync()
     {
         await LoadEventData();
-        _timer = new System.Threading.Timer(async _ => await InvokeAsync(LoadEventData), null, 15000, 15000);
+        _timer = new Timer(async _ => await InvokeAsync(LoadEventData), null, 15000, 15000);
     }
 
     protected override async Task OnParametersSetAsync()
@@ -547,40 +559,39 @@
         await LoadEventData();
     }
 
+    // --- DATA LOADING ---
     private async Task LoadEventData()
     {
         try
         {
-            // _isLoading = true; // Don't show full loader on refresh to avoid flickering
-
             var participants = await apiService.GetAsync<EventInfo>("TimeDistanceEvents/Sports/AthleticsSwimming");
 
-            if (participants != null)
+            if (participants == null) return;
+
+            var eventParticipants = participants
+                .Where(p => p.ID == EventID && p.Sport == "Swimming")
+                .ToList();
+
+            if (!eventParticipants.Any()) return;
+
+            var firstParticipant = eventParticipants.First();
+
+            _eventInfo = new EventInfo
             {
-                var eventParticipants = participants
-                    .Where(p => p.ID == EventID && p.Sport == "Swimming")
-                    .ToList();
+                ID = firstParticipant.ID,
+                Sport = firstParticipant.Sport,
+                Subcategory = firstParticipant.Subcategory,
+                Gender = firstParticipant.Gender,
+                Level = firstParticipant.Level,
+                EventStage = firstParticipant.EventStage,
+                Date = firstParticipant.Date,
+                Time = firstParticipant.Time,
+                SportMainCat = firstParticipant.SportMainCat
+            };
 
-                if (eventParticipants.Any())
-                {
-                    var firstParticipant = eventParticipants.First();
-                    _eventInfo = new EventInfo
-                    {
-                        ID = firstParticipant.ID,
-                        Sport = firstParticipant.Sport,
-                        Subcategory = firstParticipant.Subcategory,
-                        Gender = firstParticipant.Gender,
-                        Level = firstParticipant.Level,
-                        EventStage = firstParticipant.EventStage,
-                        Date = firstParticipant.Date,
-                        Time = firstParticipant.Time,
-                        SportMainCat = firstParticipant.SportMainCat
-                    };
+            _participantCount = eventParticipants.Count;
 
-                    _participantCount = eventParticipants.Count;
-                    await LoadSavedScoringData();
-                }
-            }
+            await LoadSavedScoringData();
         }
         catch (Exception ex)
         {
@@ -599,37 +610,37 @@
         {
             var savedData = await apiService.GetSingleAsync<SavedScoringData>($"scoreboard/swimming/{EventID}");
 
-            if (savedData != null)
+            if (savedData == null) return;
+
+            _eventHeats.Clear();
+            _hasHeats = savedData.Heats != null && savedData.Heats.Any();
+
+            if (_hasHeats && savedData.Heats != null)
             {
-                _eventHeats.Clear();
-                if (savedData.Heats != null && savedData.Heats.Any())
+                foreach (var heat in savedData.Heats.OrderBy(h => h.HeatOrder))
                 {
-                    _hasHeats = true;
-                    foreach (var heat in savedData.Heats.OrderBy(h => h.HeatOrder))
+                    if (heat.Lanes == null) continue;
+
+                    foreach (var lane in heat.Lanes.OrderBy(l => l.LaneOrder))
                     {
-                        if (heat.Lanes != null)
+                        _eventHeats.Add(new HeatLaneDisplay
                         {
-                            foreach (var lane in heat.Lanes.OrderBy(l => l.LaneOrder))
-                            {
-                                _eventHeats.Add(new HeatLaneDisplay
-                                {
-                                    HeatName = heat.HeatName,
-                                    HeatOrder = heat.HeatOrder,
-                                    LaneName = lane.LaneName,
-                                    LaneOrder = lane.LaneOrder,
-                                    PlayerName = lane.PlayerName,
-                                    RegionAbbreviation = lane.RegionAbbreviation,
-                                    Result = lane.Result
-                                });
-                            }
-                        }
+                            HeatName = heat.HeatName,
+                            HeatOrder = heat.HeatOrder,
+                            LaneName = lane.LaneName,
+                            LaneOrder = lane.LaneOrder,
+                            PlayerName = lane.PlayerName,
+                            RegionAbbreviation = lane.RegionAbbreviation,
+                            Result = lane.Result
+                        });
                     }
                 }
-
-                _allRankings = CalculateRankingsFromSavedData(savedData);
-                _medalWinners = _allRankings.Take(3).ToList();
-                StateHasChanged();
             }
+
+            _allRankings = CalculateRankingsFromSavedData(savedData);
+            _medalWinners = _allRankings.Take(3).ToList();
+
+            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -637,6 +648,7 @@
         }
     }
 
+    // --- RANKINGS ---
     private List<RankingResult> CalculateRankingsFromSavedData(SavedScoringData savedData)
     {
         var rankings = new List<RankingResult>();
@@ -649,6 +661,7 @@
         foreach (var heat in savedData.Heats)
         {
             if (heat.Lanes == null) continue;
+
             foreach (var lane in heat.Lanes)
             {
                 if (!string.IsNullOrEmpty(lane.Result) &&
@@ -658,7 +671,7 @@
                     allResults.Add((
                         lane.RegionAbbreviation ?? "Unknown",
                         lane.PlayerName ?? "Unknown",
-                        lane.Result,
+                        lane.Result!,
                         $"{heat.HeatName}-{lane.LaneName}",
                         numericResult
                     ));
@@ -672,17 +685,18 @@
 
         for (int i = 0; i < sortedResults.Count; i++)
         {
-            var result = sortedResults[i];
+            var r = sortedResults[i];
             rankings.Add(new RankingResult
             {
-                RegionName = result.RegionName,
-                PlayerName = result.PlayerName,
-                Result = result.Result,
-                AssignedLane = result.Lane,
+                RegionName = r.RegionName,
+                PlayerName = r.PlayerName,
+                Result = r.Result,
+                AssignedLane = r.Lane,
                 Rank = i + 1,
-                NumericResult = result.NumericResult
+                NumericResult = r.NumericResult
             });
         }
+
         return rankings;
     }
 
@@ -693,12 +707,13 @@
 
         if (result.Contains(":") || result.Contains("."))
         {
-            if (TimeSpan.TryParse(result, out TimeSpan timeResult))
+            if (TimeSpan.TryParse(result, out var timeResult))
             {
                 numericResult = timeResult.TotalSeconds;
                 return true;
             }
         }
+
         return double.TryParse(result, out numericResult);
     }
 
@@ -707,14 +722,12 @@
         if (string.IsNullOrEmpty(result)) return "--:--";
         if (result.Contains(":") || result.Contains(".")) return result;
 
-        if (double.TryParse(result, out double seconds))
+        if (double.TryParse(result, out var seconds) && seconds > 0)
         {
-            if (seconds > 0)
-            {
-                var timeSpan = TimeSpan.FromSeconds(seconds);
-                return timeSpan.TotalMinutes >= 1 ? timeSpan.ToString(@"m\:ss\.ff") : timeSpan.ToString(@"s\.ff");
-            }
+            var ts = TimeSpan.FromSeconds(seconds);
+            return ts.TotalMinutes >= 1 ? ts.ToString(@"m\:ss\.ff") : ts.ToString(@"s\.ff");
         }
+
         return result;
     }
 
