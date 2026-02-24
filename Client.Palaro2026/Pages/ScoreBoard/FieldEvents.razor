@@ -1,6 +1,7 @@
 ﻿@page "/scoreboard/field-events"
 @using Client.Palaro2026.Services
 @using System.Linq
+@using System.Threading
 @layout NoMainLayout
 @inject APIService apiService
 @inject NavigationManager Navigation
@@ -9,389 +10,843 @@
 <PageTitle>Field Events Scoreboard | Palaro tu AgSur 2026</PageTitle>
 
 <style>
-    /* --- IMPORTS --- */
-    @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap');
+    /* =========================
+               MATCH BILLIARDS THEME
+               ========================= */
+    @@import url('https://fonts.cdnfonts.com/css/evil-empire');
+    @@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&family=Chakra+Petch:wght@600;700;800&display=swap');
 
     :root {
-        --bg-dark: #0a0a0a;
-        --card-bg: rgba(30, 30, 30, 0.7);
-        --card-border: rgba(255, 255, 255, 0.1);
-        --accent-gold: #FFD700;
-        --accent-blue: #00e5ff;
-        --text-white: #ffffff;
+        --pal-blue: #023E8A;
+        --pal-dark-blue: #001845;
+        --pal-gold: #FFB400;
+        --pal-red: #EA0000;
+        --bg-gradient-start: #f8f9fa;
+        --card-bg: #ffffff;
+        --font-header: 'Evil Empire', sans-serif;
+        --font-score: 'Chakra Petch', sans-serif;
+        --font-body: 'Nunito', sans-serif;
     }
 
-    body {
-        background-color: var(--bg-dark);
-        background-image: radial-gradient(circle at 15% 50%, rgba(0, 229, 255, 0.05) 0%, transparent 25%), radial-gradient(circle at 85% 30%, rgba(255, 215, 0, 0.05) 0%, transparent 25%);
-        font-family: 'Rajdhani', sans-serif;
-        color: white;
-        min-height: 100vh;
+    html, body {
+        height: 100vh;
+        width: 100vw;
+        margin: 0;
+        padding: 0;
+        background: var(--bg-gradient-start);
+        font-family: var(--font-body);
+        overflow-x: hidden;
     }
 
-    .scoreboard-header {
-        text-align: center;
-        padding: 40px 0 20px;
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
     }
 
-    .main-title {
-        font-family: 'Orbitron', sans-serif;
-        font-weight: 900;
-        font-size: 3rem;
-        background: linear-gradient(180deg, #FFFFFF 0%, #b0b0b0 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        letter-spacing: 4px;
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
     }
 
-    /* MODERN CARD */
-    .modern-card {
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 16px;
-        backdrop-filter: blur(10px);
-        display: flex;
-        flex-direction: column;
-        height: 500px; /* Fixed height para uniform */
-        overflow: hidden;
-        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    ::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 4px;
     }
 
-        .modern-card:hover {
-            border-color: var(--accent-gold);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--pal-blue);
         }
 
-    .card-header {
-        padding: 15px 20px;
-        background: rgba(0,0,0,0.2);
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        flex-shrink: 0;
+    /* Full-screen wrapper */
+    .tv-screen {
+        min-height: 100vh;
+        width: 100vw;
+        background: radial-gradient(circle at 50% 30%, #ffffff 0%, #e0e7ff 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-bottom: 10vh;
     }
 
-    .event-name {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 1.2rem;
-        font-weight: 700;
-        color: var(--accent-gold);
+    /* Header pill (same as Billiards) */
+    .event-header {
+        text-align: center;
+        margin-top: 4vh;
+        margin-bottom: 3vh;
+        padding: 25px 60px;
+        border-radius: 50px;
+        background: var(--pal-dark-blue);
+        border: 3px solid var(--pal-gold);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+        min-width: min(920px, 92vw);
+        position: relative;
     }
 
-    .event-details {
+    .sport-title {
+        font-family: var(--font-header);
+        font-size: clamp(2.2rem, 4.5vw, 3.6rem);
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        line-height: 1;
+        text-shadow: 3px 3px 0px #000;
+        margin: 0;
+    }
+
+    .event-meta {
+        font-family: var(--font-score);
+        font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+        color: var(--pal-gold);
+        letter-spacing: 2px;
+        font-weight: 800;
+        text-transform: uppercase;
+        margin-top: 8px;
+        opacity: .95;
+    }
+
+    .status-badge {
+        margin-top: 10px;
+        padding: 6px 18px;
+        border-radius: 20px;
+        font-family: var(--font-score);
+        font-weight: 800;
         font-size: 0.9rem;
-        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
 
-    /* SCROLLABLE PLAYER LIST */
-    .player-list-container {
-        flex-grow: 1;
+    .badge-live {
+        background: var(--pal-red);
+        color: #fff;
+        animation: pulse 2s infinite;
+    }
+
+    .badge-final {
+        background: var(--pal-gold);
+        color: var(--pal-dark-blue);
+    }
+
+    .badge-upcoming {
+        background: #e9ecef;
+        color: #444;
+        border: 1px solid #d8dde3;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.7;
+        }
+    }
+
+    /* Main container (same as Billiards) */
+    .results-container {
+        width: 92%;
+        max-width: 1400px;
+        background: var(--card-bg);
+        border-radius: 30px;
+        padding: 26px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.10);
+        border-top: 6px solid var(--pal-gold);
+        border-bottom: 6px solid var(--pal-blue);
+    }
+
+    .results-title {
+        font-family: var(--font-header);
+        font-size: 2rem;
+        color: var(--pal-dark-blue);
+        margin-bottom: 16px;
+        text-align: center;
+        text-transform: uppercase;
+    }
+
+    /* Tabs (same as Billiards) */
+    .mud-tabs {
+        background: transparent !important;
+    }
+
+    .mud-tabs-tabbar {
+        background: transparent !important;
+        border-bottom: 2px solid rgba(2, 62, 138, 0.10) !important;
+        padding-bottom: 6px;
+    }
+
+    .mud-tab {
+        font-family: var(--font-score) !important;
+        font-weight: 800 !important;
+        letter-spacing: 1px !important;
+        color: rgba(0, 24, 69, 0.55) !important;
+        text-transform: uppercase !important;
+    }
+
+        .mud-tab.mud-tab-active, .mud-tab-active {
+            color: var(--pal-blue) !important;
+        }
+
+    .mud-tabs-indicator {
+        background: var(--pal-gold) !important;
+        height: 4px !important;
+        border-radius: 50px !important;
+        box-shadow: 0 8px 18px rgba(255, 180, 0, 0.35) !important;
+    }
+
+    /* Grid center */
+    .mud-grid {
+        justify-content: center;
+    }
+
+    .mud-grid-item {
+        display: flex;
+    }
+
+    /* Group section (same as Billiards) */
+    .sport-section {
+        margin-top: 18px;
+        margin-bottom: 26px;
+        background: #fff;
+        border-radius: 22px;
+        padding: 16px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border: 1px solid #f0f0f0;
+        overflow: hidden;
+    }
+
+    .sport-title-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0 0 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(2, 62, 138, 0.10);
+        background: linear-gradient(90deg, rgba(255,180,0,0.12), rgba(2,62,138,0.06));
+    }
+
+    .sport-name {
+        font-family: var(--font-score);
+        font-weight: 900;
+        color: var(--pal-dark-blue);
+        font-size: 1.05rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        width: 100%;
+    }
+
+    /* Card (use Billiards tv-card) */
+    .event-link {
+        text-decoration: none;
+        display: block;
+        height: 100%;
+        width: 100%;
+    }
+
+    .tv-card {
+        width: 100%;
+        background: #fff;
+        border-radius: 22px;
+        padding: 18px;
+        border: 1px solid #f0f0f0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        transition: all 0.25s ease;
+        position: relative;
+        overflow: hidden;
+        height: 520px; /* keep your fixed height */
+        display: flex;
+        flex-direction: column;
+    }
+
+        .tv-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 28px rgba(2, 62, 138, 0.14);
+            border-color: rgba(2, 62, 138, 0.18);
+        }
+
+        .tv-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, var(--pal-gold), var(--pal-blue));
+            opacity: .95;
+        }
+
+    /* Status row (like Billiards) */
+    .status-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 8px;
+        margin-bottom: 12px;
+    }
+
+    .live-badge, .final-badge {
+        font-family: var(--font-score);
+        font-weight: 900;
+        font-size: 0.75rem;
+        padding: 6px 12px;
+        border-radius: 999px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    .live-badge {
+        background: var(--pal-red);
+        color: #fff;
+    }
+
+    .final-badge {
+        background: #343a40;
+        color: #fff;
+    }
+
+    .phase-text {
+        font-family: var(--font-score);
+        color: rgba(0, 24, 69, 0.65);
+        font-size: 0.75rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 60%;
+        text-align: right;
+    }
+
+    .card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+
+    .sport-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        border: 2px solid #e9ecef;
+        box-shadow: 0 5px 15px rgba(255, 180, 0, 0.10);
+        flex: 0 0 auto;
+    }
+
+    .title-block {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .evt-title {
+        font-family: var(--font-score);
+        font-weight: 900;
+        color: var(--pal-dark-blue);
+        font-size: 1.05rem;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    .evt-sub {
+        font-family: var(--font-body);
+        font-weight: 800;
+        color: #6b7280;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    .divider {
+        height: 1px;
+        background: #f0f0f0;
+        margin: 12px 0 12px;
+    }
+
+    /* Field rankings area (styled like Billiards players container) */
+    .field-pill {
+        font-family: var(--font-score);
+        color: var(--pal-gold);
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        background: var(--pal-dark-blue);
+        border-radius: 999px;
+        padding: 6px 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 auto 10px auto;
+        border: 2px solid rgba(255,180,0,.55);
+        box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+        max-width: 100%;
+    }
+
+    .rankings-container {
+        margin-top: 10px;
+        background: linear-gradient(180deg, rgba(255, 180, 0, 0.10), rgba(2, 62, 138, 0.04));
+        padding: 12px;
+        border-radius: 18px;
+        border: 2px solid rgba(255, 180, 0, 0.22);
+        min-height: 260px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overflow: hidden;
+    }
+
+    .rankings {
+        flex: 1;
         overflow-y: auto;
-        padding: 10px;
+        padding-right: 6px;
     }
 
-        /* Custom Scrollbar */
-        .player-list-container::-webkit-scrollbar {
+        .rankings::-webkit-scrollbar {
             width: 6px;
         }
 
-        .player-list-container::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.1);
+        .rankings::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
         }
 
-        .player-list-container::-webkit-scrollbar-thumb {
-            background: var(--accent-gold);
+        .rankings::-webkit-scrollbar-thumb {
+            background: var(--pal-gold);
             border-radius: 3px;
         }
 
     .player-row {
         display: flex;
         align-items: center;
-        padding: 8px 10px;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        font-size: 0.95rem;
+        gap: 10px;
+        padding: 10px 10px;
+        border-bottom: 1px solid rgba(0,0,0,0.06);
+        background: rgba(255,255,255,0.55);
+        border-radius: 14px;
     }
 
-        .player-row:last-child {
-            border-bottom: none;
+        .player-row + .player-row {
+            margin-top: 8px;
         }
 
     .player-rank {
-        width: 30px;
-        font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
-        color: #888;
+        width: 46px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-score);
+        font-weight: 900;
+        border-radius: 999px;
+        border: 2px solid #e9ecef;
+        background: #fff;
+        color: var(--pal-dark-blue);
+        flex: 0 0 auto;
     }
 
     .rank-1 {
-        color: #FFD700;
-        text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-        font-size: 1.1rem;
+        border-color: #FFD700;
+        box-shadow: 0 0 0 3px rgba(255,215,0,0.18);
     }
 
     .rank-2 {
-        color: #C0C0C0;
+        border-color: #C0C0C0;
+        box-shadow: 0 0 0 3px rgba(192,192,192,0.16);
     }
 
     .rank-3 {
-        color: #CD7F32;
+        border-color: #CD7F32;
+        box-shadow: 0 0 0 3px rgba(205,127,50,0.16);
     }
 
     .player-info {
-        flex-grow: 1;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        padding-right: 10px;
+        flex: 1;
+        min-width: 0;
     }
 
     .player-name {
-        font-weight: 700;
+        font-family: var(--font-body);
+        font-weight: 900;
+        color: #212529;
+        line-height: 1.1;
         display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .player-region {
+        font-family: var(--font-score);
+        color: var(--pal-blue);
+        font-weight: 900;
         font-size: 0.75rem;
-        color: var(--accent-blue);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        display: block;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .player-score {
-        font-family: 'Orbitron', sans-serif;
-        font-weight: bold;
+        font-family: var(--font-score);
+        font-weight: 900;
         text-align: right;
-        min-width: 60px;
+        min-width: 90px;
+        color: #495057;
+        white-space: nowrap;
     }
 
-    /* FOOTER BUTTON */
-    .card-footer {
-        padding: 15px;
-        background: rgba(0,0,0,0.3);
-        border-top: 1px solid rgba(255,255,255,0.05);
-        flex-shrink: 0;
-    }
-
-    .tv-btn {
-        display: block;
-        width: 100%;
-        padding: 10px;
-        background: rgba(255, 255, 255, 0.05);
-        color: white;
+    .empty-note {
         text-align: center;
-        text-decoration: none;
-        border-radius: 8px;
-        font-family: 'Orbitron';
-        font-size: 0.8rem;
-        font-weight: bold;
+        padding: 18px 14px;
+        color: #999;
+        border: 2px dashed rgba(2, 62, 138, 0.18);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.6);
+        font-family: var(--font-body);
+        font-weight: 800;
+        text-transform: uppercase;
         letter-spacing: 1px;
-        transition: all 0.2s;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-        .tv-btn:hover {
-            background: var(--accent-gold);
-            color: black;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
-        }
-
-    .badge-live {
-        background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%);
-        color: white;
-        padding: 4px 10px;
-        border-radius: 6px;
         font-size: 0.75rem;
-        font-weight: 800;
-        float: right;
-        box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
-        border: 1px solid #FF4444;
-        animation: pulse 2s infinite;
     }
 
-    .badge-finish {
-        background: linear-gradient(135deg, #00C853 0%, #00695C 100%);
-        color: white;
+    .meta-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+        width: 100%;
+    }
+
+    .meta-badge {
+        display: inline-flex;
+        align-items: center;
         padding: 4px 10px;
-        border-radius: 6px;
+        border-radius: 999px;
+        background: rgba(2, 62, 138, 0.08);
+        border: 1px solid rgba(2, 62, 138, 0.18);
+        color: var(--pal-blue);
+        font-family: var(--font-score);
+        font-weight: 900;
         font-size: 0.75rem;
-        font-weight: 800;
-        float: right;
-        border: 1px solid #69F0AE;
-        box-shadow: 0 0 10px rgba(0, 230, 118, 0.4);
+        letter-spacing: 1px;
+        text-transform: uppercase;
     }
 
-    @@keyframes pulse {
-        0% {
-            opacity: 1;
-            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+    .card-footer {
+        margin-top: auto;
+        text-align: center;
+        color: rgba(0, 24, 69, 0.65);
+        font-family: var(--font-score);
+        font-size: 0.75rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border-top: 1px solid #f0f0f0;
+        padding-top: 10px;
+        margin-top: 14px;
+    }
+
+    .panel-state {
+        text-align: center;
+        padding: 52px 18px;
+        color: #999;
+        border: 2px dashed rgba(2, 62, 138, 0.18);
+        border-radius: 22px;
+        background: rgba(255,255,255,0.6);
+        margin-top: 10px;
+    }
+
+    .panel-title {
+        font-family: var(--font-header);
+        font-size: 1.6rem;
+        color: var(--pal-dark-blue);
+        text-transform: uppercase;
+        margin-top: 10px;
+    }
+
+    .panel-sub {
+        font-family: var(--font-body);
+        font-weight: 700;
+        color: #777;
+        margin-top: 8px;
+    }
+
+    @@media (max-width: 900px) {
+        .event-header {
+            padding: 22px 18px;
+            border-radius: 28px;
         }
 
-        50% {
-            opacity: 0.8;
-            box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
-        }
-
-        100% {
-            opacity: 1;
-            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+        .results-container {
+            padding: 18px;
+            border-radius: 22px;
         }
     }
 </style>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pb-16">
+<div class="tv-screen">
 
-    <div class="scoreboard-header">
-        <div class="main-title">FIELD EVENTS</div>
-        <MudText Typo="Typo.h6" Style="color: #888;">OFFICIAL STANDINGS</MudText>
+    <!-- HEADER -->
+    <div class="event-header">
+        <div class="sport-title">FIELD EVENTS</div>
+    
     </div>
 
-    @if (_isLoading)
-    {
-        <MudStack AlignItems="AlignItems.Center" Class="mt-16">
-            <MudProgressCircular Indeterminate="true" Color="Color.Warning" Size="Size.Large" />
-            <MudText Class="mt-4">Loading Data...</MudText>
-        </MudStack>
-    }
-    else
-    {
-        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Centered="true" Color="Color.Dark" Class="mt-4">
+    <div class="results-container">
+        <div class="results-title">OFFICIAL DASHBOARD</div>
 
-            <!-- LIVE TAB -->
-            <MudTabPanel Text="LIVE/ONGOING" Icon="@Icons.Material.Filled.Stream">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @if (!_ongoingEvents.Any())
+        @if (_isLoading)
+        {
+            <div class="panel-state">
+                <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+                <div class="panel-title">LOADING FIELD EVENTS...</div>
+                <div class="panel-sub">Fetching ongoing events and rankings</div>
+            </div>
+        }
+        else if (!_allEvents.Any())
+        {
+            <div class="panel-state">
+                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Large" Style="font-size:64px;color:#dee2e6;" />
+                <div class="panel-title">NO FIELD EVENTS</div>
+                <div class="panel-sub">Waiting for event data to be available.</div>
+            </div>
+        }
+        else
+        {
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Centered="true" Class="mb-2">
+
+                <!-- LIVE / ONGOING -->
+                <MudTabPanel Text="LIVE / ONGOING" Icon="@Icons.Material.Filled.LiveTv">
+                    @{
+                        var liveEvents = _ongoingEvents;
+                    }
+
+                    @if (!liveEvents.Any())
                     {
-                        <MudItem xs="12">
-                            <MudPaper Class="pa-16 d-flex flex-column align-center justify-center" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
-                                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Large" Style="color: #555;" />
-                                <MudText Typo="Typo.h6" Class="mt-4" Style="color: #777;">No ongoing field events</MudText>
-                            </MudPaper>
-                        </MudItem>
+                        <div class="panel-state">
+                            <MudIcon Icon="@Icons.Material.Filled.Stream" Size="Size.Large" Style="font-size:64px;color:#dee2e6;" />
+                            <div class="panel-title">NO ONGOING EVENTS</div>
+                            <div class="panel-sub">Stand by for updates.</div>
+                        </div>
                     }
                     else
                     {
-                        @foreach (var evt in _ongoingEvents)
+                        @foreach (var group in liveEvents.GroupBy(e => $"{(e.Gender ?? "Mixed")} • {(e.Level ?? "Open")}"))
                         {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                <div class="modern-card">
-                                    <!-- HEADER -->
-                                    <div class="card-header">
-                                        @if (evt.IsFinished == true)
-                                        {
-                                            <span class="badge-finish">FINISH</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge-live">LIVE</span>
-                                        }
-                                        <div class="event-name">@evt.Subcategory</div>
-                                        <div class="event-details">@evt.Gender • @evt.Level</div>
-                                        <div class="event-details" style="font-size: 0.8rem; color: var(--accent-blue)">@evt.EventStage</div>
-                                    </div>
-
-                                    <!-- LIST OF PLAYERS -->
-                                    <div class="player-list-container">
-                                        @if (_eventRankings.ContainsKey(evt.ID) && _eventRankings[evt.ID].Any())
-                                        {
-                                            @foreach (var player in _eventRankings[evt.ID])
-                                            {
-                                                <div class="player-row">
-                                                    <div class="player-rank @GetRankClass(player.Rank)">
-                                                        @(player.Rank > 0 ? $"#{player.Rank}" : "-")
-                                                    </div>
-                                                    <div class="player-info">
-                                                        <span class="player-name">@player.PlayerName</span>
-                                                        <span class="player-region">@player.RegionAbbreviation</span>
-                                                    </div>
-                                                    <div class="player-score">
-                                                        @player.BestResult.ToString("0.00")
-                                                    </div>
-                                                </div>
-                                            }
-                                        }
-                                        else
-                                        {
-                                            <div class="d-flex justify-center align-center h-100">
-                                                <MudText Typo="Typo.caption" Style="color:#666">Waiting for participants...</MudText>
-                                            </div>
-                                        }
-                                    </div>
-
-                                    <!-- FOOTER LINK -->
-                                    <div class="card-footer">
-                                        <a href="/scoreboard/field-events/@evt.ID" target="_blank" class="tv-btn">
-                                            OPEN TV VIEW <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Class="ml-2" />
-                                        </a>
+                            <div class="sport-section">
+                                <div class="sport-title-row">
+                                    <div class="sport-name">
+                                        <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Style="color: var(--pal-gold);" />
+                                        <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@group.Key</span>
                                     </div>
                                 </div>
-                            </MudItem>
+
+                                <MudGrid Spacing="3">
+                                    @foreach (var evt in group.OrderBy(x => x.Subcategory))
+                                    {
+                                        <MudItem xs="12" sm="6" lg="4" xl="3">
+                                            <a href="@GetEventUrl(evt)" target="_blank" class="event-link">
+                                                <div class="tv-card">
+
+                                                    <div class="status-row">
+                                                        <div class="live-badge">LIVE</div>
+                                                        <div class="phase-text">@($"{evt.Level ?? "OPEN"}")</div>
+                                                    </div>
+
+                                                    <div class="card-header">
+                                                        <div class="sport-icon">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Sports" />
+                                                        </div>
+                                                        <div class="title-block">
+                                                            <div class="evt-title">@((evt.Subcategory ?? "FIELD EVENT").ToUpper())</div>
+                                                            <div class="evt-sub">@($"{evt.Gender ?? "MIXED"} • {evt.Level ?? "OPEN"}")</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="divider"></div>
+
+                                                    <div class="d-flex flex-column align-center">
+                                                        <div class="field-pill">
+                                                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Small" />
+                                                            @(evt.SportMainCat ?? "FIELD EVENT")
+                                                        </div>
+
+                                                        <div class="rankings-container" style="width:100%">
+                                                            <div class="rankings">
+                                                                @if (_eventRankings.TryGetValue(evt.ID, out var list) && list != null && list.Any())
+                                                                {
+                                                                    @foreach (var p in list)
+                                                                    {
+                                                                        <div class="player-row">
+                                                                            <div class="player-rank @GetRankClass(p.Rank)">
+                                                                                @(p.Rank > 0 ? $"#{p.Rank}" : "-")
+                                                                            </div>
+                                                                            <div class="player-info">
+                                                                                <span class="player-name">@p.PlayerName</span>
+                                                                                <span class="player-region">@p.RegionAbbreviation</span>
+                                                                            </div>
+                                                                            <div class="player-score">@p.BestResult.ToString("0.00")</div>
+                                                                        </div>
+                                                                    }
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="empty-note">WAITING FOR PARTICIPANTS...</div>
+                                                                }
+                                                            </div>
+
+                                                            <div class="meta-row">
+                                                                <span class="meta-badge">@((evt.Gender ?? "MIXED").ToUpper())</span>
+                                                                <span class="meta-badge">LEVEL: @((evt.Level ?? "OPEN").ToUpper())</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="card-footer">
+                                                        VIEW EVENT
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        </MudItem>
+                                    }
+                                </MudGrid>
+                            </div>
                         }
                     }
-                </MudGrid>
-            </MudTabPanel>
+                </MudTabPanel>
 
-            <!-- FINISHED TAB -->
-            <MudTabPanel Text="PARTIAL RESULT" Icon="@Icons.Material.Filled.EmojiEvents">
-                <MudGrid Class="mt-4" Spacing="3">
-                    @if (!_finishedEvents.Any())
+                <!-- PARTIAL RESULTS -->
+                <MudTabPanel Text="PARTIAL RESULTS" Icon="@Icons.Material.Filled.MilitaryTech">
+                    @{
+                        var finishedEvents = _finishedEvents;
+                    }
+
+                    @if (!finishedEvents.Any())
                     {
-                        <MudItem xs="12">
-                            <MudPaper Class="pa-16 d-flex flex-column align-center justify-center" Style="background-color: rgba(30,30,30,0.5); border: 1px dashed #444; border-radius: 20px;">
-                                <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Size="Size.Large" Style="color: #555;" />
-                                <MudText Typo="Typo.h6" Class="mt-4" Style="color: #777;">No completed events yet</MudText>
-                            </MudPaper>
-                        </MudItem>
+                        <div class="panel-state">
+                            <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Size="Size.Large" Style="font-size:64px;color:#dee2e6;" />
+                            <div class="panel-title">NO RESULTS YET</div>
+                            <div class="panel-sub">Final standings will appear once events are completed.</div>
+                        </div>
                     }
                     else
                     {
-                        @foreach (var evt in _finishedEvents)
+                        @foreach (var group in finishedEvents.GroupBy(e => $"{(e.Gender ?? "Mixed")} • {(e.Level ?? "Open")}"))
                         {
-                            <MudItem xs="12" sm="6" md="4" lg="3">
-                                <div class="modern-card">
-                                    <div class="card-header">
-                                        <span class="badge-finish">FINISH</span>
-                                        <div class="event-name">@evt.Subcategory</div>
-                                        <div class="event-details">@evt.Gender • @evt.Level</div>
-                                        <div class="event-details" style="font-size: 0.8rem; color: var(--accent-blue)">@evt.EventStage</div>
-                                    </div>
-
-                                    <div class="player-list-container">
-                                        @if (_eventRankings.ContainsKey(evt.ID))
-                                        {
-                                            @foreach (var player in _eventRankings[evt.ID])
-                                            {
-                                                <div class="player-row">
-                                                    <div class="player-rank @GetRankClass(player.Rank)">
-                                                        #@player.Rank
-                                                    </div>
-                                                    <div class="player-info">
-                                                        <span class="player-name">@player.PlayerName</span>
-                                                        <span class="player-region">@player.RegionAbbreviation</span>
-                                                    </div>
-                                                    <div class="player-score">
-                                                        @player.BestResult.ToString("0.00")
-                                                    </div>
-                                                </div>
-                                            }
-                                        }
-                                    </div>
-
-                                    <div class="card-footer">
-                                        <a href="/scoreboard/field-events/@evt.ID" target="_blank" class="tv-btn">
-                                            VIEW OFFICIAL RESULTS
-                                        </a>
+                            <div class="sport-section">
+                                <div class="sport-title-row">
+                                    <div class="sport-name">
+                                        <MudIcon Icon="@Icons.Material.Filled.MilitaryTech" Style="color: var(--pal-gold);" />
+                                        <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@group.Key</span>
                                     </div>
                                 </div>
-                            </MudItem>
+
+                                <MudGrid Spacing="3">
+                                    @foreach (var evt in group.OrderBy(x => x.Subcategory))
+                                    {
+                                        <MudItem xs="12" sm="6" lg="4" xl="3">
+                                            <a href="@GetEventUrl(evt)" target="_blank" class="event-link">
+                                                <div class="tv-card" style="opacity:.92;">
+
+                                                    <div class="status-row">
+                                                        <div class="final-badge">FINAL</div>
+                                                        <div class="phase-text">@($"{evt.Level ?? "OPEN"}")</div>
+                                                    </div>
+
+                                                    <div class="card-header">
+                                                        <div class="sport-icon" style="border-color: rgba(0,0,0,.12);">
+                                                            <MudIcon Icon="@Icons.Material.Filled.MilitaryTech" />
+                                                        </div>
+                                                        <div class="title-block">
+                                                            <div class="evt-title">@((evt.Subcategory ?? "FIELD EVENT").ToUpper())</div>
+                                                            <div class="evt-sub">@($"{evt.Gender ?? "MIXED"} • {evt.Level ?? "OPEN"}")</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="divider"></div>
+
+                                                    <div class="d-flex flex-column align-center">
+                                                        <div class="field-pill" style="background:#343a40; border-color: rgba(0,0,0,.10);">
+                                                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Small" />
+                                                            FINAL
+                                                        </div>
+
+                                                        <div class="rankings-container" style="width:100%">
+                                                            <div class="rankings">
+                                                                @if (_eventRankings.TryGetValue(evt.ID, out var list) && list != null && list.Any())
+                                                                {
+                                                                    @foreach (var p in list)
+                                                                    {
+                                                                        <div class="player-row">
+                                                                            <div class="player-rank @GetRankClass(p.Rank)">
+                                                                                @(p.Rank > 0 ? $"#{p.Rank}" : "-")
+                                                                            </div>
+                                                                            <div class="player-info">
+                                                                                <span class="player-name">@p.PlayerName</span>
+                                                                                <span class="player-region">@p.RegionAbbreviation</span>
+                                                                            </div>
+                                                                            <div class="player-score">@p.BestResult.ToString("0.00")</div>
+                                                                        </div>
+                                                                    }
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="empty-note">NO RANKINGS AVAILABLE</div>
+                                                                }
+                                                            </div>
+
+                                                            <div class="meta-row">
+                                                                <span class="meta-badge">@((evt.Gender ?? "MIXED").ToUpper())</span>
+                                                                <span class="meta-badge">LEVEL: @((evt.Level ?? "OPEN").ToUpper())</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="card-footer">
+                                                        VIEW FINAL
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        </MudItem>
+                                    }
+                                </MudGrid>
+                            </div>
                         }
                     }
-                </MudGrid>
-            </MudTabPanel>
+                </MudTabPanel>
 
-        </MudTabs>
-    }
-
-</MudContainer>
+            </MudTabs>
+        }
+    </div>
+</div>
 
 @code {
-    /* ===================== MODELS ===================== */
-
     public class EventsDTO
     {
         public class EventDetails
@@ -456,62 +911,55 @@
         public int Rank { get; set; }
     }
 
-    /* ===================== STATE ===================== */
-
     private List<EventsDTO.EventDetails.Event> _allEvents = new();
     private List<EventsDTO.EventDetails.Event> _ongoingEvents = new();
     private List<EventsDTO.EventDetails.Event> _finishedEvents = new();
     private Dictionary<string, List<RankingDTO>> _eventRankings = new();
+
     private bool _isLoading = true;
     private System.Threading.Timer? _timer;
-
-    /* ===================== INIT ===================== */
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
-        // Auto refresh every 10 seconds
         _timer = new System.Threading.Timer(async _ => await InvokeAsync(LoadData), null, 10000, 10000);
     }
-
-    /* ===================== GET DATA ===================== */
 
     private async Task LoadData()
     {
         try
         {
-            string url = "/Events/Details";
-            var allEvents = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
+            var allEvents = await apiService.GetAsync<EventsDTO.EventDetails.Event>("/Events/Details");
 
             if (allEvents != null)
             {
-                // Filter for Athletics Field Events
                 _allEvents = allEvents
-                    .Where(e => e.Sport != null &&
-                               e.Sport.Equals("Athletics", StringComparison.OrdinalIgnoreCase) &&
-                               e.SportMainCat != null &&
-                               e.SportMainCat.Contains("Field", StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(x => x.IsFinished == true)  // Unfinished first
+                    .Where(e =>
+                        e.Sport != null &&
+                        e.Sport.Equals("Athletics", StringComparison.OrdinalIgnoreCase) &&
+                        e.SportMainCat != null &&
+                        e.SportMainCat.Contains("Field", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(x => x.IsFinished == true)
+                    .ThenBy(x => x.Level)
+                    .ThenBy(x => x.Gender)
                     .ThenBy(x => x.Subcategory)
                     .ToList();
 
-                // FIXED: Separate by IsFinished instead of EventStage
                 _ongoingEvents = _allEvents.Where(e => e.IsFinished != true).ToList();
                 _finishedEvents = _allEvents.Where(e => e.IsFinished == true).ToList();
 
-                // DEBUG: Log the counts
-                Console.WriteLine($"[Field Events Dashboard] Total: {_allEvents.Count}, Ongoing: {_ongoingEvents.Count}, Finished: {_finishedEvents.Count}");
+                var ids = _allEvents.Select(e => e.ID).ToHashSet();
+                foreach (var key in _eventRankings.Keys.ToList())
+                    if (!ids.Contains(key)) _eventRankings.Remove(key);
 
-                // Get Rankings per Event
                 foreach (var evt in _allEvents)
                 {
                     try
                     {
                         var rankings = await apiService.GetAsync<RankingDTO>($"FieldEvents/GetRankings/{evt.ID}");
-                        if (rankings != null && rankings.Any())
-                        {
-                            _eventRankings[evt.ID] = rankings.OrderBy(r => r.Rank).ToList();
-                        }
+                        _eventRankings[evt.ID] = (rankings ?? new List<RankingDTO>())
+                            .OrderBy(r => r.Rank <= 0 ? int.MaxValue : r.Rank)
+                            .ToList();
                     }
                     catch (Exception ex)
                     {
@@ -519,6 +967,13 @@
                         _eventRankings[evt.ID] = new List<RankingDTO>();
                     }
                 }
+            }
+            else
+            {
+                _allEvents = new();
+                _ongoingEvents = new();
+                _finishedEvents = new();
+                _eventRankings = new();
             }
         }
         catch (Exception ex)
@@ -532,23 +987,20 @@
         }
     }
 
-    /* ===================== HELPER METHODS ===================== */
-
-    private string GetRankClass(int rank)
+    private string GetRankClass(int rank) => rank switch
     {
-        return rank switch
-        {
-            1 => "rank-1",
-            2 => "rank-2",
-            3 => "rank-3",
-            _ => ""
-        };
-    }
+        1 => "rank-1",
+        2 => "rank-2",
+        3 => "rank-3",
+        _ => ""
+    };
 
-    /* ===================== CLEANUP ===================== */
+    private string GetEventUrl(EventsDTO.EventDetails.Event evt)
+        => evt == null ? "#" : $"/scoreboard/field-events/{evt.ID}";
 
     public void Dispose()
     {
         _timer?.Dispose();
+        _timer = null;
     }
 }
