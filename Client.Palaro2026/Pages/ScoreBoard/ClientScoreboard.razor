@@ -5,17 +5,27 @@
 @inject APIService apiService
 @implements IDisposable
 
-@* Gamita ang bag-ong layout diri *@
 @layout ClientLayout
 
 <PageTitle>@(_cleanSportName ?? "Live") | Palaro tu AgSur 2026</PageTitle>
 
 <style>
-    /* --- MATCH INFO (HEADER) --- */
+    /* Gibutangan og wrapper para dili muawas sa 100vh sa TV screen */
+    .tv-scoreboard-wrapper {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 85vh; /* Igo ra margin para sa ClientLayout header */
+        width: 100%;
+        overflow: hidden; /* Para mapugngan ang scroll/putol */
+    }
+
+    /* --- MATCH INFO (HEADER BLUE BOX) --- */
     .match-info-container {
         text-align: center;
-        margin-bottom: 5vh;
-        padding: 30px 60px;
+        margin-top: 0;
+        margin-bottom: 3vh; /* GI-GAMAYAN GIKAN 10VH PARA DILI MUDUSO PAUBOS */
+        padding: 3vh 4vw; /* GI-HIMONG RESPONSIVE ANG PADDING */
         border-radius: 40px;
         background: var(--pal-dark-blue);
         border: 3px solid var(--pal-gold);
@@ -25,12 +35,13 @@
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        gap: 5px;
+        gap: 1.5vh;
+        position: relative;
     }
 
     .sport-title {
         font-family: Arial, sans-serif;
-        font-size: clamp(30px, 6vh, 70px);
+        font-size: clamp(24px, 5vh, 60px); /* Gi-gamayan gamay ang max size */
         font-weight: 900;
         color: white;
         text-transform: uppercase;
@@ -41,26 +52,35 @@
 
     .match-meta {
         font-family: Arial, sans-serif;
-        font-size: clamp(14px, 2.5vh, 25px);
+        font-size: clamp(14px, 2.2vh, 22px);
         color: var(--pal-gold);
         letter-spacing: 2px;
         font-weight: 700;
         text-transform: uppercase;
     }
 
-    /* BAG-O NGA STYLE PARA SA PHASE SA SULOD SA HEADER */
+    /* --- PHASE TEXT (GAWAS SA BLUE BOX) --- */
+    .phase-container {
+        display: flex;
+        justify-content: center;
+        margin-top: -5vh; /* SAKTO NGA OVERLAP SA BLUE BOX */
+        margin-bottom: 1.5vh;
+        z-index: 100;
+        position: relative;
+    }
+
     .phase-header-text {
         font-family: Arial, sans-serif;
-        font-size: clamp(18px, 3.5vh, 40px);
+        font-size: clamp(16px, 3vh, 35px);
         font-weight: 900;
         color: white;
         background: var(--pal-red);
-        padding: 5px 30px;
-        border-radius: 15px;
-        margin-top: 10px;
+        padding: 1vh 3vw;
+        border-radius: 50px;
         text-transform: uppercase;
-        letter-spacing: 2px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        letter-spacing: 3px;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+        border: 4px solid white;
     }
 
     /* --- MATCH CARD (FLOATING STYLE) --- */
@@ -73,21 +93,36 @@
             "history history history history history";
         align-items: center;
         width: 100%;
-        height: auto;
-        min-height: 40vh;
         background: transparent;
         border: none;
         box-shadow: none;
-        padding: 2vh 1vw;
+        padding: 1vh 1vw;
         position: relative;
     }
 
-    .area-team-a { grid-area: teamA; }
-    .area-score-a { grid-area: scoreA; }
-    .area-center { grid-area: center; }
-    .area-score-b { grid-area: scoreB; }
-    .area-team-b { grid-area: teamB; }
-    .area-history { grid-area: history; }
+    .area-team-a {
+        grid-area: teamA;
+    }
+
+    .area-score-a {
+        grid-area: scoreA;
+    }
+
+    .area-center {
+        grid-area: center;
+    }
+
+    .area-score-b {
+        grid-area: scoreB;
+    }
+
+    .area-team-b {
+        grid-area: teamB;
+    }
+
+    .area-history {
+        grid-area: history;
+    }
 
     .team-col {
         display: flex;
@@ -98,8 +133,8 @@
     }
 
     .logo-circle {
-        width: clamp(90px, 16vh, 200px);
-        height: clamp(90px, 16vh, 200px);
+        width: clamp(100px, 20vh, 240px); /* MAX SIZE GI-GAMAYAN GIKAN 300px */
+        height: clamp(100px, 20vh, 240px); /* MAX SIZE GI-GAMAYAN GIKAN 300px */
         background: white;
         border-radius: 50%;
         border: 5px solid #e0e0e0;
@@ -108,6 +143,7 @@
         justify-content: center;
         padding: 10px;
         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        position: relative;
     }
 
     .winner-glow {
@@ -117,22 +153,23 @@
 
     .team-name {
         font-family: Arial, sans-serif;
-        font-size: clamp(20px, 4.5vh, 50px);
+        font-size: clamp(18px, 3.5vh, 40px);
         font-weight: 900;
         color: var(--pal-dark-blue);
         line-height: 1.2;
         letter-spacing: 1px;
-        margin-top: 2vh;
-        margin-bottom: 1vh;
+        margin-top: 2vh; /* GI-GAMAYAN GIKAN SA 5VH */
+        margin-bottom: 0.5vh;
         width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        z-index: 2;
     }
 
     .team-region {
         font-family: Arial, sans-serif;
-        font-size: clamp(12px, 2vh, 35px);
+        font-size: clamp(12px, 2vh, 28px);
         color: var(--pal-blue);
         text-transform: uppercase;
         font-weight: 700;
@@ -148,7 +185,7 @@
 
     .main-score {
         font-family: Arial, Helvetica, sans-serif;
-        font-size: clamp(100px, 14vw, 400px);
+        font-size: clamp(80px, 12vw, 250px); /* MAX SIZE GI-GAMAYAN GIKAN 400PX PARA DILI MU PUTOL SA TV */
         font-weight: 800;
         color: var(--pal-dark-blue);
         line-height: 0.8;
@@ -171,7 +208,7 @@
 
     .sets-score {
         font-family: Arial, sans-serif;
-        font-size: clamp(35px, 6vh, 80px);
+        font-size: clamp(30px, 5vh, 65px);
         color: var(--pal-dark-blue);
         font-weight: 900;
         white-space: nowrap;
@@ -179,7 +216,7 @@
 
     .vs-text {
         font-family: Arial, sans-serif;
-        font-size: 3vh;
+        font-size: 2.5vh;
         color: #90a4ae;
         font-style: italic;
         font-weight: 900;
@@ -192,9 +229,9 @@
         display: flex;
         justify-content: center;
         align-items: flex-start;
-        margin-top: 5vh;
+        margin-top: 2vh; /* GI-GAMAYAN GIKAN 5VH PARA DILI MA-CUT SA UBOS */
         border-top: 2px solid rgba(2, 62, 138, 0.1);
-        padding-top: 3vh;
+        padding-top: 2vh;
     }
 
     .history-table {
@@ -202,23 +239,23 @@
         text-align: center;
     }
 
-    .history-table th {
-        padding: 0 1.5vw 1vh 1.5vw;
-        color: #90a4ae;
-        font-family: Arial, sans-serif;
-        font-size: clamp(12px, 1.8vh, 18px);
-        font-weight: 700;
-        text-transform: uppercase;
-        border-bottom: 2px solid var(--pal-gold);
-    }
+        .history-table th {
+            padding: 0 1.5vw 1vh 1.5vw;
+            color: #90a4ae;
+            font-family: Arial, sans-serif;
+            font-size: clamp(12px, 1.8vh, 18px);
+            font-weight: 700;
+            text-transform: uppercase;
+            border-bottom: 2px solid var(--pal-gold);
+        }
 
-    .history-table td {
-        padding: 1.5vh 1.5vw 0 1.5vw;
-        color: var(--pal-dark-blue);
-        font-family: Arial, sans-serif;
-        font-size: clamp(16px, 2.5vh, 28px);
-        font-weight: 800;
-    }
+        .history-table td {
+            padding: 1vh 1.5vw 0 1.5vw;
+            color: var(--pal-dark-blue);
+            font-family: Arial, sans-serif;
+            font-size: clamp(16px, 2.5vh, 26px);
+            font-weight: 800;
+        }
 
     .team-abbr {
         text-align: right;
@@ -226,9 +263,11 @@
         color: var(--pal-blue);
     }
 
-    .set-win { color: var(--pal-red) !important; }
+    .set-win {
+        color: var(--pal-red) !important;
+    }
 
-    /* ANIMATIONS */
+    /* ANIMATIONS (Unchanged) */
     .anim-object {
         position: absolute;
         top: 50%;
@@ -240,38 +279,108 @@
         opacity: 0;
     }
 
-    .anim-active-basketball { animation: basket-swoosh 1s ease-in-out forwards; }
+    .anim-active-basketball {
+        animation: basket-swoosh 1s ease-in-out forwards;
+    }
+
     @@keyframes basket-swoosh {
-        0% { transform: translate(-50%, 150%) scale(0.5); opacity: 0; }
-        40% { transform: translate(-50%, -80%) scale(1.2); opacity: 1; }
-        60% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        100% { transform: translate(-50%, 50%) scale(0.8); opacity: 0; }
+        0% {
+            transform: translate(-50%, 150%) scale(0.5);
+            opacity: 0;
+        }
+
+        40% {
+            transform: translate(-50%, -80%) scale(1.2);
+            opacity: 1;
+        }
+
+        60% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        100% {
+            transform: translate(-50%, 50%) scale(0.8);
+            opacity: 0;
+        }
     }
 
-    .anim-active-volleyball { animation: volley-spike 0.7s ease-in forwards; }
+    .anim-active-volleyball {
+        animation: volley-spike 0.7s ease-in forwards;
+    }
+
     @@keyframes volley-spike {
-        0% { transform: translate(-50%, -200%) scale(0.5); opacity: 0; }
-        40% { transform: translate(-50%, -100%) scale(1.5); opacity: 1; }
-        60% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        80% { transform: translate(-50%, -20%) scale(0.9); opacity: 1; }
-        100% { transform: translate(-50%, 100%) scale(0.5); opacity: 0; }
+        0% {
+            transform: translate(-50%, -200%) scale(0.5);
+            opacity: 0;
+        }
+
+        40% {
+            transform: translate(-50%, -100%) scale(1.5);
+            opacity: 1;
+        }
+
+        60% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        80% {
+            transform: translate(-50%, -20%) scale(0.9);
+            opacity: 1;
+        }
+
+        100% {
+            transform: translate(-50%, 100%) scale(0.5);
+            opacity: 0;
+        }
     }
 
-    .anim-active-badminton { animation: badminton-smash 0.6s linear forwards; }
+    .anim-active-badminton {
+        animation: badminton-smash 0.6s linear forwards;
+    }
+
     @@keyframes badminton-smash {
-        0% { transform: translate(150%, -150%) rotate(45deg) scale(0.5); opacity: 0; }
-        50% { transform: translate(-50%, -50%) rotate(0deg) scale(1.3); opacity: 1; }
-        100% { transform: translate(-200%, 200%) rotate(-45deg) scale(0.5); opacity: 0; }
+        0% {
+            transform: translate(150%, -150%) rotate(45deg) scale(0.5);
+            opacity: 0;
+        }
+
+        50% {
+            transform: translate(-50%, -50%) rotate(0deg) scale(1.3);
+            opacity: 1;
+        }
+
+        100% {
+            transform: translate(-200%, 200%) rotate(-45deg) scale(0.5);
+            opacity: 0;
+        }
     }
 
-    .anim-active-tabletennis { animation: pingpong-zip 0.5s cubic-bezier(0,1.27,.43,.84) forwards; }
+    .anim-active-tabletennis {
+        animation: pingpong-zip 0.5s cubic-bezier(0,1.27,.43,.84) forwards;
+    }
+
     @@keyframes pingpong-zip {
-        0% { transform: translate(-150%, -50%) scale(0.5); opacity: 0; }
-        50% { transform: translate(0%, -50%) scale(1.2); opacity: 1; }
-        100% { transform: translate(150%, -50%) scale(0.8); opacity: 0; }
+        0% {
+            transform: translate(-150%, -50%) scale(0.5);
+            opacity: 0;
+        }
+
+        50% {
+            transform: translate(0%, -50%) scale(1.2);
+            opacity: 1;
+        }
+
+        100% {
+            transform: translate(150%, -50%) scale(0.8);
+            opacity: 0;
+        }
     }
 
-    .anim-active-pop .main-score { animation: score-pop 0.5s ease-out; }
+    .anim-active-pop .main-score {
+        animation: score-pop 0.5s ease-out;
+    }
 
     .anim-text-plus {
         position: absolute;
@@ -286,16 +395,39 @@
         z-index: 25;
     }
 
-    .anim-active-pop .anim-text-plus { animation: float-up 0.8s ease-out forwards; }
-    @@keyframes score-pop {
-        0% { transform: scale(1); color: var(--pal-gold); }
-        50% { transform: scale(1.2); }
-        100% { transform: scale(1); }
+    .anim-active-pop .anim-text-plus {
+        animation: float-up 0.8s ease-out forwards;
     }
+
+    @@keyframes score-pop {
+        0% {
+            transform: scale(1);
+            color: var(--pal-gold);
+        }
+
+        50% {
+            transform: scale(1.2);
+        }
+
+        100% {
+            transform: scale(1);
+        }
+    }
+
     @@keyframes float-up {
-        0% { transform: translateY(20px); opacity: 0; }
-        50% { opacity: 1; }
-        100% { transform: translateY(-50px); opacity: 0; }
+        0% {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+
+        50% {
+            opacity: 1;
+        }
+
+        100% {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
     }
 
     @@media (max-width: 1024px) {
@@ -303,7 +435,10 @@
             grid-template-columns: 1fr 1fr;
             grid-template-areas: "center center" "teamA teamB" "scoreA scoreB" "history history";
         }
-        .main-score { font-size: 140px; }
+
+        .main-score {
+            font-size: 140px;
+        }
     }
 </style>
 
@@ -320,107 +455,112 @@ else if (_event == null)
 }
 else
 {
-    <!-- HEADER CONTAINER -->
-    <div class="match-info-container">
-        <div class="sport-title">@_cleanSportName</div>
-        <div class="match-meta">
-            @_schoolLevel • @_event.Gender • @_event.EventStage
+    <div class="tv-scoreboard-wrapper">
+        <!-- HEADER CONTAINER (Blue Box) -->
+        <div class="match-info-container">
+            <div class="sport-title">@_cleanSportName</div>
+            <div class="match-meta">
+                @_schoolLevel • @_event.Gender • @_event.EventStage
+            </div>
         </div>
-        <!-- IBALHIN DIRE ANG PHASE TEXT -->
+
+        <!-- PHASE TEXT -->
         @if (!string.IsNullOrEmpty(_phaseText))
         {
-            <div class="phase-header-text">@_phaseText</div>
+            <div class="phase-container">
+                <div class="phase-header-text">@_phaseText</div>
+            </div>
         }
-    </div>
 
-    <div class="match-card">
-        <!-- Center Column (Sets and VS only) -->
-        <div class="center-col area-center">
-            <div class="vs-text">VS</div>
-            @if (_isSetGame)
-            {
-                <div class="sets-container">
-                    <div class="sets-score">@_setsA - @_setsB</div>
+        <div class="match-card">
+            <!-- Center Column (Sets and VS only) -->
+            <div class="center-col area-center">
+                <div class="vs-text">VS</div>
+                @if (_isSetGame)
+                {
+                    <div class="sets-container">
+                        <div class="sets-score">@_setsA - @_setsB</div>
+                    </div>
+                }
+            </div>
+
+            <!-- Team A -->
+            <div class="team-col area-team-a">
+                <div class="logo-circle @(_isWinnerA ? "winner-glow" : "")">
+                    <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_teamA?.Region}.webp")" ObjectFit="ObjectFit.Contain" Style="width:125%; height:125%;" />
                 </div>
-            }
-        </div>
-
-        <!-- Team A -->
-        <div class="team-col area-team-a">
-            <div class="logo-circle @(_isWinnerA ? "winner-glow" : "")">
-                <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_teamA?.Region}.webp")" ObjectFit="ObjectFit.Contain" Style="width:250%; height:250%;" />
+                <div class="team-name">@_teamA?.Abbreviation</div>
+                <div class="team-region">@_teamA?.Region</div>
             </div>
-            <div class="team-name">@_teamA?.Abbreviation</div>
-            <div class="team-region">@_teamA?.Region</div>
-        </div>
 
-        <!-- Score A -->
-        <div class="score-col area-score-a @(_showAnimA && string.IsNullOrEmpty(_sportIcon) ? "anim-active-pop" : "")">
-            @if (_showAnimA && !string.IsNullOrEmpty(_sportIcon))
-            {
-                <div class="anim-object @GetAnimClass(_event.Sport)">@_sportIcon</div>
-            }
-            else if (_showAnimA)
-            {
-                <div class="anim-text-plus">+POINT</div>
-            }
-            <div class="main-score @(_isWinnerA ? "score-winner" : "")">@_displayScoreA</div>
-        </div>
-
-        <!-- Score B -->
-        <div class="score-col area-score-b @(_showAnimB && string.IsNullOrEmpty(_sportIcon) ? "anim-active-pop" : "")">
-            @if (_showAnimB && !string.IsNullOrEmpty(_sportIcon))
-            {
-                <div class="anim-object @GetAnimClass(_event.Sport)">@_sportIcon</div>
-            }
-            else if (_showAnimB)
-            {
-                <div class="anim-text-plus">+POINT</div>
-            }
-            <div class="main-score @(_isWinnerB ? "score-winner" : "")">@_displayScoreB</div>
-        </div>
-
-        <!-- Team B -->
-        <div class="team-col area-team-b">
-            <div class="logo-circle @(_isWinnerB ? "winner-glow" : "")">
-                <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_teamB?.Region}.webp")" ObjectFit="ObjectFit.Contain" Style="width:250%; height:250%;" />
+            <!-- Score A -->
+            <div class="score-col area-score-a @(_showAnimA && string.IsNullOrEmpty(_sportIcon) ? "anim-active-pop" : "")">
+                @if (_showAnimA && !string.IsNullOrEmpty(_sportIcon))
+                {
+                    <div class="anim-object @GetAnimClass(_event.Sport)">@_sportIcon</div>
+                }
+                else if (_showAnimA)
+                {
+                    <div class="anim-text-plus">+POINT</div>
+                }
+                <div class="main-score @(_isWinnerA ? "score-winner" : "")">@_displayScoreA</div>
             </div>
-            <div class="team-name">@_teamB?.Abbreviation</div>
-            <div class="team-region">@_teamB?.Region</div>
-        </div>
 
-        <!-- HISTORY -->
-        <div class="history-strip area-history">
-            @if (_matchHistory != null && _matchHistory.Any())
-            {
-                <table class="history-table">
-                    <thead>
-                        <tr>
-                            <th class="team-head">TEAM</th>
-                            @foreach (var set in _matchHistory)
-                            {
-                                <th>@GetTableColumnHeader(_event.Sport, set.PhaseNumber)</th>
-                            }
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="team-abbr">@_teamA?.Abbreviation</td>
-                            @foreach (var set in _matchHistory)
-                            {
-                                <td class="@(set.ScoreA > set.ScoreB ? "set-win" : "")">@set.ScoreA</td>
-                            }
-                        </tr>
-                        <tr>
-                            <td class="team-abbr">@_teamB?.Abbreviation</td>
-                            @foreach (var set in _matchHistory)
-                            {
-                                <td class="@(set.ScoreB > set.ScoreA ? "set-win" : "")">@set.ScoreB</td>
-                            }
-                        </tr>
-                    </tbody>
-                </table>
-            }
+            <!-- Score B -->
+            <div class="score-col area-score-b @(_showAnimB && string.IsNullOrEmpty(_sportIcon) ? "anim-active-pop" : "")">
+                @if (_showAnimB && !string.IsNullOrEmpty(_sportIcon))
+                {
+                    <div class="anim-object @GetAnimClass(_event.Sport)">@_sportIcon</div>
+                }
+                else if (_showAnimB)
+                {
+                    <div class="anim-text-plus">+POINT</div>
+                }
+                <div class="main-score @(_isWinnerB ? "score-winner" : "")">@_displayScoreB</div>
+            </div>
+
+            <!-- Team B -->
+            <div class="team-col area-team-b">
+                <div class="logo-circle @(_isWinnerB ? "winner-glow" : "")">
+                    <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{_teamB?.Region}.webp")" ObjectFit="ObjectFit.Contain" Style="width:125%; height:125%;" />
+                </div>
+                <div class="team-name">@_teamB?.Abbreviation</div>
+                <div class="team-region">@_teamB?.Region</div>
+            </div>
+
+            <!-- HISTORY -->
+            <div class="history-strip area-history">
+                @if (_matchHistory != null && _matchHistory.Any())
+                {
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th class="team-head">TEAM</th>
+                                @foreach (var set in _matchHistory)
+                                {
+                                    <th>@GetTableColumnHeader(_event.Sport, set.PhaseNumber)</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="team-abbr">@_teamA?.Abbreviation</td>
+                                @foreach (var set in _matchHistory)
+                                {
+                                    <td class="@(set.ScoreA > set.ScoreB ? "set-win" : "")">@set.ScoreA</td>
+                                }
+                            </tr>
+                            <tr>
+                                <td class="team-abbr">@_teamB?.Abbreviation</td>
+                                @foreach (var set in _matchHistory)
+                                {
+                                    <td class="@(set.ScoreB > set.ScoreA ? "set-win" : "")">@set.ScoreB</td>
+                                }
+                            </tr>
+                        </tbody>
+                    </table>
+                }
+            </div>
         </div>
     </div>
 }
@@ -429,7 +569,8 @@ else
 @code {
     [Parameter] public string EventID { get; set; } = "";
 
-    public class EventModel {
+    public class EventModel
+    {
         public string ID { get; set; } = "";
         public string? Sport { get; set; }
         public string? Subcategory { get; set; }
@@ -439,18 +580,21 @@ else
         public List<EventVersusTeams>? EventVersusList { get; set; }
     }
 
-    public class EventVersusTeams {
+    public class EventVersusTeams
+    {
         public string? Region { get; set; }
         public string? Abbreviation { get; set; }
     }
 
-    public class ClientTeamMatchDTO {
+    public class ClientTeamMatchDTO
+    {
         public string? Region { get; set; }
         public int Phase { get; set; }
         public int Score { get; set; }
     }
 
-    public class PhaseScoreModel {
+    public class PhaseScoreModel
+    {
         public int PhaseNumber { get; set; }
         public int ScoreA { get; set; }
         public int ScoreB { get; set; }
@@ -484,24 +628,29 @@ else
     private bool _isRefreshing = false;
     private Timer? _timer;
 
-    protected override async Task OnInitializedAsync() {
+    protected override async Task OnInitializedAsync()
+    {
         await LoadData();
         _timer = new Timer(_ => _ = InvokeAsync(LoadDataSafe), null, 2000, 2000);
     }
 
-    private async Task LoadDataSafe() {
+    private async Task LoadDataSafe()
+    {
         try { await LoadData(); }
         catch (Exception ex) { Console.WriteLine($"Timer error: {ex.Message}"); }
     }
 
-    private async Task LoadData() {
+    private async Task LoadData()
+    {
         if (_isRefreshing) return;
-        try {
+        try
+        {
             _isRefreshing = true;
             var eventDetails = await apiService.GetAsync<EventModel>($"/Events/Details/{EventID}");
             _event = eventDetails?.FirstOrDefault();
 
-            if (_event != null && _event.EventVersusList?.Count == 2) {
+            if (_event != null && _event.EventVersusList?.Count == 2)
+            {
                 _teamA = _event.EventVersusList[0];
                 _teamB = _event.EventVersusList[1];
                 _cleanSportName = GetCleanSportName(_event.Sport);
@@ -513,15 +662,18 @@ else
                 _matches = allMatches?.ToList() ?? new();
                 CalculateScores();
             }
-        } catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
-        finally {
+        }
+        catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
+        finally
+        {
             _isLoading = false;
             _isRefreshing = false;
             StateHasChanged();
         }
     }
 
-    private void CalculateScores() {
+    private void CalculateScores()
+    {
         if (_event == null || _teamA == null || _teamB == null) return;
         _matchHistory.Clear();
         _setsA = 0; _setsB = 0;
@@ -531,7 +683,8 @@ else
         _phaseText = GetPhaseText(_event.Sport, maxPhase);
         if (_event.IsFinished == true) _phaseText = "FINAL";
 
-        for (int i = 1; i <= maxPhase; i++) {
+        for (int i = 1; i <= maxPhase; i++)
+        {
             var sA = GetScore(_matches, _teamA.Region, i);
             var sB = GetScore(_matches, _teamB.Region, i);
             if (sA > 0 || sB > 0 || i == maxPhase)
@@ -540,11 +693,14 @@ else
 
         int currentScoreA = 0; int currentScoreB = 0;
 
-        if (_isSetGame) {
-            for (int i = 1; i <= maxPhase; i++) {
+        if (_isSetGame)
+        {
+            for (int i = 1; i <= maxPhase; i++)
+            {
                 var sA = GetScore(_matches, _teamA.Region, i);
                 var sB = GetScore(_matches, _teamB.Region, i);
-                if (i < maxPhase || _event.IsFinished == true) {
+                if (i < maxPhase || _event.IsFinished == true)
+                {
                     if (sA > sB) _setsA++; else if (sB > sA) _setsB++;
                 }
             }
@@ -552,7 +708,9 @@ else
             if (_setsB > _setsA) _isWinnerB = true;
             currentScoreA = GetScore(_matches, _teamA.Region, maxPhase);
             currentScoreB = GetScore(_matches, _teamB.Region, maxPhase);
-        } else {
+        }
+        else
+        {
             currentScoreA = _matches.Where(m => m.Region == _teamA.Region).Sum(m => m.Score);
             currentScoreB = _matches.Where(m => m.Region == _teamB.Region).Sum(m => m.Score);
             if (currentScoreA > currentScoreB) _isWinnerA = true;
@@ -569,7 +727,8 @@ else
     private async void TriggerAnimA() { _showAnimA = true; StateHasChanged(); await Task.Delay(1000); _showAnimA = false; StateHasChanged(); }
     private async void TriggerAnimB() { _showAnimB = true; StateHasChanged(); await Task.Delay(1000); _showAnimB = false; StateHasChanged(); }
 
-    private string GetSportIcon(string? sport) {
+    private string GetSportIcon(string? sport)
+    {
         var s = sport?.ToLower() ?? "";
         if (s.Contains("basket")) return "🏀";
         if (s.Contains("volley")) return "🏐";
@@ -581,7 +740,8 @@ else
         return "";
     }
 
-    private string GetAnimClass(string? sport) {
+    private string GetAnimClass(string? sport)
+    {
         var s = sport?.ToLower() ?? "";
         if (s.Contains("basket")) return "anim-active-basketball";
         if (s.Contains("volley")) return "anim-active-volleyball";
@@ -592,15 +752,18 @@ else
 
     private int GetScore(List<ClientTeamMatchDTO> scores, string? region, int phase) => scores.FirstOrDefault(s => s.Region == region && s.Phase == phase)?.Score ?? 0;
 
-    private bool IsSetBasedSport(string? sport) {
+    private bool IsSetBasedSport(string? sport)
+    {
         if (string.IsNullOrEmpty(sport)) return false;
         var s = sport.ToLower();
         return s.Contains("volley") || s.Contains("tennis") || s.Contains("badminton") || s.Contains("sepak") || s.Contains("table");
     }
 
-    private string GetPhaseText(string? sport, int phase) {
+    private string GetPhaseText(string? sport, int phase)
+    {
         var s = sport?.ToLower() ?? "";
-        if (s.Contains("basket")) {
+        if (s.Contains("basket"))
+        {
             if (phase <= 4) return $"{phase}{GetOrdinal(phase)} QUARTER";
             if (phase == 5) return "OVERTIME";
             return $"{phase - 4} OVERTIME";
@@ -609,22 +772,26 @@ else
         return $"SET {phase}";
     }
 
-    private string GetOrdinal(int num) {
+    private string GetOrdinal(int num)
+    {
         if (num == 1) return "ST"; if (num == 2) return "ND"; if (num == 3) return "RD"; return "TH";
     }
 
-    private string GetTableColumnHeader(string? sport, int phase) {
+    private string GetTableColumnHeader(string? sport, int phase)
+    {
         var s = sport?.ToLower() ?? "";
         if (s.Contains("basket")) return phase <= 4 ? $"Q{phase}" : (phase == 5 ? "OT" : $"{phase - 4}OT");
         return $"{phase}";
     }
 
-    private string GetSchoolLevel(string? sport) {
+    private string GetSchoolLevel(string? sport)
+    {
         if (string.IsNullOrEmpty(sport)) return "SECONDARY";
         return sport.ToUpper().Contains("ELEM") ? "ELEMENTARY" : "SECONDARY";
     }
 
-    private string GetCleanSportName(string? sport) {
+    private string GetCleanSportName(string? sport)
+    {
         if (string.IsNullOrEmpty(sport)) return "";
         return sport.Replace("(Elementary)", "", StringComparison.OrdinalIgnoreCase)
                     .Replace("(Secondary)", "", StringComparison.OrdinalIgnoreCase)
