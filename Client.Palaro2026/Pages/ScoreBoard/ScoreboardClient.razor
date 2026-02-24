@@ -58,7 +58,7 @@
         min-height: 100vh;
         width: 100vw;
         background: radial-gradient(circle at 50% 30%, #ffffff 0%, #e0e7ff 100%);
-        padding-bottom: 50px;
+        padding-bottom: 50px; /* Gibalik sa normal kay wala nay footer */
     }
 
     /* --- HEADER (PILL STYLE) --- */
@@ -98,37 +98,6 @@
         text-transform: uppercase;
         margin-top: 5px;
     }
-
-    /* --- SEARCH BAR --- */
-    .search-wrapper {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 30px;
-        padding: 0 20px;
-    }
-
-    .tv-search-field {
-        width: 100%;
-        max-width: 600px;
-    }
-
-        /* Override MudBlazor for Light Theme */
-        .tv-search-field .mud-input-control-input-container {
-            background-color: white !important;
-            border-radius: 50px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
-
-        .tv-search-field .mud-input-slot {
-            font-family: var(--font-body);
-            font-weight: 700;
-            color: var(--pal-dark-blue) !important;
-            padding-left: 10px;
-        }
-
-        .tv-search-field .mud-icon-root {
-            color: var(--pal-blue) !important;
-        }
 
     /* --- TABS --- */
     .mud-tabs-tabbar {
@@ -317,10 +286,11 @@
         margin-bottom: 2px;
     }
 
+    /* NORMAL FONT SA SCORES */
     .score-text {
-        font-family: 'Corbel', sans-serif;
+        font-family: Arial, Helvetica, sans-serif;
         font-size: 2.2rem;
-        font-weight: 700;
+        font-weight: 800;
         color: #495057;
         margin-top: 0px;
         line-height: 1;
@@ -364,6 +334,7 @@
     .loading-spinner {
         color: var(--pal-blue);
     }
+
 </style>
 
 <div class="tv-screen-bg">
@@ -375,18 +346,6 @@
                 <h1 class="main-event-title">PALARONG PAMBANSA 2026</h1>
                 <div class="sub-header-text">OFFICIAL LIVE SCOREBOARD</div>
             </div>
-        </div>
-
-        <!-- SEARCH BAR -->
-        <div class="search-wrapper">
-            <MudTextField @bind-Value="_searchString"
-                          Placeholder="SEARCH MATCHES..."
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Search"
-                          Variant="Variant.Outlined"
-                          Class="tv-search-field"
-                          Immediate="true"
-                          Clearable="true" />
         </div>
 
         @if (_isLoading)
@@ -403,10 +362,8 @@
                 <!-- LIVE GAMES TAB -->
                 <MudTabPanel Text="LIVE MATCHES">
                     @{
-                        var liveGames = _versusEvents
-                        .Where(e => e.IsFinished != true)
-                        .Where(e => FilterFunction(e))
-                        .ToList();
+                        // Filter na lang based sa IsFinished == false
+                        var liveGames = _versusEvents.Where(e => e.IsFinished != true).ToList();
                     }
 
                     @if (!liveGames.Any())
@@ -414,7 +371,7 @@
                         <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-8" Style="background-color: white; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
                             <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Style="color: #dee2e6; width: 80px; height: 80px;" />
                             <MudText Typo="Typo.h5" Class="mt-4" Style="color: #adb5bd; font-family:var(--font-header)">
-                                @(_searchString == "" ? "NO LIVE GAMES" : "NO MATCHES FOUND")
+                                NO LIVE MATCHES AVAILABLE
                             </MudText>
                         </MudPaper>
                     }
@@ -491,10 +448,8 @@
                 <!-- FINISHED GAMES TAB -->
                 <MudTabPanel Text="RECENT RESULTS">
                     @{
-                        var finishedGames = _versusEvents
-                        .Where(e => e.IsFinished == true)
-                        .Where(e => FilterFunction(e))
-                        .ToList();
+                        // Filter na lang based sa IsFinished == true
+                        var finishedGames = _versusEvents.Where(e => e.IsFinished == true).ToList();
                     }
 
                     @if (!finishedGames.Any())
@@ -502,7 +457,7 @@
                         <MudPaper Class="pa-16 d-flex flex-column align-center justify-center mt-8" Style="background-color: white; border-radius: 20px;">
                             <MudIcon Icon="@Icons.Material.Filled.HistoryToggleOff" Size="Size.Large" Style="color: #dee2e6;" />
                             <MudText Typo="Typo.h5" Class="mt-4" Style="color: #adb5bd; font-family:var(--font-header)">
-                                @(_searchString == "" ? "NO RESULTS" : "NO MATCHES FOUND")
+                                NO RECENT RESULTS
                             </MudText>
                         </MudPaper>
                     }
@@ -566,32 +521,6 @@
 </div>
 
 @code {
-    // --- SEARCH STATE ---
-    private string _searchString = "";
-
-    // --- FILTER LOGIC ---
-    private bool FilterFunction(EventModel element)
-    {
-        if (string.IsNullOrWhiteSpace(_searchString))
-            return true;
-
-        if (element.Sport?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) == true) return true;
-        if (element.Gender?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) == true) return true;
-        if (element.EventStage?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) == true) return true;
-
-        // Search Teams
-        if (element.EventVersusList != null)
-        {
-            foreach (var team in element.EventVersusList)
-            {
-                if (team.Abbreviation?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) == true) return true;
-                if (team.Region?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) == true) return true;
-            }
-        }
-
-        return false;
-    }
-
     // --- MODELS & VARIABLES ---
     public class EventModel
     {
