@@ -5,12 +5,11 @@
 @inject APIService apiService
 @inject NavigationManager Navigation
 @implements IDisposable
-@layout ClientLayout
+@layout NoMainLayout
 
 <PageTitle>Field Events TV View | Palaro tu AgSur 2026</PageTitle>
 
 <style>
-    /* --- THEME IMPORTS (Same as Billiards) --- */
     @@import url('https://fonts.cdnfonts.com/css/evil-empire');
     @@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&family=Chakra+Petch:wght@600;700;800&display=swap');
 
@@ -37,16 +36,15 @@
         min-height: 100vh;
         width: 100vw;
         background: radial-gradient(circle at 50% 30%, #ffffff 0%, #e0e7ff 100%);
-        padding: 22px 0 60px 0;
+        padding: 22px 0 14vh 0; /* IMPORTANT: space for fixed footer */
         position: relative;
     }
 
-    /* --- BACK BUTTON (Billiards-like) --- */
     .back-button {
         position: fixed;
         top: 16px;
         left: 16px;
-        z-index: 1000;
+        z-index: 3000;
         display: inline-flex;
         align-items: center;
         gap: 10px;
@@ -70,7 +68,6 @@
         transform: translateY(-1px);
     }
 
-    /* --- HEADER PILL (Same as Billiards) --- */
     .dashboard-header {
         display: flex;
         flex-direction: column;
@@ -111,7 +108,6 @@
         opacity: 0.95;
     }
 
-    /* --- TOP INFO CARD --- */
     .top-info {
         width: min(1400px, calc(100% - 40px));
         margin: 18px auto;
@@ -192,7 +188,6 @@
         align-items: center;
     }
 
-    /* Category badge (Team/Mixed/Individual) */
     .category-badge {
         display: inline-flex;
         align-items: center;
@@ -211,7 +206,6 @@
     .category-mixed { background: linear-gradient(90deg, var(--pal-gold), var(--pal-blue)); }
     .category-individual { background: #198754; }
 
-    /* --- RESULTS WRAPPER (Billiards card style) --- */
     .results-wrap {
         width: min(1400px, calc(100% - 40px));
         margin: 0 auto;
@@ -252,7 +246,6 @@
         font-size: 0.78rem;
     }
 
-    /* --- MudTable tweaks to look like TV scoreboard --- */
     .tv-table .mud-table-container { background: white !important; }
     .tv-table table { width: 100%; }
 
@@ -352,12 +345,10 @@
         font-size: 1.05rem;
     }
 
-    /* Gold/Silver/Bronze row hint (subtle, like TV highlight) */
     .gold-row { background: linear-gradient(90deg, rgba(255,215,0,0.12), rgba(255,215,0,0.03)) !important; }
     .silver-row { background: linear-gradient(90deg, rgba(192,192,192,0.12), rgba(192,192,192,0.03)) !important; }
     .bronze-row { background: linear-gradient(90deg, rgba(205,127,50,0.12), rgba(205,127,50,0.03)) !important; }
 
-    /* --- Footer line (like Billiards footer style) --- */
     .page-footer {
         width: min(1400px, calc(100% - 40px));
         margin: 16px auto 0 auto;
@@ -382,8 +373,6 @@
         .region-name { max-width: 160px; }
         .rank-pill { min-width: 56px; padding: 6px 10px; }
     }
-
-   
 </style>
 
 <div class="tv-screen-bg">
@@ -408,7 +397,6 @@
     }
     else
     {
-        <!-- HEADER -->
         <div class="dashboard-header">
             <div class="header-pill">
                 <h1 class="main-event-title">FIELD EVENTS TV</h1>
@@ -416,7 +404,6 @@
             </div>
         </div>
 
-        <!-- TOP INFO -->
         <div class="top-info">
             <div class="top-info-bar">
                 <div class="@(_event.IsFinished == true ? "badge-final" : "badge-live")">
@@ -459,7 +446,6 @@
             </div>
         </div>
 
-        <!-- RESULTS -->
         @if (_scoringRows.Any())
         {
             <div class="results-wrap">
@@ -473,9 +459,9 @@
 
                 <MudTable Class="tv-table"
                           Items="_scoringRows
-                                                                                  .OrderByDescending(r => r.BestResult) // highest score first
-                                                                                  .ThenBy(r => r.Rank)                  // optional: tie-break by rank if needed
-                                                                                  .ToList()"
+                                    .OrderByDescending(r => r.BestResult)
+                                    .ThenBy(r => r.Rank)
+                                    .ToList()"
                           Dense="true"
                           Hover="true"
                           Elevation="0">
@@ -492,7 +478,6 @@
 
                     <RowTemplate>
                         @{
-                            var rowClass = GetRowClass(context.Rank);
                             var rankClass = context.Rank switch
                             {
                                 1 => "rank-1",
@@ -502,57 +487,55 @@
                             };
                         }
 
-                    
-                            <MudTd>
-                                @if (context.Rank > 0)
-                                {
-                                    <span class="rank-pill @rankClass">#@context.Rank</span>
-                                }
-                                else
-                                {
-                                    <span class="rank-pill" style="opacity:.55;">-</span>
-                                }
-                            </MudTd>
+                        <MudTd>
+                            @if (context.Rank > 0)
+                            {
+                                <span class="rank-pill @rankClass">#@context.Rank</span>
+                            }
+                            else
+                            {
+                                <span class="rank-pill" style="opacity:.55;">-</span>
+                            }
+                        </MudTd>
 
-                            <MudTd>
-                                <div class="athlete-name">@context.PlayerName</div>
-                            </MudTd>
+                        <MudTd>
+                            <div class="athlete-name">@context.PlayerName</div>
+                        </MudTd>
 
-                            <MudTd>
-                                <div class="region-wrap">
-                                    <div class="region-flag">
-                                        <MudImage Src="@GetRegionLogo(context.RegionName)"
-                                                  ObjectFit="ObjectFit.Contain"
-                                                  Alt="@context.RegionName"
-                                                  Style="width:100%; height:100%;" />
-                                    </div>
-                                    <div class="region-name">@context.RegionName</div>
+                        <MudTd>
+                            <div class="region-wrap">
+                                <div class="region-flag">
+                                    <MudImage Src="@GetRegionLogo(context.RegionName)"
+                                              ObjectFit="ObjectFit.Contain"
+                                              Alt="@context.RegionName"
+                                              Style="width:100%; height:100%;" />
                                 </div>
-                            </MudTd>
+                                <div class="region-name">@context.RegionName</div>
+                            </div>
+                        </MudTd>
 
-                            <MudTd Class="attempt-cell">
-                                @(context.AttemptResults[0].HasValue ? context.AttemptResults[0]!.Value.ToString("F2") : "-")
-                            </MudTd>
+                        <MudTd Class="attempt-cell">
+                            @(context.AttemptResults[0].HasValue ? context.AttemptResults[0]!.Value.ToString("F2") : "-")
+                        </MudTd>
 
-                            <MudTd Class="attempt-cell">
-                                @(context.AttemptResults[1].HasValue ? context.AttemptResults[1]!.Value.ToString("F2") : "-")
-                            </MudTd>
+                        <MudTd Class="attempt-cell">
+                            @(context.AttemptResults[1].HasValue ? context.AttemptResults[1]!.Value.ToString("F2") : "-")
+                        </MudTd>
 
-                            <MudTd Class="attempt-cell">
-                                @(context.AttemptResults[2].HasValue ? context.AttemptResults[2]!.Value.ToString("F2") : "-")
-                            </MudTd>
+                        <MudTd Class="attempt-cell">
+                            @(context.AttemptResults[2].HasValue ? context.AttemptResults[2]!.Value.ToString("F2") : "-")
+                        </MudTd>
 
-                            <MudTd Class="best-result">
-                                @if (context.BestResult > 0)
-                                {
-                                    @context.BestResult.ToString("F2")
-                                }
-                                else
-                                {
-                                    <text>-</text>
-                                }
-                            </MudTd>
-                 
+                        <MudTd Class="best-result">
+                            @if (context.BestResult > 0)
+                            {
+                                @context.BestResult.ToString("F2")
+                            }
+                            else
+                            {
+                                <text>-</text>
+                            }
+                        </MudTd>
                     </RowTemplate>
                 </MudTable>
             </div>
@@ -583,14 +566,14 @@
             </div>
         }
     }
-
-
 </div>
+
+@* ✅ Footer is now a reusable component *@
+<Brand />
 
 @code {
     [Parameter] public string EventID { get; set; } = "";
 
-    /* ===================== MODELS ===================== */
     public class EventDetailsDTO
     {
         public class Event
@@ -683,7 +666,6 @@
         public int? Rank { get; set; }
     }
 
-    /* ===================== STATE ===================== */
     private EventInfo? _event;
     private List<ScoringRow> _scoringRows = new();
     private List<SchoolRegions>? _allRegions;
@@ -691,9 +673,8 @@
     private bool _isLoading = true;
     private Timer? _refreshTimer;
 
-    private bool _debugMode = true; // Set to false in production
+    private bool _debugMode = true;
 
-    /* ===================== INIT ===================== */
     protected override async Task OnInitializedAsync()
     {
         Console.WriteLine($"[FIELD EVENTS] Initializing for EventID: {EventID}");
@@ -708,7 +689,6 @@
         );
     }
 
-    /* ===================== GET DATA ===================== */
     private async Task LoadData()
     {
         try
@@ -956,17 +936,6 @@
             "mixed" => "category-mixed",
             "individual" => "category-individual",
             _ => "category-individual"
-        };
-    }
-
-    private string GetRowClass(int rank)
-    {
-        return rank switch
-        {
-            1 => "gold-row",
-            2 => "silver-row",
-            3 => "bronze-row",
-            _ => ""
         };
     }
 
