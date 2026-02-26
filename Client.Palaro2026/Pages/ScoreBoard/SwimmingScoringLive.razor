@@ -1,58 +1,79 @@
 ﻿@page "/scoreboard/swimming/{EventID}"
-@layout ClientLayout
-@using System.Linq
 @using System.Threading
+@using System.Linq
 @using Client.Palaro2026.Services
 @inject APIService apiService
 @inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 @implements IDisposable
+@layout NoMainLayout
 
-<PageTitle>Swimming Event Details | Palaro tu AgSur 2026</PageTitle>
+<PageTitle>Swimming TV View | Palaro tu AgSur 2026</PageTitle>
 
 <style>
-    /* --- THEME IMPORTS (UNIFORM TV STYLE) --- */
     @@import url('https://fonts.cdnfonts.com/css/evil-empire');
     @@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&family=Chakra+Petch:wght@600;700;800&display=swap');
 
     :root {
-        /* PALARO COLOR PALETTE */
         --pal-blue: #023E8A;
         --pal-dark-blue: #001845;
         --pal-gold: #FFB400;
         --pal-red: #EA0000;
         --pal-white: #ffffff;
-        /* MEDAL COLORS */
-        --medal-gold: #FFB400;
-        --medal-silver: #A0A0A0;
-        --medal-bronze: #CD7F32;
-        /* FONTS */
         --font-header: 'Evil Empire', sans-serif;
         --font-subheader: 'Chakra Petch', sans-serif;
         --font-body: 'Nunito', sans-serif;
     }
 
     body {
-        background: radial-gradient(circle at 50% 30%, #ffffff 0%, #e0e7ff 100%);
+        background: #f8f9fa;
         margin: 0;
         font-family: var(--font-body);
         overflow-x: hidden;
-        min-height: 100vh;
-        color: #333;
     }
 
     .tv-screen-bg {
         min-height: 100vh;
         width: 100vw;
-        padding-bottom: 50px;
+        background: radial-gradient(circle at 50% 30%, #ffffff 0%, #e0e7ff 100%);
+        padding: 22px 0 14vh 0;
+        position: relative;
     }
 
-    /* --- HEADER (PILL STYLE) --- */
+    .back-button {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        z-index: 3000;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: white;
+        color: var(--pal-dark-blue);
+        border: 2px solid #e9ecef;
+        padding: 10px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-family: var(--font-subheader);
+        font-weight: 900;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+        transition: all .2s ease;
+    }
+
+        .back-button:hover {
+            border-color: var(--pal-gold);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+            transform: translateY(-1px);
+        }
+
     .dashboard-header {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        margin: 40px 0 30px 0;
+        margin: 0px 0 16px 0;
     }
 
     .header-pill {
@@ -62,13 +83,13 @@
         border-radius: 50px;
         text-align: center;
         box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-        min-width: 500px;
+        max-width: calc(100% - 40px);
     }
 
     .main-event-title {
         font-family: var(--font-header);
         color: white;
-        font-size: clamp(2rem, 3.5vw, 3rem);
+        font-size: clamp(2rem, 4vw, 3.5rem);
         letter-spacing: 2px;
         margin: 0;
         line-height: 1;
@@ -79,693 +100,447 @@
     .sub-header-text {
         font-family: var(--font-subheader);
         color: var(--pal-gold);
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         letter-spacing: 3px;
-        font-weight: 700;
-        text-transform: uppercase;
-        margin-top: 5px;
-    }
-
-    /* --- STATUS BADGE --- */
-    .status-badge-container {
-        display: flex;
-        justify-content: center;
-        margin-top: -15px;
-        margin-bottom: 30px;
-    }
-
-    .status-pill {
-        background: var(--pal-red);
-        color: white;
-        font-family: var(--font-subheader);
         font-weight: 800;
-        padding: 5px 20px;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         text-transform: uppercase;
+        margin-top: 6px;
+        opacity: 0.95;
     }
 
-        .status-pill.completed {
-            background: #2e7d32; /* Green for finished */
-        }
-
-    /* --- TV CARD (Universal Container) --- */
-    .tv-card {
-        background-color: white;
-        border: 1px solid #dee2e6;
-        border-top: 5px solid var(--pal-blue);
-        border-radius: 15px;
-        padding: 20px;
-        position: relative;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        height: 100%;
-        display: flex;
-        flex-direction: column;
+    .results-wrap {
+        width: min(1400px, calc(100% - 40px));
+        margin: 0 auto;
+        background: white;
+        border-radius: 20px;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 8px 18px rgba(0,0,0,0.06);
+        overflow: hidden;
     }
 
-    .section-title {
-        font-family: var(--font-header);
-        font-size: 1.5rem;
-        color: var(--pal-dark-blue);
-        border-bottom: 2px solid var(--pal-gold);
-        padding-bottom: 10px;
-        margin-bottom: 20px;
-    }
-
-    /* --- MEDALS SECTION --- */
-    .medal-icon-large {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
+    .results-header {
         display: flex;
         align-items: center;
-        justify-content: center;
-        margin: 0 auto 15px;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 14px 16px;
+        border-bottom: 2px solid var(--pal-gold);
+        flex-wrap: wrap;
+    }
+
+    .results-title {
         font-family: var(--font-header);
-        font-size: 2rem;
-        color: white;
-        box-shadow: 0 5px 10px rgba(0,0,0,0.2);
-    }
-
-    .gold-theme {
-        border-top-color: var(--medal-gold) !important;
-    }
-
-    .gold-icon {
-        background: var(--medal-gold);
-    }
-
-    .silver-theme {
-        border-top-color: var(--medal-silver) !important;
-    }
-
-    .silver-icon {
-        background: var(--medal-silver);
-    }
-
-    .bronze-theme {
-        border-top-color: var(--medal-bronze) !important;
-    }
-
-    .bronze-icon {
-        background: var(--medal-bronze);
-    }
-
-    .winner-name {
-        font-family: var(--font-subheader);
-        font-size: 1.3rem;
-        font-weight: 800;
+        font-size: 1.6rem;
         color: var(--pal-dark-blue);
-        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .results-note {
+        font-family: var(--font-subheader);
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #6c757d;
+        font-size: 0.78rem;
+    }
+
+    /* ✅ pager-carousel controls */
+    .pager-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        border-bottom: 1px solid #f1f1f1;
+        background: #ffffff;
+    }
+
+    .pager-dots {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: #dee2e6;
+        display: inline-block;
+    }
+
+        .dot.active {
+            background: var(--pal-gold);
+            box-shadow: 0 0 0 3px rgba(255, 180, 0, 0.18);
+        }
+
+    .tv-table .mud-table-container {
+        background: white !important;
+    }
+
+    .tv-table thead th {
+        font-family: var(--font-subheader) !important;
+        font-weight: 900 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        color: var(--pal-dark-blue) !important;
+        background: #fbfbfd !important;
+        border-bottom: 1px solid #f1f1f1 !important;
+        padding-top: 14px !important;
+        padding-bottom: 14px !important;
+        font-size: 0.82rem !important;
+        white-space: nowrap;
+    }
+
+    .tv-table tbody td {
+        border-bottom: 1px solid #f1f1f1 !important;
+        padding-top: 14px !important;
+        padding-bottom: 14px !important;
+    }
+
+    .rank-pill {
+        font-family: var(--font-subheader);
+        font-weight: 900;
+        border-radius: 999px;
+        border: 2px solid #e9ecef;
+        padding: 6px 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 64px;
+        background: white;
+        color: var(--pal-dark-blue);
+    }
+
+    .rank-1 {
+        border-color: #FFD700;
+        box-shadow: 0 0 0 3px rgba(255,215,0,0.18);
+    }
+
+    .rank-2 {
+        border-color: #C0C0C0;
+        box-shadow: 0 0 0 3px rgba(192,192,192,0.16);
+    }
+
+    .rank-3 {
+        border-color: #CD7F32;
+        box-shadow: 0 0 0 3px rgba(205,127,50,0.16);
+    }
+
+    .athlete-name {
+        font-family: var(--font-body);
+        font-weight: 900;
+        color: #212529;
+        font-size: 1rem;
         line-height: 1.1;
     }
 
-    .winner-region {
-        font-family: var(--font-body);
-        color: #6c757d;
-        font-weight: 700;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-    }
-
-    .winner-time {
-        margin-top: 15px;
-        font-family: 'Chakra Petch', sans-serif;
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--pal-blue);
-    }
-
-    /* --- LANE/HEAT LIST --- */
-    .lane-row {
+    .region-wrap {
         display: flex;
         align-items: center;
-        padding: 12px 15px;
-        border-bottom: 1px solid #f1f1f1;
-        transition: background 0.2s;
+        gap: 10px;
+        min-width: 0;
     }
 
-        .lane-row:last-child {
-            border-bottom: none;
-        }
-
-        .lane-row:hover {
-            background-color: #f8f9fa;
-        }
-
-    .lane-num-box {
-        background: var(--pal-dark-blue);
-        color: var(--pal-gold);
-        font-family: var(--font-subheader);
-        font-weight: 700;
-        width: 50px;
-        height: 35px;
+    .region-flag {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid #e9ecef;
+        padding: 4px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 5px;
-        margin-right: 15px;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.05);
+        flex: 0 0 auto;
     }
 
-    .swimmer-info {
-        flex: 1;
-    }
-
-    .swimmer-name {
-        font-weight: 700;
-        color: var(--pal-dark-blue);
-        font-size: 1rem;
-    }
-
-    .swimmer-region {
-        font-size: 0.8rem;
-        color: #adb5bd;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-
-    .swimmer-time {
-        font-family: 'Chakra Petch', sans-serif;
-        font-weight: 700;
-        font-size: 1.2rem;
-        color: var(--pal-blue);
-    }
-
-    /* --- RESULTS TABLE --- */
-    .results-table-container {
-        overflow-x: auto;
-    }
-
-    .tv-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-        .tv-table th {
-            text-align: left;
-            color: #adb5bd;
-            font-family: var(--font-header);
-            font-size: 1.1rem;
-            padding: 10px 15px;
-            border-bottom: 2px solid #f1f1f1;
-            text-transform: uppercase;
-        }
-
-        .tv-table td {
-            padding: 12px 15px;
-            border-bottom: 1px solid #f8f9fa;
-            font-weight: 600;
-            color: var(--pal-dark-blue);
-        }
-
-    .rank-cell {
+    .region-name {
         font-family: var(--font-subheader);
-        font-weight: 800;
-        color: var(--pal-blue);
-    }
-
-    /* --- STATS CARD --- */
-    .stat-box {
-        text-align: center;
-        padding: 15px;
-        background: #f8f9fa;
-        border-radius: 10px;
-        border: 1px solid #e9ecef;
-    }
-
-    .stat-label {
-        font-family: var(--font-subheader);
-        font-size: 0.8rem;
-        color: #6c757d;
+        font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 1px;
-    }
-
-    .stat-value {
-        font-family: var(--font-header);
-        font-size: 2rem;
         color: var(--pal-dark-blue);
-        line-height: 1;
-        margin-top: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 320px;
     }
 
-    .loading-spinner {
-        color: var(--pal-blue);
-    }
-
-    .back-btn {
+    .result-cell {
         font-family: var(--font-subheader);
-        font-weight: 700;
-        text-transform: uppercase;
+        font-weight: 900;
+        text-align: center;
+        color: #495057;
+        white-space: nowrap;
+        font-size: 1.05rem;
+    }
+
+    .best-result {
+        font-family: var(--font-subheader);
+        font-weight: 900;
+        text-align: center;
+        color: var(--pal-gold);
+        white-space: nowrap;
+        font-size: 1.15rem;
+    }
+
+    @@media (max-width: 900px) {
+        .header-pill {
+            padding: 18px 22px;
+        }
+
+        .region-name {
+            max-width: 220px;
+        }
+    }
+
+    @@media (max-width: 600px) {
+        .region-name {
+            max-width: 160px;
+        }
+
+        .rank-pill {
+            min-width: 56px;
+            padding: 6px 10px;
+        }
     }
 </style>
 
 <div class="tv-screen-bg">
-    <MudContainer MaxWidth="MaxWidth.ExtraLarge">
+    <button class="back-button" onclick="history.back()">← Back</button>
 
-        @if (_isLoading)
-        {
-            <MudStack AlignItems="AlignItems.Center" Class="mt-16">
-                <MudProgressCircular Indeterminate="true" Class="loading-spinner" Size="Size.Large" />
-                <MudText Typo="Typo.h6" Class="mt-4" Style="font-family:var(--font-header); color:var(--pal-blue);">
-                    LOADING EVENT...
-                </MudText>
-            </MudStack>
-        }
-        else if (_eventInfo == null)
-        {
-            <div class="dashboard-header">
-                <div class="header-pill">
-                    <h1 class="main-event-title">EVENT NOT FOUND</h1>
-                </div>
+    @if (_isLoading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="min-height:70vh;">
+            <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
+            <MudText Typo="Typo.h6" Class="mt-4" Style="font-family:var(--font-header); color:var(--pal-blue);">
+                LOADING SWIMMING EVENT...
+            </MudText>
+        </MudStack>
+    }
+    else if (_event == null)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="min-height:70vh;">
+            <MudText Typo="Typo.h4" Style="font-family:var(--font-header); color: var(--pal-red);">
+                EVENT NOT FOUND
+            </MudText>
+        </MudStack>
+    }
+    else
+    {
+        <div class="dashboard-header">
+            <div class="header-pill">
+                <h1 class="main-event-title">SWIMMING</h1>
+                <div class="sub-header-text">@_event.Level - @_event.Gender • @_event.Sport • @_event.EventStage</div>
             </div>
+        </div>
 
-            <MudStack AlignItems="AlignItems.Center" Class="mt-8">
-                <MudButton Href="/scoreboard/swimming"
-                           Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Class="header-pill back-btn"
-                           Style="min-width:auto; border-radius:10px;">
-                    RETURN TO SCOREBOARD
-                </MudButton>
-            </MudStack>
+        @if (_scoringRows.Any())
+        {
+            var orderedRows = _scoringRows
+            .OrderBy(r => r.Rank > 0 ? r.Rank : int.MaxValue)
+            .ThenBy(r => r.TimeSeconds > 0 ? r.TimeSeconds : double.MaxValue)
+            .ToList();
+
+            BuildSlides(orderedRows); // ✅ rebuild slides
+
+            <div class="results-wrap">
+                <div class="results-header">
+                    <div class="results-title">
+                        <MudIcon Icon="@Icons.Material.Filled.Pool" Style="color: var(--pal-gold);" />
+                        RESULTS
+                    </div>
+
+                    <div class="results-note">
+                        PAGE @(_currentSlide + 1) / @(_slides.Count == 0 ? 1 : _slides.Count) • AUTO SLIDE
+                    </div>
+                </div>
+
+                <div class="pager-bar">
+                    <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                                       Color="Color.Primary"
+                                       Variant="Variant.Outlined"
+                                       Size="Size.Small"
+                                       OnClick="@PrevSlide" />
+
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                                       Color="Color.Primary"
+                                       Variant="Variant.Outlined"
+                                       Size="Size.Small"
+                                       OnClick="@NextSlide" />
+                    </MudStack>
+                </div>
+
+                <MudTable Class="tv-table"
+                          Items="@CurrentSlideRows"
+                          Dense="true"
+                          Hover="true"
+                          Elevation="0">
+                    <HeaderContent>
+                        <MudTh>Rank</MudTh>
+                        <MudTh>Athlete</MudTh>
+                        <MudTh>Region</MudTh>
+                        <MudTh style="text-align:center;">Heat</MudTh>
+                        <MudTh style="text-align:center;">Lane</MudTh>
+                        <MudTh style="text-align:center;">Time</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        @{
+                            var rankClass = context.Rank switch
+                            {
+                                1 => "rank-1",
+                                2 => "rank-2",
+                                3 => "rank-3",
+                                _ => ""
+                            };
+                        }
+
+                        <MudTd>
+                            @if (context.Rank > 0)
+                            {
+                                <span class="rank-pill @rankClass">#@context.Rank</span>
+                            }
+                            else
+                            {
+                                <span class="rank-pill" style="opacity:.55;">-</span>
+                            }
+                        </MudTd>
+
+                        <MudTd>
+                            <div class="athlete-name">@context.PlayerName</div>
+                        </MudTd>
+
+                        <MudTd>
+                            <div class="region-wrap">
+                                <div class="region-flag">
+                                    <MudImage Src="@GetRegionLogo(context.RegionName)"
+                                              ObjectFit="ObjectFit.Contain"
+                                              Alt="@context.RegionName"
+                                              Style="width:100%; height:100%;" />
+                                </div>
+                                <div class="region-name">@context.RegionName</div>
+                            </div>
+                        </MudTd>
+
+                        <MudTd Class="result-cell">@context.HeatName</MudTd>
+                        <MudTd Class="result-cell">@context.LaneName</MudTd>
+
+                        <MudTd Class="best-result">
+                            @(!string.IsNullOrWhiteSpace(context.TimeDisplay) ? context.TimeDisplay : "-")
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+
+                <MudStack Row Justify="Justify.Center" Class="pa-3">
+                    <div class="pager-dots">
+                        @for (int i = 0; i < (_slides.Count == 0 ? 1 : _slides.Count); i++)
+                        {
+                            <span class="dot @(i == _currentSlide ? "active" : "")"></span>
+                        }
+                    </div>
+                </MudStack>
+            </div>
         }
         else
         {
-            <!-- HEADER -->
-            <div class="dashboard-header">
-                <div class="header-pill">
-                    <h1 class="main-event-title">@_eventInfo.Subcategory</h1>
-
-                    <div class="sub-header-text">
-                        SWIMMING • @_eventInfo.Gender • @_eventInfo.Level
+            <div class="results-wrap">
+                <div class="results-header">
+                    <div class="results-title">
+                        <MudIcon Icon="@Icons.Material.Filled.Pool" Style="color: var(--pal-gold);" />
+                        RESULTS
                     </div>
-
-                    <div class="status-badge-container">
-                        @if (_eventInfo.EventStage?.ToLower() != "completed")
-                        {
-                            <div class="status-pill">LIVE • @_eventInfo.EventStage</div>
-                        }
-                        else
-                        {
-                            <div class="status-pill completed">OFFICIAL RESULT</div>
-                        }
-                    </div>
+                    <div class="results-note">NO DATA YET</div>
                 </div>
+
+                <MudStack AlignItems="AlignItems.Center" Class="pa-10">
+                    <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty"
+                             Size="Size.Large"
+                             Style="color:#dee2e6; width:70px; height:70px;" />
+                    <MudText Typo="Typo.h6" Style="color:#adb5bd; font-family:var(--font-header);">
+                        WAITING FOR RESULTS...
+                    </MudText>
+                </MudStack>
             </div>
-
-            <MudGrid Spacing="3">
-
-                <!-- PODIUM FINISHERS -->
-                @if (_medalWinners.Any())
-                {
-                    <MudItem xs="12">
-                        <div class="section-title text-center" style="border:none; margin-bottom:10px;">
-                            PODIUM FINISHERS
-                        </div>
-                    </MudItem>
-
-                    <!-- GOLD -->
-                    @if (_medalWinners.Count >= 1)
-                    {
-                        var gold = _medalWinners[0];
-                        <MudItem xs="12" md="4">
-                            <div class="tv-card gold-theme text-center">
-                                <div class="medal-icon-large gold-icon">1</div>
-                                <div class="winner-name">@gold.PlayerName</div>
-                                <div class="winner-region">@gold.RegionName</div>
-                                <div class="winner-time">@FormatTimeDisplay(gold.Result)</div>
-                            </div>
-                        </MudItem>
-                    }
-
-                    <!-- SILVER -->
-                    @if (_medalWinners.Count >= 2)
-                    {
-                        var silver = _medalWinners[1];
-                        <MudItem xs="12" md="4">
-                            <div class="tv-card silver-theme text-center">
-                                <div class="medal-icon-large silver-icon">2</div>
-                                <div class="winner-name">@silver.PlayerName</div>
-                                <div class="winner-region">@silver.RegionName</div>
-                                <div class="winner-time">@FormatTimeDisplay(silver.Result)</div>
-                            </div>
-                        </MudItem>
-                    }
-
-                    <!-- BRONZE -->
-                    @if (_medalWinners.Count >= 3)
-                    {
-                        var bronze = _medalWinners[2];
-                        <MudItem xs="12" md="4">
-                            <div class="tv-card bronze-theme text-center">
-                                <div class="medal-icon-large bronze-icon">3</div>
-                                <div class="winner-name">@bronze.PlayerName</div>
-                                <div class="winner-region">@bronze.RegionName</div>
-                                <div class="winner-time">@FormatTimeDisplay(bronze.Result)</div>
-                            </div>
-                        </MudItem>
-                    }
-                }
-
-                <!-- LEFT COLUMN -->
-                <MudItem xs="12" lg="4">
-                    <MudStack Spacing="3">
-
-                        <!-- EVENT STATS -->
-                        <div class="tv-card" style="min-height:auto;">
-                            <div class="section-title">EVENT STATS</div>
-                            <MudGrid>
-                                <MudItem xs="6">
-                                    <div class="stat-box">
-                                        <div class="stat-label">SWIMMERS</div>
-                                        <div class="stat-value">@_participantCount</div>
-                                    </div>
-                                </MudItem>
-                                <MudItem xs="6">
-                                    <div class="stat-box">
-                                        <div class="stat-label">HEATS</div>
-                                        <div class="stat-value">@_eventHeats.Select(h => h.HeatName).Distinct().Count()</div>
-                                    </div>
-                                </MudItem>
-                            </MudGrid>
-                        </div>
-
-                        <!-- LANE ASSIGNMENTS -->
-                        @if (_hasHeats)
-                        {
-                            <div class="tv-card">
-                                <div class="section-title">LANE ASSIGNMENTS</div>
-
-                                <div style="max-height: 500px; overflow-y: auto;">
-                                    @foreach (var lane in _eventHeats)
-                                    {
-                                        <div class="lane-row">
-                                            <div class="lane-num-box">@lane.LaneOrder</div>
-
-                                            <div class="swimmer-info">
-                                                <div class="swimmer-name">@lane.PlayerName</div>
-                                                <div class="swimmer-region">@lane.RegionAbbreviation • H@(lane.HeatOrder)</div>
-                                            </div>
-
-                                            <div class="swimmer-time">
-                                                @(string.IsNullOrEmpty(lane.Result) ? "--:--" : FormatTimeDisplay(lane.Result))
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        }
-
-                    </MudStack>
-                </MudItem>
-
-                <!-- RIGHT COLUMN -->
-                <MudItem xs="12" lg="8">
-                    <div class="tv-card">
-                        <div class="section-title">OFFICIAL RESULTS</div>
-
-                        @if (_allRankings.Any())
-                        {
-                            <div class="results-table-container">
-                                <table class="tv-table">
-                                    <thead>
-                                        <tr>
-                                            <th style="width:10%;">RANK</th>
-                                            <th style="width:40%;">SWIMMER</th>
-                                            <th style="width:30%;">REGION</th>
-                                            <th style="width:20%; text-align:right;">TIME</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var result in _allRankings)
-                                        {
-                                            <tr>
-                                                <td class="rank-cell">#@result.Rank</td>
-                                                <td>@result.PlayerName</td>
-                                                <td style="color:#6c757d; font-size:0.9rem;">@result.RegionName</td>
-                                                <td style="text-align:right; font-family:'Chakra Petch'; font-weight:700; font-size:1.1rem; color:var(--pal-dark-blue);">
-                                                    @FormatTimeDisplay(result.Result)
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                        else
-                        {
-                            <MudStack AlignItems="AlignItems.Center" Class="py-12">
-                                <MudIcon Icon="@Icons.Material.Filled.Timer"
-                                         Size="Size.Large"
-                                         Style="color:#dee2e6; font-size:4rem;" />
-                                <MudText Class="mt-2" Style="font-family:var(--font-subheader); color:#adb5bd;">
-                                    AWAITING RESULTS
-                                </MudText>
-                            </MudStack>
-                        }
-                    </div>
-                </MudItem>
-
-            </MudGrid>
         }
-
-    </MudContainer>
+    }
 </div>
+
+<Brand />
 
 @code {
     [Parameter] public string EventID { get; set; } = "";
 
-    // --- STATE ---
-    private EventInfo? _eventInfo;
-    private List<HeatLaneDisplay> _eventHeats = new();
-    private List<RankingResult> _allRankings = new();
-    private List<RankingResult> _medalWinners = new();
-    private int _participantCount = 0;
+    // ✅ Carousel
+    private int _rowsPerSlide = 6;
+    private int _autoSlideMs = 4500;
+
+    private int _currentSlide = 0;
+    private List<List<ScoringRow>> _slides = new();
+    private Timer? _carouselTimer;
+
+    // ✅ Refresh
+    private Timer? _refreshTimer;
     private bool _isLoading = true;
-    private bool _hasHeats = false;
-    private Timer? _timer;
 
-    // --- LIFECYCLE ---
-    protected override async Task OnInitializedAsync()
+    private EventInfo? _event;
+    private List<ScoringRow> _scoringRows = new();
+    private List<SchoolRegions>? _allRegions;
+
+    public class EventDetailsDTO
     {
-        await LoadEventData();
-        _timer = new Timer(async _ => await InvokeAsync(LoadEventData), null, 15000, 15000);
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        await LoadEventData();
-    }
-
-    // --- DATA LOADING ---
-    private async Task LoadEventData()
-    {
-        try
+        public class Event
         {
-            var participants = await apiService.GetAsync<EventInfo>("TimeDistanceEvents/Sports/AthleticsSwimming");
-
-            if (participants == null) return;
-
-            var eventParticipants = participants
-                .Where(p => p.ID == EventID && p.Sport == "Swimming")
-                .ToList();
-
-            if (!eventParticipants.Any()) return;
-
-            var firstParticipant = eventParticipants.First();
-
-            _eventInfo = new EventInfo
-            {
-                ID = firstParticipant.ID,
-                Sport = firstParticipant.Sport,
-                Subcategory = firstParticipant.Subcategory,
-                Gender = firstParticipant.Gender,
-                Level = firstParticipant.Level,
-                EventStage = firstParticipant.EventStage,
-                Date = firstParticipant.Date,
-                Time = firstParticipant.Time,
-                SportMainCat = firstParticipant.SportMainCat
-            };
-
-            _participantCount = eventParticipants.Count;
-
-            await LoadSavedScoringData();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading event data: {ex.Message}");
-        }
-        finally
-        {
-            _isLoading = false;
-            StateHasChanged();
+            public string ID { get; set; } = null!;
+            public string? Sport { get; set; }
+            public string? Subcategory { get; set; }
+            public string? Gender { get; set; }
+            public string? Level { get; set; }
+            public string? EventStage { get; set; }
+            public bool? IsFinished { get; set; }
         }
     }
 
-    private async Task LoadSavedScoringData()
-    {
-        try
-        {
-            var savedData = await apiService.GetSingleAsync<SavedScoringData>($"scoreboard/swimming/{EventID}");
-
-            if (savedData == null) return;
-
-            _eventHeats.Clear();
-            _hasHeats = savedData.Heats != null && savedData.Heats.Any();
-
-            if (_hasHeats && savedData.Heats != null)
-            {
-                foreach (var heat in savedData.Heats.OrderBy(h => h.HeatOrder))
-                {
-                    if (heat.Lanes == null) continue;
-
-                    foreach (var lane in heat.Lanes.OrderBy(l => l.LaneOrder))
-                    {
-                        _eventHeats.Add(new HeatLaneDisplay
-                        {
-                            HeatName = heat.HeatName,
-                            HeatOrder = heat.HeatOrder,
-                            LaneName = lane.LaneName,
-                            LaneOrder = lane.LaneOrder,
-                            PlayerName = lane.PlayerName,
-                            RegionAbbreviation = lane.RegionAbbreviation,
-                            Result = lane.Result
-                        });
-                    }
-                }
-            }
-
-            _allRankings = CalculateRankingsFromSavedData(savedData);
-            _medalWinners = _allRankings.Take(3).ToList();
-
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading saved scoring data: {ex.Message}");
-        }
-    }
-
-    // --- RANKINGS ---
-    private List<RankingResult> CalculateRankingsFromSavedData(SavedScoringData savedData)
-    {
-        var rankings = new List<RankingResult>();
-
-        if (savedData.Heats == null || !savedData.Heats.Any())
-            return rankings;
-
-        var allResults = new List<(string RegionName, string PlayerName, string Result, string Lane, double NumericResult)>();
-
-        foreach (var heat in savedData.Heats)
-        {
-            if (heat.Lanes == null) continue;
-
-            foreach (var lane in heat.Lanes)
-            {
-                if (!string.IsNullOrEmpty(lane.Result) &&
-                    !string.IsNullOrEmpty(lane.RegionAbbreviation) &&
-                    TryParseResult(lane.Result, out double numericResult))
-                {
-                    allResults.Add((
-                        lane.RegionAbbreviation ?? "Unknown",
-                        lane.PlayerName ?? "Unknown",
-                        lane.Result!,
-                        $"{heat.HeatName}-{lane.LaneName}",
-                        numericResult
-                    ));
-                }
-            }
-        }
-
-        if (!allResults.Any()) return rankings;
-
-        var sortedResults = allResults.OrderBy(r => r.NumericResult).ToList();
-
-        for (int i = 0; i < sortedResults.Count; i++)
-        {
-            var r = sortedResults[i];
-            rankings.Add(new RankingResult
-            {
-                RegionName = r.RegionName,
-                PlayerName = r.PlayerName,
-                Result = r.Result,
-                AssignedLane = r.Lane,
-                Rank = i + 1,
-                NumericResult = r.NumericResult
-            });
-        }
-
-        return rankings;
-    }
-
-    private bool TryParseResult(string result, out double numericResult)
-    {
-        numericResult = 0;
-        if (string.IsNullOrEmpty(result)) return false;
-
-        if (result.Contains(":") || result.Contains("."))
-        {
-            if (TimeSpan.TryParse(result, out var timeResult))
-            {
-                numericResult = timeResult.TotalSeconds;
-                return true;
-            }
-        }
-
-        return double.TryParse(result, out numericResult);
-    }
-
-    private string FormatTimeDisplay(string result)
-    {
-        if (string.IsNullOrEmpty(result)) return "--:--";
-        if (result.Contains(":") || result.Contains(".")) return result;
-
-        if (double.TryParse(result, out var seconds) && seconds > 0)
-        {
-            var ts = TimeSpan.FromSeconds(seconds);
-            return ts.TotalMinutes >= 1 ? ts.ToString(@"m\:ss\.ff") : ts.ToString(@"s\.ff");
-        }
-
-        return result;
-    }
-
-    public void Dispose() => _timer?.Dispose();
-
-    // --- MODELS ---
     public class EventInfo
     {
         public string ID { get; set; } = "";
         public string? Sport { get; set; }
         public string? Subcategory { get; set; }
-        public string? Gender { get; set; }
         public string? Level { get; set; }
+        public string? Gender { get; set; }
         public string? EventStage { get; set; }
-        public string? SportMainCat { get; set; }
-        public DateTime? Date { get; set; }
-        public string? Time { get; set; }
+        public bool? IsFinished { get; set; }
     }
 
-    public class HeatLaneDisplay
+    public class ScoringRow
     {
-        public string HeatName { get; set; } = "";
-        public int HeatOrder { get; set; }
-        public string LaneName { get; set; } = "";
-        public int LaneOrder { get; set; }
-        public string? PlayerName { get; set; }
-        public string? RegionAbbreviation { get; set; }
-        public string? Result { get; set; }
-    }
-
-    public class RankingResult
-    {
+        public int RegionID { get; set; }
         public string RegionName { get; set; } = "";
-        public string? PlayerName { get; set; }
-        public string Result { get; set; } = "";
-        public string AssignedLane { get; set; } = "";
+        public string PlayerName { get; set; } = "";
+        public string? PlayerID { get; set; }
+
+        public string HeatName { get; set; } = "";
+        public string LaneName { get; set; } = "";
+
+        public string TimeDisplay { get; set; } = ""; // keep original string (e.g. 1:02.34)
+        public double TimeSeconds { get; set; }       // for ranking (lower is better)
         public int Rank { get; set; }
-        public double NumericResult { get; set; }
+    }
+
+    public class SchoolRegions
+    {
+        public int ID { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
     }
 
     public class SavedScoringData
@@ -785,7 +560,248 @@
         public string LaneName { get; set; } = "";
         public int LaneOrder { get; set; }
         public string? Result { get; set; }
+        public int? RegionID { get; set; }
+        public string? PlayerID { get; set; }
         public string? PlayerName { get; set; }
         public string? RegionAbbreviation { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+
+        // refresh view
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadData), null, 2000, 2000);
+
+        // auto-slide
+        _carouselTimer = new Timer(async _ =>
+        {
+            await InvokeAsync(() =>
+            {
+                NextSlide();
+                StateHasChanged();
+            });
+        }, null, _autoSlideMs, _autoSlideMs);
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            _allRegions = await apiService.GetAsync<SchoolRegions>("/Schools/Regions");
+
+            // 1) Event details (fallback-friendly)
+            // If your API supports /Events/Details/{id}, use that. Otherwise we fallback to /Events/Details and filter.
+            var allEvents = await apiService.GetAsync<EventDetailsDTO.Event>("/Events/Details");
+            var evt = allEvents?.FirstOrDefault(e => e.ID == EventID);
+
+            if (evt != null)
+            {
+                _event = new EventInfo
+                {
+                    ID = evt.ID,
+                    Sport = evt.Sport,
+                    Subcategory = evt.Subcategory,
+                    Level = evt.Level,
+                    Gender = evt.Gender,
+                    EventStage = evt.EventStage,
+                    IsFinished = evt.IsFinished
+                };
+            }
+            else
+            {
+                // minimal fallback (keeps page usable even if details endpoint differs)
+                _event = new EventInfo { ID = EventID, Sport = "Swimming" };
+            }
+
+            // 2) Saved heats/lanes/results (this drives the TV table)
+            await LoadSavedHeatsAsRows();
+        }
+        catch
+        {
+            // swallow to keep TV view alive
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadSavedHeatsAsRows()
+    {
+        _scoringRows.Clear();
+
+        if (string.IsNullOrWhiteSpace(EventID)) return;
+
+        // IMPORTANT:
+        // This endpoint matches your time-distance page:
+        // GetSingleAsync<SavedScoringData>($"TimeDistanceEvents/Sports/AthleticsSwimming/{SelectedEvent.ID}")
+        // Here we use EventID directly.
+        SavedScoringData? saved = null;
+        try
+        {
+            saved = await apiService.GetSingleAsync<SavedScoringData>($"TimeDistanceEvents/Sports/AthleticsSwimming/{EventID}");
+        }
+        catch
+        {
+            saved = null;
+        }
+
+        if (saved?.Heats == null || saved.Heats.Count == 0) return;
+
+        foreach (var heat in saved.Heats.OrderBy(h => h.HeatOrder))
+        {
+            foreach (var lane in heat.Lanes.OrderBy(l => l.LaneOrder))
+            {
+                // only include lanes that have either participant or result
+                if (!lane.RegionID.HasValue && string.IsNullOrWhiteSpace(lane.PlayerName) && string.IsNullOrWhiteSpace(lane.Result))
+                    continue;
+
+                var regionName = !string.IsNullOrWhiteSpace(lane.RegionAbbreviation)
+                    ? lane.RegionAbbreviation!
+                    : ResolveRegionAbbrev(lane.RegionID) ?? "UNKNOWN";
+
+                var playerName = !string.IsNullOrWhiteSpace(lane.PlayerName)
+                    ? lane.PlayerName!
+                    : "—";
+
+                var timeDisplay = lane.Result ?? "";
+                var timeOk = TryParseTimeToSeconds(timeDisplay, out var secs);
+
+                _scoringRows.Add(new ScoringRow
+                {
+                    RegionID = lane.RegionID ?? 0,
+                    RegionName = regionName,
+                    PlayerID = lane.PlayerID,
+                    PlayerName = playerName,
+                    HeatName = heat.HeatName,
+                    LaneName = lane.LaneName,
+                    TimeDisplay = timeDisplay,
+                    TimeSeconds = timeOk ? secs : 0,
+                    Rank = 0
+                });
+            }
+        }
+
+        CalculateRankingsTimeBased();
+    }
+
+    private void CalculateRankingsTimeBased()
+    {
+        foreach (var r in _scoringRows)
+            r.Rank = 0;
+
+        // only rows with a valid time
+        var ranked = _scoringRows
+            .Where(r => r.TimeSeconds > 0)
+            .OrderBy(r => r.TimeSeconds)
+            .ToList();
+
+        int rank = 1;
+        for (int i = 0; i < ranked.Count; i++)
+        {
+            if (i == 0) ranked[i].Rank = 1;
+            else
+            {
+                var prev = ranked[i - 1];
+                ranked[i].Rank = ranked[i].TimeSeconds == prev.TimeSeconds ? prev.Rank : rank + 1;
+            }
+            rank = ranked[i].Rank;
+        }
+    }
+
+    private List<ScoringRow> CurrentSlideRows
+    {
+        get
+        {
+            if (_slides.Count == 0) return new List<ScoringRow>();
+            if (_currentSlide < 0) _currentSlide = 0;
+            if (_currentSlide >= _slides.Count) _currentSlide = 0;
+            return _slides[_currentSlide];
+        }
+    }
+
+    private void BuildSlides(List<ScoringRow> orderedRows)
+    {
+        _slides = Chunk(orderedRows, _rowsPerSlide).ToList();
+        if (_slides.Count == 0) _slides = new List<List<ScoringRow>> { new List<ScoringRow>() };
+
+        if (_currentSlide >= _slides.Count)
+            _currentSlide = 0;
+    }
+
+    private void NextSlide()
+    {
+        if (_slides.Count <= 1) return;
+        _currentSlide = (_currentSlide + 1) % _slides.Count;
+    }
+
+    private void PrevSlide()
+    {
+        if (_slides.Count <= 1) return;
+        _currentSlide = (_currentSlide - 1 + _slides.Count) % _slides.Count;
+    }
+
+    private IEnumerable<List<T>> Chunk<T>(List<T> source, int size)
+    {
+        if (size <= 0) size = 1;
+        for (int i = 0; i < source.Count; i += size)
+            yield return source.Skip(i).Take(size).ToList();
+    }
+
+    private string? ResolveRegionAbbrev(int? regionId)
+    {
+        if (!regionId.HasValue) return null;
+        var r = _allRegions?.FirstOrDefault(x => x.ID == regionId.Value);
+        return r?.Abbreviation ?? r?.Region;
+    }
+
+    private string GetRegionLogo(string regionName)
+    {
+        if (string.IsNullOrWhiteSpace(regionName))
+            return "/images/region-placeholder.png";
+
+        var region = _allRegions?.FirstOrDefault(r =>
+            r.Abbreviation?.Equals(regionName, StringComparison.OrdinalIgnoreCase) == true
+            || r.Region?.Equals(regionName, StringComparison.OrdinalIgnoreCase) == true
+        );
+
+        var actualRegionName = region?.Region ?? regionName;
+        var encodedRegionName = Uri.EscapeDataString(actualRegionName.Trim());
+
+        return $"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{encodedRegionName}.webp";
+    }
+
+    private bool TryParseTimeToSeconds(string? input, out double seconds)
+    {
+        seconds = 0;
+        if (string.IsNullOrWhiteSpace(input)) return false;
+
+        // accept: 1:02.34, 01:02.34, 62.34
+        // try TimeSpan first (works with "m:ss.fff" and "hh:mm:ss" variants)
+        if (TimeSpan.TryParse(input, out var ts))
+        {
+            seconds = ts.TotalSeconds;
+            return seconds > 0;
+        }
+
+        // plain seconds (e.g. 62.34)
+        if (double.TryParse(input, out var s))
+        {
+            seconds = s;
+            return seconds > 0;
+        }
+
+        return false;
+    }
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+        _refreshTimer = null;
+
+        _carouselTimer?.Dispose();
+        _carouselTimer = null;
     }
 }

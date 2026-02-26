@@ -1,7 +1,8 @@
-﻿using System.Text.Json;
-using System.Text;
+﻿using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using System;
-using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 
 namespace Client.Palaro2026.Services
 {
@@ -55,22 +56,11 @@ namespace Client.Palaro2026.Services
 
         public async Task<T?> GetSingleAsync<T>(string relativeUrl)
         {
-            string url = BuildUrl(relativeUrl);
-            try
-            {
-                var response = await _httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                string responseContent = await response.Content.ReadAsStringAsync();
+            var response = await _httpClient.GetAsync(BuildUrl(relativeUrl));
+            response.EnsureSuccessStatusCode();
 
-                // Ensure the deserialized list is not null before calling FirstOrDefault
-                var list = JsonSerializer.Deserialize<List<T>>(responseContent, _jsonOptions);
-                return list != null ? list.FirstOrDefault() : default;
-            }
-            catch
-            {
-                NoData = true;
-                return default;
-            }
+            // MUST deserialize an object, not List<T>
+            return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
         }
     }
 }
