@@ -99,6 +99,7 @@ namespace Server.Palaro2026.Controller
                 {
                     ID = player.ID,
                     FirstName = player.FirstName,
+                    MiddleInitial = player.MiddleInitial,
                     LastName = player.LastName,
                     RegionID = player.School?.SchoolDivision?.SchoolRegion?.ID,
                     SubCategoryID = player.ProfilePlayerSports.FirstOrDefault()?.SportSubcategory?.ID ?? 0
@@ -178,13 +179,135 @@ namespace Server.Palaro2026.Controller
         //    }
 
 
+        //    [HttpGet("Player/FilteredPlayer")]
+        //    public async Task<ActionResult<List<ProfilesDTO.ProfilePlayerEvent>>> GetProfilePlayerEvent(
+        //[FromQuery] int? regionID,
+        //[FromQuery] int? sportID,
+        //[FromQuery] int? schoolLevelID,
+        //[FromQuery] int? genderID,
+        //[FromQuery] int? subCategoryID)
+        //    {
+        //        try
+        //        {
+        //            var query = _context.ProfilePlayers
+        //                .Include(p => p.School)
+        //                    .ThenInclude(s => s!.SchoolDivision)
+        //                        .ThenInclude(sd => sd!.SchoolRegion)
+        //                .Include(p => p.ProfilePlayerSports)
+        //                    .ThenInclude(ppsc => ppsc.SportSubcategory)
+        //                .AsQueryable();
+
+        //            // ----------------------------
+        //            // Base filters
+        //            // ----------------------------
+        //            if (regionID.HasValue)
+        //            {
+        //                query = query.Where(p =>
+        //                    p.School != null &&
+        //                    p.School.SchoolDivision != null &&
+        //                    p.School.SchoolDivision.SchoolRegion != null &&
+        //                    p.School.SchoolDivision.SchoolRegion.ID == regionID.Value);
+        //            }
+
+        //            if (sportID.HasValue)
+        //            {
+        //                query = query.Where(p => p.SportID == sportID.Value);
+        //            }
+
+        //            // Optional strict subcategory filter (ONLY if caller sends it)
+        //            // ✅ Your UI should NOT send this anymore if you want "all players"
+        //            if (subCategoryID.HasValue)
+        //            {
+        //                query = query.Where(p => p.ProfilePlayerSports.Any(ppsc =>
+        //                    ppsc.SportSubcategory != null &&
+        //                    ppsc.SportSubcategory.ID == subCategoryID.Value));
+        //            }
+
+        //            // ----------------------------
+        //            // SchoolLevel / Gender filters (subcategory-based eligibility)
+        //            // ----------------------------
+        //            if (schoolLevelID.HasValue || genderID.HasValue)
+        //            {
+        //                query = query.Where(p =>
+        //                    // include players with NO subcategory records
+        //                    !p.ProfilePlayerSports.Any(ppsc => ppsc.SportSubcategory != null)
+
+        //                    // or include players that have at least one matching subcategory
+        //                    || p.ProfilePlayerSports.Any(ppsc =>
+        //                        ppsc.SportSubcategory != null
+        //                        && (!schoolLevelID.HasValue || ppsc.SportSubcategory.SchoolLevelID == schoolLevelID.Value)
+        //                        && (!genderID.HasValue || ppsc.SportSubcategory.SportGenderCategoryID == genderID.Value)
+        //                    )
+        //                );
+        //            }
+
+        //            // ----------------------------
+        //            // ✅ NEW: Sex filter based on genderID meaning (Boys/Girls/Mix)
+        //            // ----------------------------
+        //            if (genderID.HasValue)
+        //            {
+        //                // lookup gender label (e.g., "Boys", "Girls", "Mix", "Male", "Female")
+        //                var genderLabel = await _context.SportGenderCategories
+        //                    .Where(g => g.ID == genderID.Value)
+        //                    .Select(g => g.Gender)
+        //                    .FirstOrDefaultAsync();
+
+        //                var gl = (genderLabel ?? "").Trim().ToUpper();
+
+        //                // Mix = allow both sexes (no filtering)
+        //                var isMix = gl == "MIX" || gl == "MIXED";
+
+        //                if (!isMix)
+        //                {
+        //                    var isBoys = gl == "BOYS" || gl == "MALE" || gl == "M";
+        //                    var isGirls = gl == "GIRLS" || gl == "FEMALE" || gl == "F";
+
+        //                    if (isBoys)
+        //                    {
+        //                        query = query.Where(p =>
+        //                            p.Sex != null &&
+        //                            (p.Sex.Trim().ToUpper() == "M" || p.Sex.Trim().ToUpper() == "MALE"));
+        //                    }
+        //                    else if (isGirls)
+        //                    {
+        //                        query = query.Where(p =>
+        //                            p.Sex != null &&
+        //                            (p.Sex.Trim().ToUpper() == "F" || p.Sex.Trim().ToUpper() == "FEMALE"));
+        //                    }
+        //                    // else: unknown label -> don't apply sex filter
+        //                }
+        //            }
+
+        //            var profilePlayers = await query.ToListAsync();
+
+        //            // one row per player
+        //            var mappedProfilePlayers = profilePlayers
+        //                .Select(player => new ProfilesDTO.ProfilePlayerEvent
+        //                {
+        //                    ID = player.ID,
+        //                    FirstName = player.FirstName,
+        //                    LastName = player.LastName,
+        //                    Sex = player.Sex,  //k
+        //                    RegionID = player.School?.SchoolDivision?.SchoolRegion?.ID,
+        //                    SubCategoryID = null
+        //                })
+        //                .ToList();
+
+        //            return Ok(mappedProfilePlayers);
+        //        }
+        //        catch
+        //        {
+        //            return StatusCode(500, "Internal server error. Please try again later.");
+        //        }
+        //    }
+
         [HttpGet("Player/FilteredPlayer")]
         public async Task<ActionResult<List<ProfilesDTO.ProfilePlayerEvent>>> GetProfilePlayerEvent(
     [FromQuery] int? regionID,
     [FromQuery] int? sportID,
     [FromQuery] int? schoolLevelID,
-    [FromQuery] int? genderID,
-    [FromQuery] int? subCategoryID)
+    [FromQuery] int? genderID
+)
         {
             try
             {
@@ -192,8 +315,6 @@ namespace Server.Palaro2026.Controller
                     .Include(p => p.School)
                         .ThenInclude(s => s!.SchoolDivision)
                             .ThenInclude(sd => sd!.SchoolRegion)
-                    .Include(p => p.ProfilePlayerSports)
-                        .ThenInclude(ppsc => ppsc.SportSubcategory)
                     .AsQueryable();
 
                 // ----------------------------
@@ -213,47 +334,30 @@ namespace Server.Palaro2026.Controller
                     query = query.Where(p => p.SportID == sportID.Value);
                 }
 
-                // Optional strict subcategory filter (ONLY if caller sends it)
-                // ✅ Your UI should NOT send this anymore if you want "all players"
-                if (subCategoryID.HasValue)
-                {
-                    query = query.Where(p => p.ProfilePlayerSports.Any(ppsc =>
-                        ppsc.SportSubcategory != null &&
-                        ppsc.SportSubcategory.ID == subCategoryID.Value));
-                }
-
                 // ----------------------------
-                // SchoolLevel / Gender filters (subcategory-based eligibility)
+                // SchoolLevel / Gender filters (STRICT)
                 // ----------------------------
-                if (schoolLevelID.HasValue || genderID.HasValue)
+                if (schoolLevelID.HasValue)
                 {
                     query = query.Where(p =>
-                        // include players with NO subcategory records
-                        !p.ProfilePlayerSports.Any(ppsc => ppsc.SportSubcategory != null)
-
-                        // or include players that have at least one matching subcategory
-                        || p.ProfilePlayerSports.Any(ppsc =>
-                            ppsc.SportSubcategory != null
-                            && (!schoolLevelID.HasValue || ppsc.SportSubcategory.SchoolLevelID == schoolLevelID.Value)
-                            && (!genderID.HasValue || ppsc.SportSubcategory.SportGenderCategoryID == genderID.Value)
-                        )
+                        p.School != null &&
+                        p.School.SchoolLevelsID == schoolLevelID.Value
                     );
                 }
 
                 // ----------------------------
-                // ✅ NEW: Sex filter based on genderID meaning (Boys/Girls/Mix)
+                // Sex filter based on genderID label (Boys/Girls/Mix)
                 // ----------------------------
                 if (genderID.HasValue)
                 {
-                    // lookup gender label (e.g., "Boys", "Girls", "Mix", "Male", "Female")
                     var genderLabel = await _context.SportGenderCategories
                         .Where(g => g.ID == genderID.Value)
                         .Select(g => g.Gender)
                         .FirstOrDefaultAsync();
 
-                    var gl = (genderLabel ?? "").Trim().ToUpper();
+                    var gl = (genderLabel ?? "").Trim().ToUpperInvariant();
 
-                    // Mix = allow both sexes (no filtering)
+                    // Mix = allow all
                     var isMix = gl == "MIX" || gl == "MIXED";
 
                     if (!isMix)
@@ -273,20 +377,19 @@ namespace Server.Palaro2026.Controller
                                 p.Sex != null &&
                                 (p.Sex.Trim().ToUpper() == "F" || p.Sex.Trim().ToUpper() == "FEMALE"));
                         }
-                        // else: unknown label -> don't apply sex filter
                     }
                 }
 
                 var profilePlayers = await query.ToListAsync();
 
-                // one row per player
                 var mappedProfilePlayers = profilePlayers
                     .Select(player => new ProfilesDTO.ProfilePlayerEvent
                     {
                         ID = player.ID,
                         FirstName = player.FirstName,
+                        MiddleInitial = player.MiddleInitial,
                         LastName = player.LastName,
-                        Sex = player.Sex,  //k
+                        Sex = player.Sex,
                         RegionID = player.School?.SchoolDivision?.SchoolRegion?.ID,
                         SubCategoryID = null
                     })

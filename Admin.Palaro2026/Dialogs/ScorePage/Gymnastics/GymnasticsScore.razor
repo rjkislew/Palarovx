@@ -1838,88 +1838,235 @@
     private static bool IsAerobicDanceTeam(int? teamId)
         => teamId.HasValue && teamId.Value > 0 && teamId.Value <= AerobicDanceMaxTeamId;
 
+    // private async Task AutoSelectSubcategory()
+    // {
+    //     if (_selectedEvent == null || !_sportSubcategories.Any())
+    //         return;
+
+    //     // Only relevant for Aerobic Gymnastics main category
+    //     if (string.IsNullOrWhiteSpace(_selectedMainCategory) ||
+    //         !_selectedMainCategory.Contains("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase))
+    //         return;
+
+    //     // First filter subcategories to only show relevant ones
+    //     await FilterSubcategoriesByMainCategory();
+
+    //     // =========================================================
+    //     // ✅ 1) FORCE Aerobic Dance based on TeamID bucket (best)
+    //     // =========================================================
+    //     if (IsTeamEvent && TeamID.HasValue)
+    //     {
+    //         // If it's NOT team championship, treat it as aerobic dance team
+    //         // (or use IsAerobicDanceTeam(TeamID) if you have a strict range)
+    //         bool shouldForceAerobicDance =
+    //             IsAerobicDanceTeam(TeamID) || !IsTeamChampionshipTeam(TeamID);
+
+    //         if (shouldForceAerobicDance)
+    //         {
+    //             var dance = _sportSubcategories.FirstOrDefault(sc =>
+    //                 !string.IsNullOrWhiteSpace(sc.Subcategory) &&
+    //                 sc.Subcategory.Contains("Aerobic Dance", StringComparison.OrdinalIgnoreCase));
+
+    //             if (dance != null)
+    //             {
+    //                 _selectedSubcategoryId = dance.ID;
+    //                 await LoadExistingScore();
+    //                 StateHasChanged();
+    //             }
+
+    //             return; // ✅ stop here, do NOT let playerCount override it
+    //         }
+    //     }
+
+    //     // =========================================================
+    //     // ✅ 2) Otherwise fallback to player-count logic (original)
+    //     // =========================================================
+    //     var playerCount = GetPlayerCountPerRegion(_selectedEvent);
+
+    //     if (!playerCount.HasValue)
+    //         return;
+
+    //     string? targetSubcategoryName = playerCount.Value switch
+    //     {
+    //         2 => "(Aero) Mixed Pair",
+    //         3 => "(Aero) Trio",
+    //         >= 5 and <= 8 => "(Aero) Aerobic Dance",
+    //         _ => null
+    //     };
+
+    //     if (string.IsNullOrWhiteSpace(targetSubcategoryName))
+    //         return;
+
+    //     // Try normal matching
+    //     var targetSubcategory = _sportSubcategories.FirstOrDefault(sc =>
+    //         sc.Subcategory?.Contains(targetSubcategoryName, StringComparison.OrdinalIgnoreCase) == true);
+
+    //     // Fuzzy fallback
+    //     if (targetSubcategory == null)
+    //     {
+    //         var fuzzy = targetSubcategoryName
+    //             .Replace("(Aero)", "", StringComparison.OrdinalIgnoreCase)
+    //             .Trim();
+
+    //         targetSubcategory = _sportSubcategories.FirstOrDefault(sc =>
+    //             sc.Subcategory?.Contains(fuzzy, StringComparison.OrdinalIgnoreCase) == true);
+    //     }
+
+    //     if (targetSubcategory != null)
+    //     {
+    //         _selectedSubcategoryId = targetSubcategory.ID;
+    //         await LoadExistingScore();
+    //         StateHasChanged();
+    //     }
+    // }
+
     private async Task AutoSelectSubcategory()
     {
-        if (_selectedEvent == null || !_sportSubcategories.Any())
+        if (_selectedEvent == null || _sportSubcategories == null || !_sportSubcategories.Any())
             return;
 
-        // Only relevant for Aerobic Gymnastics main category
+        // Only do auto-select for Aerobic Gymnastics events
         if (string.IsNullOrWhiteSpace(_selectedMainCategory) ||
             !_selectedMainCategory.Contains("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase))
             return;
 
-        // First filter subcategories to only show relevant ones
+        // Filter the list to current main category first (optional but clean)
         await FilterSubcategoriesByMainCategory();
 
-        // =========================================================
-        // ✅ 1) FORCE Aerobic Dance based on TeamID bucket (best)
-        // =========================================================
-        if (IsTeamEvent && TeamID.HasValue)
+        // ✅ get player count for THIS region/team context
+        var playerCount = GetCurrentPlayerCountForAutoSelect();
+        if (playerCount == null)
+            return;
+
+        // ✅ NEW RULE: 1 player => gender-based
+        if (playerCount.Value == 1)
         {
-            // If it's NOT team championship, treat it as aerobic dance team
-            // (or use IsAerobicDanceTeam(TeamID) if you have a strict range)
-            bool shouldForceAerobicDance =
-                IsAerobicDanceTeam(TeamID) || !IsTeamChampionshipTeam(TeamID);
+            var genderLabel = GetEventGenderLabel(); // "Boys", "Girls", "Men", "Women", etc.
 
-            if (shouldForceAerobicDance)
+            string? keyword = null;
+
+            if (IsMaleGender(genderLabel))
+                keyword = "Individual Men";
+            else if (IsFemaleGender(genderLabel))
+                keyword = "Individual Women";
+
+            if (!string.IsNullOrWhiteSpace(keyword))
             {
-                var dance = _sportSubcategories.FirstOrDefault(sc =>
-                    !string.IsNullOrWhiteSpace(sc.Subcategory) &&
-                    sc.Subcategory.Contains("Aerobic Dance", StringComparison.OrdinalIgnoreCase));
-
-                if (dance != null)
+                var match = FindSubcategoryByKeyword(keyword);
+                if (match != null)
                 {
-                    _selectedSubcategoryId = dance.ID;
+                    _selectedSubcategoryId = match.ID;
                     await LoadExistingScore();
                     StateHasChanged();
                 }
-
-                return; // ✅ stop here, do NOT let playerCount override it
             }
+
+            return; // ✅ stop here for 1-player case
         }
 
-        // =========================================================
-        // ✅ 2) Otherwise fallback to player-count logic (original)
-        // =========================================================
-        var playerCount = GetPlayerCountPerRegion(_selectedEvent);
-
-        if (!playerCount.HasValue)
-            return;
-
-        string? targetSubcategoryName = playerCount.Value switch
+        // ✅ EXISTING RULES: based on player count
+        string? countKeyword = playerCount.Value switch
         {
-            2 => "(Aero) Mixed Pair",
-            3 => "(Aero) Trio",
-            >= 5 and <= 8 => "(Aero) Aerobic Dance",
+            2 => "Mixed Pair",
+            3 => "Trio",
+            >= 5 => "Aerobic Dance",
             _ => null
         };
 
-        if (string.IsNullOrWhiteSpace(targetSubcategoryName))
+        if (string.IsNullOrWhiteSpace(countKeyword))
             return;
 
-        // Try normal matching
-        var targetSubcategory = _sportSubcategories.FirstOrDefault(sc =>
-            sc.Subcategory?.Contains(targetSubcategoryName, StringComparison.OrdinalIgnoreCase) == true);
-
-        // Fuzzy fallback
-        if (targetSubcategory == null)
+        var sub = FindSubcategoryByKeyword(countKeyword);
+        if (sub != null)
         {
-            var fuzzy = targetSubcategoryName
-                .Replace("(Aero)", "", StringComparison.OrdinalIgnoreCase)
-                .Trim();
-
-            targetSubcategory = _sportSubcategories.FirstOrDefault(sc =>
-                sc.Subcategory?.Contains(fuzzy, StringComparison.OrdinalIgnoreCase) == true);
-        }
-
-        if (targetSubcategory != null)
-        {
-            _selectedSubcategoryId = targetSubcategory.ID;
+            _selectedSubcategoryId = sub.ID;
             await LoadExistingScore();
             StateHasChanged();
         }
     }
 
+    private int? GetCurrentPlayerCountForAutoSelect()
+    {
+        // ✅ BEST: use what the main page passed (team members)
+        if (IsTeamEvent && TeamPlayerIDs != null && TeamPlayerIDs.Any())
+            return TeamPlayerIDs.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().Count();
+
+        // ✅ fallback: count members from loaded opposing teams for this event+region
+        if (EventID.HasValue && _allOpposingTeams != null && _allOpposingTeams.Any())
+        {
+            // If you have TeamID, count only that team
+            if (IsTeamEvent && TeamID.HasValue)
+            {
+                return _allOpposingTeams
+                    .Where(t => t.PerformanceID == EventID.Value &&
+                                t.RegionID == RegionID &&
+                                t.TeamID == TeamID.Value)
+                    .Select(t => t.PlayerID)
+                    .Where(pid => !string.IsNullOrWhiteSpace(pid))
+                    .Distinct()
+                    .Count();
+            }
+
+            // else: count all distinct players in that region for the event
+            return _allOpposingTeams
+                .Where(t => t.PerformanceID == EventID.Value && t.RegionID == RegionID)
+                .Select(t => t.PlayerID)
+                .Where(pid => !string.IsNullOrWhiteSpace(pid))
+                .Distinct()
+                .Count();
+        }
+
+        return null;
+    }
+
+    private SportsDTO.SportSubcategories? FindSubcategoryByKeyword(string keyword)
+    {
+        if (_sportSubcategories == null) return null;
+
+        // Try direct contains match first
+        var match = _sportSubcategories.FirstOrDefault(sc =>
+            !string.IsNullOrWhiteSpace(sc.Subcategory) &&
+            sc.Subcategory.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+
+        if (match != null) return match;
+
+        // Fuzzy fallback: remove "(Aero)" or extra markers if your DB strings include them
+        string clean = keyword.Replace("(Aero)", "", StringComparison.OrdinalIgnoreCase).Trim();
+
+        return _sportSubcategories.FirstOrDefault(sc =>
+            !string.IsNullOrWhiteSpace(sc.Subcategory) &&
+            sc.Subcategory.Contains(clean, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string GetEventGenderLabel()
+    {
+        // If you already loaded _sportGenderCategories, use it
+        if (_selectedEvent?.GenderID != null && _sportGenderCategories != null && _sportGenderCategories.Any())
+        {
+            return _sportGenderCategories
+                       .FirstOrDefault(g => g.ID == _selectedEvent.GenderID)?.Gender
+                   ?? string.Empty;
+        }
+
+        // fallback: nothing known
+        return string.Empty;
+    }
+
+    private static bool IsMaleGender(string genderLabel)
+    {
+        if (string.IsNullOrWhiteSpace(genderLabel)) return false;
+
+        var g = genderLabel.Trim().ToLowerInvariant();
+        return g.Contains("boy") || g.Contains("men") || g.Contains("male");
+    }
+
+    private static bool IsFemaleGender(string genderLabel)
+    {
+        if (string.IsNullOrWhiteSpace(genderLabel)) return false;
+
+        var g = genderLabel.Trim().ToLowerInvariant();
+        return g.Contains("girl") || g.Contains("women") || g.Contains("female");
+    }
 
     // Data models
     public class PerformanceBasedDTO

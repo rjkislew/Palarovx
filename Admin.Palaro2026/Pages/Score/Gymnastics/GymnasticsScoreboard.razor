@@ -207,44 +207,19 @@
                     <!-- Event Header -->
                     <MudCard Class="mb-2" Outlined="true">
                         <MudCardContent>
-
-                            @if (IsAerobicEvent(evt) && IsMixedGender(evt) && IsMixed(evt) && HasFiveToEightPlayersPerRegion(evt))
+                            @if (IsAerobicEvent(evt))
                             {
                                 <MudText Typo="Typo.h6">
-                                    (Aero) Aerobic Dance - @GetSchoolLevelName(evt.LevelID)
+                                    (Aero) @GetAerobicEventLabel(evt) - @GetSchoolLevelName(evt.LevelID)
                                 </MudText>
                             }
-
-                            else if (IsAerobicEvent(evt) && IsSecondary(evt) && IsMixedGender(evt) && HasTwoPlayersPerRegion(evt))
-                            {
-                                <MudText Typo="Typo.h6">
-                                    (Aero) Mixed Pair - @GetSchoolLevelName(evt.LevelID)
-                                </MudText>
-                            }
-
-                            else if (IsAerobicEvent(evt) && IsMixedGender(evt) && HasThreePlayersPerRegion(evt))
-                            {
-                                <MudText Typo="Typo.h6">
-                                    (Aero) Trio - @GetSchoolLevelName(evt.LevelID)
-                                </MudText>
-                            }
-
-                            else if (IsAerobicEvent(evt))
-                            {
-                                <MudText Typo="Typo.h6">
-                                    @($"{GetSportSubcategoryName(evt)} - {GetSchoolLevelName(evt.LevelID)}")
-                                </MudText>
-                            }
-
                             else
                             {
                                 <MudText Typo="Typo.h6">
                                     @evt.MainCategory - @GetSchoolLevelName(evt.LevelID)
                                 </MudText>
                             }
-
                         </MudCardContent>
-
                     </MudCard>
 
 
@@ -2093,14 +2068,18 @@
                             <MudItem xs="12" Class="mb-3">
                                 <MudText Typo="Typo.h6" Align="Align.Center">Team Championship</MudText>
 
-                                <MudTable Items="@GetAerobicTeamChampionshipRanking()" Outlined="true" Dense="true">
+                                @{
+                                    var teamChampRows = GetAerobicTeamChampionshipRanking();
+                                }
+
+                                <MudTable Items="@teamChampRows" Outlined="true" Dense="true">
                                     <HeaderContent>
                                         <MudTh>No.</MudTh>
                                         <MudTh>Region</MudTh>
                                         <MudTh Style="text-align: center">Action</MudTh>
                                     </HeaderContent>
                                     <RowTemplate>
-                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@(teamChampRows.IndexOf(context) + 1)</MudTd>
                                         <MudTd>@context.RegionName</MudTd>
                                         <MudTd Style="text-align: center">
                                             @if (HasTeamOrCombined(evt.ID, context.RegionID, isAerobicTeamChampionship: true))
@@ -2124,7 +2103,6 @@
                                                 </MudButton>
                                             }
                                         </MudTd>
-
                                     </RowTemplate>
 
                                     <NoRecordsContent>
@@ -2194,14 +2172,19 @@
                             <MudItem xs="12" Class="mb-3">
                                 <MudText Typo="Typo.h6" Align="Align.Center">Team Championship</MudText>
 
-                                <MudTable Items="@GetAerobicTeamChampionshipRanking()" Outlined="true" Dense="true">
+                                @{
+                                    var teamChampRowsWithTotal = GetAerobicTeamChampionshipRanking();
+                                }
+
+                                <MudTable Items="@teamChampRowsWithTotal" Outlined="true" Dense="true">
                                     <HeaderContent>
-                                        <MudTh>Rank</MudTh>
+                                        <MudTh>No.</MudTh>
                                         <MudTh>Region</MudTh>
                                         <MudTh Style="text-align: center">Total Points</MudTh>
+                                        <MudTh Style="text-align: center">Action</MudTh>
                                     </HeaderContent>
                                     <RowTemplate>
-                                        <MudTd>@context.Rank</MudTd>
+                                        <MudTd>@(teamChampRowsWithTotal.IndexOf(context) + 1)</MudTd>
                                         <MudTd>@context.RegionName</MudTd>
                                         <MudTd Style="text-align: center">@context.TeamTotal.ToString("0")</MudTd>
                                         <MudTd Style="text-align: center">
@@ -2294,12 +2277,10 @@
 
                                 <MudTable Items="@GetAerobicTeamChampionshipRanking()" Outlined="true" Dense="true">
                                     <HeaderContent>
-                                        <MudTh>Rank</MudTh>
                                         <MudTh>Region</MudTh>
                                         <MudTh Style="text-align: center">Actions</MudTh>
                                     </HeaderContent>
                                     <RowTemplate>
-                                        <MudTd>@context.Rank</MudTd>
                                         <MudTd>@context.RegionName</MudTd>
                                         <MudTd Style="text-align: center">
                                             @if (HasTeamOrCombined(evt.ID, context.RegionID, isAerobicTeamChampionship: true))
@@ -2428,17 +2409,17 @@
     }
 
     private List<PerformanceBasedDTO.PerformanceTeam> GetOpposingTeamsForEvent(int eventId)
-{
-    return _allOpposingTeams?
-        .Where(t =>
-            t.PerformanceID == eventId &&
-            t.RegionID != 0 &&
-            IsEditableTeamId(t.TeamID))          // ✅ exclude unique TeamIDs
-        .GroupBy(t => t.RegionID)
-        .Select(g => g.First())
-        .ToList()
-        ?? new List<PerformanceBasedDTO.PerformanceTeam>();
-}
+    {
+        return _allOpposingTeams?
+            .Where(t =>
+                t.PerformanceID == eventId &&
+                t.RegionID != 0 &&
+                IsEditableTeamId(t.TeamID))          // ✅ exclude unique TeamIDs
+            .GroupBy(t => t.RegionID)
+            .Select(g => g.First())
+            .ToList()
+            ?? new List<PerformanceBasedDTO.PerformanceTeam>();
+    }
 
 
     private async Task GetSportsAsync()
@@ -3009,40 +2990,68 @@
     private bool IsMixedGender(PerformanceBasedDTO.PerformanceEvent evt) =>
         GetGenderName(evt?.GenderID)?.Contains("Mix", StringComparison.OrdinalIgnoreCase) == true;
 
-    private bool HasTwoPlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
+    private int GetMaxPlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
     {
-        if (_allOpposingTeams == null || evt?.ID == null) return false;
+        if (_allOpposingTeams == null || evt?.ID == null) return 0;
 
-        var teamGroups = _allOpposingTeams
-            .Where(team => team.PerformanceID == evt.ID)
-            .GroupBy(team => new { team.RegionID, team.TeamID })
+        // Count players per Region per Team.
+        // If TeamID is null => treat it as INDIVIDUAL bucket (group key = player itself so it won't merge)
+        var counts = _allOpposingTeams
+            .Where(t => t.PerformanceID == evt.ID && t.RegionID != 0 && !string.IsNullOrWhiteSpace(t.PlayerID))
+            .GroupBy(t => new
+            {
+                t.RegionID,
+                // If TeamID exists, use it (team grouping).
+                // If TeamID null, use a unique key per player to avoid merging individual rows.
+                TeamKey = t.TeamID.HasValue ? $"T:{t.TeamID.Value}" : $"P:{t.PlayerID}"
+            })
+            .Select(g => g
+                .Select(x => x.PlayerID.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count())
             .ToList();
 
-        return teamGroups.Any(group => group.Count() == 2);
+        return counts.Count == 0 ? 0 : counts.Max();
     }
 
-    private bool HasThreePlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
-    {
-        if (_allOpposingTeams == null || evt?.ID == null) return false;
-
-        var teamGroups = _allOpposingTeams
-            .Where(team => team.PerformanceID == evt.ID)
-            .GroupBy(team => new { team.RegionID, team.TeamID })
-            .ToList();
-
-        return teamGroups.Any(group => group.Count() == 3);
-    }
-
+    private bool HasTwoPlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt) => GetMaxPlayersPerRegion(evt) == 2;
+    private bool HasThreePlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt) => GetMaxPlayersPerRegion(evt) == 3;
     private bool HasFiveToEightPlayersPerRegion(PerformanceBasedDTO.PerformanceEvent evt)
     {
-        if (_allOpposingTeams == null || evt?.ID == null) return false;
+        var max = GetMaxPlayersPerRegion(evt);
+        return max >= 5 && max <= 8;
+    }
 
-        var teamGroups = _allOpposingTeams
-            .Where(team => team.PerformanceID == evt.ID)
-            .GroupBy(team => new { team.RegionID, team.TeamID })
-            .ToList();
+    private static bool IsMaleGenderLabel(string? gender)
+    {
+        if (string.IsNullOrWhiteSpace(gender)) return false;
+        var g = gender.Trim().ToLowerInvariant();
+        return g.Contains("boys") || g.Contains("men") || g.Contains("male");
+    }
 
-        return teamGroups.Any(group => group.Count() >= 5 && group.Count() <= 8);
+    private static bool IsFemaleGenderLabel(string? gender)
+    {
+        if (string.IsNullOrWhiteSpace(gender)) return false;
+        var g = gender.Trim().ToLowerInvariant();
+        return g.Contains("girls") || g.Contains("women") || g.Contains("female");
+    }
+
+    private string GetAerobicEventLabel(PerformanceBasedDTO.PerformanceEvent evt)
+    {
+        if (!IsAerobicEvent(evt)) return evt.MainCategory ?? "Event";
+
+        int maxPlayers = GetMaxPlayersPerRegion(evt);
+        var gender = GetGenderName(evt.GenderID);
+
+        if (maxPlayers >= 5 && maxPlayers <= 8) return "Aerobic Dance";
+        if (maxPlayers == 3) return "Trio";
+        if (maxPlayers == 2) return "Mixed Pair";
+
+        // ✅ NEW: 1-player label depends on gender
+        if (IsMaleGenderLabel(gender)) return "Individual Men";
+        if (IsFemaleGenderLabel(gender)) return "Individual Women";
+
+        return "Individual";
     }
 
     private List<ScoreboardItem> GetEventIndividualScoreboardData(int eventId)
@@ -3062,14 +3071,24 @@
             .ToList();
     }
 
+    private const int CombinedTeamIdBase = 80000000;
+    private const int TeamChampionshipTeamIdBase = 90000000;
+
+    private static bool IsTeamChampionshipTeamId(int? teamId)
+        => teamId.HasValue && teamId.Value >= TeamChampionshipTeamIdBase;
+
     private List<ScoreboardItem> GetEventTeamScoreboardData(int eventId)
     {
+        // NOTE:
+        // - Combined teams for normal events use TeamIDs >= 80,000,000
+        // - Aerobic Team Championship uses TeamIDs >= 90,000,000
+        // This table is for EVENT team entries, so we only exclude Team Championship team IDs.
         return _scoreboardData
             .Where(x =>
                 x.PerformanceID == eventId &&
                 x.IsTeam &&
                 x.TeamID.HasValue &&
-                x.TeamID.Value < 80000000) // exclude unique/combined/team-champ buckets
+                x.TeamID.Value < TeamChampionshipTeamIdBase) // ✅ keep combined teams, exclude only team-champ
             .GroupBy(x => new { x.PerformanceID, x.RegionID, TeamID = x.TeamID!.Value })
             .Select(g =>
             {
@@ -3283,6 +3302,9 @@
     {
         try
         {
+            // ✅ reset cached rankings so UI always reflects newest roster/scores
+            _aerobicTeamChampionship = null;
+
             // Reload scores for ALL events (including combined ones)
             if (_filteredGymnasticsEvents != null && _filteredGymnasticsEvents.Any())
             {
@@ -3436,62 +3458,62 @@
 
     // Team Ranking
 
-//     private List<TeamRank> GetTeamRanking(int eventId)
-//     {
-//         var currentEvent = _gymnasticsEvents?.FirstOrDefault(e => e.ID == eventId);
-//         if (currentEvent == null) return new();
+    //     private List<TeamRank> GetTeamRanking(int eventId)
+    //     {
+    //         var currentEvent = _gymnasticsEvents?.FirstOrDefault(e => e.ID == eventId);
+    //         if (currentEvent == null) return new();
 
-//         var currentStageId = currentEvent.StageID;
-//         var schoolLevelName = GetSchoolLevelName(currentEvent.LevelID);
-//         bool isElementary = schoolLevelName?.Contains("Elementary", StringComparison.OrdinalIgnoreCase) == true;
+    //         var currentStageId = currentEvent.StageID;
+    //         var schoolLevelName = GetSchoolLevelName(currentEvent.LevelID);
+    //         bool isElementary = schoolLevelName?.Contains("Elementary", StringComparison.OrdinalIgnoreCase) == true;
 
-//         var eventIds = (currentStageId == 1 && isElementary)
-//             ? GetCombinedEventIds(eventId, true, currentStageId)
-//             : new List<int> { eventId };
+    //         var eventIds = (currentStageId == 1 && isElementary)
+    //             ? GetCombinedEventIds(eventId, true, currentStageId)
+    //             : new List<int> { eventId };
 
-//         var excludedSubcategoryIds = GetIndividualAllAroundSubcategoryIds();
+    //         var excludedSubcategoryIds = GetIndividualAllAroundSubcategoryIds();
 
-//         var teamTotals = new Dictionary<int, decimal>();
+    //         var teamTotals = new Dictionary<int, decimal>();
 
-//         foreach (var evtId in eventIds)
-//         {
-//             var eventTeams = _allOpposingTeams
-//                 .Where(t => t.PerformanceID == evtId && !t.TeamID.HasValue)
-//                 .ToList();
+    //         foreach (var evtId in eventIds)
+    //         {
+    //             var eventTeams = _allOpposingTeams
+    //                 .Where(t => t.PerformanceID == evtId && !t.TeamID.HasValue)
+    //                 .ToList();
 
-//             foreach (var team in eventTeams)
-//             {
-//                 var teamScores = _allScores
-//                     .Where(s => s.PerformanceTeamID == team.ID &&
-//                                !excludedSubcategoryIds.Contains(s.SportSubcategoryID))
-//                     .ToList();
+    //             foreach (var team in eventTeams)
+    //             {
+    //                 var teamScores = _allScores
+    //                     .Where(s => s.PerformanceTeamID == team.ID &&
+    //                                !excludedSubcategoryIds.Contains(s.SportSubcategoryID))
+    //                     .ToList();
 
-//                 if (teamScores.Any())
-//                 {
-//                     var regionId = team.RegionID;
-//                     if (!teamTotals.ContainsKey(regionId))
-//                     {
-//                         teamTotals[regionId] = 0;
-//                     }
-//                     teamTotals[regionId] += teamScores.Sum(s => s.Score);
-//                 }
-//             }
-//         }
+    //                 if (teamScores.Any())
+    //                 {
+    //                     var regionId = team.RegionID;
+    //                     if (!teamTotals.ContainsKey(regionId))
+    //                     {
+    //                         teamTotals[regionId] = 0;
+    //                     }
+    //                     teamTotals[regionId] += teamScores.Sum(s => s.Score);
+    //                 }
+    //             }
+    //         }
 
-//         var result = teamTotals.Select(kvp =>
-// {
-//     var region = _schoolRegions.FirstOrDefault(r => r.ID == kvp.Key);
+    //         var result = teamTotals.Select(kvp =>
+    // {
+    //     var region = _schoolRegions.FirstOrDefault(r => r.ID == kvp.Key);
 
-//     return new TeamRank
-//     {
-//         RegionID = kvp.Key,
-//         RegionName = region?.Abbreviation ?? region?.Region ?? "Unknown",
-//         TeamTotal = kvp.Value
-//     };
-// }).ToList();
+    //     return new TeamRank
+    //     {
+    //         RegionID = kvp.Key,
+    //         RegionName = region?.Abbreviation ?? region?.Region ?? "Unknown",
+    //         TeamTotal = kvp.Value
+    //     };
+    // }).ToList();
 
-//         return CalculateRanks(result, t => t.TeamTotal);
-//     }
+    //         return CalculateRanks(result, t => t.TeamTotal);
+    //     }
 
     private List<TeamRank> GetTeamRanking(int eventId)
     {
@@ -3707,36 +3729,24 @@
 
     private List<TeamRank> GetAerobicTeamChampionshipRanking()
     {
-        Console.WriteLine("===============================================");
-        Console.WriteLine("=== AEROBIC TEAM CHAMPIONSHIP (ACCUMULATED SCORE) ===");
-        Console.WriteLine("=== MainCategory = 'Aerobic Gymnastics', StageID = 4 ===");
+        // Team Championship for Aerobic Gymnastics is MANUAL ENTRY.
+        // We ONLY list participating regions and (if already entered) show their Team Championship score.
+        // No accumulation from other subcategories.
 
         if (_gymnasticsEvents == null || !_gymnasticsEvents.Any())
-        {
-            Console.WriteLine("❌ _gymnasticsEvents is null/empty");
             return new();
-        }
 
         if (_allOpposingTeams == null || !_allOpposingTeams.Any())
-        {
-            Console.WriteLine("❌ _allOpposingTeams is null/empty");
             return new();
-        }
 
-        if (_allScores == null || !_allScores.Any())
-        {
-            Console.WriteLine("❌ _allScores is null/empty");
-            return new();
-        }
+        if (_allScores == null)
+            _allScores = new();
 
-        // Cache the result
-        if (_aerobicTeamChampionship != null)
-        {
-            Console.WriteLine($"✅ Returning cached result: {_aerobicTeamChampionship.Count} rows");
+        // Cache (invalidate on HandleScoreSaved / SetAsTeam)
+        if (_aerobicTeamChampionship != null && _aerobicTeamChampionshipStageId == 4)
             return _aerobicTeamChampionship;
-        }
 
-        // ✅ Aerobic Gymnastics FINALS events only
+        // Finals Aerobic Gymnastics events — this defines participation.
         var aerobicFinalsEvents = _gymnasticsEvents
             .Where(e =>
                 e.StageID == 4 &&
@@ -3744,149 +3754,57 @@
                 e.MainCategory.Contains("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        Console.WriteLine($"Aerobic Gymnastics Finals Events found: {aerobicFinalsEvents.Count}");
-
         if (!aerobicFinalsEvents.Any())
-        {
-            Console.WriteLine("❌ No Aerobic Gymnastics finals events found.");
             return new();
-        }
 
         var aerobicFinalEventIds = aerobicFinalsEvents.Select(e => e.ID).Distinct().ToList();
 
-        // ==========================================================
-        // 1) FIRST: regions that compete in ANY subcategory in Aerobic Finals
-        //    => simply: any opposingTeam row in any aerobic finals event
-        // ==========================================================
+        // Regions that have ANY entry in Aerobic Finals
         var competingRegionIds = _allOpposingTeams
             .Where(t => aerobicFinalEventIds.Contains(t.PerformanceID))
             .Select(t => t.RegionID)
             .Distinct()
             .ToList();
 
-        Console.WriteLine($"Competing regions found: {competingRegionIds.Count}");
-
         if (!competingRegionIds.Any())
-        {
-            Console.WriteLine("❌ No regions found competing in Aerobic Finals.");
             return new();
-        }
 
-        // ==========================================================
-        // Build lookups to map scores -> region
-        // ==========================================================
+        // Use Aerobic Dance PerformanceID as the Team Championship "roster performance" anchor (stable + matches UI)
+        int anchorEventId = GetAerobicDanceEventIdOrFallback(aerobicFinalsEvents.First(), aerobicFinalEventIds);
 
-        // PerformanceTeamID -> RegionID (individual linking)
-        var perfTeamToRegion = _allOpposingTeams
-            .Where(t => aerobicFinalEventIds.Contains(t.PerformanceID))
-            .GroupBy(t => t.ID)
-            .ToDictionary(g => g.Key, g => g.First().RegionID);
+        int groupKey = GetTeamGroupKey(aerobicFinalEventIds);
 
-        // (PerformanceID, TeamID) -> RegionID (team linking)
-        var perfTeamIdToRegion = _allOpposingTeams
-            .Where(t => aerobicFinalEventIds.Contains(t.PerformanceID) && t.TeamID.HasValue)
-            .GroupBy(t => new { t.PerformanceID, TeamID = t.TeamID!.Value })
-            .ToDictionary(g => (g.Key.PerformanceID, g.Key.TeamID), g => g.First().RegionID);
-
-        // ==========================================================
-        // 2) SECOND: accumulate ALL scores across ALL subcategories per region
-        //    - Deduplicate TEAM scores (one per team per perf per subcat)
-        //    - Deduplicate INDIV scores (one per perfTeam per perf per subcat)
-        // ==========================================================
-
-        // Only scores from aerobic finals performances
-        var relevantScores = _allScores
-            .Where(s => aerobicFinalEventIds.Contains(s.PerformanceID))
-            .ToList();
-
-        if (!relevantScores.Any())
-        {
-            Console.WriteLine("❌ No scores found for Aerobic Finals performances.");
-            return new();
-        }
-
-        // TEAM scores: dedupe by (PerformanceID, SportSubcategoryID, TeamID)
-        var teamScoreUnits = relevantScores
-            .Where(s => s.TeamID.HasValue)
-            .GroupBy(s => new { s.PerformanceID, s.SportSubcategoryID, TeamID = s.TeamID!.Value })
-            .Select(g =>
+        // Compute Team Championship totals from saved scores (TeamID = deterministic TeamChampionshipTeamId)
+        var rows = competingRegionIds
+            .Select(regionId =>
             {
-                var any = g.First();
-                var bestScore = g.Max(x => x.Score);
+                int teamChampTeamId = GetAerobicTeamChampionshipTeamId(regionId, aerobicFinalsEvents.First().SportID, 4, groupKey);
 
-                int regionId = 0;
-                if (!perfTeamIdToRegion.TryGetValue((any.PerformanceID, any.TeamID!.Value), out regionId))
-                    regionId = 0; // unknown (should not happen if opposingTeams data is complete)
+                // Manual score entry — choose the best score if multiple rows exist
+                var best = _allScores
+                    .Where(s =>
+                        s.PerformanceID == anchorEventId &&
+                        s.TeamID.HasValue &&
+                        s.TeamID.Value == teamChampTeamId)
+                    .Select(s => s.Score)
+                    .DefaultIfEmpty(0m)
+                    .Max();
 
-                return new
-                {
-                    RegionID = regionId,
-                    Score = bestScore
-                };
-            })
-            .Where(x => x.RegionID != 0) // keep only resolvable
-            .ToList();
-
-        // INDIV scores: dedupe by (PerformanceID, SportSubcategoryID, PerformanceTeamID)
-        var indivScoreUnits = relevantScores
-            .Where(s => !s.TeamID.HasValue && s.PerformanceTeamID.HasValue)
-            .GroupBy(s => new { s.PerformanceID, s.SportSubcategoryID, PerfTeamID = s.PerformanceTeamID!.Value })
-            .Select(g =>
-            {
-                var any = g.First();
-                var bestScore = g.Max(x => x.Score);
-
-                int regionId = 0;
-                if (!perfTeamToRegion.TryGetValue(any.PerformanceTeamID!.Value, out regionId))
-                    regionId = 0;
-
-                return new
-                {
-                    RegionID = regionId,
-                    Score = bestScore
-                };
-            })
-            .Where(x => x.RegionID != 0)
-            .ToList();
-
-        // Combine and sum by region
-        var regionTotals = teamScoreUnits
-            .Concat(indivScoreUnits)
-            .GroupBy(x => x.RegionID)
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.Score));
-
-        // Make sure regions with participation but no score still show (total = 0)
-        foreach (var rid in competingRegionIds)
-            if (!regionTotals.ContainsKey(rid))
-                regionTotals[rid] = 0m;
-
-        // ==========================================================
-        // 3) Convert to TeamRank and rank DESC (higher total = better)
-        // ==========================================================
-        var list = regionTotals
-            .Select(kvp =>
-            {
-                var region = _schoolRegions?.FirstOrDefault(r => r.ID == kvp.Key);
-                var regionName = region?.Abbreviation ?? region?.Region ?? $"Region {kvp.Key}";
+                var region = _schoolRegions?.FirstOrDefault(r => r.ID == regionId);
+                var regionName = region?.Abbreviation ?? region?.Region ?? $"Region {regionId}";
 
                 return new TeamRank
                 {
-                    RegionID = kvp.Key,
+                    RegionID = regionId,
                     RegionName = regionName,
-                    TeamTotal = kvp.Value
+                    TeamTotal = best
                 };
             })
             .OrderByDescending(x => x.TeamTotal)
             .ToList();
 
-        _aerobicTeamChampionship = CalculateRanksDescending(list, x => x.TeamTotal);
-
-        Console.WriteLine("FINAL TEAM CHAMPIONSHIP RANKING (ACCUMULATED SCORE):");
-        foreach (var r in _aerobicTeamChampionship.OrderBy(x => x.Rank))
-            Console.WriteLine($"  Rank {r.Rank}: {r.RegionName} => {r.TeamTotal}");
-
-        Console.WriteLine("=== END ===");
-        Console.WriteLine("===============================================");
+        _aerobicTeamChampionshipStageId = 4;
+        _aerobicTeamChampionship = CalculateRanksDescending(rows, x => x.TeamTotal);
 
         return _aerobicTeamChampionship;
     }
@@ -3970,317 +3888,641 @@
     }
 
 
+    // private async Task SetAsTeam(int performanceId, int regionId, bool isAerobicTeamChampionship = false)
+    // {
+    //     try
+    //     {
+    //         var currentEvent = _gymnasticsEvents?.FirstOrDefault(e => e.ID == performanceId);
+    //         if (currentEvent == null)
+    //         {
+    //             Snackbar.Add("Event not found.", Severity.Warning);
+    //             return;
+    //         }
+
+    //         // ✅ AEROBIC FINALS — TEAM CHAMPIONSHIP TEAM CREATION (MANUAL SCORE)
+    //         if (isAerobicTeamChampionship && IsAerobicGymnasticsEvent(currentEvent) && currentEvent.StageID == 4)
+    //         {
+    //             var aerobicFinalEventIds = await GetAllAerobicFinalsEventIds_AllLevelsAllGenders(currentEvent);
+    //             if (aerobicFinalEventIds == null || aerobicFinalEventIds.Count == 0)
+    //             {
+    //                 Snackbar.Add("No Aerobic Gymnastics Finals events found.", Severity.Warning);
+    //                 return;
+    //             }
+
+    //             int groupKey = GetTeamGroupKey(aerobicFinalEventIds);
+    //             int teamChampTeamId = GetAerobicTeamChampionshipTeamId(regionId, currentEvent.SportID, currentEvent.StageID, groupKey);
+
+    //             // ✅ IMPORTANT FIX: Save roster under the Team Championship PerformanceID (THIS event)
+    //             int rosterPerformanceId = performanceId;
+
+    //             // ✅ Block if roster already exists for this exact team
+    //             bool alreadyHasTeamChampRows = _allOpposingTeams.Any(t =>
+    //                 t.PerformanceID == rosterPerformanceId &&
+    //                 t.RegionID == regionId &&
+    //                 t.TeamID.HasValue &&
+    //                 t.TeamID.Value == teamChampTeamId);
+
+    //             if (alreadyHasTeamChampRows)
+    //             {
+    //                 Snackbar.Add("Team Championship team already exists for this region.", Severity.Info);
+    //                 return;
+    //             }
+
+    //             // ✅ Unique players across IM/IW + Trio + Mixed Pair + Aerobic Dance (exclude Team Championship)
+    //             var allFinalsPlayerIds = _allOpposingTeams
+    //                 .Where(t =>
+    //                     aerobicFinalEventIds.Contains(t.PerformanceID) &&
+    //                     t.PerformanceID != rosterPerformanceId && // ✅ prevent circular inclusion
+    //                     t.RegionID == regionId &&
+    //                     (!t.TeamID.HasValue || t.TeamID.Value < TeamChampionshipTeamIdBase) &&
+    //                     !string.IsNullOrWhiteSpace(t.PlayerID))
+    //                 .Select(t => t.PlayerID.Trim())
+    //                 .Distinct(StringComparer.OrdinalIgnoreCase)
+    //                 .ToList();
+
+    //             if (!allFinalsPlayerIds.Any())
+    //             {
+    //                 Snackbar.Add("No players found to create Team Championship roster.", Severity.Warning);
+    //                 return;
+    //             }
+
+    //             int createdCount = 0;
+
+    //             foreach (var pid in allFinalsPlayerIds)
+    //             {
+    //                 bool exists = _allOpposingTeams.Any(t =>
+    //                     t.PerformanceID == rosterPerformanceId &&
+    //                     t.RegionID == regionId &&
+    //                     t.TeamID.HasValue &&
+    //                     t.TeamID.Value == teamChampTeamId &&
+    //                     string.Equals(t.PlayerID, pid, StringComparison.OrdinalIgnoreCase));
+
+    //                 if (exists) continue;
+
+    //                 var payload = new PerformanceBasedDTO.PerformanceTeam
+    //                 {
+    //                     PerformanceID = rosterPerformanceId, // ✅ Team Championship event
+    //                     RegionID = regionId,
+    //                     PlayerID = pid,
+    //                     TeamID = teamChampTeamId
+    //                 };
+
+    //                 var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceTeam>(
+    //                     "/PerformanceBased/AddOpposingTeam", payload);
+
+    //                 if (created) createdCount++;
+    //             }
+
+    //             if (createdCount == 0)
+    //             {
+    //                 Snackbar.Add("Failed to create Team Championship team entries.", Severity.Error);
+    //                 return;
+    //             }
+
+    //             Snackbar.Add($"Aerobic Team Championship team created! ({createdCount} members)", Severity.Success);
+
+    //             _aerobicTeamChampionship = null;
+    //             await GetOpposingTeamsAsync();
+    //             await LoadScoreboardDataForFilteredEvents();
+    //             StateHasChanged();
+    //             return;
+    //         }
+
+    //         // ✅ DEFAULT TEAM CREATION (WAG/MAG combined + Aerobic combined)
+    //         List<int> combinedEventIds;
+
+    //         if (IsAerobicGymnasticsEvent(currentEvent))
+    //         {
+    //             combinedEventIds = _gymnasticsEvents?
+    //                 .Where(e =>
+    //                     e.StageID == currentEvent.StageID &&
+    //                     e.SportID == currentEvent.SportID &&
+    //                     !string.IsNullOrWhiteSpace(e.MainCategory) &&
+    //                     e.MainCategory.Contains("Aerobic", StringComparison.OrdinalIgnoreCase))
+    //                 .Select(e => e.ID)
+    //                 .Distinct()
+    //                 .ToList()
+    //                 ?? new List<int> { performanceId };
+    //         }
+    //         else
+    //         {
+    //             combinedEventIds = GetCombinedEventIds(performanceId, true, currentEvent.StageID);
+    //         }
+
+    //         int combinedGroupKey = GetTeamGroupKey(combinedEventIds);
+    //         int combinedTeamId = GetCombinedEventsTeamId(regionId, currentEvent.SportID, currentEvent.StageID, combinedGroupKey);
+
+    //         // ✅ Aerobic combined roster saved ONCE (still anchored to Aerobic Dance by your choice)
+    //         if (IsAerobicGymnasticsEvent(currentEvent))
+    //         {
+    //             int rosterPerformanceId = GetAerobicDanceEventIdOrFallback(currentEvent, combinedEventIds);
+
+    //             bool alreadyHasTeam = _allOpposingTeams.Any(t =>
+    //                 t.PerformanceID == rosterPerformanceId &&
+    //                 t.RegionID == regionId &&
+    //                 t.TeamID.HasValue &&
+    //                 t.TeamID.Value == combinedTeamId);
+
+    //             if (alreadyHasTeam)
+    //             {
+    //                 Snackbar.Add("Team already exists for this region.", Severity.Info);
+    //                 return;
+    //             }
+
+    //             var allPlayerIds = _allOpposingTeams
+    //                 .Where(t =>
+    //                     combinedEventIds.Contains(t.PerformanceID) &&
+    //                     t.RegionID == regionId &&
+    //                     !string.IsNullOrWhiteSpace(t.PlayerID))
+    //                 .Select(t => t.PlayerID.Trim())
+    //                 .Distinct(StringComparer.OrdinalIgnoreCase)
+    //                 .ToList();
+
+    //             if (!allPlayerIds.Any())
+    //             {
+    //                 Snackbar.Add("No players found to create a team.", Severity.Warning);
+    //                 return;
+    //             }
+
+    //             int createdCount = 0;
+
+    //             foreach (var pid in allPlayerIds)
+    //             {
+    //                 bool exists = _allOpposingTeams.Any(t =>
+    //                     t.PerformanceID == rosterPerformanceId &&
+    //                     t.RegionID == regionId &&
+    //                     t.TeamID.HasValue &&
+    //                     t.TeamID.Value == combinedTeamId &&
+    //                     string.Equals(t.PlayerID, pid, StringComparison.OrdinalIgnoreCase));
+
+    //                 if (exists) continue;
+
+    //                 var payload = new PerformanceBasedDTO.PerformanceTeam
+    //                 {
+    //                     PerformanceID = rosterPerformanceId,
+    //                     RegionID = regionId,
+    //                     PlayerID = pid,
+    //                     TeamID = combinedTeamId
+    //                 };
+
+    //                 var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceTeam>(
+    //                     "/PerformanceBased/AddOpposingTeam", payload);
+
+    //                 if (created) createdCount++;
+    //             }
+
+    //             if (createdCount == 0)
+    //             {
+    //                 Snackbar.Add("Failed to create team entries.", Severity.Error);
+    //                 return;
+    //             }
+
+    //             Snackbar.Add($"Team created! ({createdCount} members)", Severity.Success);
+
+    //             await GetOpposingTeamsAsync();
+    //             await LoadScoreboardDataForFilteredEvents();
+    //             StateHasChanged();
+    //             return;
+    //         }
+
+    //         // ✅ Non-aerobic: existing behavior
+    //         bool alreadyHasNonAerobicTeam = _allOpposingTeams.Any(t =>
+    //             combinedEventIds.Contains(t.PerformanceID) &&
+    //             t.RegionID == regionId &&
+    //             t.TeamID.HasValue &&
+    //             t.TeamID.Value == combinedTeamId);
+
+    //         if (alreadyHasNonAerobicTeam)
+    //         {
+    //             Snackbar.Add("Team already exists for this region.", Severity.Info);
+    //             return;
+    //         }
+
+    //         int createdCountDefault = 0;
+
+    //         foreach (var evtId in combinedEventIds)
+    //         {
+    //             var playerIdsForThisEvent = _allOpposingTeams
+    //                 .Where(t =>
+    //                     t.PerformanceID == evtId &&
+    //                     t.RegionID == regionId &&
+    //                     !string.IsNullOrWhiteSpace(t.PlayerID))
+    //                 .Select(t => t.PlayerID.Trim())
+    //                 .Distinct(StringComparer.OrdinalIgnoreCase)
+    //                 .ToList();
+
+    //             if (!playerIdsForThisEvent.Any())
+    //                 continue;
+
+    //             foreach (var pid in playerIdsForThisEvent)
+    //             {
+    //                 bool exists = _allOpposingTeams.Any(t =>
+    //                     t.PerformanceID == evtId &&
+    //                     t.RegionID == regionId &&
+    //                     t.TeamID.HasValue &&
+    //                     t.TeamID.Value == combinedTeamId &&
+    //                     string.Equals(t.PlayerID, pid, StringComparison.OrdinalIgnoreCase));
+
+    //                 if (exists) continue;
+
+    //                 var payload = new PerformanceBasedDTO.PerformanceTeam
+    //                 {
+    //                     PerformanceID = evtId,
+    //                     RegionID = regionId,
+    //                     PlayerID = pid,
+    //                     TeamID = combinedTeamId
+    //                 };
+
+    //                 var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceTeam>(
+    //                     "/PerformanceBased/AddOpposingTeam", payload);
+
+    //                 if (created) createdCountDefault++;
+    //             }
+    //         }
+
+    //         if (createdCountDefault == 0)
+    //         {
+    //             Snackbar.Add("Failed to create team entries.", Severity.Error);
+    //             return;
+    //         }
+
+    //         Snackbar.Add($"Team created! ({createdCountDefault} members)", Severity.Success);
+
+    //         await GetOpposingTeamsAsync();
+    //         await LoadScoreboardDataForFilteredEvents();
+    //         StateHasChanged();
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error setting team: {ex.Message}", Severity.Error);
+    //     }
+    // }
+
     private async Task SetAsTeam(int performanceId, int regionId, bool isAerobicTeamChampionship = false)
-{
-    try
     {
-        var currentEvent = _gymnasticsEvents?.FirstOrDefault(e => e.ID == performanceId);
-        if (currentEvent == null)
+        try
         {
-            Snackbar.Add("Event not found.", Severity.Warning);
-            return;
-        }
-
-        // ✅ AEROBIC FINALS — TEAM CHAMPIONSHIP TEAM CREATION
-        // Save each player ONCE ONLY across all finals aerobic events (prevents repeats across categories)
-        if (isAerobicTeamChampionship && IsAerobicGymnasticsEvent(currentEvent) && currentEvent.StageID == 4)
-        {
-            var aerobicFinalEventIds = await GetAllAerobicFinalsEventIds_AllLevelsAllGenders(currentEvent);
-            if (aerobicFinalEventIds == null || aerobicFinalEventIds.Count == 0)
+            var currentEvent = _gymnasticsEvents?.FirstOrDefault(e => e.ID == performanceId);
+            if (currentEvent == null)
             {
-                Snackbar.Add("No Aerobic Gymnastics Finals events found.", Severity.Warning);
+                Snackbar.Add("Event not found.", Severity.Warning);
                 return;
             }
 
-            int teamChampTeamId = GetAerobicTeamChampionshipTeamId(regionId, currentEvent.SportID);
-
-            // ✅ Use Aerobic Dance PerformanceID as the roster PerformanceID (stable + matches UI)
-            int rosterPerformanceId = GetAerobicDanceEventIdOrFallback(currentEvent, aerobicFinalEventIds);
-
-            // ✅ Block if roster already exists for this exact team
-            bool alreadyHasTeamChampRows = _allOpposingTeams.Any(t =>
-                t.PerformanceID == rosterPerformanceId &&
-                t.RegionID == regionId &&
-                t.TeamID.HasValue &&
-                t.TeamID.Value == teamChampTeamId);
-
-            if (alreadyHasTeamChampRows)
+            // ✅ AEROBIC FINALS — TEAM CHAMPIONSHIP TEAM CREATION (MANUAL SCORE)
+            // Roster is saved under the Team Championship PerformanceEvent (the one user clicked)
+            if (isAerobicTeamChampionship && IsAerobicGymnasticsEvent(currentEvent) && currentEvent.StageID == 4)
             {
-                Snackbar.Add("Team Championship team already exists for this region.", Severity.Info);
-                return;
-            }
+                var aerobicFinalEventIds = await GetAllAerobicFinalsEventIds_AllLevelsAllGenders(currentEvent);
+                if (aerobicFinalEventIds == null || aerobicFinalEventIds.Count == 0)
+                {
+                    Snackbar.Add("No Aerobic Gymnastics Finals events found.", Severity.Warning);
+                    return;
+                }
 
-            // ✅ Collect unique players ACROSS ALL finals events (Dance + Trio + MP + etc.)
-            var allFinalsPlayerIds = _allOpposingTeams
-                .Where(t =>
-                    aerobicFinalEventIds.Contains(t.PerformanceID) &&
-                    t.RegionID == regionId &&
-                    !string.IsNullOrWhiteSpace(t.PlayerID))
-                .Select(t => t.PlayerID.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+                int groupKey = GetTeamGroupKey(aerobicFinalEventIds);
+                int teamChampTeamId = GetAerobicTeamChampionshipTeamId(regionId, currentEvent.SportID, currentEvent.StageID, groupKey);
 
-            if (!allFinalsPlayerIds.Any())
-            {
-                Snackbar.Add("No players found to create Team Championship roster.", Severity.Warning);
-                return;
-            }
+                // ✅ IMPORTANT: save roster under THIS performanceId (Team Championship event row)
+                int rosterPerformanceId = performanceId;
 
-            int createdCount = 0;
-
-            foreach (var pid in allFinalsPlayerIds)
-            {
-                // ✅ prevent duplicates if user clicks again
-                bool exists = _allOpposingTeams.Any(t =>
+                bool alreadyHasTeamChampRows = _allOpposingTeams.Any(t =>
                     t.PerformanceID == rosterPerformanceId &&
                     t.RegionID == regionId &&
                     t.TeamID.HasValue &&
-                    t.TeamID.Value == teamChampTeamId &&
-                    string.Equals(t.PlayerID, pid, StringComparison.OrdinalIgnoreCase));
+                    t.TeamID.Value == teamChampTeamId);
 
-                if (exists) continue;
-
-                var payload = new PerformanceBasedDTO.PerformanceTeam
+                if (alreadyHasTeamChampRows)
                 {
-                    PerformanceID = rosterPerformanceId, // ✅ save ONCE only here
-                    RegionID = regionId,
-                    PlayerID = pid,
-                    TeamID = teamChampTeamId
-                };
+                    Snackbar.Add("Team Championship team already exists for this region.", Severity.Info);
+                    return;
+                }
 
-                var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceTeam>(
-                    "/PerformanceBased/AddOpposingTeam", payload);
+                // ✅ Combine players from IM/IW + Trio + Mixed Pair + Aerobic Dance (players only)
+                // ✅ Deduplicate player ids across all these events
+                var rosterPlayerIds = _allOpposingTeams
+                    .Where(t =>
+                        aerobicFinalEventIds.Contains(t.PerformanceID) &&
+                        t.PerformanceID != rosterPerformanceId && // exclude TC itself to avoid circular reads
+                        t.RegionID == regionId &&
+                        !string.IsNullOrWhiteSpace(t.PlayerID))
+                    .Select(t => t.PlayerID.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
-                if (created) createdCount++;
-            }
+                if (!rosterPlayerIds.Any())
+                {
+                    Snackbar.Add("No players found to create Team Championship roster.", Severity.Warning);
+                    return;
+                }
 
-            if (createdCount == 0)
-            {
-                Snackbar.Add("Failed to create Team Championship team entries.", Severity.Error);
+                int createdCount = 0;
+
+                foreach (var pid in rosterPlayerIds)
+                {
+                    bool exists = _allOpposingTeams.Any(t =>
+                        t.PerformanceID == rosterPerformanceId &&
+                        t.RegionID == regionId &&
+                        t.TeamID.HasValue &&
+                        t.TeamID.Value == teamChampTeamId &&
+                        string.Equals(t.PlayerID, pid, StringComparison.OrdinalIgnoreCase));
+
+                    if (exists) continue;
+
+                    var payload = new PerformanceBasedDTO.PerformanceTeam
+                    {
+                        PerformanceID = rosterPerformanceId,
+                        RegionID = regionId,
+                        PlayerID = pid,
+                        TeamID = teamChampTeamId
+                    };
+
+                    var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceTeam>(
+                        "/PerformanceBased/AddOpposingTeam", payload);
+
+                    if (created) createdCount++;
+                }
+
+                if (createdCount == 0)
+                {
+                    Snackbar.Add("Failed to create Team Championship team entries.", Severity.Error);
+                    return;
+                }
+
+                Snackbar.Add($"Aerobic Team Championship team created! ({createdCount} members)", Severity.Success);
+
+                _aerobicTeamChampionship = null;
+                await GetOpposingTeamsAsync();
+                await LoadScoreboardDataForFilteredEvents();
+                StateHasChanged();
                 return;
             }
 
-            Snackbar.Add($"Aerobic Team Championship team created! ({createdCount} members)", Severity.Success);
+            // ✅ DEFAULT TEAM CREATION (WAG/MAG combined + Aerobic combined)
+            List<int> combinedEventIds;
 
-            await GetOpposingTeamsAsync();
-            await LoadScoreboardDataForFilteredEvents();
-            StateHasChanged();
-            return;
-        }
+            if (IsAerobicGymnasticsEvent(currentEvent))
+            {
+                combinedEventIds = _gymnasticsEvents?
+                    .Where(e =>
+                        e.StageID == currentEvent.StageID &&
+                        e.SportID == currentEvent.SportID &&
+                        !string.IsNullOrWhiteSpace(e.MainCategory) &&
+                        e.MainCategory.Contains("Aerobic", StringComparison.OrdinalIgnoreCase))
+                    .Select(e => e.ID)
+                    .Distinct()
+                    .ToList()
+                    ?? new List<int> { performanceId };
+            }
+            else
+            {
+                combinedEventIds = GetCombinedEventIds(performanceId, true, currentEvent.StageID);
+            }
 
-        // ✅ DEFAULT TEAM CREATION (WAG/MAG combined + Aerobic combined)
-        List<int> combinedEventIds;
+            int combinedGroupKey = GetTeamGroupKey(combinedEventIds);
+            int combinedTeamId = GetCombinedEventsTeamId(regionId, currentEvent.SportID, currentEvent.StageID, combinedGroupKey);
 
-        // If Aerobic Gymnastics: combine ALL Aerobic Gymnastics + Aerobic Dance for same sport + stage
-        if (IsAerobicGymnasticsEvent(currentEvent))
-        {
-            combinedEventIds = _gymnasticsEvents?
-                .Where(e =>
-                    e.StageID == currentEvent.StageID &&
-                    e.SportID == currentEvent.SportID &&
-                    !string.IsNullOrWhiteSpace(e.MainCategory) &&
-                    e.MainCategory.Contains("Aerobic", StringComparison.OrdinalIgnoreCase)) // ✅ includes Aerobic Dance
-                .Select(e => e.ID)
-                .Distinct()
-                .ToList()
-                ?? new List<int> { performanceId };
-        }
-        else
-        {
-            // WAG/MAG: existing combined C1+C2 behavior
-            combinedEventIds = GetCombinedEventIds(performanceId, true, currentEvent.StageID);
-        }
+            // ✅ Aerobic combined roster saved ONCE (anchored to Aerobic Dance)
+            if (IsAerobicGymnasticsEvent(currentEvent))
+            {
+                int rosterPerformanceId = GetAerobicDanceEventIdOrFallback(currentEvent, combinedEventIds);
 
-        int combinedGroupKey = GetTeamGroupKey(combinedEventIds);
-        int combinedTeamId = GetCombinedEventsTeamId(regionId, currentEvent.SportID, currentEvent.StageID, combinedGroupKey);
+                bool alreadyHasTeam = _allOpposingTeams.Any(t =>
+                    t.PerformanceID == rosterPerformanceId &&
+                    t.RegionID == regionId &&
+                    t.TeamID.HasValue &&
+                    t.TeamID.Value == combinedTeamId);
 
-        // ✅ SPECIAL: Aerobic Gymnastics must save players ONCE ONLY across all categories
-        if (IsAerobicGymnasticsEvent(currentEvent))
-        {
-            // ✅ Use Aerobic Dance as the one roster PerformanceID
-            int rosterPerformanceId = GetAerobicDanceEventIdOrFallback(currentEvent, combinedEventIds);
+                if (alreadyHasTeam)
+                {
+                    Snackbar.Add("Team already exists for this region.", Severity.Info);
+                    return;
+                }
 
-            // ✅ Block if team already exists for rosterPerformanceId + combinedTeamId
-            bool alreadyHasTeam = _allOpposingTeams.Any(t =>
-                t.PerformanceID == rosterPerformanceId &&
+                var allPlayerIds = _allOpposingTeams
+                    .Where(t =>
+                        combinedEventIds.Contains(t.PerformanceID) &&
+                        t.RegionID == regionId &&
+                        !string.IsNullOrWhiteSpace(t.PlayerID))
+                    .Select(t => t.PlayerID.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (!allPlayerIds.Any())
+                {
+                    Snackbar.Add("No players found to create a team.", Severity.Warning);
+                    return;
+                }
+
+                int createdCount = 0;
+
+                foreach (var pid in allPlayerIds)
+                {
+                    bool exists = _allOpposingTeams.Any(t =>
+                        t.PerformanceID == rosterPerformanceId &&
+                        t.RegionID == regionId &&
+                        t.TeamID.HasValue &&
+                        t.TeamID.Value == combinedTeamId &&
+                        string.Equals(t.PlayerID, pid, StringComparison.OrdinalIgnoreCase));
+
+                    if (exists) continue;
+
+                    var payload = new PerformanceBasedDTO.PerformanceTeam
+                    {
+                        PerformanceID = rosterPerformanceId,
+                        RegionID = regionId,
+                        PlayerID = pid,
+                        TeamID = combinedTeamId
+                    };
+
+                    var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceTeam>(
+                        "/PerformanceBased/AddOpposingTeam", payload);
+
+                    if (created) createdCount++;
+                }
+
+                if (createdCount == 0)
+                {
+                    Snackbar.Add("Failed to create team entries.", Severity.Error);
+                    return;
+                }
+
+                Snackbar.Add($"Team created! ({createdCount} members)", Severity.Success);
+
+                await GetOpposingTeamsAsync();
+                await LoadScoreboardDataForFilteredEvents();
+                StateHasChanged();
+                return;
+            }
+
+            // ✅ Non-aerobic: existing behavior
+            bool alreadyHasNonAerobicTeam = _allOpposingTeams.Any(t =>
+                combinedEventIds.Contains(t.PerformanceID) &&
                 t.RegionID == regionId &&
                 t.TeamID.HasValue &&
                 t.TeamID.Value == combinedTeamId);
 
-            if (alreadyHasTeam)
+            if (alreadyHasNonAerobicTeam)
             {
                 Snackbar.Add("Team already exists for this region.", Severity.Info);
                 return;
             }
 
-            // ✅ Unique players across ALL aerobic events
-            var allPlayerIds = _allOpposingTeams
-                .Where(t =>
-                    combinedEventIds.Contains(t.PerformanceID) &&
-                    t.RegionID == regionId &&
-                    !string.IsNullOrWhiteSpace(t.PlayerID))
-                .Select(t => t.PlayerID.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            int createdCountDefault = 0;
 
-            if (!allPlayerIds.Any())
+            foreach (var evtId in combinedEventIds)
             {
-                Snackbar.Add("No players found to create a team.", Severity.Warning);
-                return;
-            }
+                var playerIdsForThisEvent = _allOpposingTeams
+                    .Where(t =>
+                        t.PerformanceID == evtId &&
+                        t.RegionID == regionId &&
+                        !string.IsNullOrWhiteSpace(t.PlayerID))
+                    .Select(t => t.PlayerID.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
-            int createdCount = 0;
+                if (!playerIdsForThisEvent.Any())
+                    continue;
 
-            foreach (var pid in allPlayerIds)
-            {
-                bool exists = _allOpposingTeams.Any(t =>
-                    t.PerformanceID == rosterPerformanceId &&
-                    t.RegionID == regionId &&
-                    t.TeamID.HasValue &&
-                    t.TeamID.Value == combinedTeamId &&
-                    string.Equals(t.PlayerID, pid, StringComparison.OrdinalIgnoreCase));
-
-                if (exists) continue;
-
-                var payload = new PerformanceBasedDTO.PerformanceTeam
+                foreach (var pid in playerIdsForThisEvent)
                 {
-                    PerformanceID = rosterPerformanceId, // ✅ saved ONCE ONLY
-                    RegionID = regionId,
-                    PlayerID = pid,
-                    TeamID = combinedTeamId
-                };
+                    bool exists = _allOpposingTeams.Any(t =>
+                        t.PerformanceID == evtId &&
+                        t.RegionID == regionId &&
+                        t.TeamID.HasValue &&
+                        t.TeamID.Value == combinedTeamId &&
+                        string.Equals(t.PlayerID, pid, StringComparison.OrdinalIgnoreCase));
 
-                var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceTeam>(
-                    "/PerformanceBased/AddOpposingTeam", payload);
+                    if (exists) continue;
 
-                if (created) createdCount++;
+                    var payload = new PerformanceBasedDTO.PerformanceTeam
+                    {
+                        PerformanceID = evtId,
+                        RegionID = regionId,
+                        PlayerID = pid,
+                        TeamID = combinedTeamId
+                    };
+
+                    var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceTeam>(
+                        "/PerformanceBased/AddOpposingTeam", payload);
+
+                    if (created) createdCountDefault++;
+                }
             }
 
-            if (createdCount == 0)
+            if (createdCountDefault == 0)
             {
                 Snackbar.Add("Failed to create team entries.", Severity.Error);
                 return;
             }
 
-            Snackbar.Add($"Team created! ({createdCount} members)", Severity.Success);
+            Snackbar.Add($"Team created! ({createdCountDefault} members)", Severity.Success);
 
             await GetOpposingTeamsAsync();
             await LoadScoreboardDataForFilteredEvents();
             StateHasChanged();
-            return;
         }
-
-        // ✅ Non-aerobic: keep existing behavior (save per PerformanceID)
-        bool alreadyHasNonAerobicTeam = _allOpposingTeams.Any(t =>
-            combinedEventIds.Contains(t.PerformanceID) &&
-            t.RegionID == regionId &&
-            t.TeamID.HasValue &&
-            t.TeamID.Value == combinedTeamId);
-
-        if (alreadyHasNonAerobicTeam)
+        catch (Exception ex)
         {
-            Snackbar.Add("Team already exists for this region.", Severity.Info);
-            return;
+            Snackbar.Add($"Error setting team: {ex.Message}", Severity.Error);
         }
-
-        int createdCountDefault = 0;
-
-        foreach (var evtId in combinedEventIds)
-        {
-            var playerIdsForThisEvent = _allOpposingTeams
-                .Where(t =>
-                    t.PerformanceID == evtId &&
-                    t.RegionID == regionId &&
-                    !string.IsNullOrWhiteSpace(t.PlayerID))
-                .Select(t => t.PlayerID.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (!playerIdsForThisEvent.Any())
-                continue;
-
-            foreach (var pid in playerIdsForThisEvent)
-            {
-                bool exists = _allOpposingTeams.Any(t =>
-                    t.PerformanceID == evtId &&
-                    t.RegionID == regionId &&
-                    t.TeamID.HasValue &&
-                    t.TeamID.Value == combinedTeamId &&
-                    string.Equals(t.PlayerID, pid, StringComparison.OrdinalIgnoreCase));
-
-                if (exists) continue;
-
-                var payload = new PerformanceBasedDTO.PerformanceTeam
-                {
-                    PerformanceID = evtId, // ✅ save corresponding PerformanceID
-                    RegionID = regionId,
-                    PlayerID = pid,
-                    TeamID = combinedTeamId
-                };
-
-                var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceTeam>(
-                    "/PerformanceBased/AddOpposingTeam", payload);
-
-                if (created) createdCountDefault++;
-            }
-        }
-
-        if (createdCountDefault == 0)
-        {
-            Snackbar.Add("Failed to create team entries.", Severity.Error);
-            return;
-        }
-
-        Snackbar.Add($"Team created! ({createdCountDefault} members)", Severity.Success);
-
-        await GetOpposingTeamsAsync();
-        await LoadScoreboardDataForFilteredEvents();
-        StateHasChanged();
     }
-    catch (Exception ex)
-    {
-        Snackbar.Add($"Error setting team: {ex.Message}", Severity.Error);
-    }
-}
 
+    //     private bool HasTeamOrCombined(int performanceId, int regionId, bool isAerobicTeamChampionship = false)
+    // {
+    //     var currentEvent = _gymnasticsEvents?.FirstOrDefault(e => e.ID == performanceId);
+    //     if (currentEvent == null) return false;
 
+    //     if (isAerobicTeamChampionship && IsAerobicGymnasticsEvent(currentEvent) && currentEvent.StageID == 4)
+    //     {
+    //         var finalsIds = _gymnasticsEvents?
+    //             .Where(e =>
+    //                 e.StageID == 4 &&
+    //                 e.SportID == currentEvent.SportID &&
+    //                 !string.IsNullOrWhiteSpace(e.MainCategory) &&
+    //                 e.MainCategory.Contains("Aerobic", StringComparison.OrdinalIgnoreCase)) // include Dance too
+    //             .Select(e => e.ID)
+    //             .Distinct()
+    //             .ToList() ?? new List<int> { performanceId };
 
+    //         int groupKey = GetTeamGroupKey(finalsIds);
+    //         int teamChampTeamId = GetAerobicTeamChampionshipTeamId(regionId, currentEvent.SportID, currentEvent.StageID, groupKey);
+
+    //         int anchorFinalsId = GetAerobicDanceEventIdOrFallback(currentEvent, finalsIds);
+
+    //         return _allOpposingTeams.Any(t =>
+    //             t.PerformanceID == anchorFinalsId &&
+    //             t.RegionID == regionId &&
+    //             t.TeamID.HasValue &&
+    //             t.TeamID.Value == teamChampTeamId);
+    //     }
+
+    //     // ✅ DEFAULT combined team check
+    //         List<int> eventIds;
+
+    //         if (IsAerobicGymnasticsEvent(currentEvent))
+    //         {
+    //             // Aerobic combined = ALL aerobic (includes Dance) same sport + stage
+    //             eventIds = _gymnasticsEvents?
+    //                 .Where(e =>
+    //                     e.StageID == currentEvent.StageID &&
+    //                     e.SportID == currentEvent.SportID &&
+    //                     !string.IsNullOrWhiteSpace(e.MainCategory) &&
+    //                     e.MainCategory.Contains("Aerobic", StringComparison.OrdinalIgnoreCase))
+    //                 .Select(e => e.ID)
+    //                 .Distinct()
+    //                 .ToList()
+    //                 ?? new List<int> { performanceId };
+    //         }
+    //         else
+    //         {
+    //             // WAG/MAG combined C1+C2 (your existing logic)
+    //             eventIds = GetCombinedEventIds(performanceId, true, currentEvent.StageID);
+    //         }
+
+    //         int groupKey = GetTeamGroupKey(eventIds);
+    //         int combinedTeamId = GetCombinedEventsTeamId(regionId, currentEvent.SportID, currentEvent.StageID, groupKey);
+
+    //         int anchorEventId = IsAerobicGymnasticsEvent(currentEvent)
+    //             ? GetAerobicDanceEventIdOrFallback(currentEvent, eventIds) // ✅ use Aerobic Dance PerformanceID
+    //             : eventIds.Min();
+
+    //     return false;
+    // }
 
     private bool HasTeamOrCombined(int performanceId, int regionId, bool isAerobicTeamChampionship = false)
     {
         var currentEvent = _gymnasticsEvents?.FirstOrDefault(e => e.ID == performanceId);
         if (currentEvent == null) return false;
 
-        // ✅ Aerobic Finals Team Championship existence check (should match how you SAVE it: anchor-only)
+        // ✅ Aerobic Team Championship: roster is saved on THIS team championship performanceId
         if (isAerobicTeamChampionship && IsAerobicGymnasticsEvent(currentEvent) && currentEvent.StageID == 4)
         {
-            int teamChampTeamId = GetAerobicTeamChampionshipTeamId(regionId, currentEvent.SportID);
-
             var finalsIds = _gymnasticsEvents?
                 .Where(e =>
                     e.StageID == 4 &&
                     e.SportID == currentEvent.SportID &&
                     !string.IsNullOrWhiteSpace(e.MainCategory) &&
-                    e.MainCategory.Contains("Aerobic", StringComparison.OrdinalIgnoreCase)) // ✅ include Dance too
+                    e.MainCategory.Contains("Aerobic", StringComparison.OrdinalIgnoreCase))
                 .Select(e => e.ID)
                 .Distinct()
                 .ToList() ?? new List<int> { performanceId };
 
-            int anchorFinalsId = GetAerobicDanceEventIdOrFallback(currentEvent, finalsIds);
+            int groupKey = GetTeamGroupKey(finalsIds);
+            int teamChampTeamId = GetAerobicTeamChampionshipTeamId(regionId, currentEvent.SportID, 4, groupKey);
 
             return _allOpposingTeams.Any(t =>
-                t.PerformanceID == anchorFinalsId &&
+                t.PerformanceID == performanceId &&
                 t.RegionID == regionId &&
                 t.TeamID.HasValue &&
                 t.TeamID.Value == teamChampTeamId);
         }
 
-        // ✅ DEFAULT combined team check
+        // ✅ DEFAULT combined team check (THIS is what fixes WAG/MAG Set Score switching)
         List<int> eventIds;
 
         if (IsAerobicGymnasticsEvent(currentEvent))
         {
-            // Aerobic combined = ALL aerobic (includes Dance) same sport + stage
             eventIds = _gymnasticsEvents?
                 .Where(e =>
                     e.StageID == currentEvent.StageID &&
@@ -4294,19 +4536,14 @@
         }
         else
         {
-            // WAG/MAG combined C1+C2 (your existing logic)
             eventIds = GetCombinedEventIds(performanceId, true, currentEvent.StageID);
         }
 
-        int groupKey = GetTeamGroupKey(eventIds);
-        int combinedTeamId = GetCombinedEventsTeamId(regionId, currentEvent.SportID, currentEvent.StageID, groupKey);
-
-        int anchorEventId = IsAerobicGymnasticsEvent(currentEvent)
-            ? GetAerobicDanceEventIdOrFallback(currentEvent, eventIds) // ✅ use Aerobic Dance PerformanceID
-            : eventIds.Min();
+        int groupKeyDefault = GetTeamGroupKey(eventIds);
+        int combinedTeamId = GetCombinedEventsTeamId(regionId, currentEvent.SportID, currentEvent.StageID, groupKeyDefault);
 
         return _allOpposingTeams.Any(t =>
-            t.PerformanceID == anchorEventId &&
+            eventIds.Contains(t.PerformanceID) &&
             t.RegionID == regionId &&
             t.TeamID.HasValue &&
             t.TeamID.Value == combinedTeamId);
@@ -4541,12 +4778,97 @@
             await HandleScoreSaved();
     }
 
-    private async Task AddAerobicTeamChampionshipScore(int aerobicDanceEventId, int regionId)
+    //     private async Task AddAerobicTeamChampionshipScore(int aerobicDanceEventId, int regionId)
+    // {
+    //     try
+    //     {
+    //         string eventUrl = $"/PerformanceBased/PerformanceEvent/{aerobicDanceEventId}";
+    //         var evt = await apiService.GetSingleAsync<PerformanceBasedDTO.PerformanceEvent>(eventUrl);
+
+    //         if (evt == null)
+    //         {
+    //             var list = await apiService.GetAsync<PerformanceBasedDTO.PerformanceEvent>(eventUrl);
+    //             evt = list?.FirstOrDefault();
+    //         }
+
+    //         if (evt == null)
+    //         {
+    //             Snackbar.Add("Event not found.", Severity.Error);
+    //             return;
+    //         }
+
+    //         if (evt.StageID != 4)
+    //         {
+    //             Snackbar.Add("Team Championship scoring is only for Finals stage.", Severity.Warning);
+    //             return;
+    //         }
+
+    //         var finalsIds = _gymnasticsEvents?
+    //             .Where(e =>
+    //                 e.StageID == evt.StageID &&
+    //                 e.SportID == evt.SportID &&
+    //                 !string.IsNullOrWhiteSpace(e.MainCategory) &&
+    //                 e.MainCategory.Contains("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase))
+    //             .Select(e => e.ID)
+    //             .Distinct()
+    //             .ToList()
+    //             ?? new List<int> { aerobicDanceEventId };
+
+    //         int groupKey = GetTeamGroupKey(finalsIds);
+    //         int teamChampTeamId = GetAerobicTeamChampionshipTeamId(regionId, evt.SportID, evt.StageID, groupKey);
+
+    //         bool exists = _allOpposingTeams.Any(t =>
+    //             t.RegionID == regionId &&
+    //             t.TeamID.HasValue &&
+    //             t.TeamID.Value == teamChampTeamId &&
+    //             t.PerformanceID == aerobicDanceEventId);
+
+    //         if (!exists)
+    //         {
+    //             Snackbar.Add("Please click 'Set as Team' first for Team Championship.", Severity.Info);
+    //             return;
+    //         }
+
+    //         var parameters = new DialogParameters<GymnasticsScore>
+    //         {
+    //             { x => x.RegionID, regionId },
+    //             { x => x.EventID, aerobicDanceEventId },
+
+    //             { x => x.IsTeamEvent, true },
+    //             { x => x.TeamID, teamChampTeamId },
+
+    //             { x => x.ForcedCategoryName, "Team Championship" },
+
+    //             { x => x.IsAerobicRegionChampionship, true },
+
+    //             { x => x.OnScoreSaved, EventCallback.Factory.Create(this, HandleScoreSaved) }
+    //         };
+
+    //         var options = new DialogOptions
+    //         {
+    //             CloseButton = true,
+    //             MaxWidth = MaxWidth.Small,
+    //             FullWidth = true,
+    //             CloseOnEscapeKey = true
+    //         };
+
+    //         var dialog = await DialogService.ShowAsync<GymnasticsScore>("", parameters, options);
+    //         var result = await dialog.Result;
+
+    //         if (!result!.Canceled)
+    //             await HandleScoreSaved();
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error opening aerobic team championship: {ex.Message}", Severity.Error);
+    //     }
+    // }
+
+    private async Task AddAerobicTeamChampionshipScore(int teamChampionshipPerformanceId, int regionId)
     {
         try
         {
-            // 1) Load reference event (from the row you clicked)
-            string eventUrl = $"/PerformanceBased/PerformanceEvent/{aerobicDanceEventId}";
+            string eventUrl = $"/PerformanceBased/PerformanceEvent/{teamChampionshipPerformanceId}";
             var evt = await apiService.GetSingleAsync<PerformanceBasedDTO.PerformanceEvent>(eventUrl);
 
             if (evt == null)
@@ -4561,24 +4883,33 @@
                 return;
             }
 
-            // 2) Finals only guard (optional)
             if (evt.StageID != 4)
             {
                 Snackbar.Add("Team Championship scoring is only for Finals stage.", Severity.Warning);
                 return;
             }
 
-            // 3) ✅ Use the SAME deterministic TeamID created in SetAsTeam( ..., isAerobicTeamChampionship:true )
-            int teamChampTeamId = GetAerobicTeamChampionshipTeamId(regionId, evt.SportID);
+            // finals ids (for teamId consistency)
+            var finalsIds = _gymnasticsEvents?
+                .Where(e =>
+                    e.StageID == evt.StageID &&
+                    e.SportID == evt.SportID &&
+                    !string.IsNullOrWhiteSpace(e.MainCategory) &&
+                    e.MainCategory.Contains("Aerobic", StringComparison.OrdinalIgnoreCase))
+                .Select(e => e.ID)
+                .Distinct()
+                .ToList()
+                ?? new List<int> { teamChampionshipPerformanceId };
 
-            // 4) ✅ Ensure team really exists before opening dialog
-            //    (your main page already prevents this, but this avoids direct calls)
+            int groupKey = GetTeamGroupKey(finalsIds);
+            int teamChampTeamId = GetAerobicTeamChampionshipTeamId(regionId, evt.SportID, 4, groupKey);
+
+            // ✅ Must exist: roster saved by SetAsTeam on the SAME teamChampionshipPerformanceId
             bool exists = _allOpposingTeams.Any(t =>
+                t.PerformanceID == teamChampionshipPerformanceId &&
                 t.RegionID == regionId &&
                 t.TeamID.HasValue &&
-                t.TeamID.Value == teamChampTeamId &&
-                t.PerformanceID == aerobicDanceEventId // at least in this event
-            );
+                t.TeamID.Value == teamChampTeamId);
 
             if (!exists)
             {
@@ -4586,21 +4917,19 @@
                 return;
             }
 
-            // 5) Open dialog - TEAM MODE + TeamID set
+            // ✅ Open score dialog with the Team Championship PerformanceID and TeamID
+            // ✅ Ensure your GymnasticsScore component saves SportSubcategoryID = AEROBIC_TEAM_CHAMPIONSHIP_SUBCATEGORY_ID
             var parameters = new DialogParameters<GymnasticsScore>
         {
             { x => x.RegionID, regionId },
-            { x => x.EventID, aerobicDanceEventId },
-
-            // ✅ team mode
+            { x => x.EventID, teamChampionshipPerformanceId },
             { x => x.IsTeamEvent, true },
             { x => x.TeamID, teamChampTeamId },
-
-            // ✅ lock to Team Championship category
             { x => x.ForcedCategoryName, "Team Championship" },
-
-            // ✅ optional: if your dialog uses this flag to trigger special save/medal propagation
             { x => x.IsAerobicRegionChampionship, true },
+
+            // If your GymnasticsScore supports it, pass subcategory:
+            // { x => x.SportSubcategoryID, AEROBIC_TEAM_CHAMPIONSHIP_SUBCATEGORY_ID },
 
             { x => x.OnScoreSaved, EventCallback.Factory.Create(this, HandleScoreSaved) }
         };
@@ -4695,12 +5024,16 @@
         return events.Select(e => e.ID).Distinct().ToList();
     }
 
-    private int GetAerobicTeamChampionshipTeamId(int regionId, int? sportId)
+    private int GetAerobicTeamChampionshipTeamId(int regionId, int? sportId, int stageId, int groupKey)
     {
-        // Large range to avoid collision with normal team IDs
-        // Make stable per sport+region so repeat calls don't create different TeamIDs
         int sid = sportId ?? 0;
-        return 90000000 + (sid * 1000) + regionId;
+        int safeGroup = groupKey % 10000;
+
+        return 90000000
+             + (sid * 100000)
+             + (stageId * 10000)
+             + (safeGroup * 100)
+             + regionId;
     }
 
     private int GetCombinedEventsTeamId(int regionId, int? sportId, int stageId, int groupKey)
@@ -4736,15 +5069,8 @@
         return eventIds.Min();
     }
 
-    private bool IsTeamChampionshipTeamId(int? teamId)
-    {
-        return teamId.HasValue && teamId.Value >= 90000000;
-    }
-
-    private const int CombinedTeamIdBase = 80000000;
-
-private static bool IsEditableTeamId(int? teamId)
-    => !teamId.HasValue || teamId.Value < CombinedTeamIdBase;
+    private static bool IsEditableTeamId(int? teamId)
+        => !teamId.HasValue || teamId.Value < CombinedTeamIdBase;
 
 
     // Data models

@@ -44,12 +44,24 @@
                             </MudItem>
 
                             <MudItem xs="12" sm="6">
-                                <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense"
+                                @* <MudSelect @bind-Value="_selectedSchoolLevelAndGenderID" Margin="Margin.Dense"
                                            Label="School Level and Gender" T="string"
                                            ShrinkLabel Variant="Variant.Outlined" Clearable
                                            Disabled="_selectedSportIDValue == null || _isAerobicDanceEnabled"
                                            ReadOnly="@IsEditMode"
-                                           SelectedValuesChanged="@((values) => OnSchoolLevelGenderChanged())">
+                                           SelectedValuesChanged="@((values) => OnSchoolLevelGenderChanged())"> *@
+                                <MudSelect Value="_selectedSchoolLevelAndGenderID"
+                                           ValueChanged="@(async (string? v) =>
+                                                      {
+                                                          _selectedSchoolLevelAndGenderID = v;
+                                                          await OnSchoolLevelGenderChanged();
+                                                      })"
+                                       Margin="Margin.Dense"
+                                       Label="School Level and Gender"
+                                       T="string"
+                                       ShrinkLabel Variant="Variant.Outlined" Clearable
+                                       Disabled="_selectedSportIDValue == null || _isAerobicDanceEnabled"
+                                       ReadOnly="@IsEditMode">
                                     <MudVirtualize Items="_combinedSchoolLevelAndGenderNames" Context="combinedID">
                                         <MudSelectItem T="string" Value="@combinedID">@combinedID</MudSelectItem>
                                     </MudVirtualize>
@@ -124,7 +136,7 @@
                             <MudGrid Spacing="0">
                                 <MudItem xs="12">
                                     <!-- Region Select -->
-                                    <MudSelect @bind-Value="team.SelectedRegionID"
+                                    @* <MudSelect @bind-Value="team.SelectedRegionID"
                                                Margin="Margin.Dense"
                                                Label="Region"
                                                ShrinkLabel
@@ -132,19 +144,43 @@
                                                T="int?"
                                                Clearable
                                                SelectedValuesChanged="@((values) => InvokeAsync(async () =>
-                                                                                                                                                                    {
-                                                                                                                                                                        team.SelectedPlayerIDs = new HashSet<string>();
-                                                                                                                                                                        await GetPlayerAsync(team);
-                                                                                                                                                                    }))">
-                                <MudVirtualize Items="_schoolRegions" Context="region">
-                                    <MudSelectItem T="int?" Value="@region.ID">
-                                        @region.Region (@region.Abbreviation)
-                                    </MudSelectItem>
-                                </MudVirtualize>
-                            </MudSelect>
+                                                                                                                                                                                                                   {
+                                                                                                                                                                                                                       team.SelectedPlayerIDs = new HashSet<string>();
+                                                                                                                                                                                                                       await GetPlayerAsync(team);
+                                                                                                                                                                                                                   }))">
+                                        <MudVirtualize Items="_schoolRegions" Context="region">
+                                            <MudSelectItem T="int?" Value="@region.ID">
+                                                @region.Region (@region.Abbreviation)
+                                            </MudSelectItem>
+                                        </MudVirtualize>
+                                    </MudSelect> *@
+
+                                    <MudSelect Value="team.SelectedRegionID"
+                                               ValueChanged="@(async (int? v) =>
+                                                          {
+                                                              team.SelectedRegionID = v;
+
+                                                              team.SelectedPlayerIDs = new HashSet<string>();
+                                                              team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+                                                              team.PlayersKey = Guid.NewGuid();
+
+                                                              await GetPlayerAsync(team);
+                                                          })"
+                                                          Margin="Margin.Dense"
+                                                          Label="Region"
+                                                          ShrinkLabel
+                                                          Variant="Variant.Outlined"
+                                                          T="int?"
+                                                          Clearable>
+                                                   <MudVirtualize Items="_schoolRegions" Context="region">
+                                                       <MudSelectItem T="int?" Value="@region.ID">
+                                                           @region.Region (@region.Abbreviation)
+                                                       </MudSelectItem>
+                                                   </MudVirtualize>
+                                               </MudSelect>
 
                                     <!-- Players Select -->
-                                    <MudSelect SelectedValues="@team.SelectedPlayerIDs"
+                                @*     <MudSelect SelectedValues="@team.SelectedPlayerIDs"
                                                SelectedValuesChanged="@(async (IEnumerable<string> values) => await OnSelectedPlayersChanged(team, values))"
                                                MultiSelection="true"
                                                SelectAll="true"
@@ -154,16 +190,48 @@
                                                ShrinkLabel
                                                Variant="Variant.Outlined"
                                                Disabled="!team.SelectedRegionID.HasValue
-                                                         || !_selectedSportIDValue.HasValue
-                                                         || string.IsNullOrWhiteSpace(_selectedSchoolLevelAndGenderID)
-                                                         || IsEditMode" T="string"
-                                               ToStringFunc="@(id => team.AvailablePlayers?.FirstOrDefault(p => p.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)">
+                                                                                                        || !_selectedSportIDValue.HasValue
+                                                                                                        || (!_isAerobicDanceEnabled && string.IsNullOrWhiteSpace(_selectedSchoolLevelAndGenderID))
+                                                                                                        || IsEditMode" T="string"
+                                       ToStringFunc="@(id => team.AvailablePlayers?.FirstOrDefault(p => p.ID == id) is { } player ? $"{player.FirstName} {player.LastName}" : string.Empty)">
                                 @if (team.AvailablePlayers?.Any() == true)
                                         {
                                             foreach (var player in team.AvailablePlayers)
                                             {
                                                 <MudSelectItem T="string" Value="@player.ID">
                                                     @player.FirstName @player.LastName
+                                                </MudSelectItem>
+                                            }
+                                        }
+                                    </MudSelect> *@
+
+                                    <!-- Players Select -->
+                                    <MudSelect @key="team.PlayersKey"
+                                               SelectedValues="@team.SelectedPlayerIDs"
+                                               SelectedValuesChanged="@(async (IEnumerable<string> values) => await OnSelectedPlayersChanged(team, values))"
+                                               MultiSelection="true"
+                                               SelectAll="true"
+                                               Clearable
+                                               Margin="Margin.Dense"
+                                               Label="Players"
+                                               ShrinkLabel
+                                               Variant="Variant.Outlined"
+                                               Disabled="!team.SelectedRegionID.HasValue
+                                                                       || !_selectedSportIDValue.HasValue
+                                                                       || (!_isAerobicDanceEnabled && string.IsNullOrWhiteSpace(_selectedSchoolLevelAndGenderID))
+                                                                       || IsEditMode"
+                                       T="string"
+                                       ToStringFunc="@(id =>
+                                           team.AvailablePlayers?.FirstOrDefault(p => p.ID == id) is { } player
+                                               ? FormatPlayerName(player)
+                                               : string.Empty
+)">
+                                @if (team.AvailablePlayers?.Any() == true)
+                                        {
+                                            foreach (var player in team.AvailablePlayers)
+                                            {
+                                                <MudSelectItem T="string" Value="@player.ID">
+                                                    @FormatPlayerName(player)
                                                 </MudSelectItem>
                                             }
                                         }
@@ -386,6 +454,14 @@ else
         await FilterSchoolLevelAndGenderAsync();
     }
 
+    private static string FormatPlayerName(ProfilesDTO.ProfilePlayerEvent p)
+    {
+        var mi = string.IsNullOrWhiteSpace(p.MiddleInitial)
+            ? ""
+            : $" {p.MiddleInitial.Trim().ToUpperInvariant()}";
+
+        return $"{p.FirstName}{mi} {p.LastName}".Trim();
+    }
 
     // API Calls
     private async Task GetEventStagesAsync()
@@ -421,9 +497,11 @@ else
             return;
         }
 
-        if (!team.SelectedRegionID.HasValue || !_selectedSportIDValue.HasValue || string.IsNullOrWhiteSpace(_selectedSchoolLevelAndGenderID))
+        if (!team.SelectedRegionID.HasValue || !_selectedSportIDValue.HasValue ||
+    (!_isAerobicDanceEnabled && string.IsNullOrWhiteSpace(_selectedSchoolLevelAndGenderID)))
         {
             team.AvailablePlayers = new();
+            team.PlayersKey = Guid.NewGuid(); // ✅ add this
             return;
         }
 
@@ -438,43 +516,24 @@ else
         if (!team.SelectedRegionID.HasValue)
         {
             team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+            team.PlayersKey = Guid.NewGuid();
             return;
         }
 
+        // ✅ ONLY region + sport
         string url = $"/Profiles/Player/FilteredPlayer?regionID={team.SelectedRegionID}&sportID=13";
         var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
 
-        var allPlayers = result?.ToList() ?? new List<ProfilesDTO.ProfilePlayerEvent>();
-
-        if (_sportSubcategories == null || !_sportSubcategories.Any())
-        {
-            _sportSubcategories = await apiService.GetAsync<SportsDTO.SportSubcategories>($"/Sports/Subcategories?sportID=13");
-        }
-
-        if (_sportSubcategories != null)
-        {
-            var validSubcategoryIDs = _sportSubcategories
-                .Where(sc => !string.IsNullOrEmpty(sc.MainCategory) &&
-                             sc.MainCategory.Equals("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase))
-                .Select(sc => sc.ID)
-                .ToList();
-
-            if (validSubcategoryIDs.Any())
-            {
-                allPlayers = allPlayers
-                    .Where(p => p.SubCategoryID.HasValue && validSubcategoryIDs.Contains(p.SubCategoryID.Value))
-                    .ToList();
-            }
-            else
-            {
-                allPlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
-            }
-        }
-
-        team.AvailablePlayers = allPlayers
-            .GroupBy(p => p.ID)
+        team.AvailablePlayers = (result ?? new List<ProfilesDTO.ProfilePlayerEvent>())
+            .Where(p => !string.IsNullOrWhiteSpace(p.ID))
+            .GroupBy(p => p.ID!)
             .Select(g => g.First())
+            .OrderBy(p => p.LastName)
+            .ThenBy(p => p.FirstName)
             .ToList();
+
+        team.PlayersKey = Guid.NewGuid(); // ✅ force dropdown rerender
+        await InvokeAsync(StateHasChanged);
     }
 
 
@@ -524,6 +583,7 @@ else
         if (!team.SelectedRegionID.HasValue || !_selectedSportIDValue.HasValue || string.IsNullOrWhiteSpace(_selectedSchoolLevelAndGenderID))
         {
             team.AvailablePlayers = new();
+            team.PlayersKey = Guid.NewGuid();
             return;
         }
 
@@ -531,16 +591,33 @@ else
         if (parts.Length < 2)
         {
             team.AvailablePlayers = new();
+            team.PlayersKey = Guid.NewGuid();
             return;
         }
 
         var schoolLevelName = parts[0].Trim();
         var genderName = parts[1].Trim();
 
-        var schoolLevelID = _schoolLevels?.FirstOrDefault(x => x.Level == schoolLevelName)?.ID;
-        var genderID = _sportGenderCategories?.FirstOrDefault(x => x.Gender == genderName)?.ID;
+        var schoolLevelID = _schoolLevels?
+    .FirstOrDefault(x => string.Equals(x.Level?.Trim(), schoolLevelName, StringComparison.OrdinalIgnoreCase))
+    ?.ID;
 
-        string url = $"/Profiles/Player/FilteredPlayer?regionID={team.SelectedRegionID}&sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}&genderID={genderID}";
+        // ✅ if Mix -> DO NOT SEND genderID
+        var genderID = ResolveGenderIdForPlayersApi(genderName);
+
+        if (!schoolLevelID.HasValue)
+        {
+            team.AvailablePlayers = new();
+            team.PlayersKey = Guid.NewGuid();
+            return;
+        }
+
+        // ✅ build query conditionally
+        string url =
+            $"/Profiles/Player/FilteredPlayer?regionID={team.SelectedRegionID}&sportID={_selectedSportIDValue}&schoolLevelID={schoolLevelID}";
+
+        if (genderID.HasValue)
+            url += $"&genderID={genderID.Value}";
 
         var result = await apiService.GetAsync<ProfilesDTO.ProfilePlayerEvent>(url);
 
@@ -551,6 +628,26 @@ else
             .OrderBy(p => p.LastName)
             .ThenBy(p => p.FirstName)
             .ToList();
+
+        // ✅ refresh dropdown
+        team.PlayersKey = Guid.NewGuid();
+    }
+
+    private int? ResolveGenderIdForPlayersApi(string genderName)
+    {
+        if (string.IsNullOrWhiteSpace(genderName)) return null;
+
+        var g = genderName.Trim();
+
+        // Mix => no gender filter (endpoint treats null as allow all)
+        if (g.Equals("Mix", StringComparison.OrdinalIgnoreCase) ||
+            g.Equals("Mixed", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        // Return the real ID from your DB list
+        return _sportGenderCategories?
+            .FirstOrDefault(x => string.Equals(x.Gender?.Trim(), g, StringComparison.OrdinalIgnoreCase))
+            ?.ID;
     }
 
     private async Task OnAerobicDanceSwitchChanged(bool newValue)
@@ -584,6 +681,7 @@ else
                 team.SelectedRegionID = null;
                 team.SelectedPlayerIDs = new HashSet<string>();
                 team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
+                team.PlayersKey = Guid.NewGuid();
             }
 
             await LoadMainCategoriesForAerobicDance();
@@ -666,28 +764,13 @@ else
         foreach (var team in _teamSelections)
         {
             team.SelectedPlayerIDs = new HashSet<string>();
-            await GetPlayerAsync(team); 
+            await GetPlayerAsync(team);
         }
     }
 
-    private async Task OnMainCategoryChanged()
+    private Task OnMainCategoryChanged()
     {
-        if (_isAerobicDanceEnabled &&
-            !string.IsNullOrEmpty(_selectedMainCategoryValue) &&
-            !_selectedMainCategoryValue.Equals("Aerobic Gymnastics", StringComparison.OrdinalIgnoreCase))
-        {
-            _selectedMainCategoryValue = "Aerobic Gymnastics";
-            Snackbar.Add("Event is locked to 'Aerobic Gymnastics' when Aerobic Dance mode is enabled.", Severity.Warning);
-        }
-
-        foreach (var team in _teamSelections)
-        {
-            team.SelectedRegionID = null;
-            team.SelectedPlayerIDs = new List<string>();
-            team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
-        }
-
-        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private async Task OnSelectedPlayersChanged(TeamSelection team, IEnumerable<string> selectedValues)
@@ -1147,13 +1230,26 @@ else
             return;
         }
 
-        var schoolLevelIDs = subcats.Where(x => x.SchoolLevelID.HasValue).Select(x => x.SchoolLevelID.Value).Distinct();
-        var genderIDs = subcats.Where(x => x.SportGenderCategoryID.HasValue).Select(x => x.SportGenderCategoryID.Value).Distinct();
+        // ✅ only valid pairs that exist in subcategories
+        var pairs = subcats
+            .Where(x => x.SchoolLevelID.HasValue && x.SportGenderCategoryID.HasValue)
+            .Select(x => new { SL = x.SchoolLevelID!.Value, G = x.SportGenderCategoryID!.Value })
+            .Distinct()
+            .ToList();
 
-        var schoolLevelNames = _schoolLevels?.Where(s => schoolLevelIDs.Contains(s.ID)).Select(s => s.Level) ?? new List<string>();
-        var genderNames = _sportGenderCategories?.Where(g => genderIDs.Contains(g.ID)).Select(g => g.Gender) ?? new List<string>();
-
-        _combinedSchoolLevelAndGenderNames = schoolLevelNames.SelectMany(s => genderNames, (s, g) => $"{s} - {g}").ToList();
+        _combinedSchoolLevelAndGenderNames = pairs
+            .Select(p =>
+            {
+                var slName = _schoolLevels?.FirstOrDefault(s => s.ID == p.SL)?.Level?.Trim();
+                var gName = _sportGenderCategories?.FirstOrDefault(g => g.ID == p.G)?.Gender?.Trim();
+                return (!string.IsNullOrWhiteSpace(slName) && !string.IsNullOrWhiteSpace(gName))
+                    ? $"{slName} - {gName}"
+                    : null;
+            })
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList()!;
     }
 
     private bool ShouldAllowAerobicDanceSwitchEdit()
@@ -1406,7 +1502,7 @@ else
         foreach (var team in _teamSelections)
         {
             team.SelectedRegionID = null;
-            team.SelectedPlayerIDs = new List<string>();
+            team.SelectedPlayerIDs = new HashSet<string>();
             team.AvailablePlayers = new List<ProfilesDTO.ProfilePlayerEvent>();
         }
     }
@@ -1476,6 +1572,7 @@ else
         {
             public string? ID { get; set; }
             public string? FirstName { get; set; }
+            public string? MiddleInitial { get; set; }
             public string? LastName { get; set; }
             public int? RegionID { get; set; }
             public int? SubCategoryID { get; set; }
@@ -1540,5 +1637,7 @@ else
         public List<ProfilesDTO.ProfilePlayerEvent> AvailablePlayers { get; set; } = new List<ProfilesDTO.ProfilePlayerEvent>();
         public int ExistingOpposingTeamID { get; set; }
         public int? TeamID { get; set; }
+
+        public Guid PlayersKey { get; set; } = Guid.NewGuid();
     }
 }

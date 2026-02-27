@@ -1,283 +1,151 @@
-﻿<h3>BilliardsScoreboardDialog</h3>
-
-@code {
-
-}
-@using System.Threading
-@using System.Linq
+﻿@using System.Threading
+@using MudBlazor
 @using Client.Palaro2026.Services
 @inject APIService apiService
-@implements IDisposable
 
-<MudDialog DisableSidePadding="true" Class="scoreboard-dialog-clean">
+<MudDialog>
     <DialogContent>
-        <style>
-            /* 1. FONTS */
-            @@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@500;700&display=swap');
 
-            /* 2. DIALOG OVERRIDES (Light Theme) */
-            .scoreboard-dialog-clean .mud-dialog-content {
-                padding: 0 !important;
-                background-color: #FFFFFF;
-                height: 80vh; /* Fixed height for scroll */
-                overflow-y: auto;
-            }
+        @* HEADER *@
+        <MudPaper Elevation="0" Class="pa-4">
+            <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="2">
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                    <MudText Typo="Typo.subtitle2">@EventItem?.EventStage</MudText>
+                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary">|</MudText>
+                    <MudText Typo="Typo.subtitle2">@EventItem?.Gender</MudText>
+                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary">|</MudText>
+                    <MudText Typo="Typo.subtitle2">@_event?.Subcategory</MudText>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
 
-            /* 3. MAIN WRAPPER */
-            .sb-wrapper {
-                background-color: #FFFFFF;
-                background: linear-gradient(180deg, #FFFFFF 0%, #F8F9FA 100%);
-                color: #333333;
-                min-height: 100%;
-                font-family: 'Rajdhani', sans-serif;
-                padding-bottom: 20px;
-            }
+        <MudDivider />
 
-            /* 4. HEADER */
-            .sb-broadcast-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 15px 25px;
-                background: #FFFFFF;
-                border-bottom: 1px solid #E0E0E0;
-                position: sticky;
-                top: 0;
-                z-index: 10;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-            }
-
-            .sb-sport-badge {
-                background-color: #0d47a1; /* DepEd Blue */
-                color: #FFFFFF;
-                font-family: 'Chakra Petch';
-                font-weight: 700;
-                padding: 6px 16px;
-                border-radius: 4px;
-                font-size: 0.9rem;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-            }
-
-            .sb-match-info {
-                font-family: 'Rajdhani';
-                font-size: 1rem;
-                color: #666666;
-                text-transform: uppercase;
-                font-weight: 600;
-            }
-
-            /* 5. ROUND SECTION */
-            .round-container {
-                padding: 20px 20px 0 20px;
-            }
-
-            .round-title {
-                font-family: 'Orbitron';
-                color: #0d47a1;
-                font-size: 1.1rem;
-                font-weight: 800;
-                margin-bottom: 10px;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }
-            .round-line { flex: 1; height: 1px; background: #E0E0E0; }
-
-            /* 6. MATCH CARD (Table Style) */
-            .modern-table {
-                width: 100%;
-                border-collapse: separate;
-                border-spacing: 0;
-                background: white;
-                border-radius: 8px;
-                overflow: hidden;
-                border: 1px solid #E0E0E0;
-                margin-bottom: 15px;
-            }
-
-            .modern-table thead th {
-                background: #F8F9FA;
-                padding: 10px 15px;
-                text-align: center;
-                font-family: 'Rajdhani';
-                font-weight: 700;
-                color: #666;
-                text-transform: uppercase;
-                font-size: 0.8rem;
-                border-bottom: 2px solid #E0E0E0;
-            }
-
-            .modern-table tbody td {
-                padding: 12px 10px;
-                border-bottom: 1px solid #EEEEEE;
-                vertical-align: middle;
-            }
-
-            /* Player Info inside Table */
-            .player-flex {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }
-            .player-flex.reverse {
-                flex-direction: row-reverse;
-                text-align: right;
-            }
-
-            .small-logo {
-                width: 35px;
-                height: 35px;
-                border-radius: 50%;
-                background: #f5f5f5;
-                border: 1px solid #eee;
-                object-fit: contain;
-                padding: 2px;
-            }
-
-            .p-name {
-                font-family: 'Chakra Petch';
-                font-weight: 700;
-                font-size: 0.95rem;
-                line-height: 1.1;
-                color: #333;
-            }
-            .p-region {
-                font-size: 0.75rem;
-                color: #888;
-                font-weight: 600;
-            }
-
-            /* Score */
-            .score-box {
-                font-family: 'Orbitron';
-                font-weight: 700;
-                font-size: 1.4rem;
-                color: #333;
-                background: #F8F9FA;
-                padding: 5px 10px;
-                border-radius: 6px;
-                border: 1px solid #E0E0E0;
-                min-width: 40px;
-                text-align: center;
-            }
-            .winner-score {
-                background: #E8F5E9; /* Light Green */
-                color: #2E7D32; /* Green Text */
-                border-color: #A5D6A7;
-            }
-
-            /* Status Badge */
-            .status-badge {
-                font-size: 0.7rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                padding: 3px 8px;
-                border-radius: 4px;
-                display: inline-block;
-            }
-            .st-live { background: #E3F2FD; color: #1565C0; }
-            .st-done { background: #E8F5E9; color: #2E7D32; }
-
-        </style>
-
-        <div class="sb-wrapper">
-            <!-- Header -->
-            <div class="sb-broadcast-header">
-                <div class="sb-sport-badge">BILLIARDS</div>
-                <div class="sb-match-info">
-                    @_event?.Level <span style="color:#CCC; margin:0 5px;">|</span> 
-                    @_event?.Subcategory
-                </div>
-            </div>
-
-            @if (_isLoading)
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+                <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Class="mt-3">Loading…</MudText>
+            </MudStack>
+        }
+        else
+        {
+            @if (_matches is null || !_matches.Any())
             {
-                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height:300px;">
-                    <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
+                <MudStack Class="pa-6" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Typo="Typo.subtitle1">No matches yet</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Waiting for results…
+                    </MudText>
                 </MudStack>
             }
             else
             {
-                <!-- Loop through Rounds (Sets) -->
                 @foreach (var roundGroup in _matches.GroupBy(m => m.SetNo).OrderBy(g => g.Key))
                 {
-                    <div class="round-container">
-                        <div class="round-title">
-                            @GetRoundName(roundGroup.Key)
-                            <div class="round-line"></div>
-                        </div>
+                    <MudStack Class="pa-4" Spacing="2">
 
-                        <table class="modern-table">
-                            <thead>
-                                <tr>
-                                    <th style="width:10%">TABLE</th>
-                                    <th style="width:35%; text-align:left;">PLAYER 1</th>
-                                    <th style="width:20%">SCORE</th>
-                                    <th style="width:35%; text-align:right;">PLAYER 2</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach(var match in roundGroup.OrderBy(m => m.TableNo))
-                                {
+                        @* ROUND TABLE *@
+                        <MudPaper Elevation="0">
+                            <MudSimpleTable Dense="true" Bordered="true" Elevation="0">
+                                <thead>
                                     <tr>
-                                        <!-- TABLE NO & STATUS -->
-                                        <td style="text-align:center;">
-                                            <div style="font-weight:700; font-size:1.1rem; color:#0d47a1;">#@match.TableNo</div>
-                                            @if(match.IsCompleted) {
-                                                <div class="status-badge st-done">FINAL</div>
-                                            } else {
-                                                <div class="status-badge st-live">LIVE</div>
-                                            }
-                                        </td>
-
-                                        <!-- PLAYER 1 -->
-                                        <td>
-                                            <div class="player-flex">
-                                                <img src="@GetRegionLogo(match.Player1Region)" class="small-logo" onerror="this.style.display='none'" />
-                                                <div>
-                                                    <div class="p-name">@match.Player1Name</div>
-                                                    <div class="p-region">@match.Player1Region</div>
-                                                </div>
-                                            </div>
-                                        </td>
-
-                                        <!-- SCORES -->
-                                        <td style="text-align:center;">
-                                            <div style="display:flex; justify-content:center; align-items:center; gap:8px;">
-                                                <div class="score-box @(match.IsCompleted && match.Player1IsWinner == true ? "winner-score" : "")">
-                                                    @match.Player1Score
-                                                </div>
-                                                <div style="color:#CCC; font-weight:bold;">-</div>
-                                                <div class="score-box @(match.IsCompleted && match.Player2IsWinner == true ? "winner-score" : "")">
-                                                    @match.Player2Score
-                                                </div>
-                                            </div>
-                                        </td>
-
-                                        <!-- PLAYER 2 -->
-                                        <td style="text-align:right;">
-                                            <div class="player-flex reverse">
-                                                <img src="@GetRegionLogo(match.Player2Region)" class="small-logo" onerror="this.style.display='none'" />
-                                                <div>
-                                                    <div class="p-name">@match.Player2Name</div>
-                                                    <div class="p-region">@match.Player2Region</div>
-                                                </div>
-                                            </div>
-                                        </td>
+                                        <th style="text-align:center; width:10%;">Table</th>
+                                        <th style="text-align:left; width:35%;">Player 1</th>
+                                        <th style="text-align:center; width:20%;">Score</th>
+                                        <th style="text-align:right; width:35%;">Player 2</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (var match in roundGroup.OrderBy(m => m.TableNo))
+                                    {
+                                        <tr>
+                                            @* TABLE NO + STATUS *@
+                                            <td style="text-align:center;">
+                                                <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                                                    <MudText Typo="Typo.subtitle2">#@match.TableNo</MudText>
+
+                                                    @if (match.IsCompleted)
+                                                    {
+                                                        <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Label="true">
+                                                            Final
+                                                        </MudChip>
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudChip T="string"  Color="Color.Info" Variant="Variant.Outlined" Label="true">
+                                                            Live
+                                                        </MudChip>
+                                                    }
+                                                </MudStack>
+                                            </td>
+
+                                            @* PLAYER 1 *@
+                                            <td>
+                                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                                    <MudImage Src="@GetRegionLogo(match.Player1Region)"
+                                                              Alt="@match.Player1Region"
+                                                              Width="35" Height="35"
+                                                              ObjectFit="ObjectFit.Contain" />
+
+                                                    <MudStack Spacing="0">
+                                                        <MudText Typo="Typo.subtitle2">@match.Player1Name</MudText>
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@match.Player1Region</MudText>
+                                                    </MudStack>
+                                                </MudStack>
+                                            </td>
+
+                                            @* SCORES *@
+                                            <td style="text-align:center;">
+                                                <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                                                    <MudChip T="string"  Variant="@(match.IsCompleted && match.Player1IsWinner == true ? Variant.Filled : Variant.Outlined)"
+                                                             Color="@(match.IsCompleted && match.Player1IsWinner == true ? Color.Success : Color.Default)"
+                                                             Label="true">
+                                                        @match.Player1Score
+                                                    </MudChip>
+
+                                                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary">-</MudText>
+
+                                                    <MudChip T="string" Variant="@(match.IsCompleted && match.Player2IsWinner == true ? Variant.Filled : Variant.Outlined)"
+                                                             Color="@(match.IsCompleted && match.Player2IsWinner == true ? Color.Success : Color.Default)"
+                                                             Label="true">
+                                                        @match.Player2Score
+                                                    </MudChip>
+                                                </MudStack>
+                                            </td>
+
+                                            @* PLAYER 2 *@
+                                            <td style="text-align:right;">
+                                                <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="2">
+                                                    <MudStack Spacing="0" AlignItems="AlignItems.End">
+                                                        <MudText Typo="Typo.subtitle2">@match.Player2Name</MudText>
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@match.Player2Region</MudText>
+                                                    </MudStack>
+
+                                                    <MudImage Src="@GetRegionLogo(match.Player2Region)"
+                                                              Alt="@match.Player2Region"
+                                                              Width="35" Height="35"
+                                                              ObjectFit="ObjectFit.Contain" />
+                                                </MudStack>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        </MudPaper>
+
+                    </MudStack>
                 }
             }
-        </div>
+        }
     </DialogContent>
+
     <DialogActions>
-        <div style="background-color: #F8F9FA; width:100%; padding: 10px 20px; text-align:right; border-top:1px solid #E0E0E0;">
-            <MudButton OnClick="Cancel" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Style="font-family:'Rajdhani'; font-weight:700;">CLOSE</MudButton>
-        </div>
+        <MudSpacer />
+        <MudButton OnClick="Cancel" Variant="Variant.Text" Style="font-weight:400;">
+            Close
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -287,15 +155,33 @@
 
     // --- MODELS ---
     public class EventInfo { public string ID { get; set; } = ""; public string? Level { get; set; } public string? Subcategory { get; set; } }
-    public class MatchInfo {
-        public int SetNo { get; set; } public int TableNo { get; set; }
-        public string? Player1Region { get; set; } public string? Player1Name { get; set; } public int Player1Score { get; set; } public bool? Player1IsWinner { get; set; }
-        public string? Player2Region { get; set; } public string? Player2Name { get; set; } public int Player2Score { get; set; } public bool? Player2IsWinner { get; set; }
+    public class MatchInfo
+    {
+        public int SetNo { get; set; }
+        public int TableNo { get; set; }
+
+        public string? Player1Region { get; set; }
+        public string? Player1Name { get; set; }
+        public int Player1Score { get; set; }
+        public bool? Player1IsWinner { get; set; }
+
+        public string? Player2Region { get; set; }
+        public string? Player2Name { get; set; }
+        public int Player2Score { get; set; }
+        public bool? Player2IsWinner { get; set; }
+
         public bool IsCompleted { get; set; }
     }
-    public class BilliardsResult {
-        public int SetNo { get; set; } public int TableNo { get; set; } public string? PlayerPosition { get; set; } public int? Score { get; set; } public bool? IsWinner { get; set; }
-        public string? Region { get; set; } public string? Abbreviation { get; set; } public string? PlayerName { get; set; }
+    public class BilliardsResult
+    {
+        public int SetNo { get; set; }
+        public int TableNo { get; set; }
+        public string? PlayerPosition { get; set; }
+        public int? Score { get; set; }
+        public bool? IsWinner { get; set; }
+        public string? Region { get; set; }
+        public string? Abbreviation { get; set; }
+        public string? PlayerName { get; set; }
     }
     public class SchoolRegions { public int ID { get; set; } public string? Region { get; set; } public string? Abbreviation { get; set; } }
 
@@ -314,16 +200,28 @@
 
     private async Task LoadData()
     {
-        try {
+        try
+        {
             string eId = EventItem.ID;
+
             _allRegions = await apiService.GetAsync<SchoolRegions>("/Schools/Regions");
             var events = await apiService.GetAsync<EventInfo>($"/BilliardsScoring/events?eventId={eId}");
-            
-            if(events != null && events.Any()) {
+
+            if (events != null && events.Any())
+            {
                 _event = events.First();
                 await LoadResults(eId);
             }
-        } catch {} finally { _isLoading = false; StateHasChanged(); }
+        }
+        catch
+        {
+            // keep silent like your original
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
     }
 
     private async Task LoadResults(string eId)
@@ -332,25 +230,48 @@
         if (results == null) return;
 
         var dict = new Dictionary<(int, int), MatchInfo>();
+
         foreach (var r in results)
         {
             var k = (r.SetNo, r.TableNo);
-            if (!dict.ContainsKey(k)) dict[k] = new MatchInfo { SetNo = r.SetNo, TableNo = r.TableNo };
-            
+            if (!dict.ContainsKey(k))
+                dict[k] = new MatchInfo { SetNo = r.SetNo, TableNo = r.TableNo };
+
             var m = dict[k];
             var reg = r.Abbreviation ?? r.Region ?? "UNK";
-            
-            if (r.PlayerPosition == "Player1") { m.Player1Region = reg; m.Player1Name = r.PlayerName; m.Player1Score = r.Score ?? 0; m.Player1IsWinner = r.IsWinner; }
-            else { m.Player2Region = reg; m.Player2Name = r.PlayerName; m.Player2Score = r.Score ?? 0; m.Player2IsWinner = r.IsWinner; }
+
+            if (r.PlayerPosition == "Player1")
+            {
+                m.Player1Region = reg;
+                m.Player1Name = r.PlayerName;
+                m.Player1Score = r.Score ?? 0;
+                m.Player1IsWinner = r.IsWinner;
+            }
+            else
+            {
+                m.Player2Region = reg;
+                m.Player2Name = r.PlayerName;
+                m.Player2Score = r.Score ?? 0;
+                m.Player2IsWinner = r.IsWinner;
+            }
 
             if (r.IsWinner.HasValue) m.IsCompleted = true;
         }
+
         _matches = dict.Values.ToList();
     }
 
-    private string GetRoundName(int r) => r switch { 1 => "ELIMINATIONS", 2 => "QUARTER-FINALS", 3 => "SEMI-FINALS", 4 => "FINALS", _ => $"ROUND {r}" };
-    
-    private string GetRegionLogo(string? rName) {
+    private string GetRoundName(int r) => r switch
+    {
+        1 => "ELIMINATIONS",
+        2 => "QUARTER-FINALS",
+        3 => "SEMI-FINALS",
+        4 => "FINALS",
+        _ => $"ROUND {r}"
+    };
+
+    private string GetRegionLogo(string? rName)
+    {
         if (string.IsNullOrWhiteSpace(rName)) return "/images/placeholder.png";
         var clean = _allRegions?.FirstOrDefault(r => r.Abbreviation == rName || r.Region == rName)?.Region ?? rName;
         return $"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{Uri.EscapeDataString(clean)}.webp";
