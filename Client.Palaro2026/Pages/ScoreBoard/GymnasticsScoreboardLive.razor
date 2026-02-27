@@ -257,14 +257,12 @@
     .rank-pills {
         min-width: 44px;
         height: 34px;
-     
         display: inline-flex;
         align-items: center;
         justify-content: center;
         font-size: 14px;
         color: var(--pal-dark-blue);
         background: #fff;
-     
     }
 
     .rank1 {
@@ -520,6 +518,31 @@
             grid-column: span 12;
         }
     }
+
+    /* --- Medal placeholder (Waiting for scores) --- */
+    .medal-wait {
+        width: 100%;
+        min-height: 92px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 14px 10px;
+        text-align: center;
+    }
+
+        .medal-wait .wait-icon {
+            color: #dee2e6;
+            width: 56px;
+            height: 56px;
+        }
+
+        .medal-wait .wait-text {
+            color: #adb5bd;
+            font-family: var(--font-header);
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
 </style>
 
 <div class="tv-screen-bg">
@@ -563,7 +586,7 @@
                     <div class="dance-card">
                         <div class="dance-card-head">
                             <div class="dance-title">@ApparatusLabel(ak)</div>
-                           @*  <div class="@(_event.IsFinished ? "badge-final" : "badge-live")">
+                            @*  <div class="@(_event.IsFinished ? "badge-final" : "badge-live")">
                                 @(_event.IsFinished ? "FINAL" : "LIVE")
                             </div> *@
                         </div>
@@ -582,7 +605,7 @@
                             {
                                 <div class="card-carousel-bar">
                                     <div class="card-page">
-                                     @*    PAGE @(GetPageIndex(ak) + 1) / @Math.Max(1, GetPageCount(full)) *@
+                                        @*    PAGE @(GetPageIndex(ak) + 1) / @Math.Max(1, GetPageCount(full)) *@
                                     </div>
                                     <div>
                                         @for (int i = 0; i < Math.Max(1, GetPageCount(full)); i++)
@@ -618,7 +641,7 @@
                                             }
                                             else
                                             {
-                                                <span class="rank-pills" >@context.Rank</span>
+                                                <span class="rank-pills">@context.Rank</span>
                                             }
                                         </MudTd>
 
@@ -691,7 +714,7 @@
                 </div>
             </div>
 
-           
+
         </div>
     }
 </div>
@@ -1215,7 +1238,17 @@
                 <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Style="color: var(--pal-gold);" />
             </div>
 
-        @if (data.RegionID != 0 && data.DisplayName != "—")
+        @{
+            // Treat as "no data" if region is missing OR display name is empty/dash/waiting text
+            bool noData =
+            data == null ||
+            data.RegionID == 0 ||
+            string.IsNullOrWhiteSpace(data.DisplayName) ||
+            data.DisplayName == "—" ||
+            data.DisplayName.Contains("Waiting", StringComparison.OrdinalIgnoreCase);
+        }
+
+        @if (!noData)
         {
                 <div class="winner-row">
                     <div class="winner-logo">
@@ -1246,11 +1279,11 @@
         }
         else
         {
-                <div class="winner-row">
-                    <div class="winner-info">
-                        <div class="winner-name">—</div>
-                        <div class="winner-region">No data</div>
-                    </div>
+                <div class="medal-wait">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty" Class="wait-icon" />
+                        <MudText Class="wait-text">WAITING FOR RESULTS</MudText>
+                    </MudStack>
                 </div>
         }
     </div>;
