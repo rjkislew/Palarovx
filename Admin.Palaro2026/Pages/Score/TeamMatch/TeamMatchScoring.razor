@@ -152,10 +152,10 @@
                     <MudIconButton Icon="@Icons.Material.Filled.Settings"
                                    OnClick="@(() => OpenEditEventDialog(SelectedEvent?.ID))">
                     </MudIconButton>
-                    <MudButton Color="Color.Tertiary" Variant="Variant.Filled"
+                    @* <MudButton Color="Color.Tertiary" Variant="Variant.Filled"
                                StartIcon="@Icons.Material.Filled.ArrowCircleRight">
                         Proceed to next stage
-                    </MudButton>
+                    </MudButton> *@
                 </MudStack>
             </MudItem>
         </MudGrid>
@@ -164,221 +164,228 @@
     @if (_combinedMatches.Any())
     {
         <MudGrid Spacing="2" Class="mt-2">
-            @foreach (var matchGroup in GetFilteredMatchGroups())
-            {
-                var sportConfig = GetSportConfig(matchGroup.Sport);
-                var editingPhase = GetEditingPhase(matchGroup.EventID);
+            @{
+                var filteredGroups = GetFilteredMatchGroups().ToList();
+                var totalCards = filteredGroups.Count;
 
-                <MudItem xs="12" md="6" lg="4">
-                    <MudCard Elevation="2" Class="mb-4">
-                        <MudCardContent>
-                            <MudStack Row="true" Justify="Justify.Center" Align="Align.Center" Class="mb-3">
-                                <MudText Typo="Typo.h6" Color="Color.Primary">
-                                    @matchGroup.Sport - @matchGroup.EventStage
-                                </MudText>
-                            </MudStack>
+                foreach (var matchGroup in filteredGroups)
+                {
+                    var sportConfig = GetSportConfig(matchGroup.Sport);
+                    var editingPhase = GetEditingPhase(matchGroup.EventID);
+                    var isOnlyCard = totalCards == 1;
+                    var mdValue = isOnlyCard ? 12 : 6;
 
-                            <MudGrid Spacing="2">
-                                @foreach (var team in matchGroup.Teams)
+                    <MudItem xs="12" md="@mdValue">
+                        <MudCard Elevation="2" Class="mb-4">
+                            <MudCardContent>
+                                <MudStack Row="true" Justify="Justify.Center" AlignItems="AlignItems.Center" Class="mb-3">
+                                    <MudText Typo="Typo.h6" Color="Color.Primary">
+                                        @matchGroup.Sport - @matchGroup.EventStage
+                                    </MudText>
+                                </MudStack>
+
+                                <MudGrid Spacing="2">
+                                    @foreach (var team in matchGroup.Teams)
+                                    {
+                                        <MudItem xs="6">
+                                            <MudStack>
+                                                <MudStack Spacing="0" Style="width: 100%" AlignItems="AlignItems.Center">
+                                                    <MudText Class="text-center" Typo="Typo.h6" Style="font-weight: bold">@team.RegionAbbreviation</MudText>
+                                                    <MudText Class="text-center" Typo="Typo.caption">@team.Region</MudText>
+                                                </MudStack>
+                                                <MudStack Row Style="width: 100%" Justify="Justify.Center">
+                                                    <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{team.Region}.webp")" Height="120" />
+                                                </MudStack>
+                                                <MudText Typo="Typo.h6" Align="Align.Center" Color="Color.Primary" Class="mt-2">
+                                                    @GetTeamTotalScore(team)
+                                                </MudText>
+                                            </MudStack>
+
+                                            <MudDivider Class="my-2" />
+
+                                            <MudStack Row="true" Justify="Justify.Center" Spacing="1">
+                                                @foreach (var phase in Enumerable.Range(1, matchGroup.MaxPhase))
+                                                {
+                                                    var match = team.GetMatchByPhase(phase);
+                                                    var isEditingPhase = phase == editingPhase;
+
+                                                    <MudChip T="string"
+                                                             Size="Size.Small"
+                                                             Color="Color.Primary"
+                                                             Variant="@(IsSetWinner(team, phase) ? Variant.Outlined : (isEditingPhase ? Variant.Filled : Variant.Outlined))"
+                                                             OnClick="@(() => SetEditingPhase(matchGroup.EventID, phase))">
+                                                        @(match?.Score ?? 0)
+                                                    </MudChip>
+                                                }
+                                            </MudStack>
+                                        </MudItem>
+                                    }
+                                </MudGrid>
+
+                                @if (IsSetBasedSport(matchGroup.Sport))
                                 {
-                                    <MudItem xs="6">
-                                        <MudStack>
-                                            <MudStack Spacing="0" Style="width: 100%" AlignItems="AlignItems.Center">
-                                                <MudText Class="text-center" Typo="Typo.h6" Style="font-weight: bold">@team.RegionAbbreviation</MudText>
-                                                <MudText Class="text-center" Typo="Typo.caption">@team.Region</MudText>
-                                            </MudStack>
-                                            <MudStack Row Style="width: 100%" Justify="Justify.Center">
-                                                <MudImage Src="@($"https://palarongpambansa2026.com/attachments/media/regions/team_logo/{team.Region}.webp")" Height="120" />
-                                            </MudStack>
-                                            <MudText Typo="Typo.h6" Align="Align.Center" Color="Color.Primary" Class="mt-2">
-                                                @GetTeamTotalScore(team)
-                                            </MudText>
+                                    <MudStack Row="true" Justify="Justify.Center" Align="Align.Center" Class="my-2">
+                                        <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: bold;">
+                                            @GetSetScoreDisplay(matchGroup)
+                                        </MudText>
+                                    </MudStack>
+
+                                    @if (!IsSetCompleted(matchGroup, editingPhase))
+                                    {
+                                        <MudStack Row="true" Justify="Justify.Center" Align="Align.Center" Class="my-2">
+                                            <MudButton Variant="Variant.Text"
+                                                       Color="Color.Success"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => CompleteSet(matchGroup.EventID, editingPhase))"
+                                                       Disabled="_isLoading || !CanCompleteSet(matchGroup, editingPhase)"
+                                                       StartIcon="@Icons.Material.Filled.Check">
+                                                Set @editingPhase Done
+                                            </MudButton>
                                         </MudStack>
+                                    }
 
-                                        <MudDivider Class="my-2" />
+                                    @if (IsSetCompleted(matchGroup, editingPhase))
+                                    {
+                                        <MudStack Row="true" Justify="Justify.Center" Align="Align.Center" Class="my-2">
+                                            <MudButton Variant="Variant.Text"
+                                                       Size="Size.Small"
+                                                       Color="Color.Warning"
+                                                       OnClick="@(() => ReopenSet(matchGroup.EventID, editingPhase))"
+                                                       Disabled="_isLoading"
+                                                       Class="ml-2">
+                                                Reopen
+                                            </MudButton>
+                                        </MudStack>
+                                    }
+                                }
 
-                                        <MudStack Row="true" Justify="Justify.Center" Spacing="1">
-                                            @foreach (var phase in Enumerable.Range(1, matchGroup.MaxPhase))
+                                <MudDivider Class="my-3" />
+
+                                <MudStack Row="true" Justify="Justify.FlexStart" Align="Align.Center">
+                                    <MudItem xs="4"></MudItem>
+
+                                    <MudItem xs="4">
+                                        <MudText Typo="Typo.body1" Color="Color.Secondary" Align="Align.Center">
+                                            @sportConfig.PhaseLabel @editingPhase Scores
+                                        </MudText>
+                                    </MudItem>
+
+                                    <MudItem xs="4">
+                                        <MudStack Row="true" Spacing="1" Justify="Justify.FlexEnd">
+                                            <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                                           Color="Color.Primary"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => GeneratePhaseForEvent(matchGroup.EventID))"
+                                                           Disabled="_isLoading" />
+                                            @if (matchGroup.MaxPhase > 1)
                                             {
-                                                var match = team.GetMatchByPhase(phase);
-                                                var isEditingPhase = phase == editingPhase;
-
-                                                <MudChip T="string"
-                                                         Size="Size.Small"
-                                                         Color="Color.Primary"
-                                                         Variant="@(IsSetWinner(team, phase) ? Variant.Outlined : (isEditingPhase ? Variant.Filled : Variant.Outlined))"
-                                                         OnClick="@(() => SetEditingPhase(matchGroup.EventID, phase))">
-                                                    @(match?.Score ?? 0)
-                                                </MudChip>
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                               Color="Color.Error"
+                                                               Size="Size.Small"
+                                                               OnClick="@(() => DeleteLastPhase(matchGroup.EventID, matchGroup.MaxPhase))"
+                                                               Disabled="_isLoading" />
                                             }
                                         </MudStack>
                                     </MudItem>
-                                }
-                            </MudGrid>
-
-                        @if (IsSetBasedSport(matchGroup.Sport))
-                        {
-                            <MudStack Row="true" Justify="Justify.Center" Align="Align.Center" Class="my-2">
-                                <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight: bold;">
-                                    @GetSetScoreDisplay(matchGroup)
-                                </MudText>
-                            </MudStack>
-
-                            @if (!IsSetCompleted(matchGroup, editingPhase))
-                            {
-                                <MudStack Row="true" Justify="Justify.Center" Align="Align.Center" Class="my-2">
-                                    <MudButton Variant="Variant.Text"
-                                               Color="Color.Success"
-                                               Size="Size.Small"
-                                               OnClick="@(() => CompleteSet(matchGroup.EventID, editingPhase))"
-                                               Disabled="_isLoading || !CanCompleteSet(matchGroup, editingPhase)"
-                                               StartIcon="@Icons.Material.Filled.Check">
-                                        Set @editingPhase Done
-                                    </MudButton>
                                 </MudStack>
-                            }
 
-                            @if (IsSetCompleted(matchGroup, editingPhase))
-                            {
-                                <MudStack Row="true" Justify="Justify.Center" Align="Align.Center" Class="my-2">
-                                    <MudButton Variant="Variant.Text"
-                                               Size="Size.Small"
-                                               Color="Color.Warning"
-                                               OnClick="@(() => ReopenSet(matchGroup.EventID, editingPhase))"
-                                               Disabled="_isLoading"
-                                               Class="ml-2">
-                                        Reopen
-                                    </MudButton>
+
+                                <!-- Scoring Controls -->
+                                <MudGrid Spacing="2" Class="mt-2">
+                                    @foreach (var team in matchGroup.Teams)
+                                    {
+                                        <MudItem xs="6">
+                                            @{
+                                                var match = team.GetMatchByPhase(editingPhase);
+                                            }
+                                            @if (match != null)
+                                            {
+                                                <MudStack Row="true" Align="Align.Center" Spacing="2" Justify="Justify.Center">
+                                                    @if (sportConfig.HasMultiplePointOptions)
+                                                    {
+                                                        <MudStack Spacing="1" Align="Align.Center" Justify="Justify.Center">
+                                                            <MudPaper Class="px-3" Elevation="0">
+                                                                <MudText Typo="Typo.h6" Align="Align.Center" Style="font-weight: bold;">
+                                                                    @match.Score
+                                                                </MudText>
+                                                            </MudPaper>
+                                                            <MudDivider />
+
+                                                            <MudStack Class="mt-2" Row="true" Spacing="1" Align="Align.Center" Justify="Justify.Center">
+
+                                                                <MudIconButton Icon="@Icons.Material.Filled.Remove"
+                                                                               Size="Size.Small"
+                                                                               Color="Color.Error"
+                                                                               OnClick="@(() => DecrementScore(match, 1))"
+                                                                               Disabled="_isLoading || match.Score <= 0" />
+
+                                                                @foreach (var pointValue in sportConfig.PointValues)
+                                                                {
+                                                                    <MudIconButton Size="Size.Small"
+                                                                                   Variant="Variant.Outlined"
+                                                                                   Color="Color.Primary"
+                                                                                   OnClick="@(() => AddPoints(match, pointValue))"
+                                                                                   Disabled="_isLoading"
+                                                                                   Style="min-width: 40px; padding: 4px;">
+                                                                        +@pointValue
+                                                                    </MudIconButton>
+                                                                }
+                                                            </MudStack>
+                                                        </MudStack>
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudStack Spacing="1" Align="Align.Center" Justify="Justify.Center">
+
+                                                            <MudPaper Class="px-3" Elevation="0">
+                                                                <MudText Typo="Typo.h6" Align="Align.Center" Style="font-weight: bold;">
+                                                                    @match.Score
+                                                                </MudText>
+                                                            </MudPaper>
+                                                            <MudDivider />
+
+
+                                                            <MudStack Class="mt-2 my-3" Row="true" Spacing="4" Align="Align.Center" Justify="Justify.Center">
+                                                                <MudIconButton Icon="@Icons.Material.Filled.Remove"
+                                                                               Size="Size.Small"
+                                                                               Color="Color.Error"
+                                                                               OnClick="@(() => DecrementScore(match, 1))"
+                                                                               Disabled="_isLoading || match.Score <= 0" />
+
+                                                                <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                                                               Size="Size.Small"
+                                                                               Color="Color.Success"
+                                                                               OnClick="@(() => IncrementScore(match, 1))"
+                                                                               Disabled="_isLoading" />
+                                                            </MudStack>
+                                                        </MudStack>
+                                                    }
+                                                </MudStack>
+                                            }
+                                            else
+                                            {
+                                                <MudText Typo="Typo.caption" Color="Color.Warning" Align="Align.Center">
+                                                    Loading...
+                                                </MudText>
+                                            }
+                                        </MudItem>
+                                    }
+                                </MudGrid>
+
+                                <!-- Auto-save status -->
+                                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-2">
+                                    @if (_autoSaveStatus.ContainsKey(matchGroup.EventID))
+                                    {
+                                        var status = _autoSaveStatus[matchGroup.EventID];
+                                        <MudText Typo="Typo.caption" Color="@(status.IsSaving ? Color.Warning : Color.Success)">
+                                            @(status.IsSaving ? "Saving..." : "All changes saved")
+                                        </MudText>
+                                    }
                                 </MudStack>
-                            }
-                            }
-
-                            <MudDivider Class="my-3" />
-
-                            <MudStack Row="true" Justify="Justify.FlexStart" Align="Align.Center">
-                                <MudItem xs="4"></MudItem>
-
-                                <MudItem xs="4">
-                                    <MudText Typo="Typo.body1" Color="Color.Secondary" Align="Align.Center">
-                                        @sportConfig.PhaseLabel @editingPhase Scores
-                                    </MudText>
-                                </MudItem>
-
-                                <MudItem xs="4">
-                                    <MudStack Row="true" Spacing="1" Justify="Justify.FlexEnd">
-                                        <MudIconButton Icon="@Icons.Material.Filled.Add"
-                                                       Color="Color.Primary"
-                                                       Size="Size.Small"
-                                                       OnClick="@(() => GeneratePhaseForEvent(matchGroup.EventID))"
-                                                       Disabled="_isLoading" />
-                                        @if (matchGroup.MaxPhase > 1)
-                                        {
-                                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                                           Color="Color.Error"
-                                                           Size="Size.Small"
-                                                           OnClick="@(() => DeleteLastPhase(matchGroup.EventID, matchGroup.MaxPhase))"
-                                                           Disabled="_isLoading" />
-                                        }
-                                    </MudStack>
-                                </MudItem>
-                            </MudStack>
-
-
-                            <!-- Scoring Controls -->
-                            <MudGrid Spacing="2" Class="mt-2">
-                                @foreach (var team in matchGroup.Teams)
-                                {
-                                    <MudItem xs="6">
-                                        @{
-                                            var match = team.GetMatchByPhase(editingPhase);
-                                        }
-                                        @if (match != null)
-                                        {
-                                            <MudStack Row="true" Align="Align.Center" Spacing="2" Justify="Justify.Center">
-                                                @if (sportConfig.HasMultiplePointOptions)
-                                                {
-                                                    <MudStack Spacing="1" Align="Align.Center" Justify="Justify.Center">
-                                                        <MudPaper Class="px-3" Elevation="0">
-                                                            <MudText Typo="Typo.h6" Align="Align.Center" Style="font-weight: bold;">
-                                                                @match.Score
-                                                            </MudText>
-                                                        </MudPaper>
-                                                        <MudDivider />
-
-                                                        <MudStack Class="mt-2" Row="true" Spacing="1" Align="Align.Center" Justify="Justify.Center">
-
-                                                            <MudIconButton Icon="@Icons.Material.Filled.Remove"
-                                                                           Size="Size.Small"
-                                                                           Color="Color.Error"
-                                                                           OnClick="@(() => DecrementScore(match, 1))"
-                                                                           Disabled="_isLoading || match.Score <= 0" />
-
-                                                            @foreach (var pointValue in sportConfig.PointValues)
-                                                            {
-                                                                <MudIconButton Size="Size.Small"
-                                                                               Variant="Variant.Outlined"
-                                                                               Color="Color.Primary"
-                                                                               OnClick="@(() => AddPoints(match, pointValue))"
-                                                                               Disabled="_isLoading"
-                                                                               Style="min-width: 40px; padding: 4px;">
-                                                                    +@pointValue
-                                                                </MudIconButton>
-                                                            }
-                                                        </MudStack>
-                                                    </MudStack>
-                                                }
-                                                else
-                                                {
-                                                    <MudStack Spacing="1" Align="Align.Center" Justify="Justify.Center">
-
-                                                        <MudPaper Class="px-3" Elevation="0">
-                                                            <MudText Typo="Typo.h6" Align="Align.Center" Style="font-weight: bold;">
-                                                                @match.Score
-                                                            </MudText>
-                                                        </MudPaper>
-                                                        <MudDivider />
-
-
-                                                        <MudStack Class="mt-2 my-3" Row="true" Spacing="4" Align="Align.Center" Justify="Justify.Center">
-                                                            <MudIconButton Icon="@Icons.Material.Filled.Remove"
-                                                                           Size="Size.Small"
-                                                                           Color="Color.Error"
-                                                                           OnClick="@(() => DecrementScore(match, 1))"
-                                                                           Disabled="_isLoading || match.Score <= 0" />
-
-                                                            <MudIconButton Icon="@Icons.Material.Filled.Add"
-                                                                           Size="Size.Small"
-                                                                           Color="Color.Success"
-                                                                           OnClick="@(() => IncrementScore(match, 1))"
-                                                                           Disabled="_isLoading" />
-                                                        </MudStack>
-                                                    </MudStack>
-                                                }
-                                            </MudStack>
-                                        }
-                                        else
-                                        {
-                                            <MudText Typo="Typo.caption" Color="Color.Warning" Align="Align.Center">
-                                                Loading...
-                                            </MudText>
-                                        }
-                                    </MudItem>
-                                }
-                            </MudGrid>
-
-                            <!-- Auto-save status -->
-                            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-2">
-                                @if (_autoSaveStatus.ContainsKey(matchGroup.EventID))
-                                {
-                                    var status = _autoSaveStatus[matchGroup.EventID];
-                                    <MudText Typo="Typo.caption" Color="@(status.IsSaving ? Color.Warning : Color.Success)">
-                                        @(status.IsSaving ? "Saving..." : "All changes saved")
-                                    </MudText>
-                                }
-                            </MudStack>
-                        </MudCardContent>
-                    </MudCard>
-                </MudItem>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                }
             }
         </MudGrid>
     }
@@ -645,9 +652,9 @@
 
                 Snackbar.Add($"Score saved for {match.RegionAbbreviation}", Severity.Success, config =>
                 {
-                    config.VisibleStateDuration = 1000;
-                    config.HideTransitionDuration = 500;
-                    config.ShowTransitionDuration = 500;
+                    config.VisibleStateDuration = 250;
+                    config.HideTransitionDuration = 150;
+                    config.ShowTransitionDuration = 150;
                 });
             }
         }

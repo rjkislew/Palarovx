@@ -54,13 +54,33 @@ namespace Client.Palaro2026.Services
             }
         }
 
+        //public async Task<T?> GetSingleAsync<T>(string relativeUrl)
+        //{
+        //    var response = await _httpClient.GetAsync(BuildUrl(relativeUrl));
+        //    response.EnsureSuccessStatusCode();
+
+        //    // MUST deserialize an object, not List<T>
+        //    return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
+        //}
+
         public async Task<T?> GetSingleAsync<T>(string relativeUrl)
         {
-            var response = await _httpClient.GetAsync(BuildUrl(relativeUrl));
-            response.EnsureSuccessStatusCode();
+            string url = BuildUrl(relativeUrl);
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+                string responseContent = await response.Content.ReadAsStringAsync();
 
-            // MUST deserialize an object, not List<T>
-            return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
+                // Ensure the deserialized list is not null before calling FirstOrDefault
+                var list = JsonSerializer.Deserialize<List<T>>(responseContent, _jsonOptions);
+                return list != null ? list.FirstOrDefault() : default;
+            }
+            catch
+            {
+                NoData = true;
+                return default;
+            }
         }
     }
 }

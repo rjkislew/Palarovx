@@ -237,7 +237,6 @@
     }
     else
     {
-
         <!-- if there are error/s display loading (mudprogress, indeterminate) -->
         <MudItem xs="12">
             <MudProgressLinear Indeterminate="true" />
@@ -246,16 +245,9 @@
 </MudGrid>
 
 @code {
-    // Variables
-
-    // mud dialog instance: required for dialogs to work
     private IMudDialogInstance? MudDialog { get; set; }
     [Inject] private CookieService cookieService { get; set; } = default!;
 
-
-    // populated by API
-
-    // list of events
     private List<EventsDTO.EventDetails.Event>? _eventDetails;
 
     private string _searchString = "";
@@ -264,10 +256,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Load user role from cookie
         UserRole = await cookieService.GetCookie("userRole");
 
-        // Load all data for selects
         await LoadDataAsync();
 
         _isLoaded = true;
@@ -289,14 +279,14 @@
 
         foreach (var term in searchTerms)
         {
-            // checks if the event is finished in event details: search from boolean value to string
+            // checks if the event is finished in event details
             if ("finished".StartsWith(term) && events.IsFinished == true)
             {
                 matchesAnyTerm = true;
                 continue;
             }
 
-            // checks if the event is ongoing in event details: search from boolean value to string
+            // checks if the event is ongoing in event details
             if ("ongoing".StartsWith(term) && events.IsFinished == false)
             {
                 matchesAnyTerm = true;
@@ -390,7 +380,6 @@
         await GetEventsAsync();
     }
 
-
     // API Call for Events
     private async Task GetEventsAsync()
     {
@@ -398,8 +387,6 @@
         _eventDetails = await apiService.GetAsync<EventsDTO.EventDetails.Event>(url);
     }
 
-
-    // opening dialog method: add event dialog
     private async Task OpenAddEventDialog()
     {
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true, BackdropClick = false };
@@ -428,8 +415,6 @@
     //     }
     // }
 
-
-    // opening dialog method: edit event dialog
     private async Task OpenEditEventDialog(string? selectedEventID)
     {
         var parameters = new DialogParameters<AddEditDialog>
@@ -452,13 +437,10 @@
 
         if (!result!.Canceled)
         {
-            await GetEventsAsync(); // refresh list after edit
+            await GetEventsAsync();
         }
     }
 
-
-
-    // opening dialog method: add event teams dialog
     private async Task OpenAddEventTeamsDialog(string? selectedEventID, int? selectedSubSportID)
     {
         var parameter = new DialogParameters<AddEventTeamsDialog>
@@ -472,7 +454,6 @@
 
         var result = await dialog.Result;
 
-        // Check if the dialog was closed with a positive result (e.g., "OK")
         if (!result!.Canceled)
         {
             await GetEventsAsync();
@@ -516,7 +497,6 @@
 
         var result = await dialog.Result;
 
-        // Check if the dialog was closed with a positive result (e.g., "OK")
         if (!result!.Canceled)
         {
             await GetEventsAsync();
@@ -541,57 +521,54 @@
         await GetEventsAsync();
     }
 
-    // Add this dictionary to map sport names to scoreboard routes
+    // dictionary to map sport names to scoreboard routes
     private readonly Dictionary<string, string> _sportScoreboardRoutes = new()
-{
-    { "Archery", "./score/archery" },
-    { "Arnis", "./score/martialarts" },
-    { "Boxing", "./score/martialarts" },
-    { "Taekwondo", "./score/martialarts" },
-    { "Wrestling", "./score/martialarts" },
-    { "Wushu", "./score/martialarts" },
-    { "Pencak Silat", "./score/martialarts" },
-    { "Billiards", "./score/billiards" },
-    { "Chess", "./score/chess" },
-    { "Athletics", "./score/time-distance" }, 
-    { "Badminton", "./score/teammatch" },
-    { "Baseball", "./score/teammatch" },
-    { "Basketball", "./score/teammatch" },
-    { "Football", "./score/teammatch" },
-    { "Futsal", "./score/teammatch" },
-    { "Softball", "./score/teammatch" },
-    { "Sepak Takraw", "./score/teammatch" },
-    { "Table Tennis", "./score/teammatch" },
-    { "Tennis", "./score/teammatch" },
-    { "Volleyball", "./score/teammatch" },
-    { "Bocce", "./score/teammatch" },
-    { "Goal Ball", "./score/teammatch" },
-    { "Swimming", "./score/time-distance" }
-};
+    {
+        { "Archery", "./score/archery" },
+        { "Arnis", "./score/martialarts" },
+        { "Boxing", "./score/martialarts" },
+        { "Taekwondo", "./score/martialarts" },
+        { "Wrestling", "./score/martialarts" },
+        { "Wushu", "./score/martialarts" },
+        { "Pencak Silat", "./score/martialarts" },
+        { "Billiards", "./score/billiards" },
+        { "Chess", "./score/chess" },
+        { "Athletics", "./score/time-distance" }, 
+        { "Badminton", "./score/teammatch" },
+        { "Baseball", "./score/teammatch" },
+        { "Basketball", "./score/teammatch" },
+        { "Football", "./score/teammatch" },
+        { "Futsal", "./score/teammatch" },
+        { "Softball", "./score/teammatch" },
+        { "Sepak Takraw", "./score/teammatch" },
+        { "Table Tennis", "./score/teammatch" },
+        { "Tennis", "./score/teammatch" },
+        { "Volleyball", "./score/teammatch" },
+        { "Bocce", "./score/teammatch" },
+        { "Goal Ball", "./score/teammatch" },
+        { "Swimming", "./score/time-distance" }
+    };
 
-    // Helper method to determine the correct scoreboard URL
-    // Update your dictionary and add a method to handle specific cases
     private string GetScoreboardUrl(EventsDTO.EventDetails.Event eventDetail)
     {
         if (string.IsNullOrEmpty(eventDetail.Sport))
             return "./score/teammatch";
 
-        // Check for Athletics field events
         if (eventDetail.Sport == "Athletics" &&
             eventDetail.SportMainCat?.Contains("Field", StringComparison.OrdinalIgnoreCase) == true)
         {
             return "./score/field-events";
         }
 
-        // Check for Arnis/Taekwondo forms events
         if ((eventDetail.Sport == "Arnis" && eventDetail.Subcategory?.Contains("Anyo", StringComparison.OrdinalIgnoreCase) == true) ||
-            (eventDetail.Sport == "Taekwondo" && eventDetail.Subcategory?.Contains("Poomsae", StringComparison.OrdinalIgnoreCase) == true))
+            (eventDetail.Sport == "Taekwondo" && eventDetail.Subcategory?.Contains("Poomsae", StringComparison.OrdinalIgnoreCase) == true) ||
+            (eventDetail.Sport == "Pencak Silat" && eventDetail.SportMainCat?.Contains("Artistic", StringComparison.OrdinalIgnoreCase) == true))
         {
-            // Use the specific route for forms/kata
-            return "./score/martialarts-performance";  // or whatever route you want for forms
+            // route for performances
+            return "./score/martialarts-performance"; 
         }
 
-        // For regular martial arts events (sparring)
+        // For martial arts events (sparring)
         if (eventDetail.Sport == "Arnis" || eventDetail.Sport == "Taekwondo" ||
             eventDetail.Sport == "Boxing" || eventDetail.Sport == "Wrestling" ||
             eventDetail.Sport == "Wushu" || eventDetail.Sport == "Pencak Silat")
@@ -609,10 +586,8 @@
     {
         try
         {
-            // Get the scoreboard URL based on sport
             var scoreboardUrl = GetScoreboardUrl(eventDetail);
 
-            // Build query parameters
             var queryParams = new Dictionary<string, string>
         {
             { "eventId", eventDetail.ID }
@@ -634,7 +609,7 @@
             if (!string.IsNullOrEmpty(eventDetail.EventStage))
                 queryParams["stage"] = Uri.EscapeDataString(eventDetail.EventStage);
 
-            // Build the full URL with query string
+            // full URL with query string
             var queryString = string.Join("&", queryParams.Select(kvp => $"{kvp.Key}={kvp.Value}"));
             var fullUrl = $"{scoreboardUrl}?{queryString}";
 

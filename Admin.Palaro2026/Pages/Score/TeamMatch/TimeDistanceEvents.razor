@@ -223,7 +223,7 @@ else
                                 </MudItem>
 
                                 <MudItem xs="4" Class="d-flex justify-end">
-                                    @if (isHeatSaved)
+                                    @* @if (isHeatSaved)
                                     {
                                         <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Size="Size.Small">
                                             <MudIcon Icon="@Icons.Material.Filled.Check" Class="mr-1" />
@@ -232,6 +232,46 @@ else
                                     }
                                     else
                                     {
+                                        <MudIconButton Color="Color.Primary"
+                                                       Size="Size.Medium"
+                                                       OnClick="@(() => SaveHeatData(heat))"
+                                                       Disabled="@(_isSaving || SelectedEvent == null)"
+                                                       Icon="@Icons.Material.Filled.Save">
+                                            @if (_isSaving && _currentSavingHeat == heat)
+                                            {
+                                                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                            }
+                                        </MudIconButton>
+                                    } *@
+                                    <!-- In the heat header section, update the saved chip area -->
+                                    @if (isHeatSaved)
+                                    {
+                                        @if (_editingHeat == heat)
+                                        {
+                                            // In edit mode - show save icon
+                                            <MudIconButton Color="Color.Primary"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => SaveHeatData(heat))"
+                                                           Disabled="@(_isSaving)"
+                                                           Icon="@Icons.Material.Filled.Save">
+                                                @if (_isSaving && _currentSavingHeat == heat)
+                                                {
+                                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                                }
+                                            </MudIconButton>
+                                        }
+                                        else
+                                        {
+                                            // Saved but not editing - show edit icon
+                                            <MudIconButton Color="Color.Info"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => ToggleHeatEdit(heat))"
+                                                           Icon="@Icons.Material.Filled.Edit" />
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Not saved - show save icon
                                         <MudIconButton Color="Color.Primary"
                                                        Size="Size.Medium"
                                                        OnClick="@(() => SaveHeatData(heat))"
@@ -269,24 +309,38 @@ else
                                                            OnClick="@(() => RemoveLane(heat, lane))"
                                                            Title="Remove this lane" />
                                         }
-                                        <MudDropZone T="RegionItem"
+                                        @* <MudDropZone T="RegionItem"
                                                      Identifier="@laneKey"
                                                      Class="pa-1 flex-grow-1"
                                                      AllowDrop="@(!isLaneSaved)"
                                                      Style="@GetDropZoneStyle(isLaneSaved)">
+                                        </MudDropZone> *@
+                                        <MudDropZone T="RegionItem"
+                                                     Identifier="@laneKey"
+                                                     Class="pa-1 flex-grow-1"
+                                                     AllowDrop="@(!isLaneSaved || (_editingHeat == heat && isLaneSaved))"
+                                                     Style="@GetDropZoneStyle(isLaneSaved, heat)">
                                         </MudDropZone>
                                     </MudItem>
 
                                     <!-- Result field -->
                                     <MudItem xs="12" sm="3">
-                                        <MudTextField @bind-Value="LaneResults[laneKey]"
+                                        @* <MudTextField @bind-Value="LaneResults[laneKey]"
                                                       Placeholder="Result"
                                                       Variant="Variant.Outlined"
                                                       Dense="false"
                                                       FullWidth="true"
                                                       ReadOnly="@isLaneSaved"
                                                       Style="height:48px;"
-                                                      InputClass="@(isLaneSaved ? "mud-input-readonly" : "")" />
+                                                      InputClass="@(isLaneSaved ? "mud-input-readonly" : "")" /> *@
+                                        <MudTextField @bind-Value="LaneResults[laneKey]"
+                                                      Placeholder="Result"
+                                                      Variant="Variant.Outlined"
+                                                      Dense="false"
+                                                      FullWidth="true"
+                                                      ReadOnly="@(isLaneSaved && _editingHeat != heat)"
+                                                      Style="height:48px;"
+                                                      InputClass="@(isLaneSaved && _editingHeat != heat ? "mud-input-readonly" : "")" />
                                     </MudItem>
                                 </MudGrid>
                             }
@@ -434,6 +488,8 @@ else
     private string? _storedLevelGender;
     private string? _storedMainCategory;
     private string? _storedSportName;
+
+    private string? _editingHeat; //for edit
 
     private List<EventsDTO.EventStages>? _eventStages;
     private List<SportsDTO.SportGenderCategories>? _sportGenderCategories;
@@ -1263,6 +1319,81 @@ else
     //     }
     // }
 
+    private void ToggleHeatEdit(string heatName)
+    {
+        if (_editingHeat == heatName)
+        {
+            _editingHeat = null;
+            Snackbar.Add($"Edit mode disabled for {heatName}", Severity.Info);
+        }
+        else
+        {
+            _editingHeat = heatName;
+            Snackbar.Add($"Edit mode enabled for {heatName}. You can now modify assignments and results.", Severity.Info);
+        }
+        StateHasChanged();
+    }
+
+    private async Task CancelEdit(string heatName)
+    {
+        // Reload saved data to discard changes
+        await LoadSavedScoringData();
+        _editingHeat = null;
+        Snackbar.Add($"Edit cancelled for {heatName}", Severity.Info);
+        StateHasChanged();
+    }
+    // private async Task SaveHeatData(string heatName)
+    // {
+    //     if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
+    //     {
+    //         Snackbar.Add("No event selected. Please apply filters first.", Severity.Warning);
+    //         return;
+    //     }
+
+    //     _isSaving = true;
+    //     _currentSavingHeat = heatName;
+    //     StateHasChanged();
+
+    //     try
+    //     {
+    //         var existingData = await LoadExistingScoringData();
+
+    //         // Remove existing data for this heat
+    //         existingData.Heats = existingData.Heats
+    //             .Where(h => h.HeatName != heatName)
+    //             .ToList();
+
+    //         existingData.Assignments = existingData.Assignments
+    //             .Where(a => !a.AssignedTable.StartsWith(heatName + "-"))
+    //             .ToList();
+
+    //         var newHeatData = BuildHeatData(heatName);
+    //         existingData.Heats.AddRange(newHeatData);
+    //         existingData.Assignments.AddRange(BuildAssignmentsForHeat(heatName));
+
+    //         var saveRequest = new
+    //         {
+    //             EventID = SelectedEvent.ID,
+    //             Heats = existingData.Heats,
+    //             Assignments = existingData.Assignments
+    //         };
+
+    //         await apiService.PostAsync("TimeDistanceEvents/Sports/AthleticsSwimming", saveRequest);
+
+    //         SavedHeats.Add(heatName);
+    //         Snackbar.Add($"{heatName} data saved successfully!", Severity.Success);
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error saving {heatName} data: {ex.Message}", Severity.Error);
+    //     }
+    //     finally
+    //     {
+    //         _isSaving = false;
+    //         _currentSavingHeat = null;
+    //         StateHasChanged();
+    //     }
+    // }
     private async Task SaveHeatData(string heatName)
     {
         if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
@@ -1302,6 +1433,10 @@ else
             await apiService.PostAsync("TimeDistanceEvents/Sports/AthleticsSwimming", saveRequest);
 
             SavedHeats.Add(heatName);
+
+            // Exit edit mode after saving
+            _editingHeat = null;
+
             Snackbar.Add($"{heatName} data saved successfully!", Severity.Success);
         }
         catch (Exception ex)
@@ -1454,6 +1589,28 @@ else
 
     //     return false;
     // }
+    // private bool IsRegionInSavedHeat(RegionItem region)
+    // {
+    //     if (string.IsNullOrEmpty(region.AssignedTable) || region.AssignedTable == "Unassigned")
+    //         return false;
+
+    //     var parts = region.AssignedTable.Split('-');
+    //     if (parts.Length >= 1)
+    //     {
+    //         var heatName = parts[0].Trim();
+    //         // Check if ANY region with same RegionID is in a saved heat
+    //         // This is needed because multiple players share the same RegionID
+    //         var anyRegionInSavedHeat = Regions?.Any(r =>
+    //             r.Id == region.Id &&
+    //             !string.IsNullOrEmpty(r.AssignedTable) &&
+    //             r.AssignedTable != "Unassigned" &&
+    //             r.AssignedTable.StartsWith(heatName + "-")) == true;
+
+    //         return anyRegionInSavedHeat && SavedHeats.Contains(heatName);
+    //     }
+
+    //     return false;
+    // }
     private bool IsRegionInSavedHeat(RegionItem region)
     {
         if (string.IsNullOrEmpty(region.AssignedTable) || region.AssignedTable == "Unassigned")
@@ -1463,15 +1620,12 @@ else
         if (parts.Length >= 1)
         {
             var heatName = parts[0].Trim();
-            // Check if ANY region with same RegionID is in a saved heat
-            // This is needed because multiple players share the same RegionID
-            var anyRegionInSavedHeat = Regions?.Any(r =>
-                r.Id == region.Id &&
-                !string.IsNullOrEmpty(r.AssignedTable) &&
-                r.AssignedTable != "Unassigned" &&
-                r.AssignedTable.StartsWith(heatName + "-")) == true;
 
-            return anyRegionInSavedHeat && SavedHeats.Contains(heatName);
+            // If we're editing this heat, regions are not considered "saved" for movement purposes
+            if (_editingHeat == heatName)
+                return false;
+
+            return SavedHeats.Contains(heatName);
         }
 
         return false;
@@ -1492,15 +1646,27 @@ else
         return false;
     }
 
-    private string GetDropZoneStyle(bool isLaneSaved)
+    // private string GetDropZoneStyle(bool isLaneSaved)
+    // {
+    //     var baseStyle = "min-height:50px; border:1px dashed gray; border-radius:6px;";
+    //     // if (isLaneSaved)
+    //     // {
+    //     //     return baseStyle + " background-color: #f5f5f5; cursor: not-allowed;";
+    //     // }
+    //     return baseStyle;
+    // }
+    private string GetDropZoneStyle(bool isLaneSaved, string heat)
     {
         var baseStyle = "min-height:50px; border:1px dashed gray; border-radius:6px;";
-        // if (isLaneSaved)
-        // {
-        //     return baseStyle + " background-color: #f5f5f5; cursor: not-allowed;";
-        // }
+
+        if (isLaneSaved && _editingHeat != heat)
+        {
+            return baseStyle + " background-color: #f5f5f5;";
+        }
+
         return baseStyle;
     }
+
 
     // private async Task LoadSavedScoringData()
     // {

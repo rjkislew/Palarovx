@@ -192,11 +192,43 @@
                         @row.BestResult.ToString("F2")
                     </MudText>
                 </MudTd>
-                <MudTd>
+                @* <MudTd>
                     <MudText Typo="Typo.body2" Class="@(row.Rank > 0 ? "font-weight-bold" : "")">
                         @(row.Rank > 0 ? $"#{row.Rank}" : "-")
                     </MudText>
-                </MudTd>
+                </MudTd> *@
+                <MudTd>
+    <MudText Typo="Typo.body2" Class="@(row.Rank > 0 ? "font-weight-bold" : "")">
+        @if (SelectedEvent?.EventStage?.Equals("Finals", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            @if (row.Rank == 1)
+            {
+                <MudChip T="String" Style="@($"background-color: {Colors.Amber.Accent4}")" Size="Size.Small">GOLD</MudChip>
+            }
+            else if (row.Rank == 2)
+            {
+                <MudChip T="String" Style="@($"background-color: {Colors.BlueGray.Lighten4}")" Size="Size.Small">SILVER</MudChip>
+            }
+            else if (row.Rank == 3)
+            {
+                <MudChip T="String" Style="@($"background-color: {Colors.DeepOrange.Lighten1}")" Size="Size.Small">BRONZE</MudChip>
+            }
+            else if (row.Rank > 0)
+            {
+                <span>#@row.Rank</span>
+            }
+            else
+            {
+                <span>-</span>
+            }
+        }
+        else
+        {
+            @(row.Rank > 0 ? $"#{row.Rank}" : "-")
+        }
+    </MudText>
+</MudTd>
+
                 <MudTd>
                     <MudIconButton Icon="@Icons.Material.Filled.Clear"
                                    Color="Color.Error"
@@ -442,6 +474,73 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
         public string AssignedLane { get; set; } = "";
         public int Rank { get; set; }
         public double NumericResult { get; set; }
+    }
+
+    // Add these DTO classes for event progression
+    public class EventsDTO
+    {
+        public class EventStages
+        {
+            public int ID { get; set; }
+            public string? Stage { get; set; }
+        }
+
+        public class EventDetails
+        {
+            public string ID { get; set; } = null!;
+            public int? EventStageID { get; set; }
+            public string? EventStage { get; set; }
+            public List<EventVersusTeams>? EventVersusList { get; set; }
+            public string? SportMainCat { get; set; }
+            public string? Category { get; set; }
+            public string? Sport { get; set; }
+            public string? GamePhase { get; set; }
+            public int? SubCategoryID { get; set; }
+            public string? Subcategory { get; set; }
+            public string? Gender { get; set; }
+            public string? Level { get; set; }
+            public int? EventVenuesID { get; set; }
+            public string? Venue { get; set; }
+            public decimal? Latitude { get; set; }
+            public decimal? Longitude { get; set; }
+            public DateTime? Date { get; set; }
+            public TimeSpan? Time { get; set; }
+            public bool? OnStream { get; set; }
+            public int? EventStreamID { get; set; }
+            public int? EventStreamServiceID { get; set; }
+            public string? StreamService { get; set; }
+            public string? StreamURL { get; set; }
+            public bool? IsFinished { get; set; }
+            public bool? Archived { get; set; }
+            public bool? Deleted { get; set; }
+            public string? UserID { get; set; }
+            public int? BracketID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+        }
+
+        public class EventVersusTeams
+        {
+            public int ID { get; set; }
+            public string? EventID { get; set; }
+            public int? SchoolRegionID { get; set; }
+            public string? Score { get; set; }
+            public string? Region { get; set; }
+            public string? Abbreviation { get; set; }
+            public List<EventVersusTeamPlayers>? EventVersusTeamPlayersList { get; set; }
+            public string? Rank { get; set; }
+            public DateTime? RecentUpdateAt { get; set; }
+        }
+
+        public class EventVersusTeamPlayers
+        {
+            public int ID { get; set; }
+            public int? EventVersusID { get; set; }
+            public string? ProfilePlayerID { get; set; }
+            public string? FirstName { get; set; }
+            public string? LastName { get; set; }
+            public string? School { get; set; }
+        }
     }
 
     // protected override async Task OnInitializedAsync()
@@ -976,24 +1075,64 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
         StateHasChanged();
     }
 
-    private void CalculateAllRankings()
+    // private void CalculateAllRankings()
+    // {
+    //     var rowsWithResults = ScoringRows
+    //         .Where(r => r.BestResult > 0)
+    //         .OrderByDescending(r => r.BestResult)
+    //         .ToList();
+
+    //     foreach (var row in ScoringRows)
+    //     {
+    //         row.Rank = 0;
+    //     }
+
+    //     for (int i = 0; i < rowsWithResults.Count; i++)
+    //     {
+    //         rowsWithResults[i].Rank = i + 1;
+    //     }
+
+    //     Snackbar.Add($"Rankings calculated for {rowsWithResults.Count} participants", Severity.Success);
+    //     StateHasChanged();
+    // }
+    private async Task CalculateAllRankings()
     {
         var rowsWithResults = ScoringRows
             .Where(r => r.BestResult > 0)
             .OrderByDescending(r => r.BestResult)
             .ToList();
 
+        // Clear all ranks first
         foreach (var row in ScoringRows)
         {
             row.Rank = 0;
         }
 
+        // Set ranks based on best results
         for (int i = 0; i < rowsWithResults.Count; i++)
         {
             rowsWithResults[i].Rank = i + 1;
         }
 
-        Snackbar.Add($"Rankings calculated for {rowsWithResults.Count} participants", Severity.Success);
+        // Check if this is Finals and event is finished
+        bool isFinalsAndFinished = await IsEventFinalsAndFinished();
+
+        if (isFinalsAndFinished && rowsWithResults.Count >= 3)
+        {
+            // Mark Gold, Silver, Bronze in EventVersusTeams
+            await MarkMedalsInEventVersusTeams(rowsWithResults);
+
+            Snackbar.Add($"FINALS COMPLETED! Gold: {rowsWithResults[0].RegionName}, Silver: {rowsWithResults[1].RegionName}, Bronze: {rowsWithResults[2].RegionName}", Severity.Success);
+        }
+        else if (isFinalsAndFinished)
+        {
+            Snackbar.Add($"Finals completed but only {rowsWithResults.Count} participants have results. Need at least 3 for full medals.", Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add($"Rankings calculated for {rowsWithResults.Count} participants", Severity.Success);
+        }
+
         StateHasChanged();
     }
 
@@ -1010,6 +1149,9 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
 
         try
         {
+            // First calculate rankings to ensure they're up to date
+            CalculateAllRankings();
+
             var saveData = new List<SaveFieldEventData>();
 
             foreach (var row in ScoringRows)
@@ -1049,7 +1191,23 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
 
             await apiService.PostAsync("FieldEvents/SaveResults", request);
 
-            Snackbar.Add("Results saved successfully!", Severity.Success);
+            // Check if this is finals and mark medals accordingly
+            bool isFinalsAndFinished = await IsEventFinalsAndFinished();
+
+            if (isFinalsAndFinished)
+            {
+                var rankedRows = ScoringRows
+                    .Where(r => r.BestResult > 0)
+                    .OrderByDescending(r => r.BestResult)
+                    .ToList();
+
+                await MarkMedalsInEventVersusTeams(rankedRows);
+                Snackbar.Add("Results saved and medals marked successfully!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Results saved successfully!", Severity.Success);
+            }
         }
         catch (Exception ex)
         {
@@ -1157,7 +1315,405 @@ else if (SelectedEvent != null && (Regions == null || !Regions.Any()))
 
     private async Task ProceedToNextStage()
     {
-       
+        try
+        {
+            // Validate that we have a selected event
+            if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
+            {
+                Snackbar.Add("No event selected", Severity.Warning);
+                return;
+            }
+
+            // First, ensure rankings are calculated
+            CalculateAllRankings();
+
+            // Get the top 8 players (those with rank 1-8)
+            var top8Players = ScoringRows
+                .Where(r => r.Rank >= 1 && r.Rank <= 8 && r.BestResult > 0)
+                .OrderBy(r => r.Rank)
+                .ToList();
+
+            if (!top8Players.Any())
+            {
+                Snackbar.Add("No ranked players found. Please calculate rankings first.", Severity.Warning);
+                return;
+            }
+
+            if (top8Players.Count < 8)
+            {
+                Snackbar.Add($"Only {top8Players.Count} players have valid results. Need at least 8 to proceed to finals.", Severity.Warning);
+                return;
+            }
+
+            // Get current stage ID and next stage ID
+            var currentStageId = await GetCurrentEventStageId();
+            if (!currentStageId.HasValue)
+            {
+                Snackbar.Add("Could not determine current event stage.", Severity.Error);
+                return;
+            }
+
+            var nextStageId = GetNextStageId(currentStageId.Value);
+            if (nextStageId == 0)
+            {
+                Snackbar.Add("No next stage available for progression.", Severity.Warning);
+                return;
+            }
+
+            // Get the next stage name
+            var nextStage = _eventStages?.FirstOrDefault(s => s.ID == nextStageId);
+            if (nextStage == null)
+            {
+                Snackbar.Add($"Could not find stage with ID {nextStageId}", Severity.Error);
+                return;
+            }
+
+            // Get EventVersusTeams for the current event to get original team data
+            var progressionTeams = new List<Dictionary<string, object>>();
+
+            // Get ALL EventVersusTeams for the current event
+            var versusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(
+                $"/Events/VersusTeams?eventID={SelectedEvent.ID}");
+
+            if (versusTeams != null && versusTeams.Any())
+            {
+                // Filter to only include top 8 players
+                foreach (var topPlayer in top8Players)
+                {
+                    // Find the matching team for this region and player
+                    var matchingTeam = versusTeams.FirstOrDefault(t =>
+                        t.SchoolRegionID == topPlayer.RegionID);
+
+                    if (matchingTeam != null)
+                    {
+                        // Get players for this team
+                        var teamPlayers = await apiService.GetAsync<EventsDTO.EventVersusTeamPlayers>(
+                            $"/Events/VersusTeams/Players?eventVersusID={matchingTeam.ID}");
+
+                        var selectedPlayerIds = new List<string>();
+                        var playerNames = new List<string>();
+
+                        if (teamPlayers != null && teamPlayers.Any())
+                        {
+                            // For field events, we need to match the specific player
+                            var matchingPlayer = teamPlayers.FirstOrDefault(p =>
+                                p.ProfilePlayerID == topPlayer.PlayerID);
+
+                            if (matchingPlayer != null)
+                            {
+                                selectedPlayerIds.Add(matchingPlayer.ProfilePlayerID!);
+
+                                // Build full name
+                                var fullName = "";
+                                if (!string.IsNullOrEmpty(matchingPlayer.FirstName) && !string.IsNullOrEmpty(matchingPlayer.LastName))
+                                    fullName = $"{matchingPlayer.FirstName} {matchingPlayer.LastName}";
+                                else if (!string.IsNullOrEmpty(matchingPlayer.FirstName))
+                                    fullName = matchingPlayer.FirstName;
+                                else if (!string.IsNullOrEmpty(matchingPlayer.LastName))
+                                    fullName = matchingPlayer.LastName;
+                                else
+                                    fullName = matchingPlayer.ProfilePlayerID;
+
+                                playerNames.Add(fullName);
+                            }
+                        }
+
+                        // Add to progression teams
+                        var teamData = new Dictionary<string, object>
+                            {
+                                ["SelectedRegionID"] = matchingTeam.SchoolRegionID,
+                                ["ExistingVersusTeamID"] = matchingTeam.ID,
+                                ["Score"] = topPlayer.BestResult.ToString("F2"),
+                                ["Rank"] = topPlayer.Rank.ToString(),
+                                ["SelectedPlayerIDs"] = selectedPlayerIds,
+                                ["PlayerNames"] = playerNames,
+                                ["RegionName"] = topPlayer.RegionName,
+                                ["IsWinner"] = true,
+                                ["PlayerSpecificInfo"] = new
+                                {
+                                    PlayerID = topPlayer.PlayerID,
+                                    PlayerName = topPlayer.PlayerName
+                                }
+                            };
+
+                        progressionTeams.Add(teamData);
+                    }
+                    else
+                    {
+                        // If no matching team found, create from ScoringRow
+                        var teamData = new Dictionary<string, object>
+                            {
+                                ["SelectedRegionID"] = topPlayer.RegionID,
+                                ["ExistingVersusTeamID"] = null,
+                                ["Score"] = topPlayer.BestResult.ToString("F2"),
+                                ["Rank"] = topPlayer.Rank.ToString(),
+                                ["SelectedPlayerIDs"] = !string.IsNullOrEmpty(topPlayer.PlayerID) ?
+                                    new List<string> { topPlayer.PlayerID } : new List<string>(),
+                                ["PlayerNames"] = !string.IsNullOrEmpty(topPlayer.PlayerName) ?
+                                    new List<string> { topPlayer.PlayerName } : new List<string>(),
+                                ["RegionName"] = topPlayer.RegionName,
+                                ["IsWinner"] = true,
+                                ["PlayerSpecificInfo"] = new
+                                {
+                                    PlayerID = topPlayer.PlayerID,
+                                    PlayerName = topPlayer.PlayerName
+                                }
+                            };
+
+                        progressionTeams.Add(teamData);
+                    }
+                }
+            }
+            else
+            {
+                // Fallback: If no EventVersusTeams found, use ScoringRows data
+                foreach (var topPlayer in top8Players)
+                {
+                    var teamData = new Dictionary<string, object>
+                        {
+                            ["SelectedRegionID"] = topPlayer.RegionID,
+                            ["ExistingVersusTeamID"] = null,
+                            ["Score"] = topPlayer.BestResult.ToString("F2"),
+                            ["Rank"] = topPlayer.Rank.ToString(),
+                            ["SelectedPlayerIDs"] = !string.IsNullOrEmpty(topPlayer.PlayerID) ?
+                                new List<string> { topPlayer.PlayerID } : new List<string>(),
+                            ["PlayerNames"] = !string.IsNullOrEmpty(topPlayer.PlayerName) ?
+                                new List<string> { topPlayer.PlayerName } : new List<string>(),
+                            ["RegionName"] = topPlayer.RegionName,
+                            ["IsWinner"] = true,
+                            ["PlayerSpecificInfo"] = new
+                            {
+                                PlayerID = topPlayer.PlayerID,
+                                PlayerName = topPlayer.PlayerName
+                            }
+                        };
+
+                    progressionTeams.Add(teamData);
+                }
+            }
+
+            if (!progressionTeams.Any())
+            {
+                Snackbar.Add("No qualified participants found to proceed to next stage.", Severity.Warning);
+                return;
+            }
+
+            // Prepare dialog parameters for creating new event
+            var parameters = new DialogParameters<AddEditDialog>
+        {
+            { x => x.IsProgressionMode, true },
+            { x => x.PreviousEventID, SelectedEvent.ID },
+            { x => x.ProgressionTeams, progressionTeams },
+            { x => x.SelectedEventStage, nextStage.Stage } // Using SelectedEventStage instead of SelectedEventStagesIDValue
+        };
+
+            // Open the dialog
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true,
+                    CloseOnEscapeKey = true,
+                    BackdropClick = false
+                };
+
+            var dialog = await DialogService.ShowAsync<AddEditDialog>("Create Finals Event", parameters, options);
+            var result = await dialog.Result;
+
+            if (!result!.Canceled)
+            {
+                Snackbar.Add("Finals event created successfully with top 8 players!", Severity.Success);
+
+                // Optionally navigate to the new finals event
+                // var newEventId = result.Data?.ToString();
+                // if (!string.IsNullOrEmpty(newEventId))
+                // {
+                //     Navigation.NavigateTo($"/score/field-events?eventId={newEventId}");
+                // }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error proceeding to next stage: {ex.Message}", Severity.Error);
+        }
     }
 
+    // Add this helper method to get the current event stage ID
+    private async Task<int?> GetCurrentEventStageId()
+    {
+        if (SelectedEvent?.ID == null) return null;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(SelectedEvent.EventStage) && _eventStages != null)
+            {
+                var stage = _eventStages.FirstOrDefault(s =>
+                    s.Stage != null && s.Stage.Equals(SelectedEvent.EventStage, StringComparison.OrdinalIgnoreCase));
+                return stage?.ID;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error getting current event stage ID: {ex.Message}", Severity.Warning);
+        }
+
+        return null;
+    }
+
+    // Add this helper method to get the next stage ID
+    private int GetNextStageId(int currentStageId)
+    {
+        if (_eventStages != null)
+        {
+            // Get all stage IDs in order
+            var stagesOrdered = _eventStages.OrderBy(s => s.ID).ToList();
+            var currentIndex = stagesOrdered.FindIndex(s => s.ID == currentStageId);
+
+            if (currentIndex >= 0 && currentIndex < stagesOrdered.Count - 1)
+            {
+                return stagesOrdered[currentIndex + 1].ID;
+            }
+        }
+
+        return 0;
+    }
+
+
+    private async Task<bool> IsEventFinalsAndFinished()
+    {
+        if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
+            return false;
+
+        try
+        {
+            // Check if event stage is Finals
+            bool isFinals = SelectedEvent.EventStage?.Equals("Finals", StringComparison.OrdinalIgnoreCase) == true;
+
+            if (!isFinals)
+                return false;
+
+            // Check if event is finished
+            var eventDetails = await apiService.GetAsync<EventsDTO.EventDetails>($"/Events?id={SelectedEvent.ID}");
+            return eventDetails?.FirstOrDefault()?.IsFinished == true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+
+    private async Task MarkMedalsInEventVersusTeams(List<ScoringRow> rankedRows)
+    {
+        try
+        {
+            if (SelectedEvent == null || string.IsNullOrEmpty(SelectedEvent.ID))
+                return;
+
+            // Get all EventVersusTeams for this event
+            var versusTeams = await apiService.GetAsync<EventsDTO.EventVersusTeams>(
+                $"/Events/VersusTeams?eventID={SelectedEvent.ID}");
+
+            if (versusTeams == null || !versusTeams.Any())
+            {
+                Snackbar.Add("No EventVersusTeams found for this event", Severity.Warning);
+                return;
+            }
+
+            // Mark Gold, Silver, Bronze for top 3
+            var medalRanks = new[] { "Gold", "Silver", "Bronze" };
+
+            for (int i = 0; i < Math.Min(rankedRows.Count, 3); i++)
+            {
+                var row = rankedRows[i];
+
+                // Find the matching team - try multiple matching strategies
+                var team = versusTeams.FirstOrDefault(t => t.SchoolRegionID == row.RegionID);
+
+                // If not found by RegionID, try by region name/abbreviation
+                if (team == null)
+                {
+                    team = versusTeams.FirstOrDefault(t =>
+                        !string.IsNullOrEmpty(t.Abbreviation) &&
+                        t.Abbreviation.Equals(row.RegionName, StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (team != null)
+                {
+                    try
+                    {
+                        // Create update object with ALL properties from the original team
+                        var updateDto = new
+                        {
+                            ID = team.ID,
+                            EventID = team.EventID,
+                            SchoolRegionID = team.SchoolRegionID,
+                            Score = row.BestResult.ToString("F2"),
+                            Rank = medalRanks[i],
+                            // Include any other properties that might be required
+                            Region = team.Region,
+                            Abbreviation = team.Abbreviation
+                        };
+
+                        // Use a more specific endpoint or ensure the API accepts partial updates
+                        await apiService.PutAsync($"/Events/VersusTeams/{team.ID}", updateDto);
+
+                        // Also update in ScoringRows for display
+                        row.Rank = i + 1; // Keep numeric rank for sorting
+
+                        Snackbar.Add($"Marked {row.RegionName} as {medalRanks[i]}", Severity.Info);
+                    }
+                    catch (Exception ex)
+                    {
+                        Snackbar.Add($"Error updating team {team.ID}: {ex.Message}", Severity.Error);
+                    }
+                }
+                else
+                {
+                    Snackbar.Add($"Could not find EventVersusTeam for region {row.RegionName} (ID: {row.RegionID})", Severity.Warning);
+                }
+            }
+
+            // Mark remaining participants as "Finalist"
+            for (int i = 3; i < rankedRows.Count; i++)
+            {
+                var row = rankedRows[i];
+                var team = versusTeams.FirstOrDefault(t => t.SchoolRegionID == row.RegionID);
+
+                if (team == null)
+                {
+                    team = versusTeams.FirstOrDefault(t =>
+                        !string.IsNullOrEmpty(t.Abbreviation) &&
+                        t.Abbreviation.Equals(row.RegionName, StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (team != null)
+                {
+                    try
+                    {
+                        var updateDto = new
+                        {
+                            ID = team.ID,
+                            EventID = team.EventID,
+                            SchoolRegionID = team.SchoolRegionID,
+                            Score = row.BestResult.ToString("F2"),
+                            Rank = "Finalist",
+                            Region = team.Region,
+                            Abbreviation = team.Abbreviation
+                        };
+
+                        await apiService.PutAsync($"/Events/VersusTeams/{team.ID}", updateDto);
+                    }
+                    catch (Exception ex)
+                    {
+                        Snackbar.Add($"Error updating team {team.ID}: {ex.Message}", Severity.Error);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error marking medals: {ex.Message}", Severity.Error);
+        }
+    }
 }
