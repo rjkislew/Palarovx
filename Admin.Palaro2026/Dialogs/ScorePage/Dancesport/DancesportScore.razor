@@ -691,6 +691,145 @@
         }
     }
 
+    // private async Task SaveRank()
+    // {
+    //     try
+    //     {
+    //         if (!_selectedSubcategoryId.HasValue || _rankValue <= 0)
+    //         {
+    //             Snackbar.Add("Please select a category and enter a valid rank", Severity.Warning);
+    //             return;
+    //         }
+
+    //         var currentUserId = await GetCurrentUserIdAsync();
+
+    //         if (IsTeamEvent && TeamID.HasValue)
+    //         {
+    //             if (!_teamPerformanceTeamIds.Any())
+    //             {
+    //                 Snackbar.Add("Team members not loaded. Please reopen the dialog.", Severity.Error);
+    //                 return;
+    //             }
+
+    //             // Load all existing scores for this event once (to upsert correctly per player)
+    //             string getUrl = $"/PerformanceScore/Score/{EventID}";
+    //             var allScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(getUrl)
+    //                            ?? new List<PerformanceBasedDTO.PerformanceScore>();
+
+    //             int successCount = 0;
+
+    //             foreach (var kvp in _teamPerformanceTeamIds)
+    //             {
+    //                 string playerId = kvp.Key;
+    //                 int perfTeamId = kvp.Value;
+
+    //                 // find existing score for THIS player + subcategory + team
+    //                 var existing = allScores.FirstOrDefault(s =>
+    //                     s.PerformanceTeamID == perfTeamId &&
+    //                     s.SportSubcategoryID == _selectedSubcategoryId.Value &&
+    //                     s.TeamID == TeamID);
+
+    //                 var scoreData = new PerformanceBasedDTO.PerformanceScore
+    //                 {
+    //                     PerformanceID = EventID.Value,
+    //                     PerformanceTeamID = perfTeamId,
+    //                     SportSubcategoryID = _selectedSubcategoryId.Value,
+    //                     Score = 0,
+    //                     Rank = _rankValue,
+    //                     UserID = currentUserId,
+    //                     UpdatedAt = DateTime.Now,
+    //                     TeamID = TeamID
+    //                 };
+
+    //                 if (existing != null)
+    //                 {
+    //                     scoreData.ID = existing.ID;
+    //                     string putUrl = $"/PerformanceScore/Score/{existing.ID}";
+    //                     var ok = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(putUrl, scoreData);
+    //                     if (ok) successCount++;
+    //                 }
+    //                 else
+    //                 {
+    //                     string postUrl = "/PerformanceScore/Score";
+    //                     var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(postUrl, scoreData);
+    //                     if (created != null) successCount++;
+    //                 }
+    //             }
+
+    //             if (successCount > 0)
+    //             {
+    //                 Snackbar.Add($"Team rank saved for {successCount} player(s).", Severity.Success);
+
+    //                 // refresh existing rank state (and medal representative)
+    //                 await LoadExistingRank();
+
+    //                 MudDialog.Close(DialogResult.Ok(true));
+    //             }
+    //             else
+    //             {
+    //                 Snackbar.Add("Failed to save team rank.", Severity.Error);
+    //             }
+
+    //             return;
+    //         }
+
+    //         // ✅ INDIVIDUAL EVENT: original behavior
+    //         if (!_opposingTeamId.HasValue)
+    //         {
+    //             Snackbar.Add("Player team info not found.", Severity.Warning);
+    //             return;
+    //         }
+
+    //         var individualScore = new PerformanceBasedDTO.PerformanceScore
+    //         {
+    //             PerformanceID = EventID.Value,
+    //             PerformanceTeamID = _opposingTeamId.Value,
+    //             SportSubcategoryID = _selectedSubcategoryId.Value,
+    //             Score = 0,
+    //             Rank = _rankValue,
+    //             UserID = currentUserId,
+    //             UpdatedAt = DateTime.Now,
+    //             TeamID = null
+    //         };
+
+    //         if (_existingScoreId.HasValue)
+    //         {
+    //             individualScore.ID = _existingScoreId.Value;
+    //             string putUrl = $"/PerformanceScore/Score/{_existingScoreId.Value}";
+    //             var ok = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(putUrl, individualScore);
+
+    //             if (ok)
+    //             {
+    //                 Snackbar.Add("Rank updated successfully!", Severity.Success);
+    //                 MudDialog.Close(DialogResult.Ok(true));
+    //             }
+    //             else
+    //             {
+    //                 Snackbar.Add("Failed to update rank", Severity.Error);
+    //             }
+    //         }
+    //         else
+    //         {
+    //             string postUrl = "/PerformanceScore/Score";
+    //             var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(postUrl, individualScore);
+
+    //             if (created != null)
+    //             {
+    //                 Snackbar.Add("Rank saved successfully!", Severity.Success);
+    //                 MudDialog.Close(DialogResult.Ok(true));
+    //             }
+    //             else
+    //             {
+    //                 Snackbar.Add("Failed to save rank", Severity.Error);
+    //             }
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error saving rank: {ex.Message}", Severity.Error);
+    //     }
+    // }
+
     private async Task SaveRank()
     {
         try
@@ -711,7 +850,6 @@
                     return;
                 }
 
-                // Load all existing scores for this event once (to upsert correctly per player)
                 string getUrl = $"/PerformanceScore/Score/{EventID}";
                 var allScores = await apiService.GetAsync<PerformanceBasedDTO.PerformanceScore>(getUrl)
                                ?? new List<PerformanceBasedDTO.PerformanceScore>();
@@ -720,10 +858,8 @@
 
                 foreach (var kvp in _teamPerformanceTeamIds)
                 {
-                    string playerId = kvp.Key;
                     int perfTeamId = kvp.Value;
 
-                    // find existing score for THIS player + subcategory + team
                     var existing = allScores.FirstOrDefault(s =>
                         s.PerformanceTeamID == perfTeamId &&
                         s.SportSubcategoryID == _selectedSubcategoryId.Value &&
@@ -744,25 +880,38 @@
                     if (existing != null)
                     {
                         scoreData.ID = existing.ID;
-                        string putUrl = $"/PerformanceScore/Score/{existing.ID}";
-                        var ok = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(putUrl, scoreData);
+                        var ok = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(
+                            $"/PerformanceScore/Score/{existing.ID}", scoreData);
+
                         if (ok) successCount++;
                     }
                     else
                     {
-                        string postUrl = "/PerformanceScore/Score";
-                        var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(postUrl, scoreData);
+                        var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(
+                            "/PerformanceScore/Score", scoreData);
+
                         if (created != null) successCount++;
                     }
                 }
 
                 if (successCount > 0)
                 {
-                    Snackbar.Add($"Team rank saved for {successCount} player(s).", Severity.Success);
-
-                    // refresh existing rank state (and medal representative)
+                    // ✅ refresh IDs needed by SaveMedal()
                     await LoadExistingRank();
 
+                    // ✅ auto-assign medal based on rank
+                    _selectedMedal = _rankValue switch
+                    {
+                        1 => "Gold",
+                        2 => "Silver",
+                        3 => "Bronze",
+                        _ => null
+                    };
+
+                    if (!string.IsNullOrEmpty(_selectedMedal))
+                        await SaveMedal();
+
+                    Snackbar.Add($"Team rank+medal saved for {successCount} player(s).", Severity.Success);
                     MudDialog.Close(DialogResult.Ok(true));
                 }
                 else
@@ -773,7 +922,7 @@
                 return;
             }
 
-            // ✅ INDIVIDUAL EVENT: original behavior
+            // ✅ INDIVIDUAL EVENT
             if (!_opposingTeamId.HasValue)
             {
                 Snackbar.Add("Player team info not found.", Severity.Warning);
@@ -795,12 +944,27 @@
             if (_existingScoreId.HasValue)
             {
                 individualScore.ID = _existingScoreId.Value;
-                string putUrl = $"/PerformanceScore/Score/{_existingScoreId.Value}";
-                var ok = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(putUrl, individualScore);
+                var ok = await apiService.PutAsync<PerformanceBasedDTO.PerformanceScore>(
+                    $"/PerformanceScore/Score/{_existingScoreId.Value}", individualScore);
 
                 if (ok)
                 {
-                    Snackbar.Add("Rank updated successfully!", Severity.Success);
+                    // ✅ refresh IDs needed by SaveMedal()
+                    await LoadExistingRank();
+
+                    // ✅ auto-assign medal based on rank
+                    _selectedMedal = _rankValue switch
+                    {
+                        1 => "Gold",
+                        2 => "Silver",
+                        3 => "Bronze",
+                        _ => null
+                    };
+
+                    if (!string.IsNullOrEmpty(_selectedMedal))
+                        await SaveMedal();
+
+                    Snackbar.Add("Rank+medal updated successfully!", Severity.Success);
                     MudDialog.Close(DialogResult.Ok(true));
                 }
                 else
@@ -810,12 +974,25 @@
             }
             else
             {
-                string postUrl = "/PerformanceScore/Score";
-                var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(postUrl, individualScore);
+                var created = await apiService.PostAsync<PerformanceBasedDTO.PerformanceScore>(
+    "/PerformanceScore/Score", individualScore);
 
-                if (created != null)
+                if (created)   // ✔ created is bool
                 {
-                    Snackbar.Add("Rank saved successfully!", Severity.Success);
+                    await LoadExistingRank();  // ✔ this will now set _existingScoreId correctly
+
+                    _selectedMedal = _rankValue switch
+                    {
+                        1 => "Gold",
+                        2 => "Silver",
+                        3 => "Bronze",
+                        _ => null
+                    };
+
+                    if (!string.IsNullOrEmpty(_selectedMedal))
+                        await SaveMedal();
+
+                    Snackbar.Add("Rank+medal saved successfully!", Severity.Success);
                     MudDialog.Close(DialogResult.Ok(true));
                 }
                 else

@@ -1,4 +1,5 @@
-﻿@page "/"
+﻿
+@page "/"
 
 <!--
 The home page where the events are listed and functions
@@ -10,6 +11,11 @@ as the dashboard for the Palaro tu AgSur 2026 management system
 @inject IDialogService DialogService
 @inject APIService apiService
 @inject HttpClient httpClient
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject CookieService cookieService
+
+
 
 <MudGrid>
     @* Sports Events *@
@@ -201,9 +207,13 @@ as the dashboard for the Palaro tu AgSur 2026 management system
 
 @code
 {
+    [CascadingParameter]
     private IMudDialogInstance? MudDialog { get; set; }
 
     private EventsDTO.EventCount? _eventCounts;
+    private bool _privacyDialogShown;
+
+    private string? UserRole;
 
     public class EventsDTO
     {
@@ -239,7 +249,55 @@ as the dashboard for the Palaro tu AgSur 2026 management system
 
     protected override async Task OnInitializedAsync()
     {
+        UserRole = await cookieService.GetCookie("userRole");
         await GetCounterAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Already shown? stop.
+        if (_privacyDialogShown)
+            return;
+
+        // Role not loaded yet? wait for next render.
+        if (string.IsNullOrWhiteSpace(UserRole))
+            return;
+
+        // ✅ Only show for Regional Representative (case-insensitive + trimmed)
+        if (!string.Equals(UserRole.Trim(), "Regional Representative", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var agreed = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "agreeAdminPrivacyPolicy");
+        if (string.Equals(agreed, "true", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _privacyDialogShown = true;
+        await OpenAdminPrivacyDialog();
+    }
+
+    private async Task OpenAdminPrivacyDialog()
+    {
+        var options = new DialogOptions
+        {
+            NoHeader = true,
+            BackdropClick = false,
+            CloseButton = false,
+            CloseOnEscapeKey = false,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true
+        };
+
+        var dialog = await DialogService.ShowAsync<PrivacyPolicy>("Privacy Policy", options);
+        var result = await dialog.Result;
+
+        // If you truly require agreement, keep them here until they agree.
+        // (Since we disabled escape/backdrop, Cancel won't normally happen,
+        // but this is a safe fallback.)
+        if (result.Canceled)
+        {
+            // Example: force logout / redirect
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
     }
 
     private async Task GetCounterAsync()

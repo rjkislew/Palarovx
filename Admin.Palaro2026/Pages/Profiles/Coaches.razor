@@ -151,7 +151,7 @@
                         @if (!string.IsNullOrEmpty(coach.ImagePath))
                         {
                             <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="0">
-@*                                                                 <img style="width: 75px; height: 75px" src="@($"http://localhost/192.168.2.210/palaro2026/media/profile/coaches/{coach.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
+                                @*                                                                 <img style="width: 75px; height: 75px" src="@($"http://localhost/192.168.2.210/palaro2026/media/profile/coaches/{coach.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
  *@                                <img style="width: 75px; height: 75px;" src="@($"https://palarongpambansa2026.com/attachments/media/profiles/coaches/{coach.ImagePath}?timestamp={DateTime.Now.Ticks}")" />
                                 <MudFileUpload T="IBrowserFile"
                                                FilesChanged="file => HandleImageFileUpload(file, coach.ID)">
@@ -159,11 +159,14 @@
                                         <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary">Replace Image</MudButton>
                                     </ActivatorContent>
                                 </MudFileUpload>
-                                <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
-                                           Disabled="@string.IsNullOrWhiteSpace(coach.ID)"
-                                           OnClick="@(() => PrintID(coach.ID))">
-                                    Print ID
-                                </MudButton>
+                                @if (IsSysAdmin || IsSuperuser)
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
+                                               Disabled="@string.IsNullOrWhiteSpace(coach.ID)"
+                                               OnClick="@(() => PrintID(coach.ID))">
+                                        Print ID
+                                    </MudButton>
+                                }
                             </MudStack>
                         }
                         else
@@ -209,6 +212,9 @@
     // JSON storage
     private List<ProfilesDTO.ProfileCoachesDetails>? _profileCoachesDetails;
 
+    private string? UserRole;
+    private bool IsSysAdmin => UserRole == "System Administrator";
+    private bool IsSuperuser => UserRole == "Superuser";
 
     // DTOs
     public class ProfilesDTO
@@ -300,6 +306,7 @@
     // Initialization
     protected override async Task OnInitializedAsync()
     {
+        UserRole = await cookieService.GetCookie("userRole");
         await GetCoachesAsync();
     }
 
