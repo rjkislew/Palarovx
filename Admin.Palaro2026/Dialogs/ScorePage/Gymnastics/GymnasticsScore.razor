@@ -69,7 +69,7 @@
                     </MudStack>
                 </MudItem>
 
-                @if (_existingScoreId.HasValue && _selectedSubcategoryId.HasValue)
+                @if (_selectedSubcategoryId.HasValue)
                 {
                     @if (ShouldShowMedalTally())
                     {
@@ -96,13 +96,12 @@
 
                                             <MudItem xs="12" sm="2">
                                                 <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                                    @if (_existingMedal != null && !string.IsNullOrEmpty(_existingMedal.Rank))
+                                                    {
                                                     <MudIconButton Icon="@Icons.Material.Filled.Check" Variant="Variant.Filled"
                                                                    Color="Color.Success"
                                                                    OnClick="SaveMedal"
                                                                    Disabled="@(string.IsNullOrEmpty(_selectedMedal) && _existingMedal == null)" />
-
-                                                    @if (_existingMedal != null && !string.IsNullOrEmpty(_existingMedal.Rank))
-                                                    {
                                                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Variant="Variant.Filled"
                                                                        Color="Color.Error"
                                                                        OnClick="DeleteMedal" />
@@ -1004,7 +1003,18 @@
 
                 if (totalSuccess > 0)
                 {
-                    Snackbar.Add($"Team score saved for {totalSuccess}/{totalAttempt} row(s).", Severity.Success);
+                    var medalToSave = _selectedMedal;
+
+                    // ✅ refresh score IDs for CURRENT dialog EventID (needed by SaveMedal)
+                    await LoadExistingScore();
+
+                    _selectedMedal = medalToSave;
+
+                    // ✅ if user selected a medal, save it now
+                    if (!string.IsNullOrWhiteSpace(_selectedMedal))
+                        await SaveMedal();
+
+                    Snackbar.Add($"Team score saved successfully.", Severity.Success);
                     MudDialog.Close(DialogResult.Ok(true));
                 }
                 else
@@ -1054,8 +1064,20 @@
 
             if (success)
             {
-                Snackbar.Add("Score saved successfully!", Severity.Success);
                 await CalculateAndUpdateRanks();
+
+                var medalToSave = _selectedMedal;
+
+                // ✅ refresh _existingScoreId so SaveMedal() won't complain
+                await LoadExistingScore();
+
+                _selectedMedal = medalToSave;
+
+                // ✅ if user selected a medal, save it now
+                if (!string.IsNullOrWhiteSpace(_selectedMedal))
+                    await SaveMedal();
+
+                Snackbar.Add("Score saved successfully!", Severity.Success);
                 MudDialog.Close(DialogResult.Ok(true));
             }
             else
@@ -1292,7 +1314,7 @@
 
                 if (successCount > 0)
                 {
-                    Snackbar.Add($"Team medal saved for {successCount} player(s).", Severity.Success);
+                    Snackbar.Add($"Team medal saved successfully.", Severity.Success);
                     await LoadExistingMedal();
                 }
                 else
@@ -1713,7 +1735,7 @@
         }
 
         if (success > 0)
-            Snackbar.Add($"Medal saved ({success} record(s)).", Severity.Success);
+            Snackbar.Add($"Medal saved successfully.", Severity.Success);
     }
 
 

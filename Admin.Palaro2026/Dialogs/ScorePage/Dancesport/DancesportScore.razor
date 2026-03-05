@@ -71,6 +71,7 @@
                     </MudStack>
                 </MudItem>
 
+                @* <!-- Medal Section -->
                 @if (_existingScoreId.HasValue && _selectedSubcategoryId.HasValue)
                 {
                     <MudItem xs="12" Class="mb-3">
@@ -114,7 +115,66 @@
                             </MudGrid>
                         </MudStack>
                     </MudItem>
-                }
+                } *@
+
+                <!-- Medal Section (MANUAL TOGGLE) -->
+@if (_existingScoreId.HasValue && _selectedSubcategoryId.HasValue)
+{
+    <MudItem xs="12" Class="mb-3">
+        <MudStack Spacing="1">
+            <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.subtitle2">Medal</MudText>
+
+                <MudSwitch T="bool" @bind-Value="_enableManualMedalEntry"
+                           Color="Color.Primary"
+                           Label="Manual medal entry" />
+            </MudStack>
+
+            @if (_enableManualMedalEntry)
+            {
+                <MudDivider />
+
+                <MudGrid Spacing="1" Class="mt-2">
+                    <MudItem xs="12">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                            <MudItem xs="12" sm="10">
+                                <MudSelect @bind-Value="_selectedMedal"
+                                           Label="Select Medal"
+                                           ShrinkLabel
+                                           Clearable
+                                           T="string"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense" FullWidth="true">
+                                    <MudSelectItem Value="@("Gold")">Gold</MudSelectItem>
+                                    <MudSelectItem Value="@("Silver")">Silver</MudSelectItem>
+                                    <MudSelectItem Value="@("Bronze")">Bronze</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12" sm="2">
+                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Check"
+                                                   Variant="Variant.Filled"
+                                                   Color="Color.Success"
+                                                   OnClick="SaveMedal"
+                                                   Disabled="@(string.IsNullOrEmpty(_selectedMedal) && _existingMedal == null)" />
+
+                                    @if (_existingMedal != null && !string.IsNullOrEmpty(_existingMedal.Rank))
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                       Variant="Variant.Filled"
+                                                       Color="Color.Error"
+                                                       OnClick="DeleteMedal" />
+                                    }
+                                </MudStack>
+                            </MudItem>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            }
+        </MudStack>
+    </MudItem>
+}
             </MudGrid>
         </DialogContent>
         <DialogActions>
@@ -142,6 +202,8 @@
     private int? _selectedSubcategoryId;
     private bool _isLoaded = false;
     private int? _existingScoreId;
+
+    private bool _enableManualMedalEntry = false;
 
     private List<string> _mainCategories = new();
     private PerformanceBasedDTO.PerformanceEvent? _selectedEvent;
@@ -911,7 +973,7 @@
                     if (!string.IsNullOrEmpty(_selectedMedal))
                         await SaveMedal();
 
-                    Snackbar.Add($"Team rank+medal saved for {successCount} player(s).", Severity.Success);
+                    Snackbar.Add($"Team rank saved successfully.", Severity.Success);
                     MudDialog.Close(DialogResult.Ok(true));
                 }
                 else
@@ -964,7 +1026,7 @@
                     if (!string.IsNullOrEmpty(_selectedMedal))
                         await SaveMedal();
 
-                    Snackbar.Add("Rank+medal updated successfully!", Severity.Success);
+                    Snackbar.Add("Rank updated successfully!", Severity.Success);
                     MudDialog.Close(DialogResult.Ok(true));
                 }
                 else
@@ -992,7 +1054,7 @@
                     if (!string.IsNullOrEmpty(_selectedMedal))
                         await SaveMedal();
 
-                    Snackbar.Add("Rank+medal saved successfully!", Severity.Success);
+                    Snackbar.Add("Rank saved successfully!", Severity.Success);
                     MudDialog.Close(DialogResult.Ok(true));
                 }
                 else
@@ -1164,7 +1226,7 @@
 
                 if (successCount > 0)
                 {
-                    Snackbar.Add($"Medal saved for {successCount} player(s) in this category.", Severity.Success);
+                    Snackbar.Add($"Medal saved successfully.", Severity.Success);
                     await LoadExistingMedal(); // reload scoped to current subcategory
                 }
                 else
